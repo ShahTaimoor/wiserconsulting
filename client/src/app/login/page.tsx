@@ -8,6 +8,7 @@ import GoogleLoginButton from "@/components/GoogleLoginButton";
 import { motion } from "framer-motion";
 import { Mail, Lock, ArrowRight, LogIn } from "lucide-react";
 import Link from "next/link";
+import { isAdminRole } from "@/utils/authRole";
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -23,14 +24,20 @@ const Login: React.FC = () => {
   };
 
   useEffect(() => {
-    if (user) {
-      if (user.role === 1) {
-        router.push("/admin/products");
-      } else {
-        router.push("/");
-      }
+    // Redirect after successful login
+    if (user && success && !loading) {
+      // Small delay to ensure state is fully updated
+      const timer = setTimeout(() => {
+        if (isAdminRole(user.role)) {
+          router.replace("/admin/products");
+        } else {
+          router.replace("/");
+        }
+      }, 100);
+      
+      return () => clearTimeout(timer);
     }
-  }, [user, router]);
+  }, [user, success, loading, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-12">

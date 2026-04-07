@@ -131,9 +131,9 @@ export const useAssessmentForm = (onClose: () => void) => {
       
       if (!result.success) {
         const errors: Record<string, string> = {};
-        result.error.errors.forEach((err) => {
-          if (err.path[0]) {
-            errors[err.path[0].toString()] = err.message;
+        result.error.issues.forEach((issue) => {
+          if (issue.path[0]) {
+            errors[issue.path[0].toString()] = issue.message;
           }
         });
         setValidationErrors(errors);
@@ -154,9 +154,9 @@ export const useAssessmentForm = (onClose: () => void) => {
       
       if (!result.success) {
         const errors: Record<string, string> = {};
-        result.error.errors.forEach((err) => {
-          if (err.path[0]) {
-            errors[err.path[0].toString()] = err.message;
+        result.error.issues.forEach((issue) => {
+          if (issue.path[0]) {
+            errors[issue.path[0].toString()] = issue.message;
           }
         });
         setValidationErrors(errors);
@@ -198,7 +198,7 @@ export const useAssessmentForm = (onClose: () => void) => {
         });
         
         if (!validation.success) {
-          errors.push(`${file.name}: ${validation.error.errors[0]?.message || 'Invalid file'}`);
+          errors.push(`${file.name}: ${validation.error.issues[0]?.message || 'Invalid file'}`);
         } else {
           validFiles.push(file);
         }

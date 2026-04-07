@@ -6,9 +6,18 @@ const logger = require('../utils/logger');
 // Middleware to check if user is authorized
 const isAuthorized = async (req, res, next) => {
     try {
-        // Handle case where cookies might be undefined
-        const cookies = req.cookies || {};
-        const { token } = cookies;
+        // Try to get token from Authorization header first (Bearer token)
+        let token = null;
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            token = authHeader.substring(7);
+        }
+        
+        // Fallback to cookies if no Authorization header
+        if (!token) {
+            const cookies = req.cookies || {};
+            token = cookies.token;
+        }
 
         if (!token) {
             return res.status(401).json({ success: false, message: 'Please log in first.' });

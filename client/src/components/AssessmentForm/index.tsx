@@ -103,7 +103,7 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden border border-slate-200 flex flex-col"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] min-h-0 overflow-hidden border border-slate-200 flex flex-col"
       >
         {/* Header */}
         <div className="bg-slate-900 text-white px-8 py-6 flex justify-between items-center border-b border-slate-700">
@@ -129,9 +129,9 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} id="assessment-form" className="flex flex-col flex-1">
-          {/* Form Body */}
-          <div className="flex-1 overflow-y-auto p-8 space-y-8">
+        <form onSubmit={handleSubmit} id="assessment-form" className="flex flex-col flex-1 min-h-0">
+          {/* Form Body - Scrollable Content */}
+          <div className="flex-1 overflow-y-auto p-8 space-y-8" style={{ scrollBehavior: 'smooth' }}>
             {/* Step 1: Personal Info */}
             {currentStep === 1 && (
               <PersonalInfoStep

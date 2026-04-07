@@ -1,38 +1,33 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/redux/store";
 import { logout } from "@/redux/slices/auth/authSlice";
-
-interface User {
-  _id: string;
-  name: string;
-  role?: number;
-}
+import { useAppSelector } from "@/redux/hooks";
+import { isAdminRole } from "@/utils/authRole";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const dispatch = useDispatch<AppDispatch>();
-  const [user, setUser] = useState<User | null>(null);
+  const { user } = useAppSelector((state) => state.auth);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const userData = JSON.parse(storedUser);
-      setUser(userData);
-
-      // Redirect if not admin
-      if (userData.role !== 1) {
-        router.replace("/");
-      }
-    } else {
+    // Check if user is logged in
+    if (!user) {
       router.replace("/login");
+      return;
     }
-  }, [router]);
+
+    // Redirect if not admin
+    if (!isAdminRole(user.role)) {
+      router.replace("/");
+      return;
+    }
+  }, [user, router]);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -46,7 +41,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { name: "Users", href: "/admin/users", icon: "👥" },
   ];
 
-  if (!user) return null;
+  // Show loading state while checking authentication
+  if (!user || !isAdminRole(user.role)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

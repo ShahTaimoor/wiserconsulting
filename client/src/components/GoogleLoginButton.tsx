@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { googleAuth } from '@/redux/slices/auth/authSlice';
+import { isAdminRole } from '@/utils/authRole';
 
 export default function GoogleLoginButton() {
   const router = useRouter();
@@ -23,10 +24,10 @@ export default function GoogleLoginButton() {
   // Redirect on successful login
   useEffect(() => {
     if (user) {
-      if (user.role === 1) {
-        router.push('/admin/products');
+      if (isAdminRole(user.role)) {
+        router.replace('/admin/products');
       } else {
-        router.push('/');
+        router.replace('/');
       }
     }
   }, [user, router]);

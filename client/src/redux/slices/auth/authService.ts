@@ -44,15 +44,25 @@ export const loginUser = async (email: string, password: string): Promise<LoginR
     throw new Error(errorData.message || 'Login failed');
   }
 
-  const data: LoginResponse = await response.json();
+  const responseData = await response.json();
+
+  // Extract user and token from data object (backend wraps in data property)
+  const user = responseData.data?.user || responseData.user;
+  const token = responseData.data?.token || responseData.token;
 
   // Store user + token in localStorage
-  if (data.user && data.token) {
-    localStorage.setItem('user', JSON.stringify(data.user));
-    localStorage.setItem('token', data.token);
+  if (user && token) {
+    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('token', token);
   }
 
-  return data;
+  // Return in expected format
+  return {
+    success: responseData.success,
+    message: responseData.message,
+    user,
+    token
+  };
 };
 
   
@@ -94,14 +104,30 @@ export const loginUser = async (email: string, password: string): Promise<LoginR
       throw new Error(errorData.message || 'Authentication failed');
     }
 
-    const data: GoogleLoginResponse = await response.json();
+    const responseData = await response.json();
 
-    // Store user + token in localStorage
-    if (data.user && data.token) {
-      localStorage.setItem('user', JSON.stringify(data.user));
-      localStorage.setItem('token', data.token);
+    // Extract user and token from data object (backend wraps in data property)
+    let user = responseData.data?.user || responseData.user;
+    const token = responseData.data?.token || responseData.token;
+
+    // Handle Google auth response which uses 'id' instead of '_id'
+    if (user && user.id && !user._id) {
+      user = { ...user, _id: user.id };
+      delete user.id;
     }
 
-    return data;
+    // Store user + token in localStorage
+    if (user && token) {
+      localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('token', token);
+    }
+
+    // Return in expected format
+    return {
+      success: responseData.success,
+      message: responseData.message,
+      user,
+      token
+    };
   };
   
