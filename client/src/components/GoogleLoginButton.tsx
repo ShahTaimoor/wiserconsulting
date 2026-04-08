@@ -17,7 +17,7 @@ export default function GoogleLoginButton() {
       await dispatch(googleAuth(response.access_token));
     },
     onError: () => {
-      // Error handled by Redux
+      // Error handled by Reduxx
     },
   });
 
