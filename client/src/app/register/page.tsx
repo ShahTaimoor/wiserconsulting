@@ -6,7 +6,7 @@ import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { register } from "@/redux/slices/auth/authSlice";
 import GoogleLoginButton from "@/components/GoogleLoginButton";
 import { motion } from "framer-motion";
-import { Mail, Lock, User, ArrowRight, UserPlus, CheckCircle2, XCircle } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, UserPlus, CheckCircle2, XCircle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 const Register: React.FC = () => {
@@ -79,16 +79,25 @@ const Register: React.FC = () => {
           className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden"
         >
           {/* Header */}
-          <div className="bg-slate-900 px-8 py-8 text-center">
-            <div className="w-16 h-16 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <UserPlus className="w-8 h-8 text-white" />
+          <div className="bg-slate-900 px-8 py-8 relative">
+            <Link
+              href="/"
+              className="absolute top-4 right-4 inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-slate-700/60 hover:bg-slate-700 transition-all text-white"
+              title="Back to website"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <UserPlus className="w-8 h-8 text-white" />
+              </div>
+              <h2 className="text-3xl font-bold text-white mb-2">
+                Create Your Account
+              </h2>
+              <p className="text-slate-300 text-sm">
+                Join WISER CONSULTING and start your visa journey today
+              </p>
             </div>
-            <h2 className="text-3xl font-bold text-white mb-2">
-              Create Your Account
-            </h2>
-            <p className="text-slate-300 text-sm">
-              Join WISER CONSULTING and start your visa journey today
-            </p>
           </div>
 
           {/* Form */}
