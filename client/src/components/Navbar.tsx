@@ -1,23 +1,41 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useDispatch, useSelector } from "react-redux";
-import { AppDispatch, RootState } from "@/redux/store";
-import { logout } from "@/redux/slices/auth/authSlice";
-import { Menu, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Menu, X, Sun, Moon, Phone } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const router = useRouter();
-  const dispatch = useDispatch<AppDispatch>();
-  const { user } = useSelector((state: RootState) => state.auth);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
-  const handleLogout = () => {
-    dispatch(logout());
-    router.push("/login");
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 20);
+    handleScroll();
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const savedTheme = typeof window !== "undefined" ? localStorage.getItem("theme") : null;
+    const prefersDark = typeof window !== "undefined" ? window.matchMedia("(prefers-color-scheme: dark)").matches : false;
+    const initialDark = savedTheme === "dark" || (!savedTheme && prefersDark);
+    setIsDarkMode(initialDark);
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.toggle("dark", initialDark);
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    setIsDarkMode((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("theme", next ? "dark" : "light");
+        document.documentElement.classList.toggle("dark", next);
+      }
+      return next;
+    });
   };
 
   const navLinks = [
@@ -29,30 +47,89 @@ const Navbar = () => {
 
   return (
     <>
-      <nav className="fixed inset-x-0 top-0 z-50 bg-transparent">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-emerald-500 rounded-2xl shadow-lg shadow-emerald-500/20 flex items-center justify-center">
-              <span className="text-white font-black text-lg">WC</span>
-            </div>
-            <div className="hidden sm:flex flex-col leading-tight">
-              <span className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-100/90">
-                WISER CONSULTING
-              </span>
-              <span className="text-[11px] text-slate-300 uppercase tracking-[0.25em]">
-                CONSULTANT
-              </span>
-            </div>
-          </Link>
+      <nav className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${isScrolled ? "bg-transparent px-4 py-4 sm:px-6" : "bg-transparent"}`}>
+        {isScrolled ? (
+          <div className="mx-auto flex max-w-7xl items-center justify-between rounded-full border border-white/70 bg-white/95 px-5 py-3 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.2)] backdrop-blur-xl">
+            <Link href="/" className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-3xl bg-emerald-500 shadow-lg shadow-emerald-500/20 flex items-center justify-center">
+                <span className="text-white font-black text-lg">WC</span>
+              </div>
+              <div className="hidden sm:flex flex-col leading-tight">
+                <span className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-900">
+                  WISER CONSULTING
+                </span>
+                <span className="text-[11px] text-slate-500 uppercase tracking-[0.25em]">
+                  CONSULTANT
+                </span>
+              </div>
+            </Link>
 
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="flex items-center justify-center h-12 w-12 rounded-2xl border border-slate-200/10 bg-slate-950/80 text-slate-100 shadow-2xl shadow-slate-950/30 transition hover:bg-slate-900"
-            aria-label="Toggle menu"
-          >
-            {isOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center gap-4 text-sm">
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  className="grid h-12 w-12 place-items-center rounded-[1rem] bg-slate-950 text-white shadow-lg shadow-slate-950/20 transition hover:bg-slate-800 dark:bg-slate-200 dark:text-slate-950 dark:hover:bg-slate-300"
+                  aria-label="Theme toggle"
+                >
+                  {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+                </button>
+                <div className="h-9 w-px rounded-full bg-slate-300/40 dark:bg-slate-600" />
+                <div className="flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-slate-950 shadow-sm shadow-slate-950/10 dark:bg-slate-950 dark:text-slate-50 dark:shadow-slate-950/20">
+                  <Phone size={18} />
+                  <span className="font-semibold">+923709706643</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200/70 bg-slate-950 text-white shadow-md shadow-slate-950/20 transition hover:bg-slate-800"
+                aria-label="Toggle menu"
+              >
+                {isOpen ? <X size={24} /> : <Menu size={24} />}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-3">
+              <div className="w-11 h-11 bg-emerald-500 rounded-2xl shadow-lg shadow-emerald-500/20 flex items-center justify-center">
+                <span className="text-white font-black text-lg">WC</span>
+              </div>
+              <div className="hidden sm:flex flex-col leading-tight">
+                <span className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-100/90">
+                  WISER CONSULTING
+                </span>
+                <span className="text-[11px] text-slate-300 uppercase tracking-[0.25em]">
+                  CONSULTANT
+                </span>
+              </div>
+            </Link>
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center gap-4 text-sm">
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  className="grid h-12 w-12 place-items-center rounded-[1rem] bg-slate-950 text-white shadow-lg shadow-slate-950/20 transition hover:bg-slate-800 dark:bg-slate-200 dark:text-slate-950 dark:hover:bg-slate-300"
+                  aria-label="Theme toggle"
+                >
+                  {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+                </button>
+                <div className="h-9 w-px rounded-full bg-white/30 dark:bg-slate-600" />
+                <div className="flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-slate-950 shadow-sm shadow-slate-950/10 dark:bg-slate-950 dark:text-slate-50 dark:shadow-slate-950/20">
+                  <Phone size={18} />
+                  <span className="font-semibold">+923709706643</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center justify-center h-12 w-12 rounded-2xl border border-slate-200/10 bg-slate-950/80 text-slate-100 shadow-2xl shadow-slate-950/30 transition hover:bg-slate-900"
+                aria-label="Toggle menu"
+              >
+                {isOpen ? <X size={24} /> : <Menu size={24} />}
+              </button>
+            </div>
+          </div>
+        )}
       </nav>
 
       <AnimatePresence>
@@ -118,13 +195,14 @@ const Navbar = () => {
                 </div>
               </div>
 
-              <div className="mt-auto flex flex-col gap-2 border-t border-slate-700/70 pt-6 text-sm text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mt-auto flex flex-col gap-4 border-t border-slate-700/70 pt-6 text-sm text-slate-400">
                 <div>
                   <p className="font-semibold text-slate-100">Contact</p>
                   <p>hello@wiserconsulting.com</p>
                 </div>
-                <div className="flex gap-2 text-slate-300">
-                  <span>+1-212-456-7890</span>
+                <div>
+                  <p className="font-semibold text-slate-100">Phone</p>
+                  <p>+923709706643</p>
                 </div>
               </div>
             </div>
