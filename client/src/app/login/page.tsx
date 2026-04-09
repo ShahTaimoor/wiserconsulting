@@ -45,13 +45,14 @@ const Login: React.FC = () => {
       <div className="absolute -bottom-32 -right-32 w-80 h-80 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 opacity-15 blur-2xl animate-pulse" />
 
       <div className="relative z-10 min-h-screen flex items-center justify-center px-4 lg:px-8">
-        <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+        <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 relative">
+          <div className="hidden lg:block absolute inset-y-0 left-1/2 w-px bg-slate-700/60" />
           {/* Left Column - Form */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6 }}
-            className="flex flex-col justify-center"
+            className="flex flex-col justify-center rounded-[2rem] border border-slate-800/90 bg-slate-950/80 p-8 shadow-2xl shadow-slate-950/20"
           >
             <div className="flex items-center gap-3 mb-8">
               <Link
@@ -158,7 +159,7 @@ const Login: React.FC = () => {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="flex flex-col justify-center"
+            className="flex flex-col justify-center rounded-[2rem] border border-slate-800/90 bg-slate-950/80 p-8 shadow-2xl shadow-slate-950/20"
           >
             <div className="space-y-4">
               <p className="text-slate-300 text-center mb-6">Sign in with your social account</p>
