@@ -15,7 +15,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <main className={!isAdminRoute ? (isHome ? "min-h-screen" : "min-h-[calc(100vh-160px)] mt-20") : ""}>
         {children}
       </main>
-      {!isAdminRoute && <Footer />}
+      {!hideLayout && <Footer />}
     </>
   );
 }
