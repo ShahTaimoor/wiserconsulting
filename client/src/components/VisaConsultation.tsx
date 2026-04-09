@@ -106,7 +106,7 @@ const VisaConsultation: React.FC = () => {
   return (
     <div className="relative">
       {/* Hero Section - Modern Design */}
-      <section className="relative w-full min-h-[90vh] flex items-center justify-center overflow-hidden">
+      <section className="relative w-full min-h-screen flex items-center justify-center overflow-hidden">
         <video
           className="absolute top-0 left-0 w-full h-full object-cover z-0"
           src="/U.mp4"
@@ -117,21 +117,21 @@ const VisaConsultation: React.FC = () => {
         />
         <div className="absolute inset-0 bg-slate-900/70 z-10" />
         
-        <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+        <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="space-y-8"
+            className="space-y-10"
           >
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 mb-4">
+            <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 mb-4">
               <Clock className="w-4 h-4 text-white" />
               <span className="text-sm text-white font-medium">Trusted Visa Consultants Since 2009</span>
             </div>
             
-            <h1 className="text-5xl md:text-7xl font-bold text-white leading-tight tracking-tight">
+            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-white leading-[0.95] tracking-tight">
               Your Journey to
-              <span className="block mt-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300">
+              <span className="block mt-3 bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300">
                 Global Opportunities
               </span>
             </h1>

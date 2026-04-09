@@ -1,32 +1,41 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useDispatch, useSelector } from "react-redux";
-import { AppDispatch, RootState } from "@/redux/store";
-import { logout } from "@/redux/slices/auth/authSlice";
-import { Menu, X, ChevronDown } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Menu, X, Sun, Moon, Phone } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const router = useRouter();
-  const dispatch = useDispatch<AppDispatch>();
-  const { user } = useSelector((state: RootState) => state.auth);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
-    };
+    const handleScroll = () => setIsScrolled(window.scrollY > 20);
+    handleScroll();
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const handleLogout = () => {
-    dispatch(logout());
-    router.push("/login");
+  useEffect(() => {
+    const savedTheme = typeof window !== "undefined" ? localStorage.getItem("theme") : null;
+    const prefersDark = typeof window !== "undefined" ? window.matchMedia("(prefers-color-scheme: dark)").matches : false;
+    const initialDark = savedTheme === "dark" || (!savedTheme && prefersDark);
+    setIsDarkMode(initialDark);
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.toggle("dark", initialDark);
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    setIsDarkMode((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("theme", next ? "dark" : "light");
+        document.documentElement.classList.toggle("dark", next);
+      }
+      return next;
+    });
   };
 
   const navLinks = [
@@ -37,168 +46,170 @@ const Navbar = () => {
   ];
 
   return (
-    <nav
-      className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${
-        isScrolled
-          ? "bg-white/95 backdrop-blur-md shadow-lg border-b border-slate-200"
-          : "bg-white border-b border-slate-200"
-      }`}
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-20">
-          {/* Logo */}
-          <Link
-            href="/"
-            className="flex items-center space-x-2 group"
-          >
-            <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center group-hover:bg-slate-800 transition-colors">
-              <span className="text-white font-bold text-lg">WC</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xl font-bold text-slate-900 leading-tight">
-                WISER CONSULTING
-              </span>
-              <span className="text-xs text-slate-600 leading-tight">
-                CONSULTANT
-              </span>
-            </div>
-          </Link>
+    <>
+      <nav className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${isScrolled ? "bg-transparent px-4 py-4 sm:px-6" : "bg-transparent"}`}>
+        {isScrolled ? (
+          <div className="mx-auto flex max-w-7xl items-center justify-between rounded-full border border-white/70 bg-white/95 px-5 py-3 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.2)] backdrop-blur-xl">
+            <Link href="/" className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-3xl bg-emerald-500 shadow-lg shadow-emerald-500/20 flex items-center justify-center">
+                <span className="text-white font-black text-lg">WC</span>
+              </div>
+              <div className="hidden sm:flex flex-col leading-tight">
+                <span className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-900">
+                  WISER CONSULTING
+                </span>
+                <span className="text-[11px] text-slate-500 uppercase tracking-[0.25em]">
+                  CONSULTANT
+                </span>
+              </div>
+            </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center space-x-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-
-          {/* Auth Section - Desktop */}
-          <div className="hidden lg:flex items-center space-x-4">
-            {user ? (
-              <>
-                <div className="flex items-center space-x-3 px-4 py-2 bg-slate-50 rounded-lg">
-                  <div className="w-8 h-8 bg-slate-900 rounded-full flex items-center justify-center">
-                    <span className="text-white text-xs font-semibold">
-                      {user.name?.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                  <span className="text-sm font-medium text-slate-700">
-                    {user.name}
-                  </span>
-                </div>
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center gap-4 text-sm">
                 <button
-                  onClick={handleLogout}
-                  className="px-5 py-2.5 text-sm font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors shadow-sm hover:shadow-md"
+                  type="button"
+                  onClick={toggleTheme}
+                  className="grid h-12 w-12 place-items-center rounded-[1rem] bg-slate-950 text-white shadow-lg shadow-slate-950/20 transition hover:bg-slate-800 dark:bg-slate-200 dark:text-slate-950 dark:hover:bg-slate-300"
+                  aria-label="Theme toggle"
                 >
-                  Logout
+                  {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
                 </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  href="/register"
-                  className="px-5 py-2.5 text-sm font-semibold rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors"
-                >
-                  Register
-                </Link>
-                <Link
-                  href="/login"
-                  className="px-5 py-2.5 text-sm font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors shadow-sm hover:shadow-md"
-                >
-                  Login
-                </Link>
-              </>
-            )}
+                <div className="h-9 w-px rounded-full bg-slate-300/40 dark:bg-slate-600" />
+                <div className="flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-slate-950 shadow-sm shadow-slate-950/10 dark:bg-slate-950 dark:text-slate-50 dark:shadow-slate-950/20">
+                  <Phone size={18} />
+                  <span className="font-semibold">+923709706643</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200/70 bg-slate-950 text-white shadow-md shadow-slate-950/20 transition hover:bg-slate-800"
+                aria-label="Toggle menu"
+              >
+                {isOpen ? <X size={24} /> : <Menu size={24} />}
+              </button>
+            </div>
           </div>
+        ) : (
+          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-3">
+              <div className="w-11 h-11 bg-emerald-500 rounded-2xl shadow-lg shadow-emerald-500/20 flex items-center justify-center">
+                <span className="text-white font-black text-lg">WC</span>
+              </div>
+              <div className="hidden sm:flex flex-col leading-tight">
+                <span className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-100/90">
+                  WISER CONSULTING
+                </span>
+                <span className="text-[11px] text-slate-300 uppercase tracking-[0.25em]">
+                  CONSULTANT
+                </span>
+              </div>
+            </Link>
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center gap-4 text-sm">
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  className="grid h-12 w-12 place-items-center rounded-[1rem] bg-slate-950 text-white shadow-lg shadow-slate-950/20 transition hover:bg-slate-800 dark:bg-slate-200 dark:text-slate-950 dark:hover:bg-slate-300"
+                  aria-label="Theme toggle"
+                >
+                  {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+                </button>
+                <div className="h-9 w-px rounded-full bg-white/30 dark:bg-slate-600" />
+                <div className="flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-slate-950 shadow-sm shadow-slate-950/10 dark:bg-slate-950 dark:text-slate-50 dark:shadow-slate-950/20">
+                  <Phone size={18} />
+                  <span className="font-semibold">+923709706643</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center justify-center h-12 w-12 rounded-2xl border border-slate-200/10 bg-slate-950/80 text-slate-100 shadow-2xl shadow-slate-950/30 transition hover:bg-slate-900"
+                aria-label="Toggle menu"
+              >
+                {isOpen ? <X size={24} /> : <Menu size={24} />}
+              </button>
+            </div>
+          </div>
+        )}
+      </nav>
 
-          {/* Mobile menu button */}
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="lg:hidden p-2 text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors"
-            aria-label="Toggle menu"
-          >
-            {isOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile Navigation */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="lg:hidden bg-white border-t border-slate-200"
+          <motion.section
+            initial={{ x: '100%', opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '100%', opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed inset-y-0 right-0 z-50 w-full md:w-1/2 bg-slate-950/95 backdrop-blur-xl text-slate-100 shadow-2xl shadow-slate-950/30"
           >
-            <div className="px-4 py-6 space-y-4">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setIsOpen(false)}
-                  className="block px-4 py-3 text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors"
-                >
-                  {link.label}
+            <div className="relative flex h-full w-full flex-col justify-between px-6 py-8 sm:px-10 sm:py-12">
+              <div className="flex items-center justify-between">
+                <Link href="/" className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-emerald-500 rounded-3xl flex items-center justify-center shadow-lg shadow-emerald-500/25">
+                    <span className="text-white font-black text-lg">WC</span>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs uppercase tracking-[0.4em] text-emerald-300/90">Wiser</p>
+                    <p className="text-sm font-semibold text-slate-100">Premium consulting</p>
+                  </div>
                 </Link>
-              ))}
-              
-              <div className="pt-4 border-t border-slate-200 space-y-3">
-                {user ? (
-                  <>
-                    <div className="flex items-center space-x-3 px-4 py-3 bg-slate-50 rounded-lg">
-                      <div className="w-10 h-10 bg-slate-900 rounded-full flex items-center justify-center">
-                        <span className="text-white text-sm font-semibold">
-                          {user.name?.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      <div>
-                        <div className="text-sm font-semibold text-slate-900">
-                          {user.name}
-                        </div>
-                        <div className="text-xs text-slate-600">{user.email}</div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        handleLogout();
-                        setIsOpen(false);
-                      }}
-                      className="w-full px-4 py-3 text-base font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors"
-                    >
-                      Logout
-                    </button>
-                  </>
-                ) : (
-                  <>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200/10 bg-slate-900/80 text-slate-100 transition hover:bg-slate-800"
+                  aria-label="Close menu"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="flex flex-col justify-center gap-10 px-2 py-6 sm:px-4">
+                <div className="space-y-4">
+                  {navLinks.map((link, index) => (
                     <Link
-                      href="/register"
+                      key={link.href}
+                      href={link.href}
                       onClick={() => setIsOpen(false)}
-                      className="block w-full px-4 py-3 text-base font-semibold text-center rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors"
+                      className={`block text-3xl font-semibold transition ${
+                        index === 0 ? 'text-emerald-400' : 'text-slate-300 hover:text-white'
+                      }`}
                     >
-                      Register
+                      {link.label}
                     </Link>
-                    <Link
-                      href="/login"
-                      onClick={() => setIsOpen(false)}
-                      className="block w-full px-4 py-3 text-base font-semibold text-center rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors"
-                    >
-                      Login
-                    </Link>
-                  </>
-                )}
+                  ))}
+                </div>
+
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
+                  <Link
+                    href="/login"
+                    onClick={() => setIsOpen(false)}
+                    className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-8 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/register"
+                    onClick={() => setIsOpen(false)}
+                    className="inline-flex items-center justify-center rounded-full border border-emerald-400/40 bg-slate-900/90 px-8 py-3 text-sm font-semibold text-emerald-300 transition hover:border-emerald-300 hover:text-white"
+                  >
+                    Sign Up
+                  </Link>
+                </div>
+              </div>
+
+              <div className="mt-auto flex flex-col gap-4 border-t border-slate-700/70 pt-6 text-sm text-slate-400">
+                <div>
+                  <p className="font-semibold text-slate-100">Contact</p>
+                  <p>hello@wiserconsulting.com</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-100">Phone</p>
+                  <p>+923709706643</p>
+                </div>
               </div>
             </div>
-          </motion.div>
+          </motion.section>
         )}
       </AnimatePresence>
-    </nav>
+    </>
   );
 };
 
