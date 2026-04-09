@@ -17,19 +17,9 @@ const ServicesPage = () => {
       icon: <GraduationCap className="w-6 h-6" />
     },
     {
-      title: "Work Visa",
-      description: "Professional support for employment-based visas and work permit submissions.",
-      icon: <Briefcase className="w-6 h-6" />
-    },
-    {
       title: "Tourist Visa",
       description: "Quick and reliable visitor visa support for travel, tourism, and family trips.",
       icon: <Globe2 className="w-6 h-6" />
-    },
-    {
-      title: "Family Visa",
-      description: "Reunite with loved ones using our family immigration applications and documentation service.",
-      icon: <Heart className="w-6 h-6" />
     }
   ];
 
