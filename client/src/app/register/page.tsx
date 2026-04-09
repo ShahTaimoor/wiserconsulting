@@ -91,7 +91,7 @@ const Register: React.FC = () => {
               >
                 <ArrowLeft className="w-5 h-5" />
               </Link>
-              <h1 className="text-5xl lg:text-6xl font-bold text-white">Create Account.</h1>
+              <h1 className="text-4xl lg:text-5xl xl:text-6xl font-bold text-white whitespace-nowrap">Create Account.</h1>
             </div>
 
             <form className="space-y-5" onSubmit={handleSubmit}>
