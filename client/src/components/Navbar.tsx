@@ -149,7 +149,7 @@ const Navbar = () => {
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs uppercase tracking-[0.4em] text-emerald-300/90">Wiser</p>
-                    <p className="text-sm font-semibold text-slate-100">Premium consulting</p>
+                    <p className="text-sm font-semibold text-slate-100">Consulting</p>
                   </div>
                 </Link>
                 <button
