@@ -47,9 +47,9 @@ const Navbar = () => {
 
   return (
     <>
-      <nav className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${isScrolled ? "bg-transparent px-4 py-4 sm:px-6" : "bg-transparent"}`}>
+      <nav className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${isScrolled ? "bg-transparent px-3 py-3 sm:px-4" : "bg-transparent"}`}>
         {isScrolled ? (
-          <div className="mx-auto flex max-w-7xl items-center justify-between rounded-full border border-white/70 bg-white/95 px-5 py-3 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.2)] backdrop-blur-xl">
+          <div className="mx-auto flex max-w-7xl items-center justify-between rounded-full border border-white/70 bg-white/95 px-4 py-2 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.2)] backdrop-blur-xl">
             <Link href="/" className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-3xl bg-emerald-500 shadow-lg shadow-emerald-500/20 flex items-center justify-center">
                 <span className="text-white font-black text-lg">WC</span>
@@ -69,7 +69,7 @@ const Navbar = () => {
                 <button
                   type="button"
                   onClick={toggleTheme}
-                  className="grid h-12 w-12 place-items-center rounded-[1rem] bg-slate-950 text-white shadow-lg shadow-slate-950/20 transition hover:bg-slate-800 dark:bg-slate-200 dark:text-slate-950 dark:hover:bg-slate-300"
+                  className="grid h-11 w-11 place-items-center rounded-[1rem] bg-slate-950 text-white shadow-lg shadow-slate-950/20 transition hover:bg-slate-800 dark:bg-slate-200 dark:text-slate-950 dark:hover:bg-slate-300"
                   aria-label="Theme toggle"
                 >
                   {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
@@ -82,7 +82,7 @@ const Navbar = () => {
               </div>
               <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200/70 bg-slate-950 text-white shadow-md shadow-slate-950/20 transition hover:bg-slate-800"
+                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200/70 bg-slate-950 text-white shadow-md shadow-slate-950/20 transition hover:bg-slate-800"
                 aria-label="Toggle menu"
               >
                 {isOpen ? <X size={24} /> : <Menu size={24} />}
@@ -109,7 +109,7 @@ const Navbar = () => {
                 <button
                   type="button"
                   onClick={toggleTheme}
-                  className="grid h-12 w-12 place-items-center rounded-[1rem] bg-slate-950 text-white shadow-lg shadow-slate-950/20 transition hover:bg-slate-800 dark:bg-slate-200 dark:text-slate-950 dark:hover:bg-slate-300"
+                  className="grid h-11 w-11 place-items-center rounded-[1rem] bg-slate-950 text-white shadow-lg shadow-slate-950/20 transition hover:bg-slate-800 dark:bg-slate-200 dark:text-slate-950 dark:hover:bg-slate-300"
                   aria-label="Theme toggle"
                 >
                   {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
@@ -122,7 +122,7 @@ const Navbar = () => {
               </div>
               <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center justify-center h-12 w-12 rounded-2xl border border-slate-200/10 bg-slate-950/80 text-slate-100 shadow-2xl shadow-slate-950/30 transition hover:bg-slate-900"
+                className="flex items-center justify-center h-11 w-11 rounded-2xl border border-slate-200/10 bg-slate-950/80 text-slate-100 shadow-2xl shadow-slate-950/30 transition hover:bg-slate-900"
                 aria-label="Toggle menu"
               >
                 {isOpen ? <X size={24} /> : <Menu size={24} />}
