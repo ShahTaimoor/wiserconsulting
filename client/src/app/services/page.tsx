@@ -1,114 +1,184 @@
 "use client";
 
+import Image from "next/image";
+import { GraduationCap, Plane } from "lucide-react";
 import { motion } from "framer-motion";
-import { Globe2, Briefcase, GraduationCap, Heart } from "lucide-react";
 
-const ServicesPage = () => {
+export default function ServicesPage() {
   const fadeUp = {
-    initial: { opacity: 0, y: 45 },
-    animate: { opacity: 1, y: 0 },
+    initial: { opacity: 0, y: 30 },
+    whileInView: { opacity: 1, y: 0 },
+    viewport: { once: true },
     transition: { duration: 0.6 }
   };
 
-  const services = [
-    {
-      title: "Student Visa",
-      description: "Guidance for international students with university, application, and document support.",
-      icon: <GraduationCap className="w-6 h-6" />
-    },
-    {
-      title: "Work Visa",
-      description: "Professional support for employment-based visas and work permit submissions.",
-      icon: <Briefcase className="w-6 h-6" />
-    },
-    {
-      title: "Tourist Visa",
-      description: "Quick and reliable visitor visa support for travel, tourism, and family trips.",
-      icon: <Globe2 className="w-6 h-6" />
-    },
-    {
-      title: "Family Visa",
-      description: "Reunite with loved ones using our family immigration applications and documentation service.",
-      icon: <Heart className="w-6 h-6" />
-    }
-  ];
-
   return (
-    <div className="bg-slate-50 text-slate-900">
-      <section className="pt-32 pb-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <motion.div initial="initial" animate="animate" className="space-y-6">
-            <motion.p variants={fadeUp} className="text-sm uppercase tracking-[0.32em] text-slate-400">
-              Our Services
-            </motion.p>
-            <motion.h1 variants={fadeUp} className="text-5xl md:text-6xl font-bold tracking-tight">
-              Services built for smooth visa approval.
-            </motion.h1>
-            <motion.p variants={fadeUp} className="mx-auto max-w-3xl text-xl text-slate-600 leading-relaxed">
-              Explore the expert immigration services we offer for students, travelers, professionals, and families.
-            </motion.p>
+    <div className="bg-[#f4f5f7] pt-16 text-[#1a1f2c] font-sans overflow-hidden">
+      <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8 mb-24">
+        
+        {/* Header Section */}
+        <div className="flex flex-col lg:flex-row items-center justify-between mb-24 mt-8 gap-x-12 gap-y-16">
+          <motion.div 
+            {...fadeUp}
+            className="flex-1 text-left max-w-2xl"
+          >
+            <span className="inline-block text-sm uppercase tracking-[0.25em] font-extrabold text-[#1e293b] mb-6">
+              OUR SERVICES
+            </span>
+            <h1 className="text-4xl md:text-5xl lg:text-[4rem] leading-[1.1] font-bold tracking-tight mb-8 text-[#0a1128]">
+              Expert guidance,<br />built for success
+            </h1>
+            <p className="text-lg md:text-[1.15rem] text-[#475569] leading-relaxed max-w-xl">
+              We craft personalized immigration strategies and reliable visa solutions that connect you globally, and support your journey.
+            </p>
           </motion.div>
-        </div>
-      </section>
 
-      <section className="py-20 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-8 lg:grid-cols-2">
-            {services.map((service) => (
-              <motion.div
-                key={service.title}
-                variants={fadeUp}
-                initial="initial"
-                animate="animate"
-                whileHover={{ y: -8 }}
-                className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm transition-all hover:shadow-xl"
-              >
-                <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-white mb-6">
-                  {service.icon}
-                </div>
-                <h2 className="text-2xl font-bold text-slate-900 mb-3">{service.title}</h2>
-                <p className="text-slate-600 leading-relaxed">{service.description}</p>
-              </motion.div>
-            ))}
+          <div className="relative inline-flex items-center justify-center flex-shrink-0 pr-16 lg:pr-24 group cursor-default">
+            <motion.div 
+              whileHover={{ scale: 1.03 }}
+              transition={{ type: "spring", stiffness: 300 }}
+              className="w-[200px] h-[200px] md:w-[280px] md:h-[280px] rounded-full overflow-hidden shadow-2xl relative z-10 border-[6px] border-[#f4f5f7]"
+            >
+              <Image 
+                src="/consultant.png" 
+                alt="Consultant" 
+                fill 
+                className="object-cover transition-transform duration-700 group-hover:scale-110"
+              />
+            </motion.div>
+            
+            <div className="absolute left-[50%] top-1/2 -translate-y-1/2 flex items-center space-x-2 md:space-x-3 z-0">
+              <motion.div 
+                initial={{ opacity: 0, x: -30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+                className="w-24 md:w-32 h-48 md:h-64 bg-[#3b82f6]" style={{ borderRadius: '0 200px 200px 0' }}></motion.div>
+              <motion.div 
+                initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, delay: 0.5 }}
+                className="w-12 md:w-16 h-28 md:h-40 bg-[#3b82f6]" style={{ borderRadius: '0 200px 200px 0' }}></motion.div>
+            </div>
           </div>
         </div>
-      </section>
 
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <motion.p variants={fadeUp} initial="initial" animate="animate" className="text-sm uppercase tracking-[0.32em] text-slate-400">
+        {/* Cards Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          
+          {/* Card 1 */}
+          <motion.div 
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            whileHover={{ y: -8 }}
+            className="relative rounded-[2rem] overflow-hidden flex flex-col shadow-lg h-[460px] transition-all hover:shadow-xl group"
+          >
+            <Image 
+              src="/student_visa.png" 
+              alt="Student Visa" 
+              fill 
+              className="object-cover group-hover:scale-110 transition-transform duration-700"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0a1128] via-[#0a1128]/70 to-transparent"></div>
+            
+            <div className="relative z-10 p-10 w-full flex flex-col h-full justify-end items-center text-center">
+              <div className="w-1.5 h-1.5 bg-white/50 mb-6 rounded-sm group-hover:bg-[#3b82f6] transition-colors"></div>
+              <motion.div whileHover={{ rotate: 10, scale: 1.15 }} transition={{ type: "spring", stiffness: 300 }}>
+                <GraduationCap className="w-12 h-12 text-white mb-6" strokeWidth={1.5} />
+              </motion.div>
+              <h3 className="text-2xl font-bold mb-4 text-white">Student Visa</h3>
+              <p className="text-gray-300 text-[14px] mb-8 leading-relaxed max-w-[240px] mx-auto opacity-90">
+                Guidance for international students with university, application, and document support.
+              </p>
+              <div className="text-gray-400 font-medium text-sm mt-auto group-hover:text-white transition-colors">01</div>
+            </div>
+          </motion.div>
+
+          {/* Card 2 */}
+          <motion.div 
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            whileHover={{ y: -8 }}
+            className="relative rounded-[2rem] overflow-hidden flex flex-col shadow-lg h-[460px] transition-all hover:shadow-xl group"
+          >
+            <Image 
+              src="/tourist_visa.png" 
+              alt="Tourist Visa" 
+              fill 
+              className="object-cover group-hover:scale-110 transition-transform duration-700"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0a1128] via-[#0a1128]/70 to-transparent"></div>
+            
+            <div className="relative z-10 p-10 w-full flex flex-col h-full justify-end items-center text-center">
+              <div className="w-1.5 h-1.5 bg-white/50 mb-6 rounded-sm group-hover:bg-[#3b82f6] transition-colors"></div>
+              <motion.div whileHover={{ rotate: -10, scale: 1.15 }} transition={{ type: "spring", stiffness: 300 }}>
+                <Plane className="w-12 h-12 text-white mb-6" strokeWidth={1.5} />
+              </motion.div>
+              <h3 className="text-2xl font-bold mb-4 text-white">Tourist Visa</h3>
+              <p className="text-gray-300 text-[14px] mb-8 leading-relaxed max-w-[240px] mx-auto opacity-90">
+                Quick and reliable visitor visa support for travel, tourism, and family trips.
+              </p>
+              <div className="text-gray-400 font-medium text-sm mt-auto group-hover:text-white transition-colors">02</div>
+            </div>
+          </motion.div>
+
+        </div>
+      </div>
+
+      {/* How We Work Section */}
+      <section className="pt-24 pb-32 bg-white relative">
+        <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <motion.h3 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="text-[13px] uppercase tracking-[0.25em] text-[#94a3b8] font-bold"
+            >
               How we work
-            </motion.p>
-            <motion.h2 variants={fadeUp} initial="initial" animate="animate" className="mt-4 text-4xl font-bold text-slate-900">
+            </motion.h3>
+            <motion.h2 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="mt-4 text-[2.5rem] font-bold text-[#0a1128] tracking-tight"
+            >
               Simple process. Better outcomes.
             </motion.h2>
           </div>
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {[
               { step: "01", title: "Consultation" },
               { step: "02", title: "Planning" },
               { step: "03", title: "Submission" },
               { step: "04", title: "Approval" }
-            ].map((item) => (
+            ].map((item, index) => (
               <motion.div
                 key={item.step}
-                variants={fadeUp}
-                initial="initial"
-                animate="animate"
-                className="rounded-3xl border border-slate-200 bg-slate-50 p-8 text-center shadow-sm"
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.15 }}
+                whileHover={{ y: -8, scale: 1.02 }}
+                className="rounded-3xl border border-slate-100 bg-white p-8 text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all cursor-pointer"
               >
-                <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-slate-900 text-white text-xl font-bold">
+                <div className="mb-8 inline-flex h-[64px] w-[64px] items-center justify-center rounded-full bg-[#0a1128] text-white text-[15px] font-bold shadow-md">
                   {item.step}
                 </div>
-                <h3 className="text-xl font-semibold text-slate-900">{item.title}</h3>
+                <h3 className="text-[16px] font-bold text-[#0a1128]">{item.title}</h3>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
+
     </div>
   );
-};
-
-export default ServicesPage;
+}
