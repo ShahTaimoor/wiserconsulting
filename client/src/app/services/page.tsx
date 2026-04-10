@@ -155,10 +155,10 @@ export default function ServicesPage() {
           
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { step: "01", title: "Consultation" },
-              { step: "02", title: "Planning" },
-              { step: "03", title: "Submission" },
-              { step: "04", title: "Approval" }
+              { step: "01", title: "Consultation", img: "/consultant.png" },
+              { step: "02", title: "Planning", img: "/business.png" },
+              { step: "03", title: "Submission", img: "/student_visa.png" },
+              { step: "04", title: "Approval", img: "/tourist_visa.png" }
             ].map((item, index) => (
               <motion.div
                 key={item.step}
@@ -167,12 +167,20 @@ export default function ServicesPage() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: index * 0.15 }}
                 whileHover={{ y: -8, scale: 1.02 }}
-                className="rounded-3xl border border-slate-100 bg-white p-8 text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all cursor-pointer"
+                className="rounded-[24px] border border-slate-100 bg-white overflow-hidden text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all cursor-pointer flex flex-col group relative"
               >
-                <div className="mb-8 inline-flex h-[64px] w-[64px] items-center justify-center rounded-full bg-[#0a1128] text-white text-[15px] font-bold shadow-md">
+                <div className="relative h-48 w-full overflow-hidden">
+                  <Image src={item.img} alt={item.title} fill className="object-cover transition-transform duration-700 group-hover:scale-110" />
+                  <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-500"></div>
+                </div>
+                
+                <div className="absolute top-[164px] left-1/2 -translate-x-1/2 inline-flex h-[56px] w-[56px] items-center justify-center rounded-full bg-[#0a1128] border-4 border-white text-white text-[15px] font-bold shadow-sm z-10 transition-colors duration-300 group-hover:bg-[#3b82f6]">
                   {item.step}
                 </div>
-                <h3 className="text-[16px] font-bold text-[#0a1128]">{item.title}</h3>
+                
+                <div className="px-6 pb-8 pt-10 flex-1 flex items-center justify-center bg-white relative z-0">
+                  <h3 className="text-[18px] font-bold text-[#0a1128] group-hover:text-[#3b82f6] transition-colors">{item.title}</h3>
+                </div>
               </motion.div>
             ))}
           </div>
