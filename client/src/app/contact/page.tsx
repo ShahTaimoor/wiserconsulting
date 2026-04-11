@@ -61,7 +61,7 @@ const ContactPage = () => {
                     </div>
                     <div>
                       <p className="text-sm uppercase tracking-[0.24em] text-slate-200">Phone</p>
-                      <p className="mt-1 text-lg font-semibold">+92 123 456 7890</p>
+                      <p className="mt-1 text-lg font-semibold">+92 370 970 6643</p>
                     </div>
                   </div>
 

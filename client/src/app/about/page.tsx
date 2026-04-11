@@ -73,13 +73,13 @@ const AboutPage = () => {
         </div>
       </section>
 
-      <section className="py-20 bg-white">
+      <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <p className="text-sm uppercase tracking-[0.32em] text-slate-400">Our Values</p>
-            <h2 className="mt-4 text-4xl font-bold text-slate-900">What drives our work</h2>
+          <div className="flex flex-col items-center mb-16">
+            <p className="text-[12px] uppercase tracking-[0.3em] text-[#94A3B8] font-medium mb-3">Our Values</p>
+            <h2 className="text-[36px] md:text-[42px] font-[800] text-[#0F172A] tracking-tight">What drives our work</h2>
           </div>
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto">
             {[
               { title: "Integrity", description: "Transparent advice and honest support." },
               { title: "Care", description: "People-first service for every application." },
@@ -91,10 +91,10 @@ const AboutPage = () => {
                 variants={fadeIn}
                 initial="initial"
                 animate="animate"
-                className="rounded-3xl border border-slate-200 bg-slate-50 p-8 shadow-sm hover:shadow-lg transition-all"
+                className="rounded-[20px] border border-[#F1F5F9] bg-[#FAFBFC] p-[30px] shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:-translate-y-1 hover:border-[#E2E8F0] transition-all duration-300 flex flex-col"
               >
-                <h3 className="text-xl font-semibold text-slate-900 mb-3">{item.title}</h3>
-                <p className="text-slate-600 leading-relaxed">{item.description}</p>
+                <h3 className="text-[17px] font-semibold text-[#0F172A] mb-2.5">{item.title}</h3>
+                <p className="text-[#64748B] text-[15px] leading-[1.65]">{item.description}</p>
               </motion.div>
             ))}
           </div>
