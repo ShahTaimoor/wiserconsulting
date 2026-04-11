@@ -1,24 +1,36 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { fetchUsers, updateRole } from '@/redux/slices/admin/adminSlice';
-import { filterUsersByRole } from '@/utils/filterHelpers';
-import { useState, useMemo } from 'react';
+import ReorderableTable, { TableColumnDef } from '@/components/ui/reorderable-table';
+import { motion } from 'framer-motion';
+import { Users, ShieldCheck, UserCheck, TrendingUp, CircleUserRound } from 'lucide-react';
+
+const containerVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: { 
+      duration: 0.5,
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 }
+};
 
 const AdminUsers = () => {
   const dispatch = useAppDispatch();
   const { users, loading, error } = useAppSelector((state) => state.admin);
-  const [filterRole, setFilterRole] = useState<string>('all');
 
   useEffect(() => {
     dispatch(fetchUsers());
   }, [dispatch]);
-
-  const filteredUsers = useMemo(
-    () => filterUsersByRole(users, filterRole),
-    [users, filterRole]
-  );
 
   const handleRoleUpdate = async (userId: string, newRole: number) => {
     await dispatch(updateRole({ userId, role: newRole }));
@@ -27,147 +39,174 @@ const AdminUsers = () => {
   const totalAdmins = useMemo(() => users.filter(u => u.role === 1).length, [users]);
   const totalRegularUsers = useMemo(() => users.filter(u => u.role === 0).length, [users]);
 
+  // Define Columns for ReorderableTable
+  const columns: TableColumnDef[] = [
+    { key: "user", label: "User", width: "300px" },
+    { key: "role", label: "Role", width: "150px" },
+    { key: "createdAt", label: "Created", width: "200px" },
+    { key: "actions", label: "Actions", width: "150px" },
+  ];
+
+  // Cell Renderer for Users Table
+  const renderCell = (user: any, key: string) => {
+    switch (key) {
+      case "user":
+        return (
+          <div className="flex flex-col">
+            <span className="text-sm font-bold text-slate-900">{user.name}</span>
+            <span className="text-xs text-slate-500 font-medium">{user.email}</span>
+          </div>
+        );
+      case "role":
+        return (
+          <span className={`inline-flex items-center px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full border transform transition-all duration-300 ${
+            user.role === 1 
+              ? 'bg-purple-500/10 text-purple-600 border-purple-200 shadow-[0_0_15px_rgba(168,85,247,0.1)]'
+              : 'bg-emerald-500/10 text-emerald-600 border-emerald-200 shadow-[0_0_15px_rgba(16,185,129,0.1)]'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full mr-2 animate-pulse ${user.role === 1 ? 'bg-purple-500' : 'bg-emerald-500'}`} />
+            {user.role === 1 ? 'Administrator' : 'General User'}
+          </span>
+        );
+      case "createdAt":
+        return (
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold text-slate-700">
+                {new Date(user.createdAt).toLocaleDateString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+                })}
+            </span>
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Registered On</span>
+          </div>
+        );
+      case "actions":
+        return (
+          <button
+            onClick={() => handleRoleUpdate(user._id, user.role === 1 ? 0 : 1)}
+            className={`group relative flex items-center gap-2 text-xs font-black uppercase tracking-wider transition-all duration-300 px-4 py-2 rounded-xl border-2 hover:shadow-lg active:scale-95 ${
+              user.role === 1 
+                ? 'text-red-500 border-red-100 hover:bg-red-50'
+                : 'text-emerald-600 border-emerald-100 hover:bg-emerald-50'
+            }`}
+          >
+            {user.role === 1 ? <UserCheck className="w-3 h-3" /> : <ShieldCheck className="w-3 h-3" />}
+            {user.role === 1 ? 'Demote' : 'Promote'}
+          </button>
+        );
+      default:
+        return user[key];
+    }
+  };
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+      <div className="flex flex-col items-center justify-center h-[70vh] gap-6">
+        <div className="relative w-16 h-16">
+            <div className="absolute inset-0 rounded-full border-4 border-slate-100" />
+            <div className="absolute inset-0 rounded-full border-4 border-slate-900 border-t-transparent animate-spin" />
+        </div>
+        <p className="text-sm font-black uppercase tracking-[0.2em] text-slate-400 animate-pulse">Syncing User Data</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-red-600">{error}</div>
+      <div className="flex items-center justify-center h-[70vh]">
+        <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-red-50 border-2 border-red-100 text-red-600 px-10 py-8 rounded-[32px] flex flex-col items-center gap-4 text-center shadow-2xl shadow-red-500/10"
+        >
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-3xl">🚫</div>
+          <div>
+            <h3 className="text-xl font-black text-red-900">System Error</h3>
+            <p className="font-semibold text-sm mt-1">{error}</p>
+          </div>
+          <button onClick={() => dispatch(fetchUsers())} className="mt-2 px-6 py-2 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700 transition-colors">Retry Connection</button>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-          <p className="text-gray-600">Manage user accounts and permissions</p>
-        </div>
-        <div className="flex items-center space-x-4">
-          <select
-            value={filterRole}
-            onChange={(e) => setFilterRole(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-green-500 focus:border-green-500"
-          >
-            <option value="all">All Users</option>
-            <option value="admin">Admins</option>
-            <option value="user">Users</option>
-          </select>
-        </div>
+    <motion.div 
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="relative space-y-10 py-6 min-h-screen"
+    >
+      {/* Decorative Mesh Background Elements */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-500/5 blur-[120px] rounded-full" />
+        <div className="absolute bottom-[20%] left-[-5%] w-[40%] h-[40%] bg-blue-500/5 blur-[100px] rounded-full" />
       </div>
 
-      {/* Users Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  User
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Role
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Created
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredUsers.map((user) => (
-                <tr key={user._id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                      <div className="text-sm text-gray-500">{user.email}</div>
+      {/* Sticky Header & Stats Section */}
+      <div className="sticky top-[-1px] z-30 bg-background/80 backdrop-blur-xl pb-10 pt-2 transition-all duration-300 border-b border-white/40 shadow-[0_1px_0_rgba(0,0,0,0.05)] -mx-6 px-7">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-10 px-1">
+            <motion.div variants={itemVariants}>
+                <h1 className="text-3xl font-black tracking-tight text-slate-950 mt-2 selection:bg-purple-200">Users</h1>
+                <div className="h-0.5 w-10 bg-purple-600 rounded-full mt-1.5 mb-3" />
+                <p className="text-slate-500 text-sm font-medium max-w-md">Configure sophisticated system permissions and audit administrative access levels.</p>
+            </motion.div>
+        </div>
+
+        {/* Stats Section with Glassmorphism */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-1">
+            {[
+            { label: "Total Admins", value: totalAdmins, icon: ShieldCheck, color: "purple" },
+            { label: "Standard Users", value: totalRegularUsers, icon: CircleUserRound, color: "blue" },
+            { label: "System Reach", value: users.length, icon: Users, color: "emerald" }
+            ].map((stat) => (
+            <motion.div
+                key={stat.label}
+                variants={itemVariants}
+                whileHover={{ y: -6, scale: 1.02 }}
+                className="group relative bg-white/90 p-6 rounded-[30px] border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_25px_50px_-15px_rgba(0,0,0,0.08)] transition-all duration-500 overflow-hidden backdrop-blur-sm"
+            >
+                {/* Inner Glow/Gradient */}
+                <div className={`absolute -inset-1 opacity-0 group-hover:opacity-100 transition-opacity duration-700 blur-2xl -z-10 ${
+                    stat.color === 'purple' ? 'bg-purple-500/10' : 
+                    stat.color === 'blue' ? 'bg-blue-500/10' : 'bg-emerald-500/10'
+                }`} />
+                
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-5">
+                        <div className={`w-14 h-14 rounded-[20px] flex items-center justify-center transition-all duration-500 group-hover:shadow-xl ${
+                            stat.color === 'purple' ? 'bg-purple-600 text-white shadow-purple-500/20' : 
+                            stat.color === 'blue' ? 'bg-blue-600 text-white shadow-blue-500/20' : 
+                            'bg-emerald-600 text-white shadow-emerald-500/20'
+                        }`}>
+                            <stat.icon className="w-6 h-6 transition-transform group-hover:scale-110" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">{stat.label}</p>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-black text-slate-950 tracking-tighter">{stat.value}</span>
+                                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-tighter">Profiles</span>
+                            </div>
+                        </div>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      user.role === 1 
-                        ? 'bg-purple-100 text-purple-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {user.role === 1 ? 'Admin' : 'User'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(user.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button
-                      onClick={() => handleRoleUpdate(user._id, user.role === 1 ? 0 : 1)}
-                      className={`${
-                        user.role === 1 
-                          ? 'text-red-600 hover:text-red-900'
-                          : 'text-green-600 hover:text-green-900'
-                      }`}
-                    >
-                      {user.role === 1 ? 'Remove Admin' : 'Make Admin'}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                </div>
+            </motion.div>
+            ))}
         </div>
       </div>
 
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <span className="text-2xl"></span>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Admins</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {totalAdmins}
-              </p>
-            </div>
-          </div>
+      {/* Modern Table Integration */}
+      <motion.div variants={itemVariants} className="pt-6 px-1">
+        <div className="rounded-[40px] border border-slate-200/60 bg-white/60 backdrop-blur-sm p-2 shadow-2xl shadow-slate-200/20">
+            <ReorderableTable 
+                data={users} 
+                columns={columns} 
+                renderCell={renderCell} 
+            />
         </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <span className="text-2xl"></span>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Users</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {totalRegularUsers}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <span className="text-2xl">✅</span>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Users</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {users.length}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

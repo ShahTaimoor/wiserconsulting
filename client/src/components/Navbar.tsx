@@ -2,13 +2,18 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Menu, X, Sun, Moon, Phone } from "lucide-react";
+import { Menu, X, Phone, LogOut, User as UserIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { logout } from "@/redux/slices/auth/authSlice";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+
+  const dispatch = useAppDispatch();
+  const { user } = useAppSelector((state) => state.auth);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -27,15 +32,9 @@ const Navbar = () => {
     }
   }, []);
 
-  const toggleTheme = () => {
-    setIsDarkMode((prev) => {
-      const next = !prev;
-      if (typeof window !== "undefined") {
-        localStorage.setItem("theme", next ? "dark" : "light");
-        document.documentElement.classList.toggle("dark", next);
-      }
-      return next;
-    });
+  const handleLogout = () => {
+    dispatch(logout());
+    setIsOpen(false);
   };
 
   const navLinks = [
@@ -66,15 +65,6 @@ const Navbar = () => {
 
             <div className="flex items-center gap-2">
               <div className="hidden sm:flex items-center gap-4 text-sm">
-                <button
-                  type="button"
-                  onClick={toggleTheme}
-                  className="grid h-11 w-11 place-items-center rounded-[1rem] bg-slate-950 text-white shadow-lg shadow-slate-950/20 transition hover:bg-slate-800 dark:bg-slate-200 dark:text-slate-950 dark:hover:bg-slate-300"
-                  aria-label="Theme toggle"
-                >
-                  {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-                </button>
-                <div className="h-9 w-px rounded-full bg-slate-300/40 dark:bg-slate-600" />
                 <div className="flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-slate-950 shadow-sm shadow-slate-950/10 dark:bg-slate-950 dark:text-slate-50 dark:shadow-slate-950/20">
                   <Phone size={18} />
                   <span className="font-semibold">+923709706643</span>
@@ -106,15 +96,6 @@ const Navbar = () => {
             </Link>
             <div className="flex items-center gap-2">
               <div className="hidden sm:flex items-center gap-4 text-sm">
-                <button
-                  type="button"
-                  onClick={toggleTheme}
-                  className="grid h-11 w-11 place-items-center rounded-[1rem] bg-slate-950 text-white shadow-lg shadow-slate-950/20 transition hover:bg-slate-800 dark:bg-slate-200 dark:text-slate-950 dark:hover:bg-slate-300"
-                  aria-label="Theme toggle"
-                >
-                  {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-                </button>
-                <div className="h-9 w-px rounded-full bg-white/30 dark:bg-slate-600" />
                 <div className="flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-slate-950 shadow-sm shadow-slate-950/10 dark:bg-slate-950 dark:text-slate-50 dark:shadow-slate-950/20">
                   <Phone size={18} />
                   <span className="font-semibold">+923709706643</span>
@@ -177,21 +158,44 @@ const Navbar = () => {
                   ))}
                 </div>
 
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
-                  <Link
-                    href="/login"
-                    onClick={() => setIsOpen(false)}
-                    className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-8 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400"
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    href="/register"
-                    onClick={() => setIsOpen(false)}
-                    className="inline-flex items-center justify-center rounded-full border border-emerald-400/40 bg-slate-900/90 px-8 py-3 text-sm font-semibold text-emerald-300 transition hover:border-emerald-300 hover:text-white"
-                  >
-                    Sign Up
-                  </Link>
+                <div className="flex flex-col gap-4">
+                  {user ? (
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-center gap-3 px-2 py-3 border-b border-slate-800">
+                        <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/20">
+                          <UserIcon className="text-emerald-400" size={20} />
+                        </div>
+                        <div className="flex flex-col">
+                          <p className="text-sm font-medium text-slate-100">{user.name}</p>
+                          <p className="text-xs text-slate-400">{user.email}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleLogout}
+                        className="inline-flex items-center justify-center gap-2 rounded-full bg-red-500/10 border border-red-500/20 px-8 py-3 text-sm font-semibold text-red-400 transition hover:bg-red-500 hover:text-white"
+                      >
+                        <LogOut size={18} />
+                        Logout
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
+                      <Link
+                        href="/login"
+                        onClick={() => setIsOpen(false)}
+                        className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-8 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400"
+                      >
+                        Sign In
+                      </Link>
+                      <Link
+                        href="/register"
+                        onClick={() => setIsOpen(false)}
+                        className="inline-flex items-center justify-center rounded-full border border-emerald-400/40 bg-slate-900/90 px-8 py-3 text-sm font-semibold text-emerald-300 transition hover:border-emerald-300 hover:text-white"
+                      >
+                        Sign Up
+                      </Link>
+                    </div>
+                  )}
                 </div>
               </div>
 
