@@ -1,17 +1,17 @@
 "use client";
 
 import { ReactNode, useEffect } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/redux/store";
 import { logout } from "@/redux/slices/auth/authSlice";
 import { useAppSelector } from "@/redux/hooks";
 import { isAdminRole } from "@/utils/authRole";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/shadcn-space/blocks/sidebar-06/app-sidebar";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useAppSelector((state) => state.auth);
 
@@ -34,13 +34,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     router.push("/login");
   };
 
-  const navigation = [
-   
-    { name: "Form Submissions", href: "/admin/products", icon: "📝" },
-    { name: "Merge PDFs", href: "/admin/orders", icon: "🛒" },
-    { name: "Users", href: "/admin/users", icon: "👥" },
-  ];
-
   // Show loading state while checking authentication
   if (!user || !isAdminRole(user.role)) {
     return (
@@ -51,52 +44,33 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Admin Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <h1 className="text-xl font-semibold text-gray-900">Admin Panel</h1>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Welcome, {user.name}</span>
-              <button
-                onClick={handleLogout}
-                className="px-3 py-1 text-sm font-medium text-red-600 hover:text-red-800 transition-colors"
-              >
-                Logout
-              </button>
-            </div>
+    <SidebarProvider className="p-4 bg-muted min-h-screen" style={{ "--sidebar-width": "300px" } as React.CSSProperties}>
+      <AppSidebar />
+      <div className="flex flex-1 flex-col gap-4">
+        {/* Modern Admin Header */}
+        <header className="flex h-14 shrink-0 items-center justify-between gap-2 rounded-xl bg-background px-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            <SidebarTrigger className="cursor-pointer" />
+            <div className="h-4 w-[1px] bg-slate-200 mx-2" />
+            <h1 className="text-sm font-semibold text-gray-900">Admin Panel</h1>
           </div>
-        </div>
-      </header>
 
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-64 bg-white shadow-sm min-h-screen">
-          <nav className="mt-8 px-4 space-y-2">
-            {navigation.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
-                    isActive
-                      ? "bg-green-100 text-green-900 border-r-2 border-green-500"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                  }`}
-                >
-                  <span className="mr-3">{item.icon}</span>
-                  {item.name}
-                </Link>
-              );
-            })}
-          </nav>
-        </aside>
+          <div className="flex items-center gap-4">
+            <span className="text-xs font-medium text-gray-600 hidden sm:inline-block">Welcome, {user.name}</span>
+            <button
+              onClick={handleLogout}
+              className="px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-red-100"
+            >
+              Logout
+            </button>
+          </div>
+        </header>
 
-        {/* Main Content */}
-        <main className="flex-1 p-8">{children}</main>
+        {/* Main Content Area */}
+        <main className="flex-1 rounded-xl bg-background p-4 shadow-sm overflow-auto">
+          {children}
+        </main>
       </div>
-    </div>
+    </SidebarProvider>
   );
 }
