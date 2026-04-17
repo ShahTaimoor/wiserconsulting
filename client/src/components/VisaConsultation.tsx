@@ -230,18 +230,25 @@ const VisaConsultation: React.FC = () => {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+            {/* Background glowing elements for added premium feel */}
+            <div className="absolute top-1/2 left-0 w-[400px] h-[400px] bg-blue-100/40 rounded-full blur-[120px] -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+            <div className="absolute top-1/2 right-0 w-[400px] h-[400px] bg-amber-100/40 rounded-full blur-[120px] translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+
             <ServiceCard 
+              index={0}
               icon={<Globe2 className="w-8 h-8" />} 
               title="Personalized Guidance" 
               description="One-on-one sessions tailored to your specific travel and documentation needs. Our experts understand every case is unique."
             />
             <ServiceCard 
+              index={1}
               icon={<FileCheck2 className="w-8 h-8" />} 
               title="Complete File Preparation" 
               description="From visa forms to financial documents, everything is reviewed, organized, and prepared to perfection by our team."
             />
             <ServiceCard 
+              index={2}
               icon={<Users className="w-8 h-8" />} 
               title="Family & Group Support" 
               description="Specialized support for couples, families, and group applications ensuring a smooth process for everyone involved."
@@ -503,20 +510,31 @@ const VisaConsultation: React.FC = () => {
   );
 };
 
-const ServiceCard = ({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) => (
+const ServiceCard = ({ icon, title, description, index = 0 }: { icon: React.ReactNode; title: string; description: string; index?: number }) => (
   <motion.div
-    initial={{ opacity: 0, y: 40 }}
+    initial={{ opacity: 0, y: 50 }}
     whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true }}
-    transition={{ duration: 0.6 }}
-    whileHover={{ y: -8 }}
-    className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-xl transition-all border border-slate-200 hover:border-slate-300 h-full"
+    viewport={{ once: true, margin: "-50px" }}
+    transition={{ duration: 0.7, delay: index * 0.15, ease: "easeOut" }}
+    whileHover={{ y: -12 }}
+    className="relative bg-white p-8 sm:p-10 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.12)] transition-all duration-500 border border-slate-100 hover:border-slate-200 h-full overflow-hidden group z-10"
   >
-    <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-6 text-slate-700">
-      {icon}
+    {/* Decorative background flares on hover */}
+    <div className="absolute -right-20 -top-20 w-48 h-48 bg-slate-50 group-hover:bg-blue-50/80 rounded-full blur-3xl transition-colors duration-700 -z-10" />
+    <div className="absolute -left-20 -bottom-20 w-48 h-48 bg-slate-50 group-hover:bg-amber-50/80 rounded-full blur-3xl transition-colors duration-700 -z-10" />
+    
+    <div className="w-16 h-16 bg-slate-50/80 border border-slate-100 rounded-2xl flex items-center justify-center mb-8 text-slate-600 group-hover:bg-slate-900 group-hover:text-white group-hover:-rotate-3 group-hover:scale-110 transition-all duration-500 shadow-sm relative z-20">
+      <div className="absolute inset-0 rounded-2xl bg-slate-900 opacity-0 group-hover:opacity-20 blur-md transition-opacity duration-500 z-10"></div>
+      <div className="relative z-20">
+        {icon}
+      </div>
     </div>
-    <h3 className="text-2xl font-bold mb-4 text-slate-900">{title}</h3>
-    <p className="text-slate-600 leading-relaxed">{description}</p>
+    
+    <h3 className="text-2xl font-bold mb-4 text-slate-900 group-hover:text-slate-800 transition-colors duration-300 relative z-20">{title}</h3>
+    <p className="text-slate-600/90 leading-relaxed text-base relative z-20">{description}</p>
+    
+    {/* Bottom decorative animated underline */}
+    <div className="absolute bottom-0 left-0 w-0 h-1.5 bg-gradient-to-r from-slate-800 to-slate-600 group-hover:w-full transition-all duration-700 ease-in-out" />
   </motion.div>
 );
 
