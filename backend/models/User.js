@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema(
         },
         password: {
             type: String,
-            required: function() {
+            required: function () {
                 return !this.googleId; // Password only required if not Google auth
             },
             minLength: 6,

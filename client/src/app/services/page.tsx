@@ -47,20 +47,7 @@ export default function ServicesPage() {
               />
             </motion.div>
             
-            <div className="absolute left-[50%] top-1/2 -translate-y-1/2 flex items-center space-x-2 md:space-x-3 z-0">
-              <motion.div 
-                initial={{ opacity: 0, x: -30 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.8, delay: 0.3 }}
-                className="w-24 md:w-32 h-48 md:h-64 bg-[#3b82f6]" style={{ borderRadius: '0 200px 200px 0' }}></motion.div>
-              <motion.div 
-                initial={{ opacity: 0, x: -20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.8, delay: 0.5 }}
-                className="w-12 md:w-16 h-28 md:h-40 bg-[#3b82f6]" style={{ borderRadius: '0 200px 200px 0' }}></motion.div>
-            </div>
+
           </div>
         </div>
 
