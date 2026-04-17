@@ -107,6 +107,25 @@ export interface FormSubmissionsResponse {
   submissions: FormSubmission[];
 }
 
+export interface DestinationStatistic {
+  destination: string;
+  count: number;
+}
+
+export interface AnalyticsSummary {
+  totalUsers: number;
+  totalAdmins: number;
+  totalSubmissions: number;
+  statusCounts: {
+    pending?: number;
+    reviewed?: number;
+    contacted?: number;
+    completed?: number;
+    [key: string]: number | undefined;
+  };
+  topDestinations: DestinationStatistic[];
+}
+
 export const fetchFormSubmissions = async (): Promise<FormSubmissionsResponse> => {
   // Get token from localStorage as fallback
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -132,6 +151,28 @@ export const fetchFormSubmissions = async (): Promise<FormSubmissionsResponse> =
   const submissions = responseData.data?.submissions || responseData.submissions || [];
   
   return { submissions };
+};
+
+export const fetchAnalyticsSummary = async (): Promise<{ summary: AnalyticsSummary }> => {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const headers: HeadersInit = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_URL}/admin-summary`, {
+    credentials: 'include',
+    headers
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to fetch analytics summary');
+  }
+
+  const responseData = await response.json();
+  const summary = responseData.data || responseData;
+  return { summary };
 };
 
 export const updateSubmissionStatus = async (submissionId: string, status: string): Promise<void> => {

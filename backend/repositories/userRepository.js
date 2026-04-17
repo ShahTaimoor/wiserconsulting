@@ -3,7 +3,7 @@
  * All database operations for User model
  */
 
-const User = require('../models/User');
+const User = require("../models/User");
 
 class UserRepository {
   /**
@@ -40,7 +40,7 @@ class UserRepository {
   async findByEmailOrName(email, name) {
     return await User.findOne({
       $or: [{ email }, { name }],
-      isDeleted: false
+      isDeleted: false,
     });
   }
 
@@ -58,7 +58,7 @@ class UserRepository {
     return await User.findByIdAndUpdate(
       id,
       { $set: updateData },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
   }
 
@@ -67,14 +67,28 @@ class UserRepository {
    */
   async findAll(skip, limit) {
     const users = await User.find({ isDeleted: false })
-      .select('-password')
+      .select("-password")
       .skip(skip)
       .limit(limit)
       .sort({ createdAt: -1 });
-    
+
     const total = await User.countDocuments({ isDeleted: false });
-    
+
     return { users, total };
+  }
+
+  /**
+   * Count all users (excluding deleted)
+   */
+  async countAll() {
+    return await User.countDocuments({ isDeleted: false });
+  }
+
+  /**
+   * Count users by role
+   */
+  async countByRole(role) {
+    return await User.countDocuments({ role, isDeleted: false });
   }
 
   /**
@@ -84,7 +98,7 @@ class UserRepository {
     return await User.findByIdAndUpdate(
       id,
       { $set: { isDeleted: true } },
-      { new: true }
+      { new: true },
     );
   }
 
@@ -94,11 +108,10 @@ class UserRepository {
   async existsByEmailOrName(email, name) {
     const user = await User.findOne({
       $or: [{ email }, { name }],
-      isDeleted: false
+      isDeleted: false,
     });
     return !!user;
   }
 }
 
 module.exports = new UserRepository();
-
