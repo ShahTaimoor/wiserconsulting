@@ -3,7 +3,7 @@
  * All database operations for FormSubmission model
  */
 
-const FormSubmission = require('../models/FormSubmission');
+const FormSubmission = require("../models/FormSubmission");
 
 class FormSubmissionRepository {
   /**
@@ -17,8 +17,9 @@ class FormSubmissionRepository {
    * Find submission by email (excluding deleted)
    */
   async findByEmail(email) {
-    return await FormSubmission.findOne({ email, isDeleted: false })
-      .sort({ createdAt: -1 });
+    return await FormSubmission.findOne({ email, isDeleted: false }).sort({
+      createdAt: -1,
+    });
   }
 
   /**
@@ -29,10 +30,44 @@ class FormSubmissionRepository {
       .skip(skip)
       .limit(limit)
       .sort(sort);
-    
+
     const total = await FormSubmission.countDocuments({ isDeleted: false });
-    
+
     return { submissions, total };
+  }
+
+  /**
+   * Count all submissions (excluding deleted)
+   */
+  async countAll() {
+    return await FormSubmission.countDocuments({ isDeleted: false });
+  }
+
+  /**
+   * Count submissions grouped by status
+   */
+  async countByStatus() {
+    const results = await FormSubmission.aggregate([
+      { $match: { isDeleted: false } },
+      { $group: { _id: "$status", count: { $sum: 1 } } },
+    ]);
+
+    return results.reduce((acc, item) => {
+      acc[item._id] = item.count;
+      return acc;
+    }, {});
+  }
+
+  /**
+   * Count top destinations
+   */
+  async countByDestination(limit = 5) {
+    return await FormSubmission.aggregate([
+      { $match: { isDeleted: false } },
+      { $group: { _id: "$destinationCountry", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: limit },
+    ]);
   }
 
   /**
@@ -41,17 +76,17 @@ class FormSubmissionRepository {
   async findByStatus(status, skip, limit) {
     const submissions = await FormSubmission.find({
       status,
-      isDeleted: false
+      isDeleted: false,
     })
       .skip(skip)
       .limit(limit)
       .sort({ createdAt: -1 });
-    
+
     const total = await FormSubmission.countDocuments({
       status,
-      isDeleted: false
+      isDeleted: false,
     });
-    
+
     return { submissions, total };
   }
 
@@ -69,7 +104,7 @@ class FormSubmissionRepository {
     return await FormSubmission.findByIdAndUpdate(
       id,
       { $set: updateData },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
   }
 
@@ -80,7 +115,7 @@ class FormSubmissionRepository {
     return await FormSubmission.findByIdAndUpdate(
       id,
       { $set: { status } },
-      { new: true }
+      { new: true },
     );
   }
 
@@ -91,7 +126,7 @@ class FormSubmissionRepository {
     return await FormSubmission.findByIdAndUpdate(
       id,
       { $push: { adminComments: commentData } },
-      { new: true }
+      { new: true },
     );
   }
 
@@ -102,7 +137,7 @@ class FormSubmissionRepository {
     return await FormSubmission.findByIdAndUpdate(
       id,
       { $push: { customerComments: commentData } },
-      { new: true }
+      { new: true },
     );
   }
 
@@ -141,10 +176,9 @@ class FormSubmissionRepository {
     return await FormSubmission.findByIdAndUpdate(
       id,
       { $set: { isDeleted: true } },
-      { new: true }
+      { new: true },
     );
   }
 }
 
 module.exports = new FormSubmissionRepository();
-

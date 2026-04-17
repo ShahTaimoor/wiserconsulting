@@ -209,7 +209,7 @@ const Register: React.FC = () => {
           </div>
         </div>
       </div>
-      <div className="relative hidden bg-muted lg:block">
+      <div className="relative hidden lg:block border-l border-slate-200 bg-slate-50">
         <img
           src="/register-image.png"
           alt="Register Background"

@@ -14,7 +14,7 @@ export const navData: NavItem[] = [
 
   // Dashboards Section (Placeholders for design)
   { label: "Dashboards", isSection: true },
-  { title: "Analytics", icon: PieChart, href: "#" },
+  { title: "Analytics", icon: PieChart, href: "/admin/analytics" },
 
   // External Links
   { label: "Website", isSection: true },

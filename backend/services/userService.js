@@ -3,10 +3,10 @@
  * Business logic for user operations
  */
 
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const userRepository = require('../repositories/userRepository');
-const { AppError } = require('../middleware/errorHandler');
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const userRepository = require("../repositories/userRepository");
+const { AppError } = require("../middleware/errorHandler");
 
 class UserService {
   /**
@@ -16,7 +16,7 @@ class UserService {
     // Check if user already exists
     const existingUser = await userRepository.findByEmailOrName(email, name);
     if (existingUser) {
-      throw new AppError('User with this email or name already exists', 400);
+      throw new AppError("User with this email or name already exists", 400);
     }
 
     // Hash password
@@ -26,7 +26,7 @@ class UserService {
     const user = await userRepository.create({
       name,
       email,
-      password: hashedPassword
+      password: hashedPassword,
     });
 
     // Remove password from response
@@ -37,8 +37,8 @@ class UserService {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role
-      }
+        role: user.role,
+      },
     };
   }
 
@@ -53,18 +53,18 @@ class UserService {
     }
 
     if (!user) {
-      throw new AppError('Invalid credentials', 400);
+      throw new AppError("Invalid credentials", 400);
     }
 
     // Check if user has password (not Google-only user)
     if (!user.password) {
-      throw new AppError('Please use Google authentication', 400);
+      throw new AppError("Please use Google authentication", 400);
     }
 
     // Verify password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      throw new AppError('Invalid credentials', 400);
+      throw new AppError("Invalid credentials", 400);
     }
 
     // Generate JWT token
@@ -75,7 +75,7 @@ class UserService {
 
     return {
       user,
-      token
+      token,
     };
   }
 
@@ -93,7 +93,7 @@ class UserService {
   async updateProfile(userId, updateData) {
     const user = await userRepository.findById(userId);
     if (!user) {
-      throw new AppError('User not found', 404);
+      throw new AppError("User not found", 404);
     }
 
     const updatedUser = await userRepository.updateById(userId, updateData);
@@ -105,8 +105,8 @@ class UserService {
         name: updatedUser.name,
         phone: updatedUser.phone,
         address: updatedUser.address,
-        city: updatedUser.city
-      }
+        city: updatedUser.city,
+      },
     };
   }
 
@@ -115,12 +115,12 @@ class UserService {
    */
   async updateUserRole(userId, role) {
     if (role === undefined || role === null) {
-      throw new AppError('Role is required', 400);
+      throw new AppError("Role is required", 400);
     }
 
     const user = await userRepository.findById(userId);
     if (!user) {
-      throw new AppError('User not found', 404);
+      throw new AppError("User not found", 404);
     }
 
     const updatedUser = await userRepository.updateById(userId, { role });
@@ -133,9 +133,23 @@ class UserService {
         role: updatedUser.role,
         phone: updatedUser.phone,
         address: updatedUser.address,
-        city: updatedUser.city
-      }
+        city: updatedUser.city,
+      },
     };
+  }
+
+  /**
+   * Count all registered users
+   */
+  async countAllUsers() {
+    return await userRepository.countAll();
+  }
+
+  /**
+   * Count admin users
+   */
+  async countAdmins() {
+    return await userRepository.countByRole(1);
   }
 
   /**
@@ -145,7 +159,7 @@ class UserService {
     // Check if user already exists
     const existingUser = await userRepository.findByEmailOrName(email, name);
     if (existingUser) {
-      throw new AppError('User with this email or name already exists', 400);
+      throw new AppError("User with this email or name already exists", 400);
     }
 
     // Hash password
@@ -156,7 +170,7 @@ class UserService {
       name,
       email,
       password: hashedPassword,
-      role: 1 // Admin role
+      role: 1, // Admin role
     });
 
     user.password = undefined;
@@ -166,8 +180,8 @@ class UserService {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role
-      }
+        role: user.role,
+      },
     };
   }
 
@@ -178,17 +192,17 @@ class UserService {
   async handleGoogleAuth(accessToken) {
     // Fetch user info from Google
     const googleResponse = await fetch(
-      `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${accessToken}`
+      `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${accessToken}`,
     );
-    
+
     if (!googleResponse.ok) {
-      throw new AppError('Failed to fetch user info from Google', 400);
+      throw new AppError("Failed to fetch user info from Google", 400);
     }
 
     const googleUser = await googleResponse.json();
 
     if (!googleUser.id) {
-      throw new AppError('Invalid access token', 400);
+      throw new AppError("Invalid access token", 400);
     }
 
     // Check if user exists by Google ID
@@ -208,7 +222,7 @@ class UserService {
       // Link Google account to existing user
       await userRepository.updateById(user._id, {
         googleId: googleUser.id,
-        avatar: googleUser.picture
+        avatar: googleUser.picture,
       });
       const updatedUser = await userRepository.findById(user._id);
       const token = this.generateToken(updatedUser._id);
@@ -221,7 +235,7 @@ class UserService {
       googleId: googleUser.id,
       name: googleUser.name,
       email: googleUser.email,
-      avatar: googleUser.picture
+      avatar: googleUser.picture,
     });
 
     const token = this.generateToken(user._id);
@@ -234,13 +248,10 @@ class UserService {
    * Generate JWT token
    */
   generateToken(userId) {
-    return jwt.sign(
-      { id: userId },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXP || '365d' }
-    );
+    return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXP || "365d",
+    });
   }
 }
 
 module.exports = new UserService();
-

@@ -185,9 +185,9 @@ export default function ReorderableTable({
             placeholder="Search..." 
             value={query} 
             onChange={(e) => setQuery(e.target.value)} 
-            className="w-[320px] rounded-xl" 
+            className="w-[320px] rounded-full border-slate-200 focus:border-slate-400 transition-all duration-300" 
           />
-          <Button variant="outline" onClick={() => setQuery("")} className="rounded-xl">
+          <Button variant="outline" onClick={() => setQuery("")} className="rounded-full border-slate-200 hover:bg-slate-50">
             Clear
           </Button>
         </div>
@@ -195,9 +195,9 @@ export default function ReorderableTable({
         <div className="flex items-center gap-2">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="rounded-xl">Columns</Button>
+              <Button variant="outline" className="rounded-full border-slate-200 hover:bg-slate-50">Columns</Button>
             </PopoverTrigger>
-            <PopoverContent className="w-48 p-3 rounded-xl">
+            <PopoverContent className="w-48 p-3 rounded-[20px] border-slate-200 shadow-xl overflow-hidden backdrop-blur-xl bg-white/90">
               <div className="flex flex-col gap-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Visible Columns</p>
                 {columns.map((col) => (

@@ -3,10 +3,10 @@
  * Business logic for form submission operations
  */
 
-const formSubmissionRepository = require('../repositories/formSubmissionRepository');
-const { AppError } = require('../middleware/errorHandler');
-const logger = require('../utils/logger');
-const nodemailer = require('nodemailer');
+const formSubmissionRepository = require("../repositories/formSubmissionRepository");
+const { AppError } = require("../middleware/errorHandler");
+const logger = require("../utils/logger");
+const nodemailer = require("nodemailer");
 
 class FormSubmissionService {
   /**
@@ -24,12 +24,31 @@ class FormSubmissionService {
   }
 
   /**
+   * Get submission analytics summary
+   */
+  async getSummaryStats() {
+    const totalSubmissions = await formSubmissionRepository.countAll();
+    const statusCounts = await formSubmissionRepository.countByStatus();
+    const destinationResults =
+      await formSubmissionRepository.countByDestination(5);
+
+    return {
+      totalSubmissions,
+      statusCounts,
+      topDestinations: destinationResults.map((item) => ({
+        destination: item._id,
+        count: item.count,
+      })),
+    };
+  }
+
+  /**
    * Get submission by ID
    */
   async getSubmissionById(id) {
     const submission = await formSubmissionRepository.findById(id);
     if (!submission) {
-      throw new AppError('Submission not found', 404);
+      throw new AppError("Submission not found", 404);
     }
     return submission;
   }
@@ -38,11 +57,11 @@ class FormSubmissionService {
    * Add file URLs to submission documents
    */
   async addFileUrls(submission) {
-    const documentsWithUrls = submission.documents.map(doc => {
+    const documentsWithUrls = submission.documents.map((doc) => {
       const docObj = doc.toObject();
-      if (doc.uploadType === 'cloudinary' && doc.cloudinaryUrl) {
+      if (doc.uploadType === "cloudinary" && doc.cloudinaryUrl) {
         docObj.fileUrl = doc.cloudinaryUrl;
-      } else if (doc.uploadType === 'local' && doc.localPath) {
+      } else if (doc.uploadType === "local" && doc.localPath) {
         docObj.fileUrl = `/uploads/${doc.filename}`;
       }
       return docObj;
@@ -50,7 +69,7 @@ class FormSubmissionService {
 
     return {
       ...submission.toObject(),
-      documents: documentsWithUrls
+      documents: documentsWithUrls,
     };
   }
 
@@ -60,7 +79,7 @@ class FormSubmissionService {
   async getSubmissionByEmail(email) {
     const submission = await formSubmissionRepository.findByEmail(email);
     if (!submission) {
-      throw new AppError('Submission not found', 404);
+      throw new AppError("Submission not found", 404);
     }
     return submission;
   }
@@ -71,7 +90,7 @@ class FormSubmissionService {
   async updateStatus(id, status) {
     const submission = await formSubmissionRepository.updateStatus(id, status);
     if (!submission) {
-      throw new AppError('Submission not found', 404);
+      throw new AppError("Submission not found", 404);
     }
     return submission;
   }
@@ -82,19 +101,19 @@ class FormSubmissionService {
   async addAdminComment(submissionId, documentId, comment) {
     const submission = await formSubmissionRepository.findById(submissionId);
     if (!submission) {
-      throw new AppError('Submission not found', 404);
+      throw new AppError("Submission not found", 404);
     }
 
     const document = submission.documents.id(documentId);
     if (!document) {
-      throw new AppError('Document not found', 404);
+      throw new AppError("Document not found", 404);
     }
 
     // Update document comment
     await formSubmissionRepository.updateDocumentComment(
       submissionId,
       documentId,
-      comment
+      comment,
     );
 
     // Add to admin comments array
@@ -102,7 +121,7 @@ class FormSubmissionService {
       documentId: documentId,
       documentName: document.originalname,
       comment: comment,
-      createdAt: new Date()
+      createdAt: new Date(),
     };
 
     await formSubmissionRepository.addAdminComment(submissionId, commentData);
@@ -110,7 +129,7 @@ class FormSubmissionService {
     // Send email to customer
     await this.sendCommentEmail(submission, document, comment);
 
-    return { message: 'Comment saved and email sent successfully' };
+    return { message: "Comment saved and email sent successfully" };
   }
 
   /**
@@ -119,16 +138,19 @@ class FormSubmissionService {
   async addCustomerComment(submissionId, message) {
     const submission = await formSubmissionRepository.findById(submissionId);
     if (!submission) {
-      throw new AppError('Submission not found', 404);
+      throw new AppError("Submission not found", 404);
     }
 
     const commentData = {
       message: message,
-      createdAt: new Date()
+      createdAt: new Date(),
     };
 
-    await formSubmissionRepository.addCustomerComment(submissionId, commentData);
-    return { message: 'Comment added successfully' };
+    await formSubmissionRepository.addCustomerComment(
+      submissionId,
+      commentData,
+    );
+    return { message: "Comment added successfully" };
   }
 
   /**
@@ -137,18 +159,18 @@ class FormSubmissionService {
   async deleteSubmission(id) {
     const submission = await formSubmissionRepository.findById(id);
     if (!submission) {
-      throw new AppError('Submission not found', 404);
+      throw new AppError("Submission not found", 404);
     }
 
     // Clean up files before soft delete
     if (submission.documents && submission.documents.length > 0) {
-      const { cleanupFiles } = require('../middleware/cloudinaryMiddleware');
+      const { cleanupFiles } = require("../middleware/cloudinaryMiddleware");
       await cleanupFiles(submission.documents);
     }
 
     // Soft delete submission
     await formSubmissionRepository.softDelete(id);
-    return { message: 'Submission deleted successfully' };
+    return { message: "Submission deleted successfully" };
   }
 
   /**
@@ -157,21 +179,21 @@ class FormSubmissionService {
   async getFileUrl(submissionId, documentId) {
     const submission = await formSubmissionRepository.findById(submissionId);
     if (!submission) {
-      throw new AppError('Submission not found', 404);
+      throw new AppError("Submission not found", 404);
     }
 
     const document = submission.documents.id(documentId);
     if (!document) {
-      throw new AppError('Document not found', 404);
+      throw new AppError("Document not found", 404);
     }
 
     let fileUrl;
-    if (document.uploadType === 'cloudinary' && document.cloudinaryUrl) {
+    if (document.uploadType === "cloudinary" && document.cloudinaryUrl) {
       fileUrl = document.cloudinaryUrl;
-    } else if (document.uploadType === 'local' && document.localPath) {
+    } else if (document.uploadType === "local" && document.localPath) {
       fileUrl = `/uploads/${document.filename}`;
     } else {
-      throw new AppError('File not found', 404);
+      throw new AppError("File not found", 404);
     }
 
     return { fileUrl, document };
@@ -183,11 +205,11 @@ class FormSubmissionService {
   async sendCommentEmail(submission, document, comment) {
     try {
       const transporter = nodemailer.createTransport({
-        service: 'gmail',
+        service: "gmail",
         auth: {
           user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS
-        }
+          pass: process.env.EMAIL_PASS,
+        },
       });
 
       const mailOptions = {
@@ -223,17 +245,16 @@ class FormSubmissionService {
             
             <p>Best regards,<br>Visa Assessment Team</p>
           </div>
-        `
+        `,
       };
 
       await transporter.sendMail(mailOptions);
-      logger.info('Comment email sent successfully');
+      logger.info("Comment email sent successfully");
     } catch (error) {
-      logger.error('Error sending email:', error);
+      logger.error("Error sending email:", error);
       // Don't throw error - email failure shouldn't break the flow
     }
   }
 }
 
 module.exports = new FormSubmissionService();
-

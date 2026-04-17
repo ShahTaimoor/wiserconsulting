@@ -53,45 +53,49 @@ const AdminUsers = () => {
       case "user":
         return (
           <div className="flex flex-col">
-            <span className="text-sm font-bold text-slate-900">{user.name}</span>
-            <span className="text-xs text-slate-500 font-medium">{user.email}</span>
+            <span className="text-sm font-medium text-slate-700">{user.name}</span>
+            <span className="text-xs text-slate-400 font-normal">{user.email}</span>
           </div>
         );
       case "role":
         return (
-          <span className={`inline-flex items-center px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full border transform transition-all duration-300 ${
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-medium uppercase tracking-wider rounded-full border backdrop-blur-md transition-all duration-300 ${
             user.role === 1 
-              ? 'bg-purple-500/10 text-purple-600 border-purple-200 shadow-[0_0_15px_rgba(168,85,247,0.1)]'
-              : 'bg-emerald-500/10 text-emerald-600 border-emerald-200 shadow-[0_0_15px_rgba(16,185,129,0.1)]'
+              ? 'bg-purple-500/10 text-purple-500 border-purple-200/50 shadow-[0_0_15px_rgba(168,85,247,0.08)]'
+              : 'bg-emerald-500/10 text-emerald-500 border-emerald-200/50 shadow-[0_0_15px_rgba(16,185,129,0.08)]'
           }`}>
-            <span className={`w-1.5 h-1.5 rounded-full mr-2 animate-pulse ${user.role === 1 ? 'bg-purple-500' : 'bg-emerald-500'}`} />
+            {user.role === 1 ? (
+              <ShieldCheck className="w-3 h-3 opacity-80" />
+            ) : (
+              <CircleUserRound className="w-3 h-3 opacity-80" />
+            )}
             {user.role === 1 ? 'Administrator' : 'General User'}
           </span>
         );
       case "createdAt":
         return (
           <div className="flex flex-col">
-            <span className="text-sm font-semibold text-slate-700">
+            <span className="text-sm font-medium text-slate-600">
                 {new Date(user.createdAt).toLocaleDateString(undefined, {
                 month: 'short',
                 day: 'numeric',
                 year: 'numeric'
                 })}
             </span>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Registered On</span>
+            <span className="text-[10px] text-slate-400 font-medium uppercase tracking-tighter">Registered On</span>
           </div>
         );
       case "actions":
         return (
           <button
             onClick={() => handleRoleUpdate(user._id, user.role === 1 ? 0 : 1)}
-            className={`group relative flex items-center gap-2 text-xs font-black uppercase tracking-wider transition-all duration-300 px-4 py-2 rounded-xl border-2 hover:shadow-lg active:scale-95 ${
+            className={`group flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider transition-all duration-300 px-4 py-2 rounded-xl border backdrop-blur-sm active:scale-95 ${
               user.role === 1 
-                ? 'text-red-500 border-red-100 hover:bg-red-50'
-                : 'text-emerald-600 border-emerald-100 hover:bg-emerald-50'
+                ? 'text-red-500 border-red-100/50 bg-red-500/5 hover:bg-red-500/10 hover:border-red-200 hover:shadow-[0_0_20px_rgba(239,68,68,0.1)]'
+                : 'text-emerald-500 border-emerald-100/50 bg-emerald-500/5 hover:bg-emerald-500/10 hover:border-emerald-200 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]'
             }`}
           >
-            {user.role === 1 ? <UserCheck className="w-3 h-3" /> : <ShieldCheck className="w-3 h-3" />}
+            {user.role === 1 ? <UserCheck className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
             {user.role === 1 ? 'Demote' : 'Promote'}
           </button>
         );
@@ -107,7 +111,7 @@ const AdminUsers = () => {
             <div className="absolute inset-0 rounded-full border-4 border-slate-100" />
             <div className="absolute inset-0 rounded-full border-4 border-slate-900 border-t-transparent animate-spin" />
         </div>
-        <p className="text-sm font-black uppercase tracking-[0.2em] text-slate-400 animate-pulse">Syncing User Data</p>
+        <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-400 animate-pulse">Syncing User Data</p>
       </div>
     );
   }
@@ -122,10 +126,10 @@ const AdminUsers = () => {
         >
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-3xl">🚫</div>
           <div>
-            <h3 className="text-xl font-black text-red-900">System Error</h3>
-            <p className="font-semibold text-sm mt-1">{error}</p>
+            <h3 className="text-xl font-medium text-red-900">System Error</h3>
+            <p className="font-medium text-sm mt-1">{error}</p>
           </div>
-          <button onClick={() => dispatch(fetchUsers())} className="mt-2 px-6 py-2 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700 transition-colors">Retry Connection</button>
+          <button onClick={() => dispatch(fetchUsers())} className="mt-2 px-6 py-2 bg-red-600 text-white rounded-xl text-xs font-medium hover:bg-red-700 transition-colors">Retry Connection</button>
         </motion.div>
       </div>
     );
@@ -148,7 +152,7 @@ const AdminUsers = () => {
       <div className="sticky top-[-1px] z-30 bg-background/80 backdrop-blur-xl pb-10 pt-2 transition-all duration-300 border-b border-white/40 shadow-[0_1px_0_rgba(0,0,0,0.05)] -mx-6 px-7">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-10 px-1">
             <motion.div variants={itemVariants}>
-                <h1 className="text-3xl font-black tracking-tight text-slate-950 mt-2 selection:bg-purple-200">Users</h1>
+                <h1 className="text-3xl font-medium tracking-tight text-slate-900 mt-2 selection:bg-purple-200">Users</h1>
                 <div className="h-0.5 w-10 bg-purple-600 rounded-full mt-1.5 mb-3" />
                 <p className="text-slate-500 text-sm font-medium max-w-md">Configure sophisticated system permissions and audit administrative access levels.</p>
             </motion.div>
@@ -183,10 +187,10 @@ const AdminUsers = () => {
                             <stat.icon className="w-6 h-6 transition-transform group-hover:scale-110" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">{stat.label}</p>
+                            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest mb-0.5">{stat.label}</p>
                             <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black text-slate-950 tracking-tighter">{stat.value}</span>
-                                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-tighter">Profiles</span>
+                                <span className="text-3xl font-medium text-slate-900 tracking-tighter">{stat.value}</span>
+                                <span className="text-[10px] font-medium text-slate-300 uppercase tracking-tighter">Profiles</span>
                             </div>
                         </div>
                     </div>
@@ -198,7 +202,7 @@ const AdminUsers = () => {
 
       {/* Modern Table Integration */}
       <motion.div variants={itemVariants} className="pt-6 px-1">
-        <div className="rounded-[40px] border border-slate-200/60 bg-white/60 backdrop-blur-sm p-2 shadow-2xl shadow-slate-200/20">
+        <div className="rounded-[40px] border border-slate-200 bg-white/60 backdrop-blur-sm p-2 shadow-2xl shadow-slate-200/20">
             <ReorderableTable 
                 data={users} 
                 columns={columns} 
