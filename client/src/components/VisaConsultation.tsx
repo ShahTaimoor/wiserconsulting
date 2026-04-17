@@ -6,12 +6,12 @@ import { motion } from 'framer-motion';
 import Image from 'next/image';
 import AssessmentForm from './AssessmentForm';
 import StarButton from '@/components/ui/star-button';
-import { 
-  Globe2, 
-  FileCheck2, 
-  Users, 
-  ArrowRight, 
-  ChevronRight, 
+import {
+  Globe2,
+  FileCheck2,
+  Users,
+  ArrowRight,
+  ChevronRight,
   ChevronLeft,
   CheckCircle2,
   Clock,
@@ -48,7 +48,7 @@ const VisaConsultation: React.FC = () => {
 
   useEffect(() => {
     if (!typedEl.current) return;
-    
+
     const options = {
       strings: [
         "Your Journey to<br><span class=\"block mt-3 bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300\">Global Opportunities</span>"
@@ -147,7 +147,7 @@ const VisaConsultation: React.FC = () => {
           playsInline
         />
         <div className="absolute inset-0 bg-slate-900/70 z-10" />
-        
+
         <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -159,16 +159,16 @@ const VisaConsultation: React.FC = () => {
               <Clock className="w-4 h-4 text-white" />
               <span className="text-sm text-white font-medium">Trusted Visa Consultants Since 2009</span>
             </div>
-            
+
             <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-white leading-[0.95] tracking-tight min-h-[140px] sm:min-h-[160px] md:min-h-[180px] lg:min-h-[220px]">
               <span ref={typedEl}></span>
             </h1>
-            
+
             <p className="text-xl md:text-2xl text-slate-200 max-w-3xl mx-auto leading-relaxed">
-              Expert visa consultation services for students, professionals, and families. 
+              Expert visa consultation services for students, professionals, and families.
               Get personalized immigration solutions tailored to your needs.
             </p>
-            
+
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
               <StarButton
                 onClick={() => setIsFormOpen(true)}
@@ -192,7 +192,7 @@ const VisaConsultation: React.FC = () => {
       <section className="py-16 relative bg-white border-b border-slate-100 overflow-hidden">
         {/* Subtle background gradient to make it look "light" and elegant */}
         <div className="absolute inset-0 bg-gradient-to-b from-slate-50/50 to-white z-0" />
-        
+
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 lg:gap-8">
             {stats.map((stat, index) => (
@@ -207,7 +207,7 @@ const VisaConsultation: React.FC = () => {
               >
                 {/* Light color glow on hover behind the card */}
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-50/60 to-amber-50/60 opacity-0 group-hover:opacity-100 rounded-3xl transition-opacity duration-500" />
-                
+
                 <div className="relative z-20 inline-flex items-center justify-center w-20 h-20 bg-slate-50 border border-blue-50 rounded-2xl mb-6 text-slate-600 group-hover:bg-white group-hover:text-amber-600 group-hover:border-amber-200 group-hover:shadow-md group-hover:-translate-y-2 group-hover:rotate-3 transition-all duration-500">
                   {/* Subtle inner glow for icon container */}
                   <div className="absolute inset-0 bg-amber-400 opacity-0 group-hover:opacity-10 blur-xl rounded-2xl transition-opacity duration-500"></div>
@@ -215,7 +215,7 @@ const VisaConsultation: React.FC = () => {
                     {stat.icon}
                   </div>
                 </div>
-                
+
                 <div className="relative z-20 text-3xl md:text-4xl lg:text-5xl font-extrabold text-slate-900 mb-2 tracking-tight group-hover:text-slate-800 transition-colors">
                   {stat.value}
                 </div>
@@ -251,22 +251,22 @@ const VisaConsultation: React.FC = () => {
             <div className="absolute top-1/2 left-0 w-[400px] h-[400px] bg-blue-100/40 rounded-full blur-[120px] -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
             <div className="absolute top-1/2 right-0 w-[400px] h-[400px] bg-amber-100/40 rounded-full blur-[120px] translate-x-1/2 -translate-y-1/2 pointer-events-none" />
 
-            <ServiceCard 
+            <ServiceCard
               index={0}
-              icon={<Globe2 className="w-8 h-8" />} 
-              title="Personalized Guidance" 
+              icon={<Globe2 className="w-8 h-8" />}
+              title="Personalized Guidance"
               description="One-on-one sessions tailored to your specific travel and documentation needs. Our experts understand every case is unique."
             />
-            <ServiceCard 
+            <ServiceCard
               index={1}
-              icon={<FileCheck2 className="w-8 h-8" />} 
-              title="Complete File Preparation" 
+              icon={<FileCheck2 className="w-8 h-8" />}
+              title="Complete File Preparation"
               description="From visa forms to financial documents, everything is reviewed, organized, and prepared to perfection by our team."
             />
-            <ServiceCard 
+            <ServiceCard
               index={2}
-              icon={<Users className="w-8 h-8" />} 
-              title="Family & Group Support" 
+              icon={<Users className="w-8 h-8" />}
+              title="Family & Group Support"
               description="Specialized support for couples, families, and group applications ensuring a smooth process for everyone involved."
             />
           </div>
@@ -302,17 +302,17 @@ const VisaConsultation: React.FC = () => {
                 className="relative h-full"
               >
                 <div className="group relative w-full h-[380px] bg-white rounded-3xl overflow-hidden transition-all duration-500 hover:shadow-[0_20px_50px_rgba(0,0,0,0.15)] hover:-translate-y-2 border border-slate-100 flex flex-col">
-                  
+
                   {/* Card Image Area (Profile-Pic equivalent) */}
                   <div className="relative w-full h-[60%] transition-all duration-500 group-hover:h-[45%] shrink-0 overflow-hidden">
-                    <Image 
-                      src={step.image} 
-                      alt={step.title} 
-                      fill 
-                      className="object-cover transition-transform duration-700 group-hover:scale-110" 
+                    <Image
+                      src={step.image}
+                      alt={step.title}
+                      fill
+                      className="object-cover transition-transform duration-700 group-hover:scale-110"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
-                    
+
                     {/* Mail / Contact Icon button top-right */}
                     <button className="absolute top-4 right-4 w-10 h-10 bg-white/70 backdrop-blur-sm rounded-full flex items-center justify-center text-slate-800 shadow-md hover:bg-slate-900 hover:text-white transition-all z-10">
                       <svg xmlns="http://www.w3.org/2000/svg" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect width={20} height={16} x={2} y={4} rx={2} /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg>
@@ -334,11 +334,11 @@ const VisaConsultation: React.FC = () => {
                         {step.icon}
                       </div>
                     </div>
-                    
+
                     <p className="text-slate-600 leading-relaxed text-sm line-clamp-3 group-hover:line-clamp-none transition-all duration-500">
                       {step.description}
                     </p>
-                    
+
                     {/* Hidden Action Area that appears on hover */}
                     <div className="mt-auto opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 pb-1">
                       <button className="text-sm font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-2 mt-4">
@@ -347,7 +347,7 @@ const VisaConsultation: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Connector Line (Horizontal) */}
                 {index < processSteps.length - 1 && (
                   <div className="hidden lg:block absolute top-[30%] -right-4 w-8 h-[2px] bg-slate-200 pointer-events-none" />
@@ -388,9 +388,9 @@ const VisaConsultation: React.FC = () => {
                 className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all border border-slate-200 hover:border-slate-300 cursor-pointer group"
               >
                 <div className="aspect-video mb-4 relative overflow-hidden rounded-lg bg-slate-100">
-                  <Image 
-                    src={country.image} 
-                    alt={country.name} 
+                  <Image
+                    src={country.image}
+                    alt={country.name}
                     fill
                     className="object-cover group-hover:scale-110 transition-transform duration-300"
                   />
@@ -420,7 +420,7 @@ const VisaConsultation: React.FC = () => {
             <p className="text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed">
               Contact us today for a free consultation and let our expert team guide you through every step of the visa process.
             </p>
-            
+
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
               <StarButton
                 onClick={() => setIsFormOpen(true)}
@@ -446,7 +446,7 @@ const VisaConsultation: React.FC = () => {
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="w-5 h-5" />
-                <span className="text-sm">Deans Trade Center, LG 07, Peshawar</span>
+                <span className="text-sm">Deans Trade Center, UG390, Peshawar</span>
               </div>
             </div>
           </motion.div>
@@ -538,17 +538,17 @@ const ServiceCard = ({ icon, title, description, index = 0 }: { icon: React.Reac
     {/* Decorative background flares on hover */}
     <div className="absolute -right-20 -top-20 w-48 h-48 bg-slate-50 group-hover:bg-blue-50/80 rounded-full blur-3xl transition-colors duration-700 -z-10" />
     <div className="absolute -left-20 -bottom-20 w-48 h-48 bg-slate-50 group-hover:bg-amber-50/80 rounded-full blur-3xl transition-colors duration-700 -z-10" />
-    
+
     <div className="w-16 h-16 bg-slate-50/80 border border-slate-100 rounded-2xl flex items-center justify-center mb-8 text-slate-600 group-hover:bg-slate-900 group-hover:text-white group-hover:-rotate-3 group-hover:scale-110 transition-all duration-500 shadow-sm relative z-20">
       <div className="absolute inset-0 rounded-2xl bg-slate-900 opacity-0 group-hover:opacity-20 blur-md transition-opacity duration-500 z-10"></div>
       <div className="relative z-20">
         {icon}
       </div>
     </div>
-    
+
     <h3 className="text-2xl font-bold mb-4 text-slate-900 group-hover:text-slate-800 transition-colors duration-300 relative z-20">{title}</h3>
     <p className="text-slate-600/90 leading-relaxed text-base relative z-20">{description}</p>
-    
+
     {/* Bottom decorative animated underline */}
     <div className="absolute bottom-0 left-0 w-0 h-1.5 bg-gradient-to-r from-slate-800 to-slate-600 group-hover:w-full transition-all duration-700 ease-in-out" />
   </motion.div>

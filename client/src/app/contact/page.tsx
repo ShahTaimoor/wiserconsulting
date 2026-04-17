@@ -81,7 +81,7 @@ const ContactPage = () => {
                     </div>
                     <div>
                       <p className="text-sm uppercase tracking-[0.24em] text-slate-200">Office</p>
-                      <p className="mt-1 text-lg font-semibold">Deans Trade Center, LG 07, Peshawar</p>
+                      <p className="mt-1 text-lg font-semibold">Deans Trade Center, UG390, Peshawar</p>
                     </div>
                   </div>
                 </div>

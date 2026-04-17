@@ -202,7 +202,7 @@ const Navbar = () => {
               <div className="mt-auto flex flex-col gap-4 border-t border-slate-700/70 pt-6 text-sm text-slate-400">
                 <div>
                   <p className="font-semibold text-slate-100">Contact</p>
-                  <p>hello@wiserconsulting.com</p>
+                  <p>wiserconsulting55@gmail.com</p>
                 </div>
                 <div>
                   <p className="font-semibold text-slate-100">Phone</p>
