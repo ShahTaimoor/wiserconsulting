@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema(
         },
         password: {
             type: String,
-            required: function() {
+            required: function () {
                 return !this.googleId; // Password only required if not Google auth
             },
             minLength: 6,
@@ -51,8 +51,6 @@ const userSchema = new mongoose.Schema(
 );
 
 // Index for frequently used fields
-userSchema.index({ email: 1 });
-userSchema.index({ googleId: 1 });
 userSchema.index({ isDeleted: 1 });
 
 module.exports = mongoose.model('User', userSchema);

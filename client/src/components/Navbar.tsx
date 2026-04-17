@@ -145,16 +145,22 @@ const Navbar = () => {
               <div className="flex flex-col justify-center gap-10 px-2 py-6 sm:px-4">
                 <div className="space-y-4">
                   {navLinks.map((link, index) => (
-                    <Link
+                    <motion.div
                       key={link.href}
-                      href={link.href}
-                      onClick={() => setIsOpen(false)}
-                      className={`block text-3xl font-semibold transition ${
-                        index === 0 ? 'text-emerald-400' : 'text-slate-300 hover:text-white'
-                      }`}
+                      initial={{ opacity: 0, x: -30 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.15 + index * 0.1, duration: 0.4, ease: "easeOut" }}
                     >
-                      {link.label}
-                    </Link>
+                      <Link
+                        href={link.href}
+                        onClick={() => setIsOpen(false)}
+                        className={`inline-block text-3xl font-semibold transition-all duration-300 hover:translate-x-3 ${
+                          index === 0 ? 'text-emerald-400' : 'text-slate-300 hover:text-emerald-300'
+                        }`}
+                      >
+                        {link.label}
+                      </Link>
+                    </motion.div>
                   ))}
                 </div>
 
@@ -202,7 +208,7 @@ const Navbar = () => {
               <div className="mt-auto flex flex-col gap-4 border-t border-slate-700/70 pt-6 text-sm text-slate-400">
                 <div>
                   <p className="font-semibold text-slate-100">Contact</p>
-                  <p>hello@wiserconsulting.com</p>
+                  <p>wiserconsulting55@gmail.com</p>
                 </div>
                 <div>
                   <p className="font-semibold text-slate-100">Phone</p>

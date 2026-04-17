@@ -5,10 +5,8 @@ const Footer = () => {
   const currentYear = new Date().getFullYear();
 
   const services = [
-    { name: "Student Visass", href: "/services/student-visa" },
+    { name: "Student Visa", href: "/services/student-visa" },
     { name: "Tourist Visa", href: "/services/tourist-visa" },
-    { name: "Transit Visa", href: "/services/transit-visa" },
-    { name: "Work Visa", href: "/services/work-visa" },
   ];
 
   const quickLinks = [
@@ -123,7 +121,7 @@ const Footer = () => {
                 <div>
                   <p className="text-white text-sm font-medium mb-1">Address</p>
                   <p className="text-slate-400 text-sm leading-relaxed">
-                    Deans Trade Center, LG 07<br />
+                    Deans Trade Center, UG390<br />
                     Peshawar, Pakistan
                   </p>
                 </div>
