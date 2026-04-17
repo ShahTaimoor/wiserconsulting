@@ -93,7 +93,6 @@ const formSubmissionSchema = new mongoose.Schema(
 );
 
 // Index for frequently used fields
-formSubmissionSchema.index({ email: 1 });
 formSubmissionSchema.index({ status: 1 });
 formSubmissionSchema.index({ isDeleted: 1 });
 formSubmissionSchema.index({ createdAt: -1 });
