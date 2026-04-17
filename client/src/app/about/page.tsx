@@ -31,20 +31,20 @@ const AboutPage = () => {
               </motion.p>
             </motion.div>
 
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6, delay: 0.2 }}
               className="relative inline-flex items-center justify-center flex-shrink-0 group cursor-default"
             >
-              <motion.div 
+              <motion.div
                 whileHover={{ scale: 1.03 }}
                 transition={{ type: "spring", stiffness: 300 }}
                 className="w-[240px] h-[240px] md:w-[320px] md:h-[320px] rounded-full overflow-hidden shadow-2xl relative z-10 border-[6px] border-white"
               >
-                <img 
-                  src="/consultant.png" 
-                  alt="Our Team" 
+                <img
+                  src="/passports.png"
+                  alt="Our Team"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
               </motion.div>
