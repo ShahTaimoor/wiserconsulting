@@ -63,9 +63,9 @@ const AboutPage = () => {
               Since 2009, our team has supported thousands of clients with every type of visa journey. We combine personal care, legal knowledge, and practical support so you can move forward with confidence.
             </p>
             <div className="grid gap-6 sm:grid-cols-2 pt-4">
-              <motion.div whileHover={{ scale: 1.05, y: -5 }} transition={{ type: "spring", stiffness: 300 }} className="relative group rounded-3xl border border-slate-200 bg-white p-7 shadow-sm hover:shadow-xl hover:border-emerald-200 transition-all duration-300 overflow-hidden">
-                <div className="absolute -top-4 -right-4 p-4 opacity-[0.03] group-hover:opacity-10 transition-opacity transform group-hover:rotate-12 duration-500 text-emerald-600">
-                  <Heart size={80} />
+              <motion.div whileHover={{ scale: 1.05, y: -5 }} transition={{ type: "spring", stiffness: 300 }} className="relative group rounded-3xl border border-slate-200 bg-white p-7 shadow-sm hover:shadow-xl hover:border-rose-300 transition-all duration-300 overflow-hidden">
+                <div className="absolute -top-4 -right-4 p-4 opacity-[0.03] group-hover:opacity-25 transition-all transform group-hover:scale-110 group-hover:rotate-12 duration-500 text-rose-500">
+                  <Heart size={80} className="group-hover:fill-rose-500/20 transition-all duration-500" />
                 </div>
                 <p className="text-xs text-slate-400 uppercase tracking-[0.24em] font-semibold mb-3">Trusted by</p>
                 <p className="text-4xl md:text-5xl font-black text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600">10,000+</p>
