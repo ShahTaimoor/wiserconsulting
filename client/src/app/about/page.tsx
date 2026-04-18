@@ -11,9 +11,9 @@ const AboutPage = () => {
 
   return (
     <div className="bg-slate-50 text-slate-900">
-      <section className="pt-24 pb-16 bg-[#f4f5f7]">
+      <section className="pt-24 pb-8 bg-[#f4f5f7]">
         <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col lg:flex-row items-center justify-between mb-16 gap-x-12 gap-y-16">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-x-12 gap-y-8">
             <motion.div
               initial="initial"
               animate="animate"
@@ -53,7 +53,7 @@ const AboutPage = () => {
         </div>
       </section>
 
-      <section className="py-20 bg-slate-50">
+      <section className="pt-20 pb-10 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid gap-16 lg:grid-cols-[0.9fr_0.9fr] items-center">
           <motion.div variants={fadeIn} initial="initial" animate="animate" className="space-y-6">
             <p className="text-sm uppercase tracking-[0.32em] text-slate-400">Our Story</p>
@@ -97,7 +97,7 @@ const AboutPage = () => {
         </div>
       </section>
 
-      <section className="py-24 bg-white">
+      <section className="pt-12 pb-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col items-center mb-16">
             <p className="text-[12px] uppercase tracking-[0.3em] text-[#94A3B8] font-medium mb-3">Our Values</p>
