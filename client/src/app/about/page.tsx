@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { ShieldCheck, Heart, Award, TrendingUp } from "lucide-react";
 
 const AboutPage = () => {
   const fadeIn = {
@@ -53,44 +54,71 @@ const AboutPage = () => {
         </div>
       </section>
 
-      <section className="pt-20 pb-10 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid gap-16 lg:grid-cols-[0.9fr_0.9fr] items-center">
-          <motion.div variants={fadeIn} initial="initial" animate="animate" className="space-y-6">
-            <p className="text-sm uppercase tracking-[0.32em] text-slate-400">Our Story</p>
-            <h2 className="text-4xl font-bold text-slate-900">Focused on real results for families and professionals.</h2>
-            <p className="text-lg text-slate-600 leading-relaxed">
+      <section className="pt-20 pb-10 bg-slate-50 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid gap-16 lg:grid-cols-[0.9fr_0.9fr] items-center relative">
+          <motion.div variants={fadeIn} initial="initial" animate="animate" className="space-y-6 relative z-10">
+            <p className="text-sm uppercase tracking-[0.32em] text-slate-400 font-semibold">Our Story</p>
+            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 leading-[1.15]">Focused on real results for families and professionals.</h2>
+            <p className="text-lg text-slate-600 leading-relaxed max-w-2xl">
               Since 2009, our team has supported thousands of clients with every type of visa journey. We combine personal care, legal knowledge, and practical support so you can move forward with confidence.
             </p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                <p className="text-sm text-slate-400 uppercase tracking-[0.24em]">Trusted by</p>
-                <p className="mt-3 text-3xl font-bold text-slate-900">10,000+</p>
-                <p className="mt-2 text-slate-600">clients worldwide</p>
-              </div>
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                <p className="text-sm text-slate-400 uppercase tracking-[0.24em]">Success rate</p>
-                <p className="mt-3 text-3xl font-bold text-slate-900">98%</p>
-                <p className="mt-2 text-slate-600">approved applications</p>
-              </div>
+            <div className="grid gap-6 sm:grid-cols-2 pt-4">
+              <motion.div whileHover={{ scale: 1.05, y: -5 }} transition={{ type: "spring", stiffness: 300 }} className="relative group rounded-3xl border border-slate-200 bg-white p-7 shadow-sm hover:shadow-xl hover:border-emerald-200 transition-all duration-300 overflow-hidden">
+                <div className="absolute -top-4 -right-4 p-4 opacity-[0.03] group-hover:opacity-10 transition-opacity transform group-hover:rotate-12 duration-500 text-emerald-600">
+                  <Heart size={80} />
+                </div>
+                <p className="text-xs text-slate-400 uppercase tracking-[0.24em] font-semibold mb-3">Trusted by</p>
+                <p className="text-4xl md:text-5xl font-black text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600">10,000+</p>
+                <p className="mt-2 text-slate-600 font-medium">clients worldwide</p>
+              </motion.div>
+
+              <motion.div whileHover={{ scale: 1.05, y: -5 }} transition={{ type: "spring", stiffness: 300 }} className="relative group rounded-3xl border border-slate-200 bg-white p-7 shadow-sm hover:shadow-xl hover:border-blue-200 transition-all duration-300 overflow-hidden">
+                <div className="absolute -top-4 -right-4 p-4 opacity-[0.03] group-hover:opacity-10 transition-opacity transform group-hover:rotate-12 duration-500 text-blue-600">
+                  <TrendingUp size={80} />
+                </div>
+                <p className="text-xs text-slate-400 uppercase tracking-[0.24em] font-semibold mb-3">Success rate</p>
+                <p className="text-4xl md:text-5xl font-black text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600">98%</p>
+                <p className="mt-2 text-slate-600 font-medium">approved applications</p>
+              </motion.div>
             </div>
           </motion.div>
 
-          <motion.div variants={fadeIn} initial="initial" animate="animate" className="rounded-[2rem] bg-gradient-to-br from-slate-900 to-slate-700 p-10 text-white shadow-2xl">
-            <div className="space-y-6">
-              <p className="text-sm uppercase tracking-[0.24em] text-cyan-300">Why choose us</p>
-              <h3 className="text-3xl font-bold">Personalized support at every step.</h3>
-              <p className="text-slate-200 leading-relaxed">
+          <motion.div initial={{ opacity: 0, x: 50 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }} className="relative group rounded-[2.5rem] bg-slate-900 p-10 md:p-12 text-white shadow-2xl overflow-hidden border border-slate-800">
+            {/* Beautiful gradient blurs mapping */}
+            <div className="absolute -top-32 -right-32 w-80 h-80 bg-emerald-500/20 rounded-full blur-[80px] group-hover:bg-emerald-500/30 transition-colors duration-700 select-none pointer-events-none" />
+            <div className="absolute -bottom-32 -left-32 w-80 h-80 bg-blue-500/20 rounded-full blur-[80px] group-hover:bg-blue-500/30 transition-colors duration-700 select-none pointer-events-none" />
+            
+            <div className="relative z-10 space-y-8">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md shadow-sm">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs uppercase tracking-[0.24em] text-emerald-300 font-semibold">Why choose us</span>
+              </div>
+              
+              <h3 className="text-3xl sm:text-4xl font-bold leading-tight">Personalized support at every step.</h3>
+              <p className="text-slate-300 leading-relaxed text-lg">
                 We listen to your goals, review your documents carefully, and keep you informed throughout the process so your visa journey is clear and stress-free.
               </p>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-3xl bg-white/10 p-4">
-                  <p className="text-sm uppercase tracking-[0.24em] text-slate-300">Dedicated team</p>
-                  <p className="mt-2 text-base font-semibold">Experienced specialists</p>
-                </div>
-                <div className="rounded-3xl bg-white/10 p-4">
-                  <p className="text-sm uppercase tracking-[0.24em] text-slate-300">Clear process</p>
-                  <p className="mt-2 text-base font-semibold">Easy steps to approval</p>
-                </div>
+              
+              <div className="grid gap-4 sm:grid-cols-2 pt-4">
+                <motion.div whileHover={{ scale: 1.05 }} className="rounded-2xl bg-white/5 border border-white/10 p-5 hover:bg-white/10 hover:border-white/20 transition-all duration-300 flex flex-col items-start gap-4 shadow-lg backdrop-blur-sm">
+                  <div className="p-2.5 rounded-xl bg-emerald-400/20 text-emerald-400 border border-emerald-400/20">
+                    <Heart size={20} strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-200/70 font-bold mb-1.5">Dedicated team</p>
+                    <p className="text-base font-semibold text-white">Experienced specialists</p>
+                  </div>
+                </motion.div>
+                
+                <motion.div whileHover={{ scale: 1.05 }} className="rounded-2xl bg-white/5 border border-white/10 p-5 hover:bg-white/10 hover:border-white/20 transition-all duration-300 flex flex-col items-start gap-4 shadow-lg backdrop-blur-sm">
+                  <div className="p-2.5 rounded-xl bg-blue-400/20 text-blue-400 border border-blue-400/20">
+                    <ShieldCheck size={20} strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-blue-200/70 font-bold mb-1.5">Clear process</p>
+                    <p className="text-base font-semibold text-white">Easy steps to approval</p>
+                  </div>
+                </motion.div>
               </div>
             </div>
           </motion.div>
@@ -105,20 +133,33 @@ const AboutPage = () => {
           </div>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto">
             {[
-              { title: "Integrity", description: "Transparent advice and honest support." },
-              { title: "Care", description: "People-first service for every application." },
-              { title: "Expertise", description: "Years of visa and immigration experience." },
-              { title: "Results", description: "A process built for approval and peace of mind." }
-            ].map((item) => (
+              { title: "Integrity", description: "Transparent advice and honest support.", icon: ShieldCheck, color: "text-blue-600", bg: "bg-blue-50", border: "group-hover:border-blue-200" },
+              { title: "Care", description: "People-first service for every application.", icon: Heart, color: "text-rose-600", bg: "bg-rose-50", border: "group-hover:border-rose-200" },
+              { title: "Expertise", description: "Years of visa and immigration experience.", icon: Award, color: "text-amber-600", bg: "bg-amber-50", border: "group-hover:border-amber-200" },
+              { title: "Results", description: "A process built for approval and peace of mind.", icon: TrendingUp, color: "text-emerald-600", bg: "bg-emerald-50", border: "group-hover:border-emerald-200" }
+            ].map((item, index) => (
               <motion.div
                 key={item.title}
-                variants={fadeIn}
-                initial="initial"
-                animate="animate"
-                className="rounded-[20px] border border-[#F1F5F9] bg-[#FAFBFC] p-[30px] shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:-translate-y-1 hover:border-[#E2E8F0] transition-all duration-300 flex flex-col"
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                whileHover={{ y: -8, scale: 1.02 }}
+                className={`group relative rounded-3xl border border-slate-100 bg-white p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] transition-all duration-500 flex flex-col items-start overflow-hidden ${item.border}`}
               >
-                <h3 className="text-[17px] font-semibold text-[#0F172A] mb-2.5">{item.title}</h3>
-                <p className="text-[#64748B] text-[15px] leading-[1.65]">{item.description}</p>
+                <div className={`absolute top-0 left-0 w-full h-1 ${item.bg} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-50/40 to-white opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-0" />
+                
+                <div className={`w-14 h-14 ${item.bg} ${item.color} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-500 relative z-10 shadow-sm border border-white`}>
+                  <item.icon strokeWidth={2.5} size={24} />
+                </div>
+                
+                <h3 className="text-xl font-bold text-slate-900 mb-3 relative z-10 group-hover:text-slate-800 transition-colors">{item.title}</h3>
+                <p className="text-slate-500 text-base leading-relaxed relative z-10">{item.description}</p>
+                
+                <div className={`mt-8 flex items-center text-sm font-semibold transition-colors relative z-10 cursor-pointer ${item.color} opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 duration-300`}>
+                  Learn more <span className="ml-1">→</span>
+                </div>
               </motion.div>
             ))}
           </div>
