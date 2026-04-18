@@ -74,11 +74,20 @@ const Register: React.FC = () => {
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-sm">
             <form className="flex flex-col gap-4 md:gap-5" onSubmit={handleSubmit}>
-              <div className="flex flex-col items-center gap-0.5 text-center mb-1">
-                <h1 className="text-xl md:text-2xl font-bold text-slate-900">Create your account</h1>
-                <p className="text-xs md:text-sm text-slate-500">
-                  Fill in the form below to create your account
-                </p>
+              <div className="flex items-center gap-4 mb-1">
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back
+                </Link>
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-xl md:text-2xl font-bold text-slate-900">Create your account</h1>
+                  <p className="text-xs md:text-sm text-slate-500">
+                    Fill in the form below to create your account
+                  </p>
+                </div>
               </div>
 
               <div className="flex flex-col gap-2.5">
