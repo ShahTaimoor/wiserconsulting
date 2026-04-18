@@ -277,14 +277,14 @@ const VisaConsultation: React.FC = () => {
       </section>
 
       {/* Process Section */}
-      <section className="pt-20 pb-8 bg-white">
+      <section className="pt-8 pb-8 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-16"
+            className="text-center mb-10"
           >
             <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
               Our Simple Process
