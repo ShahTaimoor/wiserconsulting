@@ -126,7 +126,7 @@ const AboutPage = () => {
         </div>
       </section>
 
-      <section className="pt-12 pb-12 bg-white">
+      <section className="pt-12 pb-6 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col items-center mb-16">
             <p className="text-[12px] uppercase tracking-[0.3em] text-[#94A3B8] font-medium mb-3">Our Values</p>
@@ -168,7 +168,7 @@ const AboutPage = () => {
       </section>
 
       {/* Testimonials Section */}
-      <section className="pt-12 pb-20 bg-slate-50 overflow-hidden border-t border-slate-100">
+      <section className="pt-6 pb-20 bg-slate-50 overflow-hidden border-t border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100/50 text-blue-700 font-bold text-xs tracking-wider uppercase mb-4 shadow-sm border border-blue-200/50">
             <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span> Client Testimonial
