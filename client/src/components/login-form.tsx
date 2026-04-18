@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { login, clearError } from "@/redux/slices/auth/authSlice";
 import { cn } from "@/lib/utils";
 import { isAdminRole } from "@/utils/authRole";
+import { ArrowLeft } from "lucide-react";
 
 export function LoginForm({
   className,
@@ -42,11 +44,22 @@ export function LoginForm({
       onSubmit={handleSubmit}
       {...props}
     >
-      <div className="flex flex-col items-center gap-1 text-center">
-        <h1 className="text-2xl font-bold text-slate-900">Login to your account</h1>
-        <p className="text-sm text-slate-500">
-          Enter your email below to login to your account
-        </p>
+      <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm mb-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Link>
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold text-slate-900">Login to your account</h1>
+              <p className="text-sm md:text-base text-slate-500">Enter your email below to login to your account</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-col gap-4">

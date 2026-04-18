@@ -7,10 +7,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { logout } from "@/redux/slices/auth/authSlice";
 
+import { usePathname } from "next/navigation";
+
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const pathname = usePathname();
+  
+  const isLightPage = pathname === '/about' || pathname === '/services' || pathname === '/contact';
+  const isLegalPage = pathname === '/privacy' || pathname === '/terms';
 
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
@@ -46,7 +52,7 @@ const Navbar = () => {
 
   return (
     <>
-      <nav className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${isScrolled ? "bg-transparent px-3 py-3 sm:px-4" : "bg-transparent"}`}>
+      <nav className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${isScrolled ? "bg-transparent px-3 py-3 sm:px-4" : (isLightPage || isLegalPage ? "bg-slate-900" : "bg-transparent")}`}>
         {isScrolled ? (
           <div className="mx-auto flex max-w-7xl items-center justify-between rounded-full border border-white/70 bg-white/95 px-4 py-2 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.2)] backdrop-blur-xl">
             <Link href="/" className="flex items-center gap-3">
@@ -54,10 +60,10 @@ const Navbar = () => {
                 <span className="text-white font-black text-lg">WC</span>
               </div>
               <div className="hidden sm:flex flex-col leading-tight">
-                <span className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-900">
+                <span className={`text-sm font-semibold uppercase tracking-[0.25em] ${isLegalPage ? 'text-slate-900 font-bold' : 'text-slate-900'}`}>
                   WISER CONSULTING
                 </span>
-                <span className="text-[11px] text-slate-500 uppercase tracking-[0.25em]">
+                <span className={`text-[11px] uppercase tracking-[0.25em] ${isLegalPage ? 'text-emerald-600 font-semibold' : 'text-slate-500'}`}>
                   CONSULTANT
                 </span>
               </div>
@@ -86,10 +92,10 @@ const Navbar = () => {
                 <span className="text-white font-black text-lg">WC</span>
               </div>
               <div className="hidden sm:flex flex-col leading-tight">
-                <span className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-100/90">
+                <span className={`text-sm font-semibold uppercase tracking-[0.25em] ${isLegalPage ? 'text-white' : 'text-slate-100/90'}`}>
                   WISER CONSULTING
                 </span>
-                <span className="text-[11px] text-slate-300 uppercase tracking-[0.25em]">
+                <span className={`text-[11px] uppercase tracking-[0.25em] ${isLegalPage ? 'text-emerald-300' : 'text-slate-300'}`}>
                   CONSULTANT
                 </span>
               </div>
@@ -103,7 +109,7 @@ const Navbar = () => {
               </div>
               <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center justify-center h-11 w-11 rounded-2xl border border-slate-200/10 bg-slate-950/80 text-slate-100 shadow-2xl shadow-slate-950/30 transition hover:bg-slate-900"
+                className={`flex items-center justify-center h-11 w-11 rounded-2xl border ${isLightPage ? 'border-white/10 bg-slate-800/80 hover:bg-slate-700' : 'border-slate-200/10 bg-slate-950/80 hover:bg-slate-900'} text-slate-100 shadow-2xl shadow-slate-950/30 transition`}
                 aria-label="Toggle menu"
               >
                 {isOpen ? <X size={24} /> : <Menu size={24} />}
@@ -154,9 +160,8 @@ const Navbar = () => {
                       <Link
                         href={link.href}
                         onClick={() => setIsOpen(false)}
-                        className={`inline-block text-3xl font-semibold transition-all duration-300 hover:translate-x-3 ${
-                          index === 0 ? 'text-emerald-400' : 'text-slate-300 hover:text-emerald-300'
-                        }`}
+                        className={`inline-block text-3xl font-semibold transition-all duration-300 hover:translate-x-3 ${pathname === link.href ? 'text-emerald-400' : 'text-slate-300 hover:text-emerald-300'
+                          }`}
                       >
                         {link.label}
                       </Link>

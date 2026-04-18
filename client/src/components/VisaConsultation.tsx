@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Typed from 'typed.js';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
+import Link from 'next/link';
 import AssessmentForm from './AssessmentForm';
 import StarButton from '@/components/ui/star-button';
 import {
@@ -135,7 +136,7 @@ const VisaConsultation: React.FC = () => {
   ];
 
   return (
-    <div className="relative">
+    <div className="relative overflow-x-hidden">
       {/* Hero Section - Modern Design */}
       <section className="relative w-full min-h-screen flex items-center justify-center overflow-hidden">
         <video
@@ -176,13 +177,15 @@ const VisaConsultation: React.FC = () => {
                 Get Free Assessment
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </StarButton>
-              <motion.button
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-8 py-4 bg-transparent text-white font-semibold rounded-lg text-lg border-2 border-white hover:bg-white/10 transition-all"
-              >
-                Learn More
-              </motion.button>
+              <Link href="/contact">
+                <motion.button
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-8 py-4 bg-transparent text-white font-semibold rounded-lg text-lg border-2 border-white hover:bg-white/10 transition-all block"
+                >
+                  Learn More
+                </motion.button>
+              </Link>
             </div>
           </motion.div>
         </div>
@@ -203,7 +206,7 @@ const VisaConsultation: React.FC = () => {
                 viewport={{ once: true, margin: "-50px" }}
                 transition={{ duration: 0.6, delay: index * 0.1, ease: "easeOut" }}
                 whileHover={{ y: -8, scale: 1.02 }}
-                className="group relative flex flex-col items-center p-8 bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.03)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] border border-blue-50 hover:border-blue-200 transition-all duration-500"
+                className="group relative flex flex-col items-center p-8 bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.03)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] border border-slate-200 hover:border-slate-300 transition-all duration-500"
               >
                 {/* Light color glow on hover behind the card */}
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-50/60 to-amber-50/60 opacity-0 group-hover:opacity-100 rounded-3xl transition-opacity duration-500" />
@@ -274,7 +277,7 @@ const VisaConsultation: React.FC = () => {
       </section>
 
       {/* Process Section */}
-      <section className="py-20 bg-white">
+      <section className="pt-20 pb-8 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -341,9 +344,9 @@ const VisaConsultation: React.FC = () => {
 
                     {/* Hidden Action Area that appears on hover */}
                     <div className="mt-auto opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 pb-1">
-                      <button className="text-sm font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-2 mt-4">
+                      <Link href="/contact" className="text-sm font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-2 mt-4 w-fit inline-flex cursor-pointer relative z-40">
                         View Details <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                      </button>
+                      </Link>
                     </div>
                   </div>
                 </div>
@@ -359,14 +362,14 @@ const VisaConsultation: React.FC = () => {
       </section>
 
       {/* Destinations Section */}
-      <section className="py-20 bg-slate-50">
+      <section className="pt-8 pb-20 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-16"
+            className="text-center mb-10"
           >
             <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
               Popular Visa Destinations
