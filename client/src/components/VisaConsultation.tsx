@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Typed from 'typed.js';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
+import Link from 'next/link';
 import AssessmentForm from './AssessmentForm';
 import StarButton from '@/components/ui/star-button';
 import {
@@ -176,13 +177,15 @@ const VisaConsultation: React.FC = () => {
                 Get Free Assessment
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </StarButton>
-              <motion.button
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-8 py-4 bg-transparent text-white font-semibold rounded-lg text-lg border-2 border-white hover:bg-white/10 transition-all"
-              >
-                Learn More
-              </motion.button>
+              <Link href="/contact">
+                <motion.button
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-8 py-4 bg-transparent text-white font-semibold rounded-lg text-lg border-2 border-white hover:bg-white/10 transition-all block"
+                >
+                  Learn More
+                </motion.button>
+              </Link>
             </div>
           </motion.div>
         </div>
@@ -341,9 +344,9 @@ const VisaConsultation: React.FC = () => {
 
                     {/* Hidden Action Area that appears on hover */}
                     <div className="mt-auto opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 pb-1">
-                      <button className="text-sm font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-2 mt-4">
+                      <Link href="/contact" className="text-sm font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-2 mt-4 w-fit inline-flex cursor-pointer relative z-40">
                         View Details <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                      </button>
+                      </Link>
                     </div>
                   </div>
                 </div>

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { GraduationCap, Plane } from "lucide-react";
 import { motion } from "framer-motion";
+import Link from "next/link";
 
 export default function ServicesPage() {
   const fadeUp = {
@@ -55,14 +56,15 @@ export default function ServicesPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           
           {/* Card 1 */}
-          <motion.div 
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            whileHover={{ y: -8 }}
-            className="relative rounded-[2rem] overflow-hidden flex flex-col shadow-lg h-[460px] transition-all hover:shadow-xl group"
-          >
+          <Link href="/contact" className="block">
+            <motion.div 
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              whileHover={{ y: -8 }}
+              className="relative rounded-[2rem] overflow-hidden flex flex-col shadow-lg h-[460px] transition-all hover:shadow-xl group"
+            >
             <Image 
               src="/student_visa.png" 
               alt="Student Visa" 
@@ -83,16 +85,18 @@ export default function ServicesPage() {
               <div className="text-gray-400 font-medium text-sm mt-auto group-hover:text-white transition-colors">01</div>
             </div>
           </motion.div>
+          </Link>
 
           {/* Card 2 */}
-          <motion.div 
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            whileHover={{ y: -8 }}
-            className="relative rounded-[2rem] overflow-hidden flex flex-col shadow-lg h-[460px] transition-all hover:shadow-xl group"
-          >
+          <Link href="/contact" className="block">
+            <motion.div 
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              whileHover={{ y: -8 }}
+              className="relative rounded-[2rem] overflow-hidden flex flex-col shadow-lg h-[460px] transition-all hover:shadow-xl group"
+            >
             <Image 
               src="/tourist_visa.png" 
               alt="Tourist Visa" 
@@ -113,6 +117,7 @@ export default function ServicesPage() {
               <div className="text-gray-400 font-medium text-sm mt-auto group-hover:text-white transition-colors">02</div>
             </div>
           </motion.div>
+          </Link>
 
         </div>
       </div>
@@ -147,14 +152,14 @@ export default function ServicesPage() {
               { step: "03", title: "Submission", desc: "Flawless filing of your application safely to the authorities.", img: "/submission_new.png" },
               { step: "04", title: "Approval", desc: "Receiving your final visa and preparing for your global journey.", img: "/tourist_visa.png" }
             ].map((item, index) => (
-              <motion.div
-                key={item.step}
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.15 }}
-                className="group relative h-[380px] w-full overflow-hidden rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.08)] cursor-pointer"
-              >
+              <Link key={item.step} href="/contact" className="block">
+                <motion.div
+                  initial={{ opacity: 0, y: 40 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: index * 0.15 }}
+                  className="group relative h-[380px] w-full overflow-hidden rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.08)] cursor-pointer"
+                >
                 <Image src={item.img} alt={item.title} fill className="object-cover transition-transform duration-700 group-hover:scale-110" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0a1128] via-[#0a1128]/40 to-transparent opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
                 
@@ -171,6 +176,7 @@ export default function ServicesPage() {
                   </div>
                 </div>
               </motion.div>
+              </Link>
             ))}
           </div>
         </div>

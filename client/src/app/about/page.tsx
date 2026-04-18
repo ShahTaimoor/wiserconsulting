@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { ShieldCheck, Heart, Award, TrendingUp } from "lucide-react";
+import Link from 'next/link';
 
 const AboutPage = () => {
   const fadeIn = {
@@ -157,9 +158,9 @@ const AboutPage = () => {
                 <h3 className="text-xl font-bold text-slate-900 mb-3 relative z-10 group-hover:text-slate-800 transition-colors">{item.title}</h3>
                 <p className="text-slate-500 text-base leading-relaxed relative z-10">{item.description}</p>
                 
-                <div className={`mt-8 flex items-center text-sm font-semibold transition-colors relative z-10 cursor-pointer ${item.color} opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 duration-300`}>
+                <Link href="/contact" className={`mt-8 flex items-center text-sm font-semibold transition-colors relative z-10 cursor-pointer ${item.color} opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 duration-300`}>
                   Learn more <span className="ml-1">→</span>
-                </div>
+                </Link>
               </motion.div>
             ))}
           </div>
