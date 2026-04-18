@@ -154,9 +154,8 @@ const Navbar = () => {
                       <Link
                         href={link.href}
                         onClick={() => setIsOpen(false)}
-                        className={`inline-block text-3xl font-semibold transition-all duration-300 hover:translate-x-3 ${
-                          index === 0 ? 'text-emerald-400' : 'text-slate-300 hover:text-emerald-300'
-                        }`}
+                        className={`inline-block text-3xl font-semibold transition-all duration-300 hover:translate-x-3 ${index === 0 ? 'text-emerald-400' : 'text-slate-300 hover:text-emerald-300'
+                          }`}
                       >
                         {link.label}
                       </Link>

@@ -135,7 +135,7 @@ const VisaConsultation: React.FC = () => {
   ];
 
   return (
-    <div className="relative">
+    <div className="relative overflow-x-hidden">
       {/* Hero Section - Modern Design */}
       <section className="relative w-full min-h-screen flex items-center justify-center overflow-hidden">
         <video
