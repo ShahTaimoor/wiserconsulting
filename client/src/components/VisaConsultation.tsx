@@ -203,7 +203,7 @@ const VisaConsultation: React.FC = () => {
                 viewport={{ once: true, margin: "-50px" }}
                 transition={{ duration: 0.6, delay: index * 0.1, ease: "easeOut" }}
                 whileHover={{ y: -8, scale: 1.02 }}
-                className="group relative flex flex-col items-center p-8 bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.03)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] border border-blue-50 hover:border-blue-200 transition-all duration-500"
+                className="group relative flex flex-col items-center p-8 bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.03)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] border border-slate-200 hover:border-slate-300 transition-all duration-500"
               >
                 {/* Light color glow on hover behind the card */}
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-50/60 to-amber-50/60 opacity-0 group-hover:opacity-100 rounded-3xl transition-opacity duration-500" />
@@ -274,7 +274,7 @@ const VisaConsultation: React.FC = () => {
       </section>
 
       {/* Process Section */}
-      <section className="py-20 bg-white">
+      <section className="pt-20 pb-8 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -359,14 +359,14 @@ const VisaConsultation: React.FC = () => {
       </section>
 
       {/* Destinations Section */}
-      <section className="py-20 bg-slate-50">
+      <section className="pt-8 pb-20 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-16"
+            className="text-center mb-10"
           >
             <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
               Popular Visa Destinations
