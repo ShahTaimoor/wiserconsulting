@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Mail, Phone, MapPin } from "lucide-react";
+import Image from "next/image";
 
 const cityImageUrl =
   "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=80";
@@ -14,24 +15,45 @@ const ContactPage = () => {
   };
 
   return (
-    <div className="bg-slate-50 text-slate-900">
-      <section className="pt-20 pb-12 bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-5 lg:px-8 text-center">
-          <motion.div initial="initial" animate="animate" className="space-y-4">
-            <motion.p variants={fadeUp} className="text-sm uppercase tracking-[0.32em] text-slate-700 font-bold drop-shadow-sm">
-              Contact us
-            </motion.p>
-            <motion.h1 variants={fadeUp} className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900">
-              Have questions? ready to help!
-            </motion.h1>
-            <motion.p variants={fadeUp} className="mx-auto max-w-3xl text-lg text-slate-600 leading-relaxed">
+    <div className="bg-[#f4f5f7] pt-16 text-[#1a1f2c] font-sans overflow-hidden">
+      <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8 mb-12">
+        {/* Header Section */}
+        <div className="flex flex-col lg:flex-row items-center justify-between mb-16 mt-8 gap-x-12 gap-y-16">
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="flex-1 text-left max-w-2xl"
+          >
+            <span className="inline-block text-sm uppercase tracking-[0.25em] font-extrabold text-[#1e293b] mb-6">
+              CONTACT US
+            </span>
+            <h1 className="text-3xl md:text-4xl lg:text-5xl leading-[1.1] font-bold tracking-tight mb-8 text-[#0a1128]">
+              Have questions?<br />We're ready to help
+            </h1>
+            <p className="text-lg md:text-[1.15rem] text-[#475569] leading-relaxed max-w-xl">
               Our expert team offers visa consulting for students, professionals, and families. Reach out for personalized guidance and support through every stage of your immigration process.
-            </motion.p>
+            </p>
           </motion.div>
-        </div>
-      </section>
 
-      <section className="pb-24 bg-slate-50">
+          <div className="relative inline-flex items-center justify-center flex-shrink-0 lg:pr-12 group cursor-default">
+            <motion.div 
+              whileHover={{ scale: 1.03 }}
+              transition={{ type: "spring", stiffness: 300 }}
+              className="w-[200px] h-[200px] md:w-[280px] md:h-[280px] rounded-full overflow-hidden shadow-2xl relative z-10 border-[6px] border-[#f4f5f7]"
+            >
+              <Image 
+                src="/consultant.png" 
+                alt="Contact Consultant" 
+                fill 
+                className="object-cover transition-transform duration-700 group-hover:scale-110"
+              />
+            </motion.div>
+          </div>
+        </div>
+      </div>
+
+      <section className="pb-24 bg-[#f4f5f7]">
         <div className="max-w-7xl mx-auto px-4 sm:px-5 lg:px-8">
           <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] items-stretch">
             <motion.div
