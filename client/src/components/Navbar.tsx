@@ -51,7 +51,7 @@ const Navbar = () => {
 
   return (
     <>
-      <nav className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${isScrolled ? "bg-transparent px-3 py-3 sm:px-4" : "bg-transparent"}`}>
+      <nav className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${isScrolled ? "bg-transparent px-3 py-3 sm:px-4" : (isLightPage ? "bg-slate-900" : "bg-transparent")}`}>
         {isScrolled ? (
           <div className="mx-auto flex max-w-7xl items-center justify-between rounded-full border border-white/70 bg-white/95 px-4 py-2 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.2)] backdrop-blur-xl">
             <Link href="/" className="flex items-center gap-3">
@@ -91,10 +91,10 @@ const Navbar = () => {
                 <span className="text-white font-black text-lg">WC</span>
               </div>
               <div className="hidden sm:flex flex-col leading-tight">
-                <span className={`text-sm font-semibold uppercase tracking-[0.25em] ${isLightPage ? 'text-slate-900' : 'text-slate-100/90'}`}>
+                <span className={`text-sm font-semibold uppercase tracking-[0.25em] text-slate-100/90`}>
                   WISER CONSULTING
                 </span>
-                <span className={`text-[11px] uppercase tracking-[0.25em] ${isLightPage ? 'text-slate-500' : 'text-slate-300'}`}>
+                <span className={`text-[11px] uppercase tracking-[0.25em] text-slate-300`}>
                   CONSULTANT
                 </span>
               </div>

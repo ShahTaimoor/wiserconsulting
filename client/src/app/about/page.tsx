@@ -88,18 +88,18 @@ const AboutPage = () => {
             {/* Beautiful gradient blurs mapping */}
             <div className="absolute -top-32 -right-32 w-80 h-80 bg-emerald-500/20 rounded-full blur-[80px] group-hover:bg-emerald-500/30 transition-colors duration-700 select-none pointer-events-none" />
             <div className="absolute -bottom-32 -left-32 w-80 h-80 bg-blue-500/20 rounded-full blur-[80px] group-hover:bg-blue-500/30 transition-colors duration-700 select-none pointer-events-none" />
-            
+
             <div className="relative z-10 space-y-8">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md shadow-sm">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
                 <span className="text-xs uppercase tracking-[0.24em] text-emerald-300 font-semibold">Why choose us</span>
               </div>
-              
+
               <h3 className="text-3xl sm:text-4xl font-bold leading-tight">Personalized support at every step.</h3>
               <p className="text-slate-300 leading-relaxed text-lg">
                 We listen to your goals, review your documents carefully, and keep you informed throughout the process so your visa journey is clear and stress-free.
               </p>
-              
+
               <div className="grid gap-4 sm:grid-cols-2 pt-4">
                 <motion.div whileHover={{ scale: 1.05 }} className="rounded-2xl bg-white/5 border border-white/10 p-5 hover:bg-white/10 hover:border-white/20 transition-all duration-300 flex flex-col items-start gap-4 shadow-lg backdrop-blur-sm">
                   <div className="p-2.5 rounded-xl bg-emerald-400/20 text-emerald-400 border border-emerald-400/20">
@@ -110,7 +110,7 @@ const AboutPage = () => {
                     <p className="text-base font-semibold text-white">Experienced specialists</p>
                   </div>
                 </motion.div>
-                
+
                 <motion.div whileHover={{ scale: 1.05 }} className="rounded-2xl bg-white/5 border border-white/10 p-5 hover:bg-white/10 hover:border-white/20 transition-all duration-300 flex flex-col items-start gap-4 shadow-lg backdrop-blur-sm">
                   <div className="p-2.5 rounded-xl bg-blue-400/20 text-blue-400 border border-blue-400/20">
                     <ShieldCheck size={20} strokeWidth={2.5} />
@@ -150,14 +150,14 @@ const AboutPage = () => {
               >
                 <div className={`absolute top-0 left-0 w-full h-1 ${item.bg} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-50/40 to-white opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-0" />
-                
+
                 <div className={`w-14 h-14 ${item.bg} ${item.color} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-500 relative z-10 shadow-sm border border-white`}>
                   <item.icon strokeWidth={2.5} size={24} />
                 </div>
-                
+
                 <h3 className="text-xl font-bold text-slate-900 mb-3 relative z-10 group-hover:text-slate-800 transition-colors">{item.title}</h3>
                 <p className="text-slate-500 text-base leading-relaxed relative z-10">{item.description}</p>
-                
+
                 <Link href="/contact" className={`mt-8 flex items-center text-sm font-semibold transition-colors relative z-10 cursor-pointer ${item.color} opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 duration-300`}>
                   Learn more <span className="ml-1">→</span>
                 </Link>
