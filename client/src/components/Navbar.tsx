@@ -7,10 +7,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { logout } from "@/redux/slices/auth/authSlice";
 
+import { usePathname } from "next/navigation";
+
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const pathname = usePathname();
+  
+  const isLightPage = pathname === '/about' || pathname === '/services' || pathname === '/contact';
 
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
@@ -86,10 +91,10 @@ const Navbar = () => {
                 <span className="text-white font-black text-lg">WC</span>
               </div>
               <div className="hidden sm:flex flex-col leading-tight">
-                <span className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-100/90">
+                <span className={`text-sm font-semibold uppercase tracking-[0.25em] ${isLightPage ? 'text-slate-900' : 'text-slate-100/90'}`}>
                   WISER CONSULTING
                 </span>
-                <span className="text-[11px] text-slate-300 uppercase tracking-[0.25em]">
+                <span className={`text-[11px] uppercase tracking-[0.25em] ${isLightPage ? 'text-slate-500' : 'text-slate-300'}`}>
                   CONSULTANT
                 </span>
               </div>
