@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { register, clearError } from "@/redux/slices/auth/authSlice";
@@ -12,6 +13,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { ArrowLeft } from "lucide-react";
 
 export function SignupForm({
   className,
@@ -51,6 +53,15 @@ export function SignupForm({
       {...props}
     >
       <FieldGroup>
+        <div className="relative pb-6">
+          <Link
+            href="/"
+            className="absolute left-0 top-0 inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to website
+          </Link>
+        </div>
         <div className="flex flex-col items-center gap-1 text-center">
           <h1 className="text-2xl font-bold">Create your account</h1>
           <p className="text-sm text-balance text-muted-foreground">

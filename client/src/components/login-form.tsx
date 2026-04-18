@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { login, clearError } from "@/redux/slices/auth/authSlice";
 import { cn } from "@/lib/utils";
 import { isAdminRole } from "@/utils/authRole";
+import { ArrowLeft } from "lucide-react";
 
 export function LoginForm({
   className,
@@ -42,6 +44,15 @@ export function LoginForm({
       onSubmit={handleSubmit}
       {...props}
     >
+      <div className="relative pb-6">
+        <Link
+          href="/"
+          className="absolute left-0 top-0 inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to website
+        </Link>
+      </div>
       <div className="flex flex-col items-center gap-1 text-center">
         <h1 className="text-2xl font-bold text-slate-900">Login to your account</h1>
         <p className="text-sm text-slate-500">
