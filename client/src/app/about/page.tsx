@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ShieldCheck, Heart, Award, TrendingUp } from "lucide-react";
+import { ShieldCheck, Heart, Award, TrendingUp, Star } from "lucide-react";
 import Link from 'next/link';
 
 const AboutPage = () => {
@@ -164,6 +164,102 @@ const AboutPage = () => {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section className="py-24 bg-slate-50 overflow-hidden border-t border-slate-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16 text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100/50 text-blue-700 font-bold text-xs tracking-wider uppercase mb-4 shadow-sm border border-blue-200/50">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span> Client Testimonial
+          </div>
+          <h2 className="text-[36px] md:text-[46px] font-black bg-clip-text text-transparent bg-gradient-to-r from-[#0a1128] via-blue-800 to-cyan-600 tracking-tight">
+            What Our Client Say's
+          </h2>
+        </div>
+
+        <div className="flex overflow-hidden relative group w-full">
+          <motion.div
+            className="flex gap-6 px-3"
+            animate={{ x: ["0%", "-50%"] }}
+            transition={{ ease: "linear", duration: 35, repeat: Infinity }}
+          >
+            {[
+              {
+                name: "Sarah Jenkins",
+                text: "The team made my student visa process incredibly smooth. Their attention to detail meant my application was approved in record time without any hassle.",
+                initials: "SJ"
+              },
+              {
+                name: "David Chen",
+                text: "I was overwhelmed by the immigration paperwork for my work visa. Wiser Consulting handled everything professionally and kept me informed at every step.",
+                initials: "DC"
+              },
+              {
+                name: "Elena Rodriguez",
+                text: "Thanks to their expert guidance, my family and I successfully secured our permanent residency. Truly a life-changing service that I highly recommend.",
+                initials: "ER"
+              },
+              {
+                name: "Michael O'Connor",
+                text: "Outstanding consultation! They mapped out clear pathways for my business visa and provided honest, transparent advice avoiding common pitfalls.",
+                initials: "MO"
+              },
+              {
+                name: "Aisha Patel",
+                text: "Professional from start to finish. They practically held my hand through the tourist visa process. I couldn't have asked for a better experience.",
+                initials: "AP"
+              },
+              // Duplicating the array items seamlessly to create the infinite loop
+              {
+                name: "Sarah Jenkins",
+                text: "The team made my student visa process incredibly smooth. Their attention to detail meant my application was approved in record time without any hassle.",
+                initials: "SJ"
+              },
+              {
+                name: "David Chen",
+                text: "I was overwhelmed by the immigration paperwork for my work visa. Wiser Consulting handled everything professionally and kept me informed at every step.",
+                initials: "DC"
+              },
+              {
+                name: "Elena Rodriguez",
+                text: "Thanks to their expert guidance, my family and I successfully secured our permanent residency. Truly a life-changing service that I highly recommend.",
+                initials: "ER"
+              },
+              {
+                name: "Michael O'Connor",
+                text: "Outstanding consultation! They mapped out clear pathways for my business visa and provided honest, transparent advice avoiding common pitfalls.",
+                initials: "MO"
+              },
+              {
+                name: "Aisha Patel",
+                text: "Professional from start to finish. They practically held my hand through the tourist visa process. I couldn't have asked for a better experience.",
+                initials: "AP"
+              }
+            ].map((testimonial, i) => (
+              <div key={i} className="flex-shrink-0 w-[400px] bg-white rounded-[2rem] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] transition-shadow duration-500">
+                <div className="flex gap-1 mb-6 text-amber-400">
+                  <Star fill="currentColor" size={20} />
+                  <Star fill="currentColor" size={20} />
+                  <Star fill="currentColor" size={20} />
+                  <Star fill="currentColor" size={20} />
+                  <Star fill="currentColor" size={20} />
+                </div>
+                <p className="text-slate-600 leading-relaxed mb-8 text-[15px]">
+                  "{testimonial.text}"
+                </p>
+                <div className="flex items-center gap-4 mt-auto">
+                  <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-700 font-bold text-lg border border-slate-200">
+                    {testimonial.initials}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-[16px]">{testimonial.name}</h4>
+                    <p className="text-sm font-semibold text-[#3b82f6]">Satisfied Client</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </motion.div>
         </div>
       </section>
     </div>
