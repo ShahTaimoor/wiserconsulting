@@ -1,6 +1,5 @@
 import React from 'react';
-import Link from 'next/link';
-import { FileText, CheckCircle, AlertCircle, ArrowLeft, DollarSign } from 'lucide-react';
+import { FileText, CheckCircle, AlertCircle, DollarSign } from 'lucide-react';
 
 const TermsOfService = () => {
   return (
@@ -12,10 +11,6 @@ const TermsOfService = () => {
           <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl"></div>
         </div>
         <div className="max-w-6xl mx-auto relative z-10">
-          <Link href="/" className="inline-flex items-center gap-2 text-slate-300 hover:text-white mb-8 transition">
-            <ArrowLeft className="h-4 w-4" />
-            Back to home
-          </Link>
           <div className="flex items-center gap-4 mb-6">
             <div className="p-4 bg-purple-500/20 rounded-full">
               <FileText className="h-8 w-8 text-purple-400" />
