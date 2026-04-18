@@ -108,7 +108,7 @@ const Navbar = () => {
               </div>
               <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center justify-center h-11 w-11 rounded-2xl border border-slate-200/10 bg-slate-950/80 text-slate-100 shadow-2xl shadow-slate-950/30 transition hover:bg-slate-900"
+                className={`flex items-center justify-center h-11 w-11 rounded-2xl border ${isLightPage ? 'border-white/10 bg-slate-800/80 hover:bg-slate-700' : 'border-slate-200/10 bg-slate-950/80 hover:bg-slate-900'} text-slate-100 shadow-2xl shadow-slate-950/30 transition`}
                 aria-label="Toggle menu"
               >
                 {isOpen ? <X size={24} /> : <Menu size={24} />}
