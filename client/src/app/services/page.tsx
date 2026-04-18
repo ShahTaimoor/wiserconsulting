@@ -158,19 +158,19 @@ export default function ServicesPage() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.5, delay: index * 0.15 }}
-                  className="group relative h-[380px] w-full overflow-hidden rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.08)] cursor-pointer"
+                  className="group relative h-[300px] w-full overflow-hidden rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.08)] cursor-pointer"
                 >
                 <Image src={item.img} alt={item.title} fill className="object-cover transition-transform duration-700 group-hover:scale-110" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0a1128] via-[#0a1128]/40 to-transparent opacity-80 group-hover:opacity-90 transition-opacity duration-500" />
                 
-                <div className="absolute top-6 left-6 inline-flex h-[48px] w-[48px] items-center justify-center rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white font-bold shadow-sm z-10 transition-colors duration-300 group-hover:bg-[#3b82f6] group-hover:border-transparent">
+                <div className="absolute top-5 left-5 inline-flex h-[40px] w-[40px] text-sm items-center justify-center rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white font-bold shadow-sm z-10 transition-colors duration-300 group-hover:bg-[#3b82f6] group-hover:border-transparent">
                   {item.step}
                 </div>
                 
-                <div className="absolute bottom-0 left-0 right-0 p-8 z-20 flex flex-col justify-end translate-y-6 group-hover:translate-y-0 transition-transform duration-500">
-                  <h3 className="text-2xl font-bold text-white mb-3">{item.title}</h3>
+                <div className="absolute bottom-0 left-0 right-0 p-6 z-20 flex flex-col justify-end translate-y-6 group-hover:translate-y-0 transition-transform duration-500">
+                  <h3 className="text-xl font-bold text-white mb-2">{item.title}</h3>
                   <div className="h-0 group-hover:h-auto overflow-hidden transition-all duration-500">
-                    <p className="text-[15px] leading-relaxed text-slate-200 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-150">
+                    <p className="text-[14px] leading-relaxed text-slate-200 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-150">
                       {item.desc}
                     </p>
                   </div>
