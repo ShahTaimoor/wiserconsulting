@@ -137,11 +137,11 @@ const AdminAnalyticsPage = () => {
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <div className="rounded-3xl bg-white p-4 shadow-sm shadow-slate-200/50">
                 <p className="text-xs uppercase tracking-[0.3em] text-slate-900">Average Approval</p>
-                <p className="mt-2 text-3xl font-semibold text-slate-900">{summary.totalSubmissions ? `${Math.round(((summary.statusCounts?.completed ?? 0) / summary.totalSubmissions) * 100)}%` : '0%'}</p>
+                <p className="mt-2 text-3xl font-semibold text-slate-900">{totalSubmissions ? `${Math.round(((summary?.statusCounts?.completed ?? 0) / totalSubmissions) * 100)}%` : '0%'}</p>
               </div>
               <div className="rounded-3xl bg-white p-4 shadow-sm shadow-slate-200/50">
                 <p className="text-xs uppercase tracking-[0.3em] text-slate-900">Pending Attention</p>
-                <p className="mt-2 text-3xl font-semibold text-slate-900">{summary.statusCounts?.pending ?? 0}</p>
+                <p className="mt-2 text-3xl font-semibold text-slate-900">{summary?.statusCounts?.pending ?? 0}</p>
               </div>
             </div>
           </div>
