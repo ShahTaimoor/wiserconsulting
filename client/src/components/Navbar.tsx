@@ -121,13 +121,22 @@ const Navbar = () => {
 
       <AnimatePresence>
         {isOpen && (
-          <motion.section
-            initial={{ x: '100%', opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: '100%', opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="fixed inset-y-0 right-0 z-50 w-full md:w-1/2 bg-slate-950/95 backdrop-blur-xl text-slate-100 shadow-2xl shadow-slate-950/30"
-          >
+          <>
+            {/* Backdrop for clicking outside */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsOpen(false)}
+              className="fixed inset-0 z-40 bg-slate-950/20 backdrop-blur-[2px]"
+            />
+            <motion.section
+              initial={{ x: '100%', opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: '100%', opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="fixed inset-y-0 right-0 z-50 w-full md:w-1/2 bg-slate-950/95 backdrop-blur-xl text-slate-100 shadow-2xl shadow-slate-950/30"
+            >
             <div className="relative flex h-full w-full flex-col justify-between px-6 py-8 sm:px-10 sm:py-12">
               <div className="flex items-center justify-between">
                 <Link href="/" className="flex items-center gap-3">
@@ -222,7 +231,8 @@ const Navbar = () => {
               </div>
             </div>
           </motion.section>
-        )}
+        </>
+      )}
       </AnimatePresence>
     </>
   );
