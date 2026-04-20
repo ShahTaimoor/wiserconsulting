@@ -69,7 +69,7 @@ const AboutPage = () => {
                   <Heart size={80} className="group-hover:fill-rose-500/20 transition-all duration-500" />
                 </div>
                 <p className="text-xs text-slate-400 uppercase tracking-[0.24em] font-semibold mb-3">Trusted by</p>
-                <p className="text-4xl md:text-5xl font-black text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600">10,000+</p>
+                <p className="text-4xl md:text-5xl font-black text-slate-900">10,000+</p>
                 <p className="mt-2 text-slate-600 font-medium">clients worldwide</p>
               </motion.div>
 
@@ -78,7 +78,7 @@ const AboutPage = () => {
                   <TrendingUp size={80} />
                 </div>
                 <p className="text-xs text-slate-400 uppercase tracking-[0.24em] font-semibold mb-3">Success rate</p>
-                <p className="text-4xl md:text-5xl font-black text-slate-900 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600">98%</p>
+                <p className="text-4xl md:text-5xl font-black text-slate-900">98%</p>
                 <p className="mt-2 text-slate-600 font-medium">approved applications</p>
               </motion.div>
             </div>
@@ -173,8 +173,8 @@ const AboutPage = () => {
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100/50 text-blue-700 font-bold text-xs tracking-wider uppercase mb-4 shadow-sm border border-blue-200/50">
             <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span> Client Testimonial
           </div>
-          <h2 className="text-[36px] md:text-[46px] font-black bg-clip-text text-transparent bg-gradient-to-r from-[#0a1128] via-blue-800 to-cyan-600 tracking-tight">
-            What Our Client Say's
+          <h2 className="text-[36px] md:text-[46px] font-black text-[#0a1128] tracking-tight">
+            What Our Client Says
           </h2>
         </div>
 

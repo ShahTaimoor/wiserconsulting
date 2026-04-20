@@ -68,16 +68,32 @@ export const loginUser = async (email: string, password: string): Promise<LoginR
   
   // ✅ Register request
   export const registerUser = async (name: string, email: string, password: string): Promise<RegisterResponse> => {
-    const res = await fetch(`${API_URL}/signup`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
-    });
+    try {
+      const res = await fetch(`${API_URL}/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
   
-    const data: RegisterResponse = await res.json();
-    if (!res.ok) throw new Error(data.message || "Registration failed");
+      const text = await res.text();
+      let data: RegisterResponse | null = null;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = null;
+      }
   
-    return data;
+      if (!res.ok) {
+        throw new Error(data?.message || `Registration failed (${res.status})`);
+      }
+  
+      return data as RegisterResponse;
+    } catch (error: unknown) {
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        throw new Error('Unable to connect to backend. Make sure the backend server is running on http://localhost:5000');
+      }
+      throw error instanceof Error ? error : new Error('Registration failed');
+    }
   };
 
   // ✅ Google OAuth login

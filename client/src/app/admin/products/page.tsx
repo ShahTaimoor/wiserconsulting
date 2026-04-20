@@ -309,33 +309,55 @@ const AdminFormSubmissions = () => {
                   </button>
                 </div>
 
-                {/* Customer Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Customer Information</h3>
-                    <div className="space-y-2">
-                      <p><strong>Name:</strong> {selectedSubmission.name}</p>
-                      <p><strong>Email:</strong> {selectedSubmission.email}</p>
-                      <p><strong>Phone:</strong> {selectedSubmission.phone}</p>
-                    </div>
+                {/* Customer + Travel Details */}
+                <div className="grid grid-cols-1 gap-6 mb-5 md:grid-cols-2">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <h3 className="text-base font-semibold text-slate-900 mb-3">Customer Information</h3>
+                    <dl className="grid gap-y-3 text-sm text-slate-700">
+                      <div className="flex items-start justify-between gap-4">
+                        <dt className="font-medium text-slate-500">Name</dt>
+                        <dd className="text-right text-slate-900">{selectedSubmission.name}</dd>
+                      </div>
+                      <div className="flex items-start justify-between gap-4">
+                        <dt className="font-medium text-slate-500">Email</dt>
+                        <dd className="text-right text-slate-900">{selectedSubmission.email}</dd>
+                      </div>
+                      <div className="flex items-start justify-between gap-4">
+                        <dt className="font-medium text-slate-500">Phone</dt>
+                        <dd className="text-right text-slate-900">{selectedSubmission.phone}</dd>
+                      </div>
+                    </dl>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Travel Information</h3>
-                    <div className="space-y-2">
-                      <p><strong>Destination:</strong> {selectedSubmission.destinationCountry}</p>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <h3 className="text-base font-semibold text-slate-900 mb-3">Travel Information</h3>
+                    <dl className="grid gap-y-3 text-sm text-slate-700">
+                      <div className="flex items-start justify-between gap-4">
+                        <dt className="font-medium text-slate-500">Destination</dt>
+                        <dd className="text-right text-slate-900">{selectedSubmission.destinationCountry}</dd>
+                      </div>
                       {selectedSubmission.otherCountry && (
-                        <p><strong>Other Country:</strong> {selectedSubmission.otherCountry}</p>
+                        <div className="flex items-start justify-between gap-4">
+                          <dt className="font-medium text-slate-500">Other Country</dt>
+                          <dd className="text-right text-slate-900">{selectedSubmission.otherCountry}</dd>
+                        </div>
                       )}
-                      <p><strong>Visa Type:</strong> {selectedSubmission.visaType}</p>
-                      <p><strong>Travel Period:</strong> {selectedSubmission.fromDate} to {selectedSubmission.toDate}</p>
-                    </div>
+                      <div className="flex items-start justify-between gap-4">
+                        <dt className="font-medium text-slate-500">Visa Type</dt>
+                        <dd className="text-right text-slate-900">{selectedSubmission.visaType}</dd>
+                      </div>
+                      <div className="flex items-start justify-between gap-4">
+                        <dt className="font-medium text-slate-500">Travel Period</dt>
+                        <dd className="text-right text-slate-900">{selectedSubmission.fromDate} to {selectedSubmission.toDate}</dd>
+                      </div>
+                    </dl>
                   </div>
                 </div>
 
                 {/* Purpose */}
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-3">Purpose of Travel</h3>
-                  <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedSubmission.purpose}</p>
+                <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <h3 className="text-base font-semibold text-slate-900 mb-3">Purpose of Travel</h3>
+                  <p className="text-sm text-slate-700 leading-6">{selectedSubmission.purpose}</p>
                 </div>
 
                 {/* Documents */}
@@ -360,13 +382,13 @@ const AdminFormSubmissions = () => {
                                 <>
                                   <button
                                     onClick={() => handlePreviewDocument(doc)}
-                                    className="flex-1 bg-blue-500 text-white text-xs py-1 px-2 rounded hover:bg-blue-600 transition-colors"
+                                    className="flex-1 bg-slate-900 text-white text-xs py-1 px-2 rounded-lg hover:bg-slate-800 transition-colors"
                                   >
                                     Preview
                                   </button>
                                   <button
                                     onClick={() => handleDownloadDocument(doc)}
-                                    className="flex-1 bg-green-500 text-white text-xs py-1 px-2 rounded hover:bg-green-600 transition-colors"
+                                    className="flex-1 bg-slate-700 text-white text-xs py-1 px-2 rounded-lg hover:bg-slate-600 transition-colors"
                                   >
                                     Download
                                   </button>
@@ -377,13 +399,13 @@ const AdminFormSubmissions = () => {
                             <div className="mb-2 flex space-x-2">
                               <button
                                 onClick={() => handleRenameDocument(doc._id, doc.originalname)}
-                                className="flex-1 bg-orange-500 text-white text-xs py-1 px-2 rounded hover:bg-orange-600 transition-colors"
+                                className="flex-1 bg-slate-800 text-white text-xs py-1 px-2 rounded-lg hover:bg-slate-900 transition-colors"
                               >
                                 Rename
                               </button>
                               <button
                                 onClick={() => handleDeleteDocument(doc._id, doc.originalname)}
-                                className="flex-1 bg-red-500 text-white text-xs py-1 px-2 rounded hover:bg-red-600 transition-colors"
+                                className="flex-1 bg-red-700 text-white text-xs py-1 px-2 rounded-lg hover:bg-red-800 transition-colors"
                               >
                                 Delete
                               </button>
@@ -397,12 +419,12 @@ const AdminFormSubmissions = () => {
                                   ...prev,
                                   [doc._id]: e.target.value
                                 }))}
-                                className="w-full text-xs border border-gray-300 rounded p-2 resize-none"
+                                className="w-full text-xs border border-slate-300 rounded-lg p-2 resize-none bg-slate-50"
                                 rows={2}
                               />
                               <button
                                 onClick={() => handleSaveComment(doc._id, documentComments[doc._id] || '')}
-                                className="mt-1 w-full bg-purple-500 text-white text-xs py-1 px-2 rounded hover:bg-purple-600 transition-colors"
+                                className="mt-2 w-full bg-slate-900 text-white text-xs py-2 rounded-lg hover:bg-slate-800 transition-colors"
                               >
                                 Save Comment
                               </button>
@@ -510,7 +532,7 @@ const AdminFormSubmissions = () => {
                 <div className="mt-4 flex justify-end space-x-3">
                   <button
                     onClick={() => handleDownloadDocument({ cloudinaryUrl: previewDocument.url, originalname: previewDocument.name })}
-                    className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                    className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
                   >
                     Download
                   </button>
@@ -519,7 +541,7 @@ const AdminFormSubmissions = () => {
                       setShowDocumentPreview(false);
                       setPreviewDocument(null);
                     }}
-                    className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+                    className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
                   >
                     Close
                   </button>
@@ -578,7 +600,7 @@ const AdminFormSubmissions = () => {
                 <button
                   onClick={submitRename}
                   disabled={!newDocumentName.trim()}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Rename
                 </button>
