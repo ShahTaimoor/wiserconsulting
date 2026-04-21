@@ -201,7 +201,7 @@ const Navbar = () => {
                           <Link
                             href="/admin/products"
                             onClick={() => setIsOpen(false)}
-                            className="inline-flex items-center justify-center gap-2 rounded-full bg-blue-600 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500"
+                            className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-800 border border-slate-700 px-8 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
                           >
                             <LayoutDashboard size={18} />
                             Admin Dashboard
