@@ -198,12 +198,11 @@ const AdminFormSubmissions = () => {
                       <select
                         value={submission.status}
                         onChange={(e) => handleStatusUpdate(submission._id, e.target.value)}
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          submission.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          submission.status === 'reviewed' ? 'bg-blue-100 text-blue-800' :
-                          submission.status === 'contacted' ? 'bg-purple-100 text-purple-800' :
-                          'bg-green-100 text-green-800'
-                        }`}
+                        className={`px-2 py-1 text-xs font-medium rounded-full ${submission.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            submission.status === 'reviewed' ? 'bg-blue-100 text-blue-800' :
+                              submission.status === 'contacted' ? 'bg-purple-100 text-purple-800' :
+                                'bg-green-100 text-green-800'
+                          }`}
                       >
                         <option value="pending">Pending</option>
                         <option value="reviewed">Reviewed</option>
@@ -262,7 +261,7 @@ const AdminFormSubmissions = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
 
                   <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                    <h3 className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-3">Customer Info</h3>
+                    <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-3">Customer Information</h3>
                     <dl className="space-y-2.5 text-sm">
                       <div>
                         <dt className="text-xs text-slate-400 font-medium">Name</dt>
@@ -280,7 +279,7 @@ const AdminFormSubmissions = () => {
                   </div>
 
                   <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                    <h3 className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-3">Travel Info</h3>
+                    <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-3">Travel Information</h3>
                     <dl className="space-y-2.5 text-sm">
                       <div>
                         <dt className="text-xs text-slate-400 font-medium">Destination</dt>
