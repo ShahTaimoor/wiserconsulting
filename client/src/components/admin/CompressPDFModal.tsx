@@ -20,15 +20,15 @@ const CompressPDFModal: React.FC<CompressPDFModalProps> = ({ isOpen, onClose, su
   const [compressing, setCompressing] = useState(false);
 
   const pdfDocuments = useMemo(
-    () => submission?.documents.filter(doc => 
+    () => submission?.documents.filter(doc =>
       doc.cloudinaryUrl && doc.mimetype === 'application/pdf'
     ) || [],
     [submission]
   );
 
   const handleDocumentToggle = (documentId: string) => {
-    setSelectedDocuments(prev => 
-      prev.includes(documentId) 
+    setSelectedDocuments(prev =>
+      prev.includes(documentId)
         ? prev.filter(id => id !== documentId)
         : [...prev, documentId]
     );
@@ -64,8 +64,14 @@ const CompressPDFModal: React.FC<CompressPDFModalProps> = ({ isOpen, onClose, su
   if (!isOpen || !submission) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+    <div
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">Compress PDF Documents</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
