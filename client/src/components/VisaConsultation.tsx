@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Typed from 'typed.js';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import AssessmentForm from './AssessmentForm';
@@ -503,6 +503,18 @@ const VisaConsultation: React.FC = () => {
               </span>
             )}
           </button>
+ 
+           <AnimatePresence>
+             {showComments && (
+               <motion.div
+                 initial={{ opacity: 0 }}
+                 animate={{ opacity: 1 }}
+                 exit={{ opacity: 0 }}
+                 onClick={() => setShowComments(false)}
+                 className="fixed inset-0 bg-slate-900/10 backdrop-blur-[1px] z-30"
+               />
+             )}
+           </AnimatePresence>
 
           {/* Comments Panel */}
           <motion.div
