@@ -149,8 +149,8 @@ const formSubmissionSlice = createSlice({
       })
       .addCase(fetchCustomerSubmission.fulfilled, (state, action) => {
         state.loading = false;
-        if (action.payload.success && action.payload.submission) {
-          state.currentSubmission = action.payload.submission;
+        if (action.payload.success && action.payload.data?.submission) {
+          state.currentSubmission = action.payload.data.submission;
         } else {
           state.error = action.payload.message || 'No submission found';
         }
@@ -187,8 +187,8 @@ const formSubmissionSlice = createSlice({
       })
       .addCase(fetchAdminComments.fulfilled, (state, action) => {
         state.loading = false;
-        if (action.payload.success && action.payload.submission) {
-          state.adminComments = action.payload.submission.adminComments || [];
+        if (action.payload.success && action.payload.data?.submission) {
+          state.adminComments = action.payload.data.submission.adminComments || [];
         } else {
           state.adminComments = [];
         }

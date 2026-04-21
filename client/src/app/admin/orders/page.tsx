@@ -58,7 +58,7 @@ const AdminOrders = () => {
           <h2 className="text-lg font-semibold text-gray-900">Submissions</h2>
           <p className="text-gray-600">Manage visa assessment submissions and merge documents</p>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">

@@ -3,12 +3,12 @@
 import { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
-import { 
-  fetchSubmissions, 
-  updateStatus, 
-  saveComment, 
-  removeDocument, 
-  removeSubmission 
+import {
+  fetchSubmissions,
+  updateStatus,
+  saveComment,
+  removeDocument,
+  removeSubmission
 } from '@/redux/slices/admin/adminSlice';
 import { renameDocumentAction } from '@/redux/slices/formSubmission/formSubmissionSlice';
 import { filterSubmissionsByStatus, getFileUrl } from '@/utils/filterHelpers';
@@ -32,6 +32,18 @@ const AdminFormSubmissions = () => {
     dispatch(fetchSubmissions());
   }, [dispatch]);
 
+  // Lock body scroll when modal is open to prevent double scrollbars
+  useEffect(() => {
+    if (showDetailsModal || showDocumentPreview || showRenameModal) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [showDetailsModal, showDocumentPreview, showRenameModal]);
+
   const filteredSubmissions = useMemo(
     () => filterSubmissionsByStatus(submissions, filterStatus),
     [submissions, filterStatus]
@@ -44,11 +56,7 @@ const AdminFormSubmissions = () => {
   const handlePreviewDocument = (doc: { cloudinaryUrl?: string; originalname: string; mimetype: string }) => {
     const fileUrl = getFileUrl(doc);
     if (fileUrl) {
-      setPreviewDocument({
-        url: fileUrl,
-        name: doc.originalname,
-        type: doc.mimetype
-      });
+      setPreviewDocument({ url: fileUrl, name: doc.originalname, type: doc.mimetype });
       setShowDocumentPreview(true);
     } else {
       alert('File URL not available for preview');
@@ -68,18 +76,9 @@ const AdminFormSubmissions = () => {
 
   const handleSaveComment = async (documentId: string, comment: string) => {
     if (!selectedSubmission) return;
-    
     try {
-      await dispatch(saveComment({
-        submissionId: selectedSubmission._id,
-        documentId,
-        comment
-      })).unwrap();
-      
-      setDocumentComments(prev => ({
-        ...prev,
-        [documentId]: comment
-      }));
+      await dispatch(saveComment({ submissionId: selectedSubmission._id, documentId, comment })).unwrap();
+      setDocumentComments(prev => ({ ...prev, [documentId]: comment }));
       alert('Comment saved and email sent to customer!');
     } catch (error) {
       alert(`Failed to save comment: ${error}`);
@@ -93,26 +92,16 @@ const AdminFormSubmissions = () => {
   };
 
   const submitRename = async () => {
-    if (!selectedSubmission || !renamingDocument || !newDocumentName.trim()) {
-      return;
-    }
-
+    if (!selectedSubmission || !renamingDocument || !newDocumentName.trim()) return;
     try {
       await dispatch(renameDocumentAction({
         submissionId: selectedSubmission._id,
         documentId: renamingDocument.id,
         newName: newDocumentName.trim()
       })).unwrap();
-
-      // Refetch submissions to get updated data
       await dispatch(fetchSubmissions());
-      
-      // Update selected submission
       const updated = submissions.find(s => s._id === selectedSubmission._id);
-      if (updated) {
-        setSelectedSubmission(updated);
-      }
-
+      if (updated) setSelectedSubmission(updated);
       setShowRenameModal(false);
       setRenamingDocument(null);
       setNewDocumentName('');
@@ -124,21 +113,11 @@ const AdminFormSubmissions = () => {
 
   const handleDeleteDocument = async (documentId: string, documentName: string) => {
     if (!selectedSubmission) return;
-
-    const confirmDelete = window.confirm(`Are you sure you want to delete "${documentName}"? This action cannot be undone.`);
-    if (!confirmDelete) return;
-
+    if (!window.confirm(`Are you sure you want to delete "${documentName}"? This action cannot be undone.`)) return;
     try {
-      await dispatch(removeDocument({
-        submissionId: selectedSubmission._id,
-        documentId
-      })).unwrap();
-
-      // Update selected submission
+      await dispatch(removeDocument({ submissionId: selectedSubmission._id, documentId })).unwrap();
       const updated = submissions.find(s => s._id === selectedSubmission._id);
-      if (updated) {
-        setSelectedSubmission(updated);
-      }
+      if (updated) setSelectedSubmission(updated);
       alert('Document deleted successfully!');
     } catch (error) {
       alert(`Failed to delete document: ${error}`);
@@ -146,9 +125,7 @@ const AdminFormSubmissions = () => {
   };
 
   const handleDeleteSubmission = async (submissionId: string, submissionName: string) => {
-    const confirmDelete = window.confirm(`Are you sure you want to delete submission for "${submissionName}"? This action cannot be undone.`);
-    if (!confirmDelete) return;
-
+    if (!window.confirm(`Are you sure you want to delete submission for "${submissionName}"? This action cannot be undone.`)) return;
     try {
       await dispatch(removeSubmission(submissionId)).unwrap();
       if (selectedSubmission?._id === submissionId) {
@@ -160,6 +137,8 @@ const AdminFormSubmissions = () => {
       alert(`Failed to delete submission: ${error}`);
     }
   };
+
+  const closeDetails = () => { setShowDetailsModal(false); setSelectedSubmission(null); };
 
   if (loading) {
     return (
@@ -175,25 +154,23 @@ const AdminFormSubmissions = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600">{error}</p>
-        </div>
+        <div className="text-center"><p className="text-red-600">{error}</p></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
+    <div className="min-h-screen bg-gray-100 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h1 className="text-2xl font-bold text-gray-800 mb-4">Visa Assessment Submissions</h1>
+        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">Visa Assessment Submissions</h1>
 
           {/* Filter Controls */}
           <div className="flex flex-wrap gap-4 mb-6">
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
             >
               <option value="all">All Submissions</option>
               <option value="pending">Pending</option>
@@ -204,59 +181,40 @@ const AdminFormSubmissions = () => {
           </div>
 
           {/* Submissions Table */}
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
             <table className="min-w-full bg-white border border-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Customer
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Destination
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Visa Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Destination</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Visa Type</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Date</th>
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredSubmissions.map((submission) => (
                   <tr key={submission._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{submission.name}</div>
-                        <div className="text-sm text-gray-500">{submission.email}</div>
-                        <div className="text-sm text-gray-500">{submission.phone}</div>
-                      </div>
+                    <td className="px-4 sm:px-6 py-4">
+                      <div className="text-sm font-medium text-gray-900">{submission.name}</div>
+                      <div className="text-xs text-gray-500">{submission.email}</div>
+                      <div className="text-xs text-gray-500 sm:hidden">{submission.destinationCountry}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 sm:px-6 py-4 hidden sm:table-cell">
                       <div className="text-sm text-gray-900">{submission.destinationCountry}</div>
-                      {submission.otherCountry && (
-                        <div className="text-sm text-gray-500">({submission.otherCountry})</div>
-                      )}
+                      {submission.otherCountry && <div className="text-xs text-gray-500">({submission.otherCountry})</div>}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{submission.visaType}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 sm:px-6 py-4 hidden md:table-cell text-sm text-gray-900">{submission.visaType}</td>
+                    <td className="px-4 sm:px-6 py-4">
                       <select
                         value={submission.status}
                         onChange={(e) => handleStatusUpdate(submission._id, e.target.value)}
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          submission.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        className={`px-2 py-1 text-xs font-medium rounded-full ${submission.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                           submission.status === 'reviewed' ? 'bg-blue-100 text-blue-800' :
-                          submission.status === 'contacted' ? 'bg-purple-100 text-purple-800' :
-                          'bg-green-100 text-green-800'
-                        }`}
+                            submission.status === 'contacted' ? 'bg-purple-100 text-purple-800' :
+                              'bg-green-100 text-green-800'
+                          }`}
                       >
                         <option value="pending">Pending</option>
                         <option value="reviewed">Reviewed</option>
@@ -264,25 +222,24 @@ const AdminFormSubmissions = () => {
                         <option value="completed">Completed</option>
                       </select>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-4 sm:px-6 py-4 hidden sm:table-cell text-sm text-gray-500">
                       {new Date(submission.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button
-                        onClick={() => {
-                          setSelectedSubmission(submission);
-                          setShowDetailsModal(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-900 mr-3"
-                      >
-                        View Details
-                      </button>
-                      <button
-                        onClick={() => handleDeleteSubmission(submission._id, submission.name)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Delete
-                      </button>
+                    <td className="px-4 sm:px-6 py-4">
+                      <div className="flex flex-col sm:flex-row gap-1.5">
+                        <button
+                          onClick={() => { setSelectedSubmission(submission); setShowDetailsModal(true); }}
+                          className="text-blue-600 hover:text-blue-900 text-xs font-medium whitespace-nowrap"
+                        >
+                          View Details
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSubmission(submission._id, submission.name)}
+                          className="text-red-600 hover:text-red-900 text-xs font-medium"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -291,147 +248,119 @@ const AdminFormSubmissions = () => {
           </div>
         </div>
 
-        {/* Details Modal */}
+        {/* ══════════════════════════════════════════
+            SUBMISSION DETAILS MODAL — fully responsive
+        ══════════════════════════════════════════ */}
         {showDetailsModal && selectedSubmission && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-bold text-gray-800">Submission Details</h2>
-                  <button
-                    onClick={() => {
-                      setShowDetailsModal(false);
-                      setSelectedSubmission(null);
-                    }}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    ✕
-                  </button>
-                </div>
+          <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-md flex items-start sm:items-center justify-center p-2 sm:p-4 z-50 overflow-x-hidden">
+            <div className="bg-white rounded-xl w-full max-w-5xl my-2 sm:my-4 shadow-2xl flex flex-col overflow-hidden">
 
-                {/* Customer + Travel Details */}
-                <div className="grid grid-cols-1 gap-6 mb-5 md:grid-cols-2">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <h3 className="text-base font-semibold text-slate-900 mb-3">Customer Information</h3>
-                    <dl className="grid gap-y-3 text-sm text-slate-700">
-                      <div className="flex items-start justify-between gap-4">
-                        <dt className="font-medium text-slate-500">Name</dt>
-                        <dd className="text-right text-slate-900">{selectedSubmission.name}</dd>
+              {/* Sticky Header */}
+              <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-xl z-10 shrink-0">
+                <h2 className="text-base sm:text-xl font-bold text-gray-800">Submission Details</h2>
+                <button
+                  onClick={closeDetails}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Scrollable Body */}
+              <div className="p-4 sm:p-6 overflow-y-auto overflow-x-hidden max-h-[80vh] space-y-5">
+
+                {/* Info Cards — 1 col mobile / 2 col tablet / 3 col desktop */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-3">Customer Information</h3>
+                    <dl className="space-y-2.5 text-sm">
+                      <div>
+                        <dt className="text-xs text-slate-400 font-medium">Name</dt>
+                        <dd className="text-slate-900 font-semibold break-words">{selectedSubmission.name}</dd>
                       </div>
-                      <div className="flex items-start justify-between gap-4">
-                        <dt className="font-medium text-slate-500">Email</dt>
-                        <dd className="text-right text-slate-900">{selectedSubmission.email}</dd>
+                      <div>
+                        <dt className="text-xs text-slate-400 font-medium">Email</dt>
+                        <dd className="text-slate-900 font-semibold break-all">{selectedSubmission.email}</dd>
                       </div>
-                      <div className="flex items-start justify-between gap-4">
-                        <dt className="font-medium text-slate-500">Phone</dt>
-                        <dd className="text-right text-slate-900">{selectedSubmission.phone}</dd>
+                      <div>
+                        <dt className="text-xs text-slate-400 font-medium">Phone</dt>
+                        <dd className="text-slate-900 font-semibold">{selectedSubmission.phone || '—'}</dd>
                       </div>
                     </dl>
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <h3 className="text-base font-semibold text-slate-900 mb-3">Travel Information</h3>
-                    <dl className="grid gap-y-3 text-sm text-slate-700">
-                      <div className="flex items-start justify-between gap-4">
-                        <dt className="font-medium text-slate-500">Destination</dt>
-                        <dd className="text-right text-slate-900">{selectedSubmission.destinationCountry}</dd>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-3">Travel Information</h3>
+                    <dl className="space-y-2.5 text-sm">
+                      <div>
+                        <dt className="text-xs text-slate-400 font-medium">Destination</dt>
+                        <dd className="text-slate-900 font-semibold">{selectedSubmission.destinationCountry}{selectedSubmission.otherCountry ? ` (${selectedSubmission.otherCountry})` : ''}</dd>
                       </div>
-                      {selectedSubmission.otherCountry && (
-                        <div className="flex items-start justify-between gap-4">
-                          <dt className="font-medium text-slate-500">Other Country</dt>
-                          <dd className="text-right text-slate-900">{selectedSubmission.otherCountry}</dd>
-                        </div>
-                      )}
-                      <div className="flex items-start justify-between gap-4">
-                        <dt className="font-medium text-slate-500">Visa Type</dt>
-                        <dd className="text-right text-slate-900">{selectedSubmission.visaType}</dd>
+                      <div>
+                        <dt className="text-xs text-slate-400 font-medium">Visa Type</dt>
+                        <dd className="text-slate-900 font-semibold">{selectedSubmission.visaType}</dd>
                       </div>
-                      <div className="flex items-start justify-between gap-4">
-                        <dt className="font-medium text-slate-500">Travel Period</dt>
-                        <dd className="text-right text-slate-900">{selectedSubmission.fromDate} to {selectedSubmission.toDate}</dd>
+                      <div>
+                        <dt className="text-xs text-slate-400 font-medium">Travel Period</dt>
+                        <dd className="text-slate-900 font-semibold text-xs sm:text-sm">{selectedSubmission.fromDate} → {selectedSubmission.toDate}</dd>
                       </div>
                     </dl>
                   </div>
-                </div>
 
-                {/* Purpose */}
-                <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <h3 className="text-base font-semibold text-slate-900 mb-3">Purpose of Travel</h3>
-                  <p className="text-sm text-slate-700 leading-6">{selectedSubmission.purpose}</p>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:col-span-2 lg:col-span-1">
+                    <h3 className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-3">Purpose of Travel</h3>
+                    <p className="text-sm text-slate-700 leading-relaxed break-words">{selectedSubmission.purpose}</p>
+                  </div>
                 </div>
 
                 {/* Documents */}
                 {selectedSubmission.documents && selectedSubmission.documents.length > 0 && (
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Uploaded Documents</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-gray-800 mb-3">
+                      Uploaded Documents
+                      <span className="ml-2 text-xs font-medium bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                        {selectedSubmission.documents.length}
+                      </span>
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {selectedSubmission.documents.map((doc) => {
                         const fileUrl = getFileUrl(doc);
                         return (
-                          <div key={doc._id} className="border border-gray-200 rounded-lg p-4">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-medium text-gray-800">{doc.fieldName}</span>
-                              <span className="text-xs text-gray-500">
-                                {(doc.size / 1024 / 1024).toFixed(2)} MB
-                              </span>
+                          <div key={doc._id} className="border border-gray-200 rounded-xl p-4 bg-white shadow-sm">
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <span className="text-sm font-semibold text-gray-900 break-words leading-tight">{doc.fieldName}</span>
+                              <span className="text-xs text-gray-400 whitespace-nowrap shrink-0">{(doc.size / 1024 / 1024).toFixed(2)} MB</span>
                             </div>
-                            <div className="text-xs text-gray-600 mb-3">{doc.originalname}</div>
+                            <p className="text-xs text-gray-500 mb-3 break-all">{doc.originalname}</p>
 
-                            <div className="flex space-x-2 mb-2">
-                              {fileUrl && (
-                                <>
-                                  <button
-                                    onClick={() => handlePreviewDocument(doc)}
-                                    className="flex-1 bg-slate-900 text-white text-xs py-1 px-2 rounded-lg hover:bg-slate-800 transition-colors"
-                                  >
-                                    Preview
-                                  </button>
-                                  <button
-                                    onClick={() => handleDownloadDocument(doc)}
-                                    className="flex-1 bg-slate-700 text-white text-xs py-1 px-2 rounded-lg hover:bg-slate-600 transition-colors"
-                                  >
-                                    Download
-                                  </button>
-                                </>
-                              )}
+                            {fileUrl && (
+                              <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+                                <button onClick={() => handlePreviewDocument(doc)} className="bg-slate-900 text-white text-xs py-2 rounded-lg hover:bg-slate-800 transition font-medium">Preview</button>
+                                <button onClick={() => handleDownloadDocument(doc)} className="bg-slate-600 text-white text-xs py-2 rounded-lg hover:bg-slate-500 transition font-medium">Download</button>
+                              </div>
+                            )}
+                            <div className="grid grid-cols-2 gap-1.5 mb-3">
+                              <button onClick={() => handleRenameDocument(doc._id, doc.originalname)} className="bg-slate-700 text-white text-xs py-2 rounded-lg hover:bg-slate-800 transition font-medium">Rename</button>
+                              <button onClick={() => handleDeleteDocument(doc._id, doc.originalname)} className="bg-red-600 text-white text-xs py-2 rounded-lg hover:bg-red-700 transition font-medium">Delete</button>
                             </div>
 
-                            <div className="mb-2 flex space-x-2">
-                              <button
-                                onClick={() => handleRenameDocument(doc._id, doc.originalname)}
-                                className="flex-1 bg-slate-800 text-white text-xs py-1 px-2 rounded-lg hover:bg-slate-900 transition-colors"
-                              >
-                                Rename
-                              </button>
-                              <button
-                                onClick={() => handleDeleteDocument(doc._id, doc.originalname)}
-                                className="flex-1 bg-red-700 text-white text-xs py-1 px-2 rounded-lg hover:bg-red-800 transition-colors"
-                              >
-                                Delete
-                              </button>
-                            </div>
-
-                            <div className="mt-3">
-                              <textarea
-                                placeholder="Add a comment for this document..."
-                                value={documentComments[doc._id] || ''}
-                                onChange={(e) => setDocumentComments(prev => ({
-                                  ...prev,
-                                  [doc._id]: e.target.value
-                                }))}
-                                className="w-full text-xs border border-slate-300 rounded-lg p-2 resize-none bg-slate-50"
-                                rows={2}
-                              />
-                              <button
-                                onClick={() => handleSaveComment(doc._id, documentComments[doc._id] || '')}
-                                className="mt-2 w-full bg-slate-900 text-white text-xs py-2 rounded-lg hover:bg-slate-800 transition-colors"
-                              >
-                                Save Comment
-                              </button>
-                            </div>
+                            <textarea
+                              placeholder="Add a comment for this document..."
+                              value={documentComments[doc._id] || ''}
+                              onChange={(e) => setDocumentComments(prev => ({ ...prev, [doc._id]: e.target.value }))}
+                              className="w-full text-xs border border-slate-200 rounded-lg p-2 resize-none bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                              rows={2}
+                            />
+                            <button
+                              onClick={() => handleSaveComment(doc._id, documentComments[doc._id] || '')}
+                              className="mt-1.5 w-full bg-slate-900 text-white text-xs py-2 rounded-lg hover:bg-slate-800 transition font-medium"
+                            >
+                              Save Comment
+                            </button>
 
                             {doc.comment && (
-                              <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-800">
+                              <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-800 break-all">
                                 <strong>Comment:</strong> {doc.comment}
                               </div>
                             )}
@@ -444,18 +373,16 @@ const AdminFormSubmissions = () => {
 
                 {/* Admin Comments */}
                 {selectedSubmission.adminComments && selectedSubmission.adminComments.length > 0 && (
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Admin Comments</h3>
-                    <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-gray-800 mb-3">Admin Comments</h3>
+                    <div className="space-y-3">
                       {selectedSubmission.adminComments.map((comment: AdminComment, index: number) => (
-                        <div key={index} className="border-l-4 border-blue-500 pl-4">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-gray-800">{comment.documentName}</span>
-                            <span className="text-xs text-gray-500">
-                              {new Date(comment.createdAt).toLocaleDateString()}
-                            </span>
+                        <div key={index} className="border-l-4 border-blue-400 pl-3 py-1">
+                          <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
+                            <span className="text-sm font-semibold text-gray-800">{comment.documentName}</span>
+                            <span className="text-xs text-gray-400">{new Date(comment.createdAt).toLocaleDateString()}</span>
                           </div>
-                          <p className="text-gray-700 mt-1">{comment.comment}</p>
+                          <p className="text-sm text-gray-600 break-all">{comment.comment}</p>
                         </div>
                       ))}
                     </div>
@@ -464,23 +391,28 @@ const AdminFormSubmissions = () => {
 
                 {/* Customer Comments */}
                 {selectedSubmission.customerComments && selectedSubmission.customerComments.length > 0 && (
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Customer Comments</h3>
-                    <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-gray-800 mb-3">Customer Comments</h3>
+                    <div className="space-y-3">
                       {selectedSubmission.customerComments.map((comment: CustomerComment, index: number) => (
-                        <div key={index} className="border-l-4 border-green-500 pl-4">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-gray-800">Customer Message</span>
-                            <span className="text-xs text-gray-500">
-                              {new Date(comment.createdAt).toLocaleDateString()}
-                            </span>
+                        <div key={index} className="border-l-4 border-green-400 pl-3 py-1">
+                          <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
+                            <span className="text-sm font-semibold text-gray-800">Customer Message</span>
+                            <span className="text-xs text-gray-400">{new Date(comment.createdAt).toLocaleDateString()}</span>
                           </div>
-                          <p className="text-gray-700 mt-1">{comment.message}</p>
+                          <p className="text-sm text-gray-600 break-all">{comment.message}</p>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-4 sm:px-6 py-3 border-t border-gray-100 bg-gray-50 rounded-b-xl flex justify-end shrink-0">
+                <button onClick={closeDetails} className="px-5 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 transition">
+                  Close
+                </button>
               </div>
             </div>
           </div>
@@ -488,17 +420,14 @@ const AdminFormSubmissions = () => {
 
         {/* Document Preview Modal */}
         {showDocumentPreview && previewDocument && (
-          <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
+          <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 z-50">
+            <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="p-4 sm:p-6">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-gray-800">{previewDocument.name}</h3>
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-800 break-words pr-4">{previewDocument.name}</h3>
                   <button
-                    onClick={() => {
-                      setShowDocumentPreview(false);
-                      setPreviewDocument(null);
-                    }}
-                    className="text-gray-500 hover:text-gray-700"
+                    onClick={() => { setShowDocumentPreview(false); setPreviewDocument(null); }}
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition shrink-0"
                   >
                     ✕
                   </button>
@@ -506,21 +435,11 @@ const AdminFormSubmissions = () => {
 
                 <div className="mb-4">
                   {previewDocument.type.startsWith('image/') ? (
-                    <div className="relative w-full h-96">
-                      <Image
-                        src={previewDocument.url}
-                        alt={previewDocument.name}
-                        fill
-                        className="object-contain rounded-lg"
-                        unoptimized
-                      />
+                    <div className="relative w-full h-64 sm:h-96">
+                      <Image src={previewDocument.url} alt={previewDocument.name} fill className="object-contain rounded-lg" unoptimized />
                     </div>
                   ) : previewDocument.type === 'application/pdf' ? (
-                    <iframe
-                      src={previewDocument.url}
-                      className="w-full h-96 rounded-lg"
-                      title={previewDocument.name}
-                    />
+                    <iframe src={previewDocument.url} className="w-full h-64 sm:h-96 rounded-lg" title={previewDocument.name} />
                   ) : (
                     <div className="text-center py-8">
                       <p className="text-gray-600">Preview not available for this file type.</p>
@@ -529,19 +448,16 @@ const AdminFormSubmissions = () => {
                   )}
                 </div>
 
-                <div className="mt-4 flex justify-end space-x-3">
+                <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
                   <button
                     onClick={() => handleDownloadDocument({ cloudinaryUrl: previewDocument.url, originalname: previewDocument.name })}
-                    className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
+                    className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition text-sm font-medium"
                   >
                     Download
                   </button>
                   <button
-                    onClick={() => {
-                      setShowDocumentPreview(false);
-                      setPreviewDocument(null);
-                    }}
-                    className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+                    onClick={() => { setShowDocumentPreview(false); setPreviewDocument(null); }}
+                    className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition text-sm font-medium"
                   >
                     Close
                   </button>
@@ -553,24 +469,20 @@ const AdminFormSubmissions = () => {
 
         {/* Rename Document Modal */}
         {showRenameModal && renamingDocument && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
+          <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-md flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl w-full max-w-md p-6 shadow-2xl">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-800">Rename Document</h3>
                 <button
-                  onClick={() => {
-                    setShowRenameModal(false);
-                    setRenamingDocument(null);
-                    setNewDocumentName('');
-                  }}
-                  className="text-gray-500 hover:text-gray-700"
+                  onClick={() => { setShowRenameModal(false); setRenamingDocument(null); setNewDocumentName(''); }}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition"
                 >
                   ✕
                 </button>
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Current Name: <span className="text-gray-500">{renamingDocument.name}</span>
                 </label>
                 <input
@@ -578,29 +490,23 @@ const AdminFormSubmissions = () => {
                   value={newDocumentName}
                   onChange={(e) => setNewDocumentName(e.target.value)}
                   placeholder="Enter new document name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   autoFocus
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  File extension will be preserved automatically
-                </p>
+                <p className="text-xs text-gray-400 mt-1">File extension will be preserved automatically</p>
               </div>
 
-              <div className="flex justify-end space-x-3">
+              <div className="flex justify-end gap-3">
                 <button
-                  onClick={() => {
-                    setShowRenameModal(false);
-                    setRenamingDocument(null);
-                    setNewDocumentName('');
-                  }}
-                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  onClick={() => { setShowRenameModal(false); setRenamingDocument(null); setNewDocumentName(''); }}
+                  className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={submitRename}
                   disabled={!newDocumentName.trim()}
-                  className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="px-4 py-2 text-sm bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
                 >
                   Rename
                 </button>
