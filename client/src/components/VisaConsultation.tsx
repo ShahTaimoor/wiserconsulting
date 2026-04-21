@@ -45,7 +45,12 @@ const VisaConsultation: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const typedEl = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!typedEl.current) return;
@@ -457,7 +462,7 @@ const VisaConsultation: React.FC = () => {
       </section>
 
       {/* Comments Toggle Button */}
-      {user && (
+      {mounted && user && (
         <>
           <button
             onClick={() => setShowComments(!showComments)}
