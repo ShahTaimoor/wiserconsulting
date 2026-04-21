@@ -240,8 +240,8 @@ const AdminFormSubmissions = () => {
             SUBMISSION DETAILS MODAL — fully responsive
         ══════════════════════════════════════════ */}
         {showDetailsModal && selectedSubmission && (
-          <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-md flex items-start sm:items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
-            <div className="bg-white rounded-xl w-full max-w-5xl my-2 sm:my-4 shadow-2xl flex flex-col">
+          <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-md flex items-start sm:items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto overflow-x-hidden">
+            <div className="bg-white rounded-xl w-full max-w-5xl my-2 sm:my-4 shadow-2xl flex flex-col overflow-hidden">
 
               {/* Sticky Header */}
               <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-xl z-10 shrink-0">
@@ -255,7 +255,7 @@ const AdminFormSubmissions = () => {
               </div>
 
               {/* Scrollable Body */}
-              <div className="p-4 sm:p-6 overflow-y-auto max-h-[80vh] space-y-5">
+              <div className="p-4 sm:p-6 overflow-y-auto overflow-x-hidden max-h-[80vh] space-y-5">
 
                 {/* Info Cards — 1 col mobile / 2 col tablet / 3 col desktop */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -348,7 +348,7 @@ const AdminFormSubmissions = () => {
                             </button>
 
                             {doc.comment && (
-                              <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-800">
+                              <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-800 break-all">
                                 <strong>Comment:</strong> {doc.comment}
                               </div>
                             )}
@@ -370,7 +370,7 @@ const AdminFormSubmissions = () => {
                             <span className="text-sm font-semibold text-gray-800">{comment.documentName}</span>
                             <span className="text-xs text-gray-400">{new Date(comment.createdAt).toLocaleDateString()}</span>
                           </div>
-                          <p className="text-sm text-gray-600 break-words">{comment.comment}</p>
+                          <p className="text-sm text-gray-600 break-all">{comment.comment}</p>
                         </div>
                       ))}
                     </div>
@@ -388,7 +388,7 @@ const AdminFormSubmissions = () => {
                             <span className="text-sm font-semibold text-gray-800">Customer Message</span>
                             <span className="text-xs text-gray-400">{new Date(comment.createdAt).toLocaleDateString()}</span>
                           </div>
-                          <p className="text-sm text-gray-600 break-words">{comment.message}</p>
+                          <p className="text-sm text-gray-600 break-all">{comment.message}</p>
                         </div>
                       ))}
                     </div>
