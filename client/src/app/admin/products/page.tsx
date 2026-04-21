@@ -309,55 +309,57 @@ const AdminFormSubmissions = () => {
                   </button>
                 </div>
 
-                {/* Customer + Travel Details */}
-                <div className="grid grid-cols-1 gap-6 mb-5 md:grid-cols-2">
+                {/* Customer Info + Travel Info + Purpose — all in one responsive row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
+                  {/* Customer Information */}
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <h3 className="text-base font-semibold text-slate-900 mb-3">Customer Information</h3>
                     <dl className="grid gap-y-3 text-sm text-slate-700">
                       <div className="flex items-start justify-between gap-4">
-                        <dt className="font-medium text-slate-500">Name</dt>
-                        <dd className="text-right text-slate-900">{selectedSubmission.name}</dd>
+                        <dt className="font-medium text-slate-500 shrink-0">Name</dt>
+                        <dd className="text-right text-slate-900 break-all">{selectedSubmission.name}</dd>
                       </div>
                       <div className="flex items-start justify-between gap-4">
-                        <dt className="font-medium text-slate-500">Email</dt>
-                        <dd className="text-right text-slate-900">{selectedSubmission.email}</dd>
+                        <dt className="font-medium text-slate-500 shrink-0">Email</dt>
+                        <dd className="text-right text-slate-900 break-all">{selectedSubmission.email}</dd>
                       </div>
                       <div className="flex items-start justify-between gap-4">
-                        <dt className="font-medium text-slate-500">Phone</dt>
+                        <dt className="font-medium text-slate-500 shrink-0">Phone</dt>
                         <dd className="text-right text-slate-900">{selectedSubmission.phone}</dd>
                       </div>
                     </dl>
                   </div>
 
+                  {/* Travel Information */}
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <h3 className="text-base font-semibold text-slate-900 mb-3">Travel Information</h3>
                     <dl className="grid gap-y-3 text-sm text-slate-700">
                       <div className="flex items-start justify-between gap-4">
-                        <dt className="font-medium text-slate-500">Destination</dt>
+                        <dt className="font-medium text-slate-500 shrink-0">Destination</dt>
                         <dd className="text-right text-slate-900">{selectedSubmission.destinationCountry}</dd>
                       </div>
                       {selectedSubmission.otherCountry && (
                         <div className="flex items-start justify-between gap-4">
-                          <dt className="font-medium text-slate-500">Other Country</dt>
+                          <dt className="font-medium text-slate-500 shrink-0">Other Country</dt>
                           <dd className="text-right text-slate-900">{selectedSubmission.otherCountry}</dd>
                         </div>
                       )}
                       <div className="flex items-start justify-between gap-4">
-                        <dt className="font-medium text-slate-500">Visa Type</dt>
+                        <dt className="font-medium text-slate-500 shrink-0">Visa Type</dt>
                         <dd className="text-right text-slate-900">{selectedSubmission.visaType}</dd>
                       </div>
                       <div className="flex items-start justify-between gap-4">
-                        <dt className="font-medium text-slate-500">Travel Period</dt>
+                        <dt className="font-medium text-slate-500 shrink-0">Travel Period</dt>
                         <dd className="text-right text-slate-900">{selectedSubmission.fromDate} to {selectedSubmission.toDate}</dd>
                       </div>
                     </dl>
                   </div>
-                </div>
 
-                {/* Purpose */}
-                <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <h3 className="text-base font-semibold text-slate-900 mb-3">Purpose of Travel</h3>
-                  <p className="text-sm text-slate-700 leading-6">{selectedSubmission.purpose}</p>
+                  {/* Purpose of Travel */}
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 md:col-span-2 lg:col-span-1">
+                    <h3 className="text-base font-semibold text-slate-900 mb-3">Purpose of Travel</h3>
+                    <p className="text-sm text-slate-700 leading-6">{selectedSubmission.purpose}</p>
+                  </div>
                 </div>
 
                 {/* Documents */}
