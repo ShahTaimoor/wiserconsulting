@@ -521,7 +521,7 @@ const VisaConsultation: React.FC = () => {
             initial={{ x: "100%" }}
             animate={{ x: showComments ? 0 : "100%" }}
             transition={{ type: "tween", duration: 0.3 }}
-            className="fixed top-20 right-0 w-96 h-[85vh] bg-white shadow-2xl border-l border-slate-200 rounded-l-2xl overflow-hidden z-40"
+            className="fixed top-20 right-0 w-[calc(100vw-1rem)] sm:w-96 h-[85vh] bg-white shadow-2xl border-l border-slate-200 rounded-l-2xl overflow-hidden z-40"
           >
             <div className="h-full flex flex-col">
               <div className="px-6 py-4 bg-slate-900 text-white border-b border-slate-700 flex justify-between items-center">
@@ -571,7 +571,7 @@ const VisaConsultation: React.FC = () => {
                               key={i}
                               className="bg-slate-50 p-4 rounded-lg border-l-4 border-slate-600"
                             >
-                              <p className="text-sm text-slate-800 leading-relaxed">{c.comment}</p>
+                              <p className="text-sm text-slate-800 leading-relaxed break-all">{c.comment}</p>
                               <span className="text-xs text-slate-500 mt-2 block">
                                 {new Date(c.createdAt).toLocaleDateString('en-US', {
                                   year: 'numeric',
