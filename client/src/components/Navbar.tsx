@@ -8,6 +8,8 @@ import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { logout } from "@/redux/slices/auth/authSlice";
 
 import { usePathname } from "next/navigation";
+import { isAdminRole } from "@/utils/authRole";
+import { LayoutDashboard } from "lucide-react";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -43,12 +45,16 @@ const Navbar = () => {
     setIsOpen(false);
   };
 
-  const navLinks = [
+  const baseNavLinks = [
     { href: "/", label: "Home" },
     { href: "/about", label: "About" },
     { href: "/services", label: "Services" },
     { href: "/contact", label: "Contact" },
   ];
+
+  const navLinks = isAdminRole(user?.role) 
+    ? [...baseNavLinks, { href: "/admin/products", label: "Dashboard" }]
+    : baseNavLinks;
 
   return (
     <>
@@ -180,24 +186,36 @@ const Navbar = () => {
 
                 <div className="flex flex-col gap-4">
                   {user ? (
-                    <div className="flex flex-col gap-4">
-                      <div className="flex items-center gap-3 px-2 py-3 border-b border-slate-800">
-                        <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/20">
-                          <UserIcon className="text-emerald-400" size={20} />
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center gap-3 px-2 py-3 border-b border-slate-800">
+                          <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/20">
+                            <UserIcon className="text-emerald-400" size={20} />
+                          </div>
+                          <div className="flex flex-col">
+                            <p className="text-sm font-medium text-slate-100">{user.name}</p>
+                            <p className="text-xs text-slate-400">{user.email}</p>
+                          </div>
                         </div>
-                        <div className="flex flex-col">
-                          <p className="text-sm font-medium text-slate-100">{user.name}</p>
-                          <p className="text-xs text-slate-400">{user.email}</p>
-                        </div>
+
+                        {isAdminRole(user.role) && (
+                          <Link
+                            href="/admin/products"
+                            onClick={() => setIsOpen(false)}
+                            className="inline-flex items-center justify-center gap-2 rounded-full bg-blue-600 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500"
+                          >
+                            <LayoutDashboard size={18} />
+                            Admin Dashboard
+                          </Link>
+                        )}
+
+                        <button
+                          onClick={handleLogout}
+                          className="inline-flex items-center justify-center gap-2 rounded-full bg-red-500/10 border border-red-500/20 px-8 py-3 text-sm font-semibold text-red-400 transition hover:bg-red-500 hover:text-white"
+                        >
+                          <LogOut size={18} />
+                          Logout
+                        </button>
                       </div>
-                      <button
-                        onClick={handleLogout}
-                        className="inline-flex items-center justify-center gap-2 rounded-full bg-red-500/10 border border-red-500/20 px-8 py-3 text-sm font-semibold text-red-400 transition hover:bg-red-500 hover:text-white"
-                      >
-                        <LogOut size={18} />
-                        Logout
-                      </button>
-                    </div>
                   ) : (
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
                       <Link
