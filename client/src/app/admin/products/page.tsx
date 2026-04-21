@@ -32,6 +32,18 @@ const AdminFormSubmissions = () => {
     dispatch(fetchSubmissions());
   }, [dispatch]);
 
+  // Lock body scroll when modal is open to prevent double scrollbars
+  useEffect(() => {
+    if (showDetailsModal || showDocumentPreview || showRenameModal) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [showDetailsModal, showDocumentPreview, showRenameModal]);
+
   const filteredSubmissions = useMemo(
     () => filterSubmissionsByStatus(submissions, filterStatus),
     [submissions, filterStatus]
@@ -240,7 +252,7 @@ const AdminFormSubmissions = () => {
             SUBMISSION DETAILS MODAL — fully responsive
         ══════════════════════════════════════════ */}
         {showDetailsModal && selectedSubmission && (
-          <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-md flex items-start sm:items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto overflow-x-hidden">
+          <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-md flex items-start sm:items-center justify-center p-2 sm:p-4 z-50 overflow-x-hidden">
             <div className="bg-white rounded-xl w-full max-w-5xl my-2 sm:my-4 shadow-2xl flex flex-col overflow-hidden">
 
               {/* Sticky Header */}
