@@ -111,6 +111,17 @@ class FormSubmissionController {
   })
 
   /**
+   * Delete document from submission
+   */
+  deleteDocument = asyncHandler(async (req, res) => {
+    const { submissionId, documentId } = req.params;
+    const result = await formSubmissionService.deleteDocument(submissionId, documentId);
+
+    return ApiResponse.success(res, result, 'Document deleted successfully');
+  })
+
+
+  /**
    * Get file URL
    */
   getFileUrl = asyncHandler(async (req, res) => {

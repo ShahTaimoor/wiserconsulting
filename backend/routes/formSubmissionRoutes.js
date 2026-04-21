@@ -36,7 +36,7 @@ router.put(
 
 // Add admin comment to a specific document and send email
 router.put(
-  '/:submissionId/documents/:documentId/comment',
+  '/form-submissions/:submissionId/documents/:documentId/comment',
   isAuthorized,
   isAdmin,
   validate(addAdminCommentSchema),
@@ -45,14 +45,14 @@ router.put(
 
 // Add customer comment
 router.post(
-  '/:submissionId/customer-comment',
+  '/form-submissions/:submissionId/customer-comment',
   validate(addCustomerCommentSchema),
   formSubmissionController.addCustomerComment.bind(formSubmissionController)
 );
 
 // Get customer submission
 router.get(
-  '/customer-submission/:email',
+  '/form-submissions/customer-submission/:email',
   validate(getSubmissionByEmailSchema),
   formSubmissionController.getSubmissionByEmail.bind(formSubmissionController)
 );
@@ -66,9 +66,17 @@ router.delete(
   formSubmissionController.deleteSubmission.bind(formSubmissionController)
 );
 
+// Delete specific document from submission
+router.delete(
+  '/form-submissions/:submissionId/documents/:documentId',
+  isAuthorized,
+  isAdmin,
+  formSubmissionController.deleteDocument.bind(formSubmissionController)
+);
+
 // Get file URL (works for both local and cloudinary files)
 router.get(
-  '/file/:submissionId/:documentId',
+  '/form-submissions/file/:submissionId/:documentId',
   validate(getFileUrlSchema),
   formSubmissionController.getFileUrl.bind(formSubmissionController)
 );

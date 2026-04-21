@@ -52,9 +52,7 @@ const Navbar = () => {
     { href: "/contact", label: "Contact" },
   ];
 
-  const navLinks = isAdminRole(user?.role) 
-    ? [...baseNavLinks, { href: "/admin/products", label: "Dashboard" }]
-    : baseNavLinks;
+  const navLinks = baseNavLinks;
 
   return (
     <>

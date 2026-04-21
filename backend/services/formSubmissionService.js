@@ -154,6 +154,31 @@ class FormSubmissionService {
   }
 
   /**
+   * Delete document from submission
+   */
+  async deleteDocument(submissionId, documentId) {
+    const submission = await formSubmissionRepository.findById(submissionId);
+    if (!submission) {
+      throw new AppError("Submission not found", 404);
+    }
+
+    const document = submission.documents.id(documentId);
+    if (!document) {
+      throw new AppError("Document not found", 404);
+    }
+
+    // Clean up file (local or cloudinary)
+    const { cleanupFiles } = require("../middleware/cloudinaryMiddleware");
+    await cleanupFiles([document]);
+
+    // Remove from repository
+    return await formSubmissionRepository.deleteDocument(
+      submissionId,
+      documentId,
+    );
+  }
+
+  /**
    * Delete submission (soft delete with file cleanup)
    */
   async deleteSubmission(id) {

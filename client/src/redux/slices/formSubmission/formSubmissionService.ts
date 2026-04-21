@@ -92,7 +92,9 @@ export interface FormSubmission {
 
 export interface CustomerSubmissionResponse {
   success: boolean;
-  submission?: FormSubmission;
+  data?: {
+    submission: FormSubmission;
+  };
   message?: string;
 }
 
@@ -138,7 +140,7 @@ export const submitAssessment = async (formData: FormSubmissionData): Promise<Fo
 
 // ✅ Get customer submission
 export const getCustomerSubmission = async (email: string): Promise<CustomerSubmissionResponse> => {
-  const response = await fetch(`${API_URL}/customer-submission/${email}`, {
+  const response = await fetch(`${API_URL}/form-submissions/customer-submission/${email}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',

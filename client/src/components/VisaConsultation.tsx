@@ -46,10 +46,20 @@ const VisaConsultation: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [guestEmail, setGuestEmail] = useState<string | null>(null);
+  const [statusEmailInput, setStatusEmailInput] = useState('');
   const typedEl = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     setMounted(true);
+    const updateEmail = () => {
+      const savedEmail = localStorage.getItem('guestEmail');
+      if (savedEmail) setGuestEmail(savedEmail);
+    };
+    
+    updateEmail();
+    window.addEventListener('guestEmailUpdated', updateEmail);
+    return () => window.removeEventListener('guestEmailUpdated', updateEmail);
   }, []);
 
   useEffect(() => {
@@ -87,11 +97,27 @@ const VisaConsultation: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth) as { user: { email: string } | null };
   const { adminComments } = useSelector((state: RootState) => state.formSubmission);
 
+  const effectiveEmail = user?.email || guestEmail;
+
   useEffect(() => {
-    if (user?.email) {
-      dispatch(fetchAdminComments(user.email));
+    if (effectiveEmail) {
+      dispatch(fetchAdminComments(effectiveEmail));
     }
-  }, [user?.email, dispatch]);
+  }, [effectiveEmail, dispatch]);
+
+  const handleIdentifyGuest = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (statusEmailInput.trim()) {
+      setGuestEmail(statusEmailInput.trim());
+      localStorage.setItem('guestEmail', statusEmailInput.trim());
+    }
+  };
+
+  const handleClearGuest = () => {
+    setGuestEmail(null);
+    localStorage.removeItem('guestEmail');
+    dispatch({ type: 'formSubmission/fetchAdminComments/fulfilled', payload: { success: true, data: { submission: null } } });
+  };
 
   const groupCommentsByDocument = (comments: AdminComment[]) => {
     const grouped: { [key: string]: AdminComment[] } = {};
@@ -462,15 +488,17 @@ const VisaConsultation: React.FC = () => {
       </section>
 
       {/* Comments Toggle Button */}
-      {mounted && user && (
+      {mounted && (
         <>
           <button
             onClick={() => setShowComments(!showComments)}
-            className="fixed top-40 right-0 z-50 bg-slate-900 text-white p-3 rounded-l-xl shadow-xl hover:bg-slate-800 transition-all border border-slate-700 hover:shadow-2xl"
+            className={`fixed top-40 right-0 z-50 p-3 rounded-l-xl shadow-xl transition-all border border-slate-700 hover:shadow-2xl ${
+              showComments ? 'bg-slate-800 text-white translate-x-1' : 'bg-slate-900 text-white'
+            }`}
           >
             {showComments ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
             {adminComments.length > 0 && (
-              <span className="absolute -top-2 -left-2 bg-red-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg">
+              <span className="absolute -top-2 -left-2 bg-red-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg animate-pulse">
                 {adminComments.length}
               </span>
             )}
@@ -484,12 +512,41 @@ const VisaConsultation: React.FC = () => {
             className="fixed top-20 right-0 w-96 h-[85vh] bg-white shadow-2xl border-l border-slate-200 rounded-l-2xl overflow-hidden z-40"
           >
             <div className="h-full flex flex-col">
-              <div className="px-6 py-4 bg-slate-900 text-white border-b border-slate-700">
-                <h3 className="text-lg font-semibold">Admin Comments</h3>
-                <p className="text-sm text-slate-300 mt-1">Review feedback on your documents</p>
+              <div className="px-6 py-4 bg-slate-900 text-white border-b border-slate-700 flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-semibold">Admin Comments</h3>
+                  <p className="text-sm text-slate-300 mt-1">Review feedback on your documents</p>
+                </div>
+                {guestEmail && (
+                  <button onClick={handleClearGuest} className="text-xs text-slate-400 hover:text-white transition-colors">
+                    Logout
+                  </button>
+                )}
               </div>
-              <div className="flex-1 overflow-y-auto p-6">
-                {adminComments.length > 0 ? (
+              <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
+                {!effectiveEmail ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center p-4">
+                    <Mail className="w-12 h-12 text-slate-300 mb-6" />
+                    <h4 className="text-slate-900 font-bold mb-2">Check Application Status</h4>
+                    <p className="text-sm text-slate-500 mb-8">Enter your email to view admin comments and track your progress.</p>
+                    <form onSubmit={handleIdentifyGuest} className="w-full space-y-4">
+                      <input
+                        type="email"
+                        value={statusEmailInput}
+                        onChange={(e) => setStatusEmailInput(e.target.value)}
+                        placeholder="your@email.com"
+                        required
+                        className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all text-sm"
+                      />
+                      <button
+                        type="submit"
+                        className="w-full bg-slate-900 text-white py-3 rounded-lg font-semibold hover:bg-slate-800 transition-all shadow-md active:scale-95"
+                      >
+                        Find My Application
+                      </button>
+                    </form>
+                  </div>
+                ) : adminComments.length > 0 ? (
                   <div className="space-y-6">
                     {Object.entries(groupCommentsByDocument(adminComments)).map(([docName, comments]) => (
                       <div key={docName} className="mb-6">
