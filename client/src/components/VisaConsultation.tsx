@@ -474,9 +474,9 @@ const VisaConsultation: React.FC = () => {
               }`}
           >
             {showComments ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-            {adminComments.length > 0 && (
+            {adminComments.filter(c => currentSubmission?.documents.some(d => d._id === c.documentId)).length > 0 && (
               <span className="absolute -top-2 -left-2 bg-red-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg animate-pulse">
-                {adminComments.length}
+                {adminComments.filter(c => currentSubmission?.documents.some(d => d._id === c.documentId)).length}
               </span>
             )}
           </button>
@@ -512,6 +512,7 @@ const VisaConsultation: React.FC = () => {
                   <div className="space-y-6">
                     {Object.entries(groupCommentsByDocument(adminComments)).map(([docId, data]) => {
                       const doc = currentSubmission?.documents.find(d => d._id === docId);
+                      if (!doc) return null; // Skip if document is deleted
                       return (
                         <div key={docId} className="mb-6">
                           <div className="flex items-center gap-3 mb-3 pb-2 border-b border-slate-200">

@@ -16,7 +16,7 @@ class FormSubmissionController {
   createSubmission = asyncHandler(async (req, res) => {
     const { processFiles } = require('../config/cloudinary');
     const uploadType = req.route.path.includes('local') ? 'local' : 'cloudinary';
-    
+
     const submissionData = {
       ...req.body,
       documents: req.files ? processFiles(req.files, uploadType) : [],

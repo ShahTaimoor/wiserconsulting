@@ -182,10 +182,16 @@ class FormSubmissionRepository {
     const submission = await this.findById(submissionId);
     if (!submission) return null;
 
-    const document = submission.documents.id(documentId);
-    if (!document) return null;
-
+    // Remove the document
     submission.documents.pull(documentId);
+
+    // Also remove all admin comments associated with this documentId
+    if (submission.adminComments) {
+      submission.adminComments = submission.adminComments.filter(
+        (c) => c.documentId !== documentId
+      );
+    }
+
     return await submission.save();
   }
 
