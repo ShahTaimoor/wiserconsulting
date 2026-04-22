@@ -78,7 +78,7 @@ export const updateStatus = createAsyncThunk<void, { submissionId: string; statu
     try {
       await updateSubmissionStatus(submissionId, status);
       // Refetch submissions after update
-      thunkAPI.dispatch(fetchSubmissions());
+      await thunkAPI.dispatch(fetchSubmissions());
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update submission status';
       return thunkAPI.rejectWithValue(errorMessage);
@@ -92,7 +92,7 @@ export const saveComment = createAsyncThunk<void, { submissionId: string; docume
     try {
       await saveDocumentComment(submissionId, documentId, comment);
       // Refetch submissions after update
-      thunkAPI.dispatch(fetchSubmissions());
+      await thunkAPI.dispatch(fetchSubmissions());
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to save comment';
       return thunkAPI.rejectWithValue(errorMessage);
@@ -106,7 +106,7 @@ export const removeDocument = createAsyncThunk<void, { submissionId: string; doc
     try {
       await deleteDocument(submissionId, documentId);
       // Refetch submissions after delete
-      thunkAPI.dispatch(fetchSubmissions());
+      await thunkAPI.dispatch(fetchSubmissions());
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete document';
       return thunkAPI.rejectWithValue(errorMessage);
@@ -120,7 +120,7 @@ export const removeSubmission = createAsyncThunk<void, string, { rejectValue: st
     try {
       await deleteSubmission(submissionId);
       // Refetch submissions after delete
-      thunkAPI.dispatch(fetchSubmissions());
+      await thunkAPI.dispatch(fetchSubmissions());
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete submission';
       return thunkAPI.rejectWithValue(errorMessage);

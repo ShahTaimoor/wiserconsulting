@@ -19,7 +19,7 @@ const AdminFormSubmissions = () => {
   const dispatch = useAppDispatch();
   const { submissions, loading, error } = useAppSelector((state) => state.admin);
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [selectedSubmission, setSelectedSubmission] = useState<FormSubmission | null>(null);
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showDocumentPreview, setShowDocumentPreview] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<{ url: string; name: string; type: string } | null>(null);
@@ -49,6 +49,11 @@ const AdminFormSubmissions = () => {
     [submissions, filterStatus]
   );
 
+  const selectedSubmission = useMemo(
+    () => submissions.find(s => s._id === selectedSubmissionId) || null,
+    [submissions, selectedSubmissionId]
+  );
+
   const handleStatusUpdate = async (submissionId: string, newStatus: string) => {
     await dispatch(updateStatus({ submissionId, status: newStatus }));
   };
@@ -75,9 +80,9 @@ const AdminFormSubmissions = () => {
   };
 
   const handleSaveComment = async (documentId: string, comment: string) => {
-    if (!selectedSubmission) return;
+    if (!selectedSubmissionId) return;
     try {
-      await dispatch(saveComment({ submissionId: selectedSubmission._id, documentId, comment })).unwrap();
+      await dispatch(saveComment({ submissionId: selectedSubmissionId, documentId, comment })).unwrap();
       setDocumentComments(prev => ({ ...prev, [documentId]: comment }));
       alert('Comment saved and email sent to customer!');
     } catch (error) {
@@ -92,16 +97,14 @@ const AdminFormSubmissions = () => {
   };
 
   const submitRename = async () => {
-    if (!selectedSubmission || !renamingDocument || !newDocumentName.trim()) return;
+    if (!selectedSubmissionId || !renamingDocument || !newDocumentName.trim()) return;
     try {
       await dispatch(renameDocumentAction({
-        submissionId: selectedSubmission._id,
+        submissionId: selectedSubmissionId,
         documentId: renamingDocument.id,
         newName: newDocumentName.trim()
       })).unwrap();
       await dispatch(fetchSubmissions());
-      const updated = submissions.find(s => s._id === selectedSubmission._id);
-      if (updated) setSelectedSubmission(updated);
       setShowRenameModal(false);
       setRenamingDocument(null);
       setNewDocumentName('');
@@ -112,12 +115,10 @@ const AdminFormSubmissions = () => {
   };
 
   const handleDeleteDocument = async (documentId: string, documentName: string) => {
-    if (!selectedSubmission) return;
+    if (!selectedSubmissionId) return;
     if (!window.confirm(`Are you sure you want to delete "${documentName}"? This action cannot be undone.`)) return;
     try {
-      await dispatch(removeDocument({ submissionId: selectedSubmission._id, documentId })).unwrap();
-      const updated = submissions.find(s => s._id === selectedSubmission._id);
-      if (updated) setSelectedSubmission(updated);
+      await dispatch(removeDocument({ submissionId: selectedSubmissionId, documentId })).unwrap();
       alert('Document deleted successfully!');
     } catch (error) {
       alert(`Failed to delete document: ${error}`);
@@ -128,8 +129,8 @@ const AdminFormSubmissions = () => {
     if (!window.confirm(`Are you sure you want to delete submission for "${submissionName}"? This action cannot be undone.`)) return;
     try {
       await dispatch(removeSubmission(submissionId)).unwrap();
-      if (selectedSubmission?._id === submissionId) {
-        setSelectedSubmission(null);
+      if (selectedSubmissionId === submissionId) {
+        setSelectedSubmissionId(null);
         setShowDetailsModal(false);
       }
       alert('Submission deleted successfully!');
@@ -138,9 +139,9 @@ const AdminFormSubmissions = () => {
     }
   };
 
-  const closeDetails = () => { setShowDetailsModal(false); setSelectedSubmission(null); };
+  const closeDetails = () => { setShowDetailsModal(false); setSelectedSubmissionId(null); };
 
-  if (loading) {
+  if (loading && submissions.length === 0) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
@@ -228,7 +229,7 @@ const AdminFormSubmissions = () => {
                     <td className="px-4 sm:px-6 py-4">
                       <div className="flex flex-col sm:flex-row gap-1.5">
                         <button
-                          onClick={() => { setSelectedSubmission(submission); setShowDetailsModal(true); }}
+                          onClick={() => { setSelectedSubmissionId(submission._id); setShowDetailsModal(true); }}
                           className="text-blue-600 hover:text-blue-900 text-xs font-medium whitespace-nowrap"
                         >
                           View Details
