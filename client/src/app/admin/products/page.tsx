@@ -227,16 +227,16 @@ const AdminFormSubmissions = () => {
                       {new Date(submission.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-4 sm:px-6 py-4">
-                      <div className="flex flex-col sm:flex-row gap-1.5">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <button
                           onClick={() => { setSelectedSubmissionId(submission._id); setShowDetailsModal(true); }}
-                          className="text-blue-600 hover:text-blue-900 text-xs font-medium whitespace-nowrap"
+                          className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap shadow-sm"
                         >
                           View Details
                         </button>
                         <button
                           onClick={() => handleDeleteSubmission(submission._id, submission.name)}
-                          className="text-red-600 hover:text-red-900 text-xs font-medium"
+                          className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors shadow-sm"
                         >
                           Delete
                         </button>
@@ -253,8 +253,14 @@ const AdminFormSubmissions = () => {
             SUBMISSION DETAILS MODAL — fully responsive
         ══════════════════════════════════════════ */}
         {showDetailsModal && selectedSubmission && (
-          <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-md flex items-start sm:items-center justify-center p-2 sm:p-4 z-50 overflow-x-hidden">
-            <div className="bg-white rounded-xl w-full max-w-5xl my-2 sm:my-4 shadow-2xl flex flex-col overflow-hidden">
+          <div 
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-hidden"
+            onClick={closeDetails}
+          >
+            <div 
+              className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
 
               {/* Sticky Header */}
               <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-xl z-10 shrink-0">
@@ -268,7 +274,7 @@ const AdminFormSubmissions = () => {
               </div>
 
               {/* Scrollable Body */}
-              <div className="p-4 sm:p-6 overflow-y-auto overflow-x-hidden max-h-[80vh] space-y-5">
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1">
 
                 {/* Info Cards — 1 col mobile / 2 col tablet / 3 col desktop */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
