@@ -3,6 +3,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
+import PDFMergeModal from '@/components/admin/PDFMergeModal';
+import CompressPDFModal from '@/components/admin/CompressPDFModal';
 import {
   fetchSubmissions,
   updateStatus,
@@ -21,6 +23,8 @@ const AdminFormSubmissions = () => {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showPDFMergeModal, setShowPDFMergeModal] = useState(false);
+  const [showCompressModal, setShowCompressModal] = useState(false);
   const [showDocumentPreview, setShowDocumentPreview] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<{ url: string; name: string; type: string } | null>(null);
   const [documentComments, setDocumentComments] = useState<{ [key: string]: string }>({});
@@ -264,7 +268,23 @@ const AdminFormSubmissions = () => {
 
               {/* Sticky Header */}
               <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-xl z-10 shrink-0">
-                <h2 className="text-base sm:text-xl font-bold text-gray-800">Submission Details</h2>
+                <div className="flex items-center gap-4">
+                  <h2 className="text-base sm:text-xl font-bold text-gray-800">Submission Details</h2>
+                  <div className="hidden sm:flex gap-2">
+                    <button
+                      onClick={() => setShowPDFMergeModal(true)}
+                      className="px-3 py-1 bg-green-600 text-white text-[10px] font-bold rounded-lg hover:bg-green-700 transition shadow-sm uppercase tracking-wider"
+                    >
+                      Merge PDF
+                    </button>
+                    <button
+                      onClick={() => setShowCompressModal(true)}
+                      className="px-3 py-1 bg-slate-700 text-white text-[10px] font-bold rounded-lg hover:bg-slate-800 transition shadow-sm uppercase tracking-wider"
+                    >
+                      Compress PDF
+                    </button>
+                  </div>
+                </div>
                 <button
                   onClick={closeDetails}
                   className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition"
@@ -505,6 +525,20 @@ const AdminFormSubmissions = () => {
             </div>
           </div>
         )}
+
+        {/* PDF Merge Modal */}
+        <PDFMergeModal
+          isOpen={showPDFMergeModal}
+          onClose={() => setShowPDFMergeModal(false)}
+          submission={selectedSubmission}
+        />
+
+        {/* Compress PDF Modal */}
+        <CompressPDFModal
+          isOpen={showCompressModal}
+          onClose={() => setShowCompressModal(false)}
+          submission={selectedSubmission}
+        />
       </div>
     </div>
   );

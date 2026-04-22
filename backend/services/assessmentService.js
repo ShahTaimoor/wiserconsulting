@@ -247,11 +247,11 @@ class AssessmentService {
     const documentsToCompress = submission.documents.filter(doc =>
       documentIds.includes(doc._id.toString()) &&
       doc.cloudinaryUrl &&
-      doc.mimetype === 'application/pdf'
+      (doc.mimetype === 'application/pdf' || doc.mimetype.startsWith('image/'))
     );
 
     if (documentsToCompress.length === 0) {
-      throw new AppError('No valid PDF documents found to compress', 400);
+      throw new AppError('No valid documents found to compress', 400);
     }
 
     const tempDir = path.join(__dirname, '../uploads', `temp_${Date.now()}`);
@@ -279,7 +279,17 @@ class AssessmentService {
           writeStream.on('error', reject);
         });
 
-        const pdfBytes = fs.readFileSync(tempFilePath);
+        let pdfBytes;
+        if (doc.mimetype.startsWith('image/')) {
+          // Convert image to PDF first
+          const imagePdf = await PDFLibDocument.create();
+          const imageBytes = fs.readFileSync(tempFilePath);
+          await this.embedImage(imagePdf, doc, imageBytes, 0);
+          pdfBytes = await imagePdf.save();
+        } else {
+          pdfBytes = fs.readFileSync(tempFilePath);
+        }
+
         const originalSize = pdfBytes.length;
         const targetSize = 4.9 * 1024 * 1024;
 
@@ -288,9 +298,15 @@ class AssessmentService {
         const compressedPath = path.join(tempDir, `compressed_${doc._id}_${doc.originalname}`);
         fs.writeFileSync(compressedPath, compressedBytes);
 
+        // Ensure the filename has .pdf extension if it was converted from an image
+        const baseName = doc.originalname.replace(/\.[^/.]+$/, "");
+        const finalFilename = doc.mimetype.startsWith('image/') 
+          ? `compressed_${baseName}.pdf` 
+          : `compressed_${doc.originalname}`;
+
         compressedFiles.push({
           path: compressedPath,
-          filename: `compressed_${doc.originalname}`
+          filename: finalFilename
         });
 
         fs.unlinkSync(tempFilePath);
