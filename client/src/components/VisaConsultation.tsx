@@ -85,7 +85,7 @@ const VisaConsultation: React.FC = () => {
   ];
 
   const { user } = useSelector((state: RootState) => state.auth) as { user: { email: string; name: string } | null };
-  const { adminComments } = useSelector((state: RootState) => state.formSubmission);
+  const { adminComments, currentSubmission } = useSelector((state: RootState) => state.formSubmission);
 
   useEffect(() => {
     if (user?.email) {
@@ -94,10 +94,13 @@ const VisaConsultation: React.FC = () => {
   }, [user?.email, dispatch]);
 
   const groupCommentsByDocument = (comments: AdminComment[]) => {
-    const grouped: { [key: string]: AdminComment[] } = {};
+    const grouped: { [key: string]: { name: string; comments: AdminComment[] } } = {};
     comments.forEach((c) => {
-      if (!grouped[c.documentName]) grouped[c.documentName] = [];
-      grouped[c.documentName].push(c);
+      const id = c.documentId;
+      if (!grouped[id]) {
+        grouped[id] = { name: c.documentName, comments: [] };
+      }
+      grouped[id].comments.push(c);
     });
     return grouped;
   };
@@ -506,30 +509,52 @@ const VisaConsultation: React.FC = () => {
               <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
                 {adminComments.length > 0 ? (
                   <div className="space-y-6">
-                    {Object.entries(groupCommentsByDocument(adminComments)).map(([docName, comments]) => (
-                      <div key={docName} className="mb-6">
-                        <h4 className="font-semibold text-sm text-slate-900 mb-3 pb-2 border-b border-slate-200">
-                          {docName}
-                        </h4>
-                        <div className="space-y-3">
-                          {comments.map((c, i) => (
-                            <div
-                              key={i}
-                              className="bg-slate-50 p-4 rounded-lg border-l-4 border-slate-600"
-                            >
-                              <p className="text-sm text-slate-800 leading-relaxed break-all">{c.comment}</p>
-                              <span className="text-xs text-slate-500 mt-2 block">
-                                {new Date(c.createdAt).toLocaleDateString('en-US', {
-                                  year: 'numeric',
-                                  month: 'long',
-                                  day: 'numeric'
-                                })}
-                              </span>
-                            </div>
-                          ))}
+                    {Object.entries(groupCommentsByDocument(adminComments)).map(([docId, data]) => {
+                      const doc = currentSubmission?.documents.find(d => d._id === docId);
+                      return (
+                        <div key={docId} className="mb-6">
+                          <div className="flex items-center gap-3 mb-3 pb-2 border-b border-slate-200">
+                            {doc?.cloudinaryUrl && (
+                              <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
+                                {doc.mimetype.startsWith('image/') ? (
+                                  <Image
+                                    src={doc.cloudinaryUrl}
+                                    alt={data.name}
+                                    fill
+                                    className="object-cover"
+                                    unoptimized
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center bg-slate-200">
+                                    <FileCheck2 className="w-6 h-6 text-slate-400" />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            <h4 className="font-semibold text-sm text-slate-900 break-all">
+                              {data.name}
+                            </h4>
+                          </div>
+                          <div className="space-y-3">
+                            {data.comments.map((c, i) => (
+                              <div
+                                key={i}
+                                className="bg-slate-50 p-4 rounded-lg border-l-4 border-slate-600"
+                              >
+                                <p className="text-sm text-slate-800 leading-relaxed break-all">{c.comment}</p>
+                                <span className="text-xs text-slate-500 mt-2 block">
+                                  {new Date(c.createdAt).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                  })}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-center">
