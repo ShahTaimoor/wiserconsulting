@@ -1,4 +1,4 @@
-// Compress PDF Modal - Presentation component only
+// Compress PDF Modal - Premium Design
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -6,6 +6,7 @@ import { useAppDispatch } from '@/redux/hooks';
 import { compressPDFDocuments } from '@/redux/slices/admin/adminSlice';
 import { downloadBlob } from '@/utils/fileDownload';
 import { FormSubmission } from '@/services/adminService';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface CompressPDFModalProps {
   isOpen: boolean;
@@ -18,11 +19,10 @@ const CompressPDFModal: React.FC<CompressPDFModalProps> = ({ isOpen, onClose, su
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [compressionLevel, setCompressionLevel] = useState<'low' | 'medium' | 'high' | '5mb'>('medium');
   const [compressing, setCompressing] = useState(false);
+  const [previewFile, setPreviewFile] = useState<{ url: string, type: string } | null>(null);
 
-  const pdfDocuments = useMemo(
-    () => submission?.documents.filter(doc =>
-      doc.cloudinaryUrl && doc.mimetype === 'application/pdf'
-    ) || [],
+  const availableDocuments = useMemo(
+    () => submission?.documents.filter(doc => doc.cloudinaryUrl) || [],
     [submission]
   );
 
@@ -36,7 +36,7 @@ const CompressPDFModal: React.FC<CompressPDFModalProps> = ({ isOpen, onClose, su
 
   const handleCompressPDFs = async () => {
     if (!submission || selectedDocuments.length === 0) {
-      alert('Please select at least one PDF to compress.');
+      alert('Please select at least one document to compress.');
       return;
     }
 
@@ -50,12 +50,12 @@ const CompressPDFModal: React.FC<CompressPDFModalProps> = ({ isOpen, onClose, su
         customerName: submission.name
       })).unwrap();
 
-      downloadBlob(result, `${submission.name}_compressed_pdfs.zip`);
-      alert('PDFs compressed successfully!');
+      downloadBlob(result, `${submission.name.replace(/\s+/g, '_')}_compressed_docs.zip`);
+      alert('Documents compressed successfully!');
       onClose();
     } catch (error) {
-      console.error('Error compressing PDFs:', error);
-      alert('Failed to compress PDFs. Please try again.');
+      console.error('Error compressing documents:', error);
+      alert('Failed to compress documents. Please try again.');
     } finally {
       setCompressing(false);
     }
@@ -64,98 +64,183 @@ const CompressPDFModal: React.FC<CompressPDFModalProps> = ({ isOpen, onClose, su
   if (!isOpen || !submission) return null;
 
   return (
-    <div
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">Compress PDF Documents</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
-        </div>
-
-        <div className="mb-4">
-          <p className="text-gray-600 mb-2">
-            Customer: <strong>{submission.name}</strong>
-          </p>
-          <p className="text-sm text-gray-500">
-            Select PDF documents to compress and reduce file size
-          </p>
-        </div>
-
-        {/* Compression Level Selection */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Compression Level:
-          </label>
-          <select
-            value={compressionLevel}
-            onChange={(e) => setCompressionLevel(e.target.value as 'low' | 'medium' | 'high' | '5mb')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-          >
-            <option value="low">Low (Better quality, larger size)</option>
-            <option value="medium">Medium (Balanced quality/size)</option>
-            <option value="high">High (Smaller size, lower quality)</option>
-            <option value="5mb">5MB Target (Maximum compression)</option>
-          </select>
-          {compressionLevel === '5mb' && (
-            <p className="text-xs text-blue-600 mt-1">
-              ⚠️ This will compress files to approximately 5MB maximum size
-            </p>
-          )}
-        </div>
-
-        {pdfDocuments.length === 0 ? (
-          <div className="text-center py-8">
-            <div className="text-gray-400 text-4xl mb-4">📄</div>
-            <p className="text-gray-600">No PDF documents found.</p>
+    <AnimatePresence>
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+          onClick={onClose}
+        />
+        
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.9, opacity: 0, y: 20 }}
+          className="relative bg-white rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]"
+        >
+          {/* Header */}
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white">
+            <div>
+              <h2 className="text-xl font-bold text-slate-800 uppercase tracking-tight">Compress Documents</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Customer: <span className="font-semibold text-slate-700">{submission.name}</span></p>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all"
+            >
+              <span className="text-2xl font-light">✕</span>
+            </button>
           </div>
-        ) : (
-          <div className="space-y-3 mb-6">
-            {pdfDocuments.map((doc) => (
-              <div key={doc._id} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50">
-                <input
-                  type="checkbox"
-                  id={doc._id}
-                  checked={selectedDocuments.includes(doc._id)}
-                  onChange={() => handleDocumentToggle(doc._id)}
-                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                />
-                <label htmlFor={doc._id} className="flex-1 cursor-pointer">
-                  <div>
-                    <p className="font-medium text-gray-900">{doc.fieldName}</p>
-                    <p className="text-sm text-gray-500">{doc.originalname}</p>
-                    <p className="text-xs text-gray-400">
-                      Size: {(doc.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
-                  </div>
-                </label>
+
+          <div className="p-6 overflow-y-auto space-y-6 flex-1">
+            {/* Compression Controls */}
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+              <label className="block text-sm font-bold text-slate-900 mb-3 uppercase tracking-wider text-[10px]">
+                Target Compression Level
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {(['low', 'medium', 'high', '5mb'] as const).map((level) => (
+                  <button
+                    key={level}
+                    onClick={() => setCompressionLevel(level)}
+                    className={`px-3 py-2 text-xs font-semibold rounded-lg border transition-all ${
+                      compressionLevel === level
+                        ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                        : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300'
+                    }`}
+                  >
+                    {level === '5mb' ? 'Max (5MB)' : level.charAt(0).toUpperCase() + level.slice(1)}
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
+              <p className="text-[11px] text-slate-600 mt-3 flex items-center gap-1.5 font-medium">
+                <span className="w-1.5 h-1.5 bg-blue-600 rounded-full" />
+                {compressionLevel === '5mb' 
+                  ? 'Extreme compression: ideal for strict portal limits.' 
+                  : `Balanced ${compressionLevel} quality output for professional use.`}
+              </p>
+            </div>
 
-        <div className="flex justify-end space-x-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
-            disabled={compressing}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleCompressPDFs}
-            disabled={selectedDocuments.length === 0 || compressing || pdfDocuments.length === 0}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
-          >
-            {compressing ? 'Compressing...' : `Compress ${selectedDocuments.length} PDF${selectedDocuments.length !== 1 ? 's' : ''}`}
-          </button>
-        </div>
+            {/* Document List */}
+            <div>
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Available Documents</h3>
+              {availableDocuments.length === 0 ? (
+                <div className="text-center py-12 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                  <div className="text-slate-300 text-4xl mb-3">📄</div>
+                  <p className="text-slate-500 font-medium">No documents found for this user.</p>
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {availableDocuments.map((doc) => (
+                    <div
+                      key={doc._id}
+                      onClick={() => handleDocumentToggle(doc._id)}
+                      className={`flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer group ${
+                        selectedDocuments.includes(doc._id)
+                          ? 'bg-slate-50 border-blue-500 shadow-sm'
+                          : 'bg-white border-slate-100 hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className={`w-6 h-6 rounded-md flex items-center justify-center border transition-colors ${
+                        selectedDocuments.includes(doc._id)
+                          ? 'bg-blue-600 border-blue-600 text-white'
+                          : 'bg-slate-100 border-slate-200 text-transparent group-hover:border-slate-400'
+                      }`}>
+                        <span className="text-xs font-bold">✓</span>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-bold truncate text-slate-800`}>
+                          {doc.fieldName}
+                        </p>
+                        <p className={`text-[11px] truncate text-slate-500`}>
+                          {doc.originalname} • {(doc.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPreviewFile({ url: doc.cloudinaryUrl!, type: doc.mimetype });
+                          }}
+                          className={`text-[10px] font-bold px-2 py-1 rounded border transition-all border-slate-200 text-slate-500 hover:border-slate-900 hover:text-slate-900`}
+                        >
+                          VIEW
+                        </button>
+                        <div className={`text-xl opacity-40 group-hover:opacity-100 transition-opacity`}>
+                          {doc.mimetype === 'application/pdf' ? '📄' : '🖼️'}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 py-4 bg-white border-t border-slate-100 flex items-center justify-between">
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-tight">
+              {selectedDocuments.length} SELECTED
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="px-5 py-2 text-sm font-bold text-slate-600 hover:text-slate-900 transition"
+                disabled={compressing}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCompressPDFs}
+                disabled={selectedDocuments.length === 0 || compressing}
+                className="px-6 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-black transition disabled:opacity-50 disabled:cursor-not-allowed shadow-md flex items-center gap-2"
+              >
+                {compressing ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                    Compressing...
+                  </>
+                ) : (
+                  `Compress & Export`
+                )}
+              </button>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Inner Preview Overlay */}
+        <AnimatePresence>
+          {previewFile && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-[70] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer"
+              onClick={() => setPreviewFile(null)}
+            >
+              <div className="relative w-full max-w-lg aspect-[3/4] bg-white rounded-lg shadow-2xl overflow-hidden cursor-default" onClick={e => e.stopPropagation()}>
+                 <button
+                  onClick={() => setPreviewFile(null)}
+                  className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black transition z-10"
+                >
+                  <span className="text-2xl">✕</span>
+                </button>
+                {previewFile.type === 'application/pdf' ? (
+                  <iframe src={previewFile.url} className="w-full h-full" />
+                ) : (
+                  <img src={previewFile.url} alt="Preview" className="w-full h-full object-contain bg-slate-100" />
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-    </div>
+    </AnimatePresence>
+
   );
 };
 

@@ -154,6 +154,29 @@ class FormSubmissionService {
   }
 
   /**
+   * Rename a document
+   */
+  async renameDocument(submissionId, documentId, newName) {
+    const submission = await formSubmissionRepository.findById(submissionId);
+    if (!submission) {
+      throw new AppError("Submission not found", 404);
+    }
+
+    const document = submission.documents.id(documentId);
+    if (!document) {
+      throw new AppError("Document not found", 404);
+    }
+
+    const updatedDocument = await formSubmissionRepository.renameDocument(
+      submissionId,
+      documentId,
+      newName
+    );
+
+    return { document: updatedDocument };
+  }
+
+  /**
    * Delete document from submission
    */
   async deleteDocument(submissionId, documentId) {

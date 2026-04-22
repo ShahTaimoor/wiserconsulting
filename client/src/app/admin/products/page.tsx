@@ -3,6 +3,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
+import PDFMergeModal from '@/components/admin/PDFMergeModal';
+import CompressPDFModal from '@/components/admin/CompressPDFModal';
 import {
   fetchSubmissions,
   updateStatus,
@@ -19,8 +21,10 @@ const AdminFormSubmissions = () => {
   const dispatch = useAppDispatch();
   const { submissions, loading, error } = useAppSelector((state) => state.admin);
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [selectedSubmission, setSelectedSubmission] = useState<FormSubmission | null>(null);
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showPDFMergeModal, setShowPDFMergeModal] = useState(false);
+  const [showCompressModal, setShowCompressModal] = useState(false);
   const [showDocumentPreview, setShowDocumentPreview] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<{ url: string; name: string; type: string } | null>(null);
   const [documentComments, setDocumentComments] = useState<{ [key: string]: string }>({});
@@ -49,6 +53,11 @@ const AdminFormSubmissions = () => {
     [submissions, filterStatus]
   );
 
+  const selectedSubmission = useMemo(
+    () => submissions.find(s => s._id === selectedSubmissionId) || null,
+    [submissions, selectedSubmissionId]
+  );
+
   const handleStatusUpdate = async (submissionId: string, newStatus: string) => {
     await dispatch(updateStatus({ submissionId, status: newStatus }));
   };
@@ -75,9 +84,9 @@ const AdminFormSubmissions = () => {
   };
 
   const handleSaveComment = async (documentId: string, comment: string) => {
-    if (!selectedSubmission) return;
+    if (!selectedSubmissionId) return;
     try {
-      await dispatch(saveComment({ submissionId: selectedSubmission._id, documentId, comment })).unwrap();
+      await dispatch(saveComment({ submissionId: selectedSubmissionId, documentId, comment })).unwrap();
       setDocumentComments(prev => ({ ...prev, [documentId]: comment }));
       alert('Comment saved and email sent to customer!');
     } catch (error) {
@@ -92,16 +101,14 @@ const AdminFormSubmissions = () => {
   };
 
   const submitRename = async () => {
-    if (!selectedSubmission || !renamingDocument || !newDocumentName.trim()) return;
+    if (!selectedSubmissionId || !renamingDocument || !newDocumentName.trim()) return;
     try {
       await dispatch(renameDocumentAction({
-        submissionId: selectedSubmission._id,
+        submissionId: selectedSubmissionId,
         documentId: renamingDocument.id,
         newName: newDocumentName.trim()
       })).unwrap();
       await dispatch(fetchSubmissions());
-      const updated = submissions.find(s => s._id === selectedSubmission._id);
-      if (updated) setSelectedSubmission(updated);
       setShowRenameModal(false);
       setRenamingDocument(null);
       setNewDocumentName('');
@@ -112,12 +119,10 @@ const AdminFormSubmissions = () => {
   };
 
   const handleDeleteDocument = async (documentId: string, documentName: string) => {
-    if (!selectedSubmission) return;
+    if (!selectedSubmissionId) return;
     if (!window.confirm(`Are you sure you want to delete "${documentName}"? This action cannot be undone.`)) return;
     try {
-      await dispatch(removeDocument({ submissionId: selectedSubmission._id, documentId })).unwrap();
-      const updated = submissions.find(s => s._id === selectedSubmission._id);
-      if (updated) setSelectedSubmission(updated);
+      await dispatch(removeDocument({ submissionId: selectedSubmissionId, documentId })).unwrap();
       alert('Document deleted successfully!');
     } catch (error) {
       alert(`Failed to delete document: ${error}`);
@@ -128,8 +133,8 @@ const AdminFormSubmissions = () => {
     if (!window.confirm(`Are you sure you want to delete submission for "${submissionName}"? This action cannot be undone.`)) return;
     try {
       await dispatch(removeSubmission(submissionId)).unwrap();
-      if (selectedSubmission?._id === submissionId) {
-        setSelectedSubmission(null);
+      if (selectedSubmissionId === submissionId) {
+        setSelectedSubmissionId(null);
         setShowDetailsModal(false);
       }
       alert('Submission deleted successfully!');
@@ -138,9 +143,9 @@ const AdminFormSubmissions = () => {
     }
   };
 
-  const closeDetails = () => { setShowDetailsModal(false); setSelectedSubmission(null); };
+  const closeDetails = () => { setShowDetailsModal(false); setSelectedSubmissionId(null); };
 
-  if (loading) {
+  if (loading && submissions.length === 0) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
@@ -226,16 +231,16 @@ const AdminFormSubmissions = () => {
                       {new Date(submission.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-4 sm:px-6 py-4">
-                      <div className="flex flex-col sm:flex-row gap-1.5">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <button
-                          onClick={() => { setSelectedSubmission(submission); setShowDetailsModal(true); }}
-                          className="text-blue-600 hover:text-blue-900 text-xs font-medium whitespace-nowrap"
+                          onClick={() => { setSelectedSubmissionId(submission._id); setShowDetailsModal(true); }}
+                          className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap shadow-sm"
                         >
                           View Details
                         </button>
                         <button
                           onClick={() => handleDeleteSubmission(submission._id, submission.name)}
-                          className="text-red-600 hover:text-red-900 text-xs font-medium"
+                          className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors shadow-sm"
                         >
                           Delete
                         </button>
@@ -252,12 +257,34 @@ const AdminFormSubmissions = () => {
             SUBMISSION DETAILS MODAL — fully responsive
         ══════════════════════════════════════════ */}
         {showDetailsModal && selectedSubmission && (
-          <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-md flex items-start sm:items-center justify-center p-2 sm:p-4 z-50 overflow-x-hidden">
-            <div className="bg-white rounded-xl w-full max-w-5xl my-2 sm:my-4 shadow-2xl flex flex-col overflow-hidden">
+          <div 
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-hidden"
+            onClick={closeDetails}
+          >
+            <div 
+              className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
 
               {/* Sticky Header */}
               <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-xl z-10 shrink-0">
-                <h2 className="text-base sm:text-xl font-bold text-gray-800">Submission Details</h2>
+                <div className="flex items-center gap-4">
+                  <h2 className="text-base sm:text-xl font-bold text-gray-800">Submission Details</h2>
+                  <div className="hidden sm:flex gap-2">
+                    <button
+                      onClick={() => setShowPDFMergeModal(true)}
+                      className="px-3 py-1 bg-green-600 text-white text-[10px] font-bold rounded-lg hover:bg-green-700 transition shadow-sm uppercase tracking-wider"
+                    >
+                      Merge PDF
+                    </button>
+                    <button
+                      onClick={() => setShowCompressModal(true)}
+                      className="px-3 py-1 bg-slate-700 text-white text-[10px] font-bold rounded-lg hover:bg-slate-800 transition shadow-sm uppercase tracking-wider"
+                    >
+                      Compress PDF
+                    </button>
+                  </div>
+                </div>
                 <button
                   onClick={closeDetails}
                   className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition"
@@ -267,7 +294,7 @@ const AdminFormSubmissions = () => {
               </div>
 
               {/* Scrollable Body */}
-              <div className="p-4 sm:p-6 overflow-y-auto overflow-x-hidden max-h-[80vh] space-y-5">
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1">
 
                 {/* Info Cards — 1 col mobile / 2 col tablet / 3 col desktop */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -371,23 +398,7 @@ const AdminFormSubmissions = () => {
                   </div>
                 )}
 
-                {/* Admin Comments */}
-                {selectedSubmission.adminComments && selectedSubmission.adminComments.length > 0 && (
-                  <div>
-                    <h3 className="text-sm sm:text-base font-bold text-gray-800 mb-3">Admin Comments</h3>
-                    <div className="space-y-3">
-                      {selectedSubmission.adminComments.map((comment: AdminComment, index: number) => (
-                        <div key={index} className="border-l-4 border-blue-400 pl-3 py-1">
-                          <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
-                            <span className="text-sm font-semibold text-gray-800">{comment.documentName}</span>
-                            <span className="text-xs text-gray-400">{new Date(comment.createdAt).toLocaleDateString()}</span>
-                          </div>
-                          <p className="text-sm text-gray-600 break-all">{comment.comment}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+
 
                 {/* Customer Comments */}
                 {selectedSubmission.customerComments && selectedSubmission.customerComments.length > 0 && (
@@ -514,6 +525,20 @@ const AdminFormSubmissions = () => {
             </div>
           </div>
         )}
+
+        {/* PDF Merge Modal */}
+        <PDFMergeModal
+          isOpen={showPDFMergeModal}
+          onClose={() => setShowPDFMergeModal(false)}
+          submission={selectedSubmission}
+        />
+
+        {/* Compress PDF Modal */}
+        <CompressPDFModal
+          isOpen={showCompressModal}
+          onClose={() => setShowCompressModal(false)}
+          submission={selectedSubmission}
+        />
       </div>
     </div>
   );

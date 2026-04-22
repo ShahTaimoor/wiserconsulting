@@ -75,20 +75,39 @@ const AdminAnalyticsPage = () => {
 
   return (
     <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 pb-8">
-      <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-slate-950 p-5 text-white shadow-lg shadow-slate-900/10">
-        <div className="relative">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-              <p className="text-xs uppercase tracking-[0.45em] text-slate-300 font-medium">Total Users</p>
-              <p className="mt-3 text-4xl font-semibold tracking-tight text-white">{totalUsers}</p>
+      {/* Unified Analytics Statement - Compact & Single Row Mobile */}
+      <div className="max-w-4xl mx-auto rounded-3xl bg-slate-950 p-4 sm:p-8 text-white shadow-xl border border-slate-800 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 blur-[60px] -mr-16 -mt-16" />
+        
+        <div className="relative flex flex-row items-center justify-around gap-2 sm:gap-0">
+          {/* Total Users */}
+          <div className="flex flex-col items-center text-center px-2 sm:px-8">
+            <p className="text-[7px] sm:text-[9px] uppercase tracking-[0.2em] sm:tracking-[0.4em] text-slate-500 font-bold mb-0.5 sm:mb-1">Users</p>
+            <div className="flex items-baseline gap-1 sm:gap-1.5">
+              <p className="text-2xl sm:text-5xl font-bold tracking-tighter">{totalUsers}</p>
+              <span className="text-[7px] sm:text-[9px] font-bold text-slate-600 uppercase tracking-widest hidden xs:inline">Active</span>
             </div>
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-              <p className="text-xs uppercase tracking-[0.45em] text-slate-300 font-medium">Total Submissions</p>
-              <p className="mt-3 text-4xl font-semibold tracking-tight text-white">{totalSubmissions}</p>
+          </div>
+          
+          <div className="w-px h-6 sm:h-10 bg-slate-800/50" />
+
+          {/* Total Submissions */}
+          <div className="flex flex-col items-center text-center px-2 sm:px-8">
+            <p className="text-[7px] sm:text-[9px] uppercase tracking-[0.2em] sm:tracking-[0.4em] text-slate-500 font-bold mb-0.5 sm:mb-1">Files</p>
+            <div className="flex items-baseline gap-1 sm:gap-1.5">
+              <p className="text-2xl sm:text-5xl font-bold tracking-tighter">{totalSubmissions}</p>
+              <span className="text-[7px] sm:text-[9px] font-bold text-slate-600 uppercase tracking-widest hidden xs:inline">Filed</span>
             </div>
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-              <p className="text-xs uppercase tracking-[0.45em] text-slate-300 font-medium">Admin Ratio</p>
-              <p className="mt-3 text-4xl font-semibold tracking-tight text-white">{adminShare}%</p>
+          </div>
+
+          <div className="w-px h-6 sm:h-10 bg-slate-800/50" />
+
+          {/* Admin Ratio */}
+          <div className="flex flex-col items-center text-center px-2 sm:px-8">
+            <p className="text-[7px] sm:text-[9px] uppercase tracking-[0.2em] sm:tracking-[0.4em] text-slate-500 font-bold mb-0.5 sm:mb-1">Staff</p>
+            <div className="flex items-baseline gap-1 sm:gap-1.5">
+              <p className="text-2xl sm:text-5xl font-bold tracking-tighter text-blue-500">{adminShare}%</p>
+              <span className="text-[7px] sm:text-[9px] font-bold text-slate-600 uppercase tracking-widest hidden xs:inline">Ratio</span>
             </div>
           </div>
         </div>

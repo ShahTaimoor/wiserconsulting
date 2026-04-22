@@ -16,7 +16,7 @@ class FormSubmissionController {
   createSubmission = asyncHandler(async (req, res) => {
     const { processFiles } = require('../config/cloudinary');
     const uploadType = req.route.path.includes('local') ? 'local' : 'cloudinary';
-    
+
     const submissionData = {
       ...req.body,
       documents: req.files ? processFiles(req.files, uploadType) : [],
@@ -108,6 +108,21 @@ class FormSubmissionController {
     const result = await formSubmissionService.deleteSubmission(id);
 
     return ApiResponse.success(res, result, 'Submission deleted successfully');
+  })
+
+  /**
+   * Rename a document
+   */
+  renameDocument = asyncHandler(async (req, res) => {
+    const { submissionId, documentId } = req.params;
+    const { newName } = req.body;
+
+    if (!newName || !newName.trim()) {
+      return res.status(400).json({ success: false, message: 'New name is required' });
+    }
+
+    const result = await formSubmissionService.renameDocument(submissionId, documentId, newName.trim());
+    return ApiResponse.success(res, result, 'Document renamed successfully');
   })
 
   /**

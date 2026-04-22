@@ -162,16 +162,24 @@ export const renameDocument = async (
   documentId: string, 
   newName: string
 ): Promise<RenameDocumentResponse> => {
-  const response = await fetch(`${API_URL}/rename-document/${submissionId}/${documentId}`, {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_URL}/form-submissions/${submissionId}/documents/${documentId}/rename`, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
+    credentials: 'include',
     body: JSON.stringify({ newName }),
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
+    const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.message || 'Failed to rename document');
   }
 

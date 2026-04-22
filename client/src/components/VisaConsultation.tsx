@@ -46,20 +46,11 @@ const VisaConsultation: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [guestEmail, setGuestEmail] = useState<string | null>(null);
-  const [statusEmailInput, setStatusEmailInput] = useState('');
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const typedEl = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     setMounted(true);
-    const updateEmail = () => {
-      const savedEmail = localStorage.getItem('guestEmail');
-      if (savedEmail) setGuestEmail(savedEmail);
-    };
-    
-    updateEmail();
-    window.addEventListener('guestEmailUpdated', updateEmail);
-    return () => window.removeEventListener('guestEmailUpdated', updateEmail);
   }, []);
 
   useEffect(() => {
@@ -94,36 +85,23 @@ const VisaConsultation: React.FC = () => {
     { name: 'Hongkong', image: 'https://flagcdn.com/hk.svg' },
   ];
 
-  const { user } = useSelector((state: RootState) => state.auth) as { user: { email: string } | null };
-  const { adminComments } = useSelector((state: RootState) => state.formSubmission);
-
-  const effectiveEmail = user?.email || guestEmail;
+  const { user } = useSelector((state: RootState) => state.auth) as { user: { email: string; name: string } | null };
+  const { adminComments, currentSubmission } = useSelector((state: RootState) => state.formSubmission);
 
   useEffect(() => {
-    if (effectiveEmail) {
-      dispatch(fetchAdminComments(effectiveEmail));
+    if (user?.email) {
+      dispatch(fetchAdminComments(user.email));
     }
-  }, [effectiveEmail, dispatch]);
-
-  const handleIdentifyGuest = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (statusEmailInput.trim()) {
-      setGuestEmail(statusEmailInput.trim());
-      localStorage.setItem('guestEmail', statusEmailInput.trim());
-    }
-  };
-
-  const handleClearGuest = () => {
-    setGuestEmail(null);
-    localStorage.removeItem('guestEmail');
-    dispatch({ type: 'formSubmission/fetchAdminComments/fulfilled', payload: { success: true, data: { submission: null } } });
-  };
+  }, [user?.email, dispatch]);
 
   const groupCommentsByDocument = (comments: AdminComment[]) => {
-    const grouped: { [key: string]: AdminComment[] } = {};
+    const grouped: { [key: string]: { name: string; comments: AdminComment[] } } = {};
     comments.forEach((c) => {
-      if (!grouped[c.documentName]) grouped[c.documentName] = [];
-      grouped[c.documentName].push(c);
+      const id = c.documentId;
+      if (!grouped[id]) {
+        grouped[id] = { name: c.documentName, comments: [] };
+      }
+      grouped[id].comments.push(c);
     });
     return grouped;
   };
@@ -488,33 +466,32 @@ const VisaConsultation: React.FC = () => {
       </section>
 
       {/* Comments Toggle Button */}
-      {mounted && (
+      {mounted && user && (
         <>
           <button
             onClick={() => setShowComments(!showComments)}
-            className={`fixed top-40 right-0 z-50 p-3 rounded-l-xl shadow-xl transition-all border border-slate-700 hover:shadow-2xl ${
-              showComments ? 'bg-slate-800 text-white translate-x-1' : 'bg-slate-900 text-white'
-            }`}
+            className={`fixed top-40 right-0 z-50 p-3 rounded-l-xl shadow-xl transition-all border border-slate-700 hover:shadow-2xl ${showComments ? 'bg-slate-800 text-white translate-x-1' : 'bg-slate-900 text-white'
+              }`}
           >
             {showComments ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-            {adminComments.length > 0 && (
+            {adminComments.filter(c => currentSubmission?.documents.some(d => d._id === c.documentId)).length > 0 && (
               <span className="absolute -top-2 -left-2 bg-red-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg animate-pulse">
-                {adminComments.length}
+                {adminComments.filter(c => currentSubmission?.documents.some(d => d._id === c.documentId)).length}
               </span>
             )}
           </button>
- 
-           <AnimatePresence>
-             {showComments && (
-               <motion.div
-                 initial={{ opacity: 0 }}
-                 animate={{ opacity: 1 }}
-                 exit={{ opacity: 0 }}
-                 onClick={() => setShowComments(false)}
-                 className="fixed inset-0 bg-slate-900/10 backdrop-blur-[1px] z-30"
-               />
-             )}
-           </AnimatePresence>
+
+          <AnimatePresence>
+            {showComments && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowComments(false)}
+                className="fixed inset-0 bg-slate-900/10 backdrop-blur-[1px] z-30"
+              />
+            )}
+          </AnimatePresence>
 
           {/* Comments Panel */}
           <motion.div
@@ -529,61 +506,60 @@ const VisaConsultation: React.FC = () => {
                   <h3 className="text-lg font-semibold">Admin Comments</h3>
                   <p className="text-sm text-slate-300 mt-1">Review feedback on your documents</p>
                 </div>
-                {guestEmail && (
-                  <button onClick={handleClearGuest} className="text-xs text-slate-400 hover:text-white transition-colors">
-                    Logout
-                  </button>
-                )}
               </div>
               <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
-                {!effectiveEmail ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center p-4">
-                    <Mail className="w-12 h-12 text-slate-300 mb-6" />
-                    <h4 className="text-slate-900 font-bold mb-2">Check Application Status</h4>
-                    <p className="text-sm text-slate-500 mb-8">Enter your email to view admin comments and track your progress.</p>
-                    <form onSubmit={handleIdentifyGuest} className="w-full space-y-4">
-                      <input
-                        type="email"
-                        value={statusEmailInput}
-                        onChange={(e) => setStatusEmailInput(e.target.value)}
-                        placeholder="your@email.com"
-                        required
-                        className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all text-sm"
-                      />
-                      <button
-                        type="submit"
-                        className="w-full bg-slate-900 text-white py-3 rounded-lg font-semibold hover:bg-slate-800 transition-all shadow-md active:scale-95"
-                      >
-                        Find My Application
-                      </button>
-                    </form>
-                  </div>
-                ) : adminComments.length > 0 ? (
+                {adminComments.length > 0 ? (
                   <div className="space-y-6">
-                    {Object.entries(groupCommentsByDocument(adminComments)).map(([docName, comments]) => (
-                      <div key={docName} className="mb-6">
-                        <h4 className="font-semibold text-sm text-slate-900 mb-3 pb-2 border-b border-slate-200">
-                          {docName}
-                        </h4>
-                        <div className="space-y-3">
-                          {comments.map((c, i) => (
-                            <div
-                              key={i}
-                              className="bg-slate-50 p-4 rounded-lg border-l-4 border-slate-600"
-                            >
-                              <p className="text-sm text-slate-800 leading-relaxed break-all">{c.comment}</p>
-                              <span className="text-xs text-slate-500 mt-2 block">
-                                {new Date(c.createdAt).toLocaleDateString('en-US', {
-                                  year: 'numeric',
-                                  month: 'long',
-                                  day: 'numeric'
-                                })}
-                              </span>
-                            </div>
-                          ))}
+                    {Object.entries(groupCommentsByDocument(adminComments)).map(([docId, data]) => {
+                      const doc = currentSubmission?.documents.find(d => d._id === docId);
+                      if (!doc) return null; // Skip if document is deleted
+                      return (
+                        <div key={docId} className="mb-6">
+                          <div className="flex items-center gap-3 mb-3 pb-2 border-b border-slate-200">
+                            {doc?.cloudinaryUrl && (
+                              <div
+                                onClick={() => doc.mimetype.startsWith('image/') && setPreviewImageUrl(doc.cloudinaryUrl || null)}
+                                className={`relative w-12 h-12 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200 ${doc.mimetype.startsWith('image/') ? 'cursor-zoom-in hover:border-slate-400 transition-colors' : ''}`}
+                              >
+                                {doc.mimetype.startsWith('image/') ? (
+                                  <Image
+                                    src={doc.cloudinaryUrl}
+                                    alt={data.name}
+                                    fill
+                                    className="object-cover"
+                                    unoptimized
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center bg-slate-200">
+                                    <FileCheck2 className="w-6 h-6 text-slate-400" />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            <h4 className="font-semibold text-sm text-slate-900 break-all">
+                              {data.name}
+                            </h4>
+                          </div>
+                          <div className="space-y-3">
+                            {data.comments.map((c, i) => (
+                              <div
+                                key={i}
+                                className="bg-slate-50 p-4 rounded-lg border-l-4 border-slate-600"
+                              >
+                                <p className="text-sm text-slate-800 leading-relaxed break-all">{c.comment}</p>
+                                <span className="text-xs text-slate-500 mt-2 block">
+                                  {new Date(c.createdAt).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                  })}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-center">
@@ -599,6 +575,44 @@ const VisaConsultation: React.FC = () => {
       )}
 
       <AssessmentForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} />
+
+      {/* Image Preview Modal */}
+      <AnimatePresence>
+        {previewImageUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm cursor-pointer"
+            onClick={() => setPreviewImageUrl(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative max-w-5xl w-full max-h-[85vh] bg-white rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.3)] cursor-default"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setPreviewImageUrl(null)}
+                className="absolute top-4 right-4 z-20 w-10 h-10 bg-white/90 text-slate-900 rounded-full flex items-center justify-center hover:bg-slate-900 hover:text-white shadow-lg transition-all duration-300"
+              >
+                <span className="text-xl font-bold">✕</span>
+              </button>
+              
+              <div className="relative w-full h-[80vh] bg-slate-50">
+                <Image
+                  src={previewImageUrl}
+                  alt="Document Preview"
+                  fill
+                  className="object-contain p-2"
+                  unoptimized
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

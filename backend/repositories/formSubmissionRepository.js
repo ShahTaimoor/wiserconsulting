@@ -156,16 +156,42 @@ class FormSubmissionRepository {
   }
 
   /**
-   * Delete document from submission
+   * Rename a document inside a submission
    */
-  async deleteDocument(submissionId, documentId) {
+  async renameDocument(submissionId, documentId, newName) {
     const submission = await this.findById(submissionId);
     if (!submission) return null;
 
     const document = submission.documents.id(documentId);
     if (!document) return null;
 
+    // Preserve file extension from the original name
+    const ext = document.originalname.includes('.')
+      ? '.' + document.originalname.split('.').pop()
+      : '';
+    document.originalname = newName + ext;
+
+    await submission.save();
+    return document;
+  }
+
+  /**
+   * Delete document from submission
+   */
+  async deleteDocument(submissionId, documentId) {
+    const submission = await this.findById(submissionId);
+    if (!submission) return null;
+
+    // Remove the document
     submission.documents.pull(documentId);
+
+    // Also remove all admin comments associated with this documentId
+    if (submission.adminComments) {
+      submission.adminComments = submission.adminComments.filter(
+        (c) => c.documentId !== documentId
+      );
+    }
+
     return await submission.save();
   }
 

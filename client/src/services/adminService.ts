@@ -16,7 +16,7 @@ export interface UsersResponse {
 
 export const fetchAllUsers = async (): Promise<UsersResponse> => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-  
+
   const headers: HeadersInit = {};
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -34,13 +34,13 @@ export const fetchAllUsers = async (): Promise<UsersResponse> => {
 
   const responseData = await response.json();
   const users = responseData.data?.users || responseData.users || [];
-  
+
   return { users };
 };
 
 export const updateUserRole = async (userId: string, role: number): Promise<void> => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-  
+
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
@@ -129,7 +129,7 @@ export interface AnalyticsSummary {
 export const fetchFormSubmissions = async (): Promise<FormSubmissionsResponse> => {
   // Get token from localStorage as fallback
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-  
+
   const headers: HeadersInit = {};
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -146,10 +146,10 @@ export const fetchFormSubmissions = async (): Promise<FormSubmissionsResponse> =
   }
 
   const responseData = await response.json();
-  
+
   // Backend returns paginated response with data.submissions
   const submissions = responseData.data?.submissions || responseData.submissions || [];
-  
+
   return { submissions };
 };
 
@@ -177,7 +177,7 @@ export const fetchAnalyticsSummary = async (): Promise<{ summary: AnalyticsSumma
 
 export const updateSubmissionStatus = async (submissionId: string, status: string): Promise<void> => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-  
+
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
@@ -204,7 +204,7 @@ export const saveDocumentComment = async (
   comment: string
 ): Promise<void> => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-  
+
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
@@ -227,7 +227,7 @@ export const saveDocumentComment = async (
 
 export const deleteDocument = async (submissionId: string, documentId: string): Promise<void> => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-  
+
   const headers: HeadersInit = {};
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -247,7 +247,7 @@ export const deleteDocument = async (submissionId: string, documentId: string): 
 
 export const deleteSubmission = async (submissionId: string): Promise<void> => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-  
+
   const headers: HeadersInit = {};
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;

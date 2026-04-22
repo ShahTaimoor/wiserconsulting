@@ -189,6 +189,7 @@ const formSubmissionSlice = createSlice({
         state.loading = false;
         if (action.payload.success && action.payload.data?.submission) {
           state.adminComments = action.payload.data.submission.adminComments || [];
+          state.currentSubmission = action.payload.data.submission;
         } else {
           state.adminComments = [];
         }
