@@ -466,9 +466,8 @@ const VisaConsultation: React.FC = () => {
         <>
           <button
             onClick={() => setShowComments(!showComments)}
-            className={`fixed top-40 right-0 z-50 p-3 rounded-l-xl shadow-xl transition-all border border-slate-700 hover:shadow-2xl ${
-              showComments ? 'bg-slate-800 text-white translate-x-1' : 'bg-slate-900 text-white'
-            }`}
+            className={`fixed top-40 right-0 z-50 p-3 rounded-l-xl shadow-xl transition-all border border-slate-700 hover:shadow-2xl ${showComments ? 'bg-slate-800 text-white translate-x-1' : 'bg-slate-900 text-white'
+              }`}
           >
             {showComments ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
             {adminComments.length > 0 && (
@@ -477,18 +476,18 @@ const VisaConsultation: React.FC = () => {
               </span>
             )}
           </button>
- 
-           <AnimatePresence>
-             {showComments && (
-               <motion.div
-                 initial={{ opacity: 0 }}
-                 animate={{ opacity: 1 }}
-                 exit={{ opacity: 0 }}
-                 onClick={() => setShowComments(false)}
-                 className="fixed inset-0 bg-slate-900/10 backdrop-blur-[1px] z-30"
-               />
-             )}
-           </AnimatePresence>
+
+          <AnimatePresence>
+            {showComments && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowComments(false)}
+                className="fixed inset-0 bg-slate-900/10 backdrop-blur-[1px] z-30"
+              />
+            )}
+          </AnimatePresence>
 
           {/* Comments Panel */}
           <motion.div
