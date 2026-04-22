@@ -67,12 +67,6 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
 
     if (success) {
       setNotification({ type: 'success', message: success });
-      // If guest email is present, save it for the comments drawer
-      if (formData.email) {
-        localStorage.setItem('guestEmail', formData.email);
-        // Dispatch custom event to notify VisaConsultation component
-        window.dispatchEvent(new Event('guestEmailUpdated'));
-      }
       successTimeout = setTimeout(() => {
         setNotification(null);
         dispatch(clearSuccess());
