@@ -372,23 +372,7 @@ const AdminFormSubmissions = () => {
                   </div>
                 )}
 
-                {/* Admin Comments */}
-                {selectedSubmission.adminComments && selectedSubmission.adminComments.length > 0 && (
-                  <div>
-                    <h3 className="text-sm sm:text-base font-bold text-gray-800 mb-3">Admin Comments</h3>
-                    <div className="space-y-3">
-                      {selectedSubmission.adminComments.map((comment: AdminComment, index: number) => (
-                        <div key={index} className="border-l-4 border-blue-400 pl-3 py-1">
-                          <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
-                            <span className="text-sm font-semibold text-gray-800">{comment.documentName}</span>
-                            <span className="text-xs text-gray-400">{new Date(comment.createdAt).toLocaleDateString()}</span>
-                          </div>
-                          <p className="text-sm text-gray-600 break-all">{comment.comment}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+
 
                 {/* Customer Comments */}
                 {selectedSubmission.customerComments && selectedSubmission.customerComments.length > 0 && (
