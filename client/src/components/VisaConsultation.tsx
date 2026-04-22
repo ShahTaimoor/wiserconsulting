@@ -46,6 +46,7 @@ const VisaConsultation: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const typedEl = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -515,7 +516,10 @@ const VisaConsultation: React.FC = () => {
                         <div key={docId} className="mb-6">
                           <div className="flex items-center gap-3 mb-3 pb-2 border-b border-slate-200">
                             {doc?.cloudinaryUrl && (
-                              <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
+                              <div
+                                onClick={() => doc.mimetype.startsWith('image/') && setPreviewImageUrl(doc.cloudinaryUrl || null)}
+                                className={`relative w-12 h-12 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200 ${doc.mimetype.startsWith('image/') ? 'cursor-zoom-in hover:border-slate-400 transition-colors' : ''}`}
+                              >
                                 {doc.mimetype.startsWith('image/') ? (
                                   <Image
                                     src={doc.cloudinaryUrl}
@@ -570,6 +574,43 @@ const VisaConsultation: React.FC = () => {
       )}
 
       <AssessmentForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} />
+
+      {/* Image Preview Modal */}
+      <AnimatePresence>
+        {previewImageUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-sm"
+            onClick={() => setPreviewImageUrl(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative max-w-4xl w-full max-h-[90vh] bg-white rounded-2xl overflow-hidden shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setPreviewImageUrl(null)}
+                className="absolute top-4 right-4 z-10 w-10 h-10 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70 transition-colors backdrop-blur-md"
+              >
+                ✕
+              </button>
+              <div className="relative w-full h-[80vh]">
+                <Image
+                  src={previewImageUrl}
+                  alt="Document Preview"
+                  fill
+                  className="object-contain"
+                  unoptimized
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
