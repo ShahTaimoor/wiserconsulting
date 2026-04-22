@@ -66,6 +66,14 @@ router.delete(
   formSubmissionController.deleteSubmission.bind(formSubmissionController)
 );
 
+// Rename a specific document in a submission
+router.put(
+  '/form-submissions/:submissionId/documents/:documentId/rename',
+  isAuthorized,
+  isAdmin,
+  formSubmissionController.renameDocument.bind(formSubmissionController)
+);
+
 // Delete specific document from submission
 router.delete(
   '/form-submissions/:submissionId/documents/:documentId',

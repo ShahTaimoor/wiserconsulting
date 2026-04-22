@@ -111,6 +111,21 @@ class FormSubmissionController {
   })
 
   /**
+   * Rename a document
+   */
+  renameDocument = asyncHandler(async (req, res) => {
+    const { submissionId, documentId } = req.params;
+    const { newName } = req.body;
+
+    if (!newName || !newName.trim()) {
+      return res.status(400).json({ success: false, message: 'New name is required' });
+    }
+
+    const result = await formSubmissionService.renameDocument(submissionId, documentId, newName.trim());
+    return ApiResponse.success(res, result, 'Document renamed successfully');
+  })
+
+  /**
    * Delete document from submission
    */
   deleteDocument = asyncHandler(async (req, res) => {

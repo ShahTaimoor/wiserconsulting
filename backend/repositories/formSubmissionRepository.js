@@ -156,6 +156,26 @@ class FormSubmissionRepository {
   }
 
   /**
+   * Rename a document inside a submission
+   */
+  async renameDocument(submissionId, documentId, newName) {
+    const submission = await this.findById(submissionId);
+    if (!submission) return null;
+
+    const document = submission.documents.id(documentId);
+    if (!document) return null;
+
+    // Preserve file extension from the original name
+    const ext = document.originalname.includes('.')
+      ? '.' + document.originalname.split('.').pop()
+      : '';
+    document.originalname = newName + ext;
+
+    await submission.save();
+    return document;
+  }
+
+  /**
    * Delete document from submission
    */
   async deleteDocument(submissionId, documentId) {
