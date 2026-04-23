@@ -3,13 +3,14 @@
 import { Sidebar, SidebarContent } from "@/components/ui/sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { NavItem, NavMain } from "@/components/shadcn-space/blocks/sidebar-06/nav-main";
-import { PieChart, CircleUserRound, ClipboardList, Notebook, ExternalLink } from "lucide-react";
+import { PieChart, CircleUserRound, ClipboardList, Notebook, ExternalLink, Mail } from "lucide-react";
 
 export const navData: NavItem[] = [
   // Admin Section
   { label: "Admin Panel", isSection: true },
   { title: "Users", icon: CircleUserRound, href: "/admin/users" },
   { title: "Form Submissions", icon: ClipboardList, href: "/admin/products" },
+  { title: "Contact Submissions", icon: Mail, href: "/admin/contacts" },
   { title: "Merge PDFs", icon: Notebook, href: "/admin/orders" },
 
   // Dashboards Section (Placeholders for design)
