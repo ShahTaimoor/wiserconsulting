@@ -41,7 +41,7 @@ const ContactDetailPage = () => {
       setError("");
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/contact/${id}`, {
+        const response = await fetch(`${API_BASE_URL}/api/contacts/${id}`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`
           }
@@ -68,7 +68,7 @@ const ContactDetailPage = () => {
 
   const handleStatusChange = async (newStatus: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/contact/${id}/status`, {
+      const response = await fetch(`${API_BASE_URL}/api/contacts/${id}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -101,7 +101,7 @@ const ContactDetailPage = () => {
     setError("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/contact/${id}/reply`, {
+      const response = await fetch(`${API_BASE_URL}/api/contacts/${id}/reply`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

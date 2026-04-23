@@ -42,34 +42,42 @@ exports.createContactSubmission = asyncHandler(async (req, res) => {
 // Get all contact submissions (Admin only)
 exports.getAllSubmissions = asyncHandler(async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, search } = req.query;
+    const { page, limit, skip } = require("../utils/pagination").getPaginationParams(req);
+    const { status, search } = req.query;
 
     let result;
     if (search) {
       result = await contactSubmissionService.searchSubmissions(
         search,
-        parseInt(page),
-        parseInt(limit),
+        page,
+        limit,
       );
     } else {
       const filters = status ? { status } : {};
       result = await contactSubmissionService.getAllSubmissions(
-        parseInt(page),
-        parseInt(limit),
+        page,
+        limit,
         filters,
       );
     }
 
+    const totalItems = result.pagination?.totalItems || 0;
+    const meta = require("../utils/pagination").getPaginationMeta(
+      page,
+      limit,
+      totalItems,
+    );
+
     return ApiResponse.paginated(
       res,
       result.submissions,
-      result.pagination,
+      meta,
       "Contact submissions retrieved successfully",
       200,
     );
   } catch (error) {
-    logger.error(`Error in getAllSubmissions: ${error.message}`);
-    return ApiResponse.error(res, "Error fetching contact submissions", 500);
+    logger.error("Error in getAllSubmissions:", error);
+    return ApiResponse.error(res, error.message || "Error fetching contact submissions", 500);
   }
 });
 
