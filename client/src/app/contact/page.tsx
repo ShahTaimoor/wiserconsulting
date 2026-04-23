@@ -1,12 +1,80 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Mail, Phone, MapPin } from "lucide-react";
+import { Mail, Phone, MapPin, AlertCircle, CheckCircle } from "lucide-react";
+import { useState } from "react";
 
 const cityImageUrl =
   "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=80";
 
 const ContactPage = () => {
+  const [formData, setFormData] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    subject: "",
+    message: ""
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError("");
+    setSuccess(false);
+    setLoading(true);
+
+    try {
+      // Validate form data
+      if (!formData.name || !formData.phone || !formData.email || !formData.subject || !formData.message) {
+        setError("All fields are required");
+        setLoading(false);
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        setError("Invalid email format");
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000"}/api/contact`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to submit form");
+      }
+
+      setSuccess(true);
+      setFormData({ name: "", phone: "", email: "", subject: "", message: "" });
+      
+      // Clear success message after 5 seconds
+      setTimeout(() => setSuccess(false), 5000);
+    } catch (err: any) {
+      setError(err.message || "An error occurred while submitting the form");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fadeUp = {
     initial: { opacity: 0, y: 45 },
     animate: { opacity: 1, y: 0 },
@@ -102,37 +170,86 @@ const ContactPage = () => {
                 </p>
               </div>
 
-              <form className="grid gap-5">
+              <form className="grid gap-5" onSubmit={handleSubmit}>
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-3 rounded-lg bg-red-50 p-4 text-red-700 border border-red-200"
+                  >
+                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                    <p className="text-sm">{error}</p>
+                  </motion.div>
+                )}
+
+                {success && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-3 rounded-lg bg-green-50 p-4 text-green-700 border border-green-200"
+                  >
+                    <CheckCircle className="w-5 h-5 flex-shrink-0" />
+                    <p className="text-sm">Thank you! Your message has been sent successfully. We'll get back to you soon.</p>
+                  </motion.div>
+                )}
+
                 <div className="grid gap-5 sm:grid-cols-2">
                   <input
                     type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
                     placeholder="Name*"
+                    required
                     className="h-14 rounded-full border border-slate-200 bg-slate-50 px-5 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
                   />
                   <input
-                    type="text"
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
                     placeholder="Phone number*"
+                    required
                     className="h-14 rounded-full border border-slate-200 bg-slate-50 px-5 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
                   />
                 </div>
 
                 <input
                   type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
                   placeholder="Email address*"
+                  required
+                  className="h-14 rounded-full border border-slate-200 bg-slate-50 px-5 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
+                />
+
+                <input
+                  type="text"
+                  name="subject"
+                  value={formData.subject}
+                  onChange={handleChange}
+                  placeholder="Subject*"
+                  required
                   className="h-14 rounded-full border border-slate-200 bg-slate-50 px-5 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
                 />
 
                 <textarea
                   rows={6}
-                  placeholder="Write here your message"
+                  name="message"
+                  value={formData.message}
+                  onChange={handleChange}
+                  placeholder="Write here your message*"
+                  required
                   className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-5 py-4 text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200"
                 />
 
                 <button
                   type="submit"
-                  className="inline-flex w-full items-center justify-center rounded-full bg-emerald-500 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-600"
+                  disabled={loading}
+                  className="inline-flex w-full items-center justify-center rounded-full bg-emerald-500 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-600 disabled:bg-emerald-400 disabled:cursor-not-allowed"
                 >
-                  Send message
+                  {loading ? "Sending..." : "Send message"}
                 </button>
               </form>
             </motion.div>

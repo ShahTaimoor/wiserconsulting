@@ -12,22 +12,27 @@ const connectDB = require("./config/db");
 const userRoutes = require("./routes/userRoutes");
 const authRoutes = require("./routes/authRoutes");
 const assessmentRoutes = require("./routes/assessmentRoutes");
-const formSubmissionRoutes = require('./routes/formSubmissionRoutes');
-const { apiLimiter, authLimiter, uploadLimiter } = require('./middleware/rateLimiter');
-const sanitize = require('./middleware/sanitize');
-const logger = require('./utils/logger');
+const formSubmissionRoutes = require("./routes/formSubmissionRoutes");
+const contactRoutes = require("./routes/contactRoutes");
+const {
+  apiLimiter,
+  authLimiter,
+  uploadLimiter,
+} = require("./middleware/rateLimiter");
+const sanitize = require("./middleware/sanitize");
+const logger = require("./utils/logger");
 
-connectDB()
+connectDB();
 
 const app = express();
 
 // Middlewares
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-  'http://localhost:3001',
-  'http://127.0.0.1:3001',
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "http://localhost:3001",
+  "http://127.0.0.1:3001",
 ].filter(Boolean);
 
 const corsOptions = {
@@ -35,7 +40,9 @@ const corsOptions = {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error(`CORS policy does not allow access from origin ${origin}`));
+      callback(
+        new Error(`CORS policy does not allow access from origin ${origin}`),
+      );
     }
   },
   credentials: true,
@@ -50,39 +57,42 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Rate limiting
-app.use('/api', apiLimiter);
+app.use("/api", apiLimiter);
 
 // Session middleware
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-secret-key',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000
-  }
-}));
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "your-secret-key",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000,
+    },
+  }),
+);
 
 // Initialize passport
 app.use(passport.initialize());
 app.use(passport.session());
 
 // Serve static files from uploads directory
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // API Routes with rate limiting
-app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api', userRoutes);
-app.use('/api', assessmentRoutes);
-app.use('/api', formSubmissionRoutes);
+app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api", userRoutes);
+app.use("/api", assessmentRoutes);
+app.use("/api", formSubmissionRoutes);
+app.use("/api/contact", contactRoutes);
 
-app.get('/', (req, res) => {
-  res.send('Welcome to the backend');
+app.get("/", (req, res) => {
+  res.send("Welcome to the backend");
 });
 
 // Central Error Handler (must be last)
-const { errorHandler } = require('./middleware/errorHandler');
+const { errorHandler } = require("./middleware/errorHandler");
 app.use(errorHandler);
 
 app.listen(process.env.PORT, () => {
