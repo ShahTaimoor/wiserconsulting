@@ -184,35 +184,38 @@ const Navbar = () => {
 
                   <div className="flex flex-col gap-4">
                     {user ? (
-                      <div className="flex flex-col gap-3">
-                        <div className="flex items-center gap-3 px-2 py-3 border-b border-slate-800">
+                      <div className="flex flex-row flex-wrap items-center justify-between gap-3 px-2 py-4 border-t border-slate-800">
+                        {/* User Info */}
+                        <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/20">
                             <UserIcon className="text-emerald-400" size={20} />
                           </div>
                           <div className="flex flex-col">
-                            <p className="text-sm font-medium text-slate-100">{user.name}</p>
-                            <p className="text-xs text-slate-400">{user.email}</p>
+                            <p className="text-sm font-semibold text-slate-100">{user.name}</p>
+                            <p className="text-[10px] text-slate-400 truncate max-w-[100px]">{user.email}</p>
                           </div>
                         </div>
 
-                        {isAdminRole(user.role) && (
-                          <Link
-                            href="/admin/products"
-                            onClick={() => setIsOpen(false)}
-                            className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-800 border border-slate-700 px-8 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
-                          >
-                            <LayoutDashboard size={18} />
-                            Admin Dashboard
-                          </Link>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {isAdminRole(user.role) && (
+                            <Link
+                              href="/admin/products"
+                              onClick={() => setIsOpen(false)}
+                              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-slate-800 border border-slate-700 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-700"
+                            >
+                              <LayoutDashboard size={14} />
+                              Admin
+                            </Link>
+                          )}
 
-                        <button
-                          onClick={handleLogout}
-                          className="inline-flex items-center justify-center gap-2 rounded-full bg-red-500/10 border border-red-500/20 px-8 py-3 text-sm font-semibold text-red-400 transition hover:bg-red-500 hover:text-white"
-                        >
-                          <LogOut size={18} />
-                          Logout
-                        </button>
+                          <button
+                            onClick={handleLogout}
+                            className="inline-flex items-center justify-center gap-1.5 rounded-full bg-red-500/10 border border-red-500/20 px-4 py-2 text-xs font-semibold text-red-400 transition hover:bg-red-500 hover:text-white"
+                          >
+                            <LogOut size={14} />
+                            Logout
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
