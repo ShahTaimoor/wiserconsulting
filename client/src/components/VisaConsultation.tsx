@@ -47,6 +47,7 @@ const VisaConsultation: React.FC = () => {
   const [showComments, setShowComments] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [hasViewedComments, setHasViewedComments] = useState(false);
   const typedEl = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -93,6 +94,16 @@ const VisaConsultation: React.FC = () => {
       dispatch(fetchAdminComments(user.email));
     }
   }, [user?.email, dispatch]);
+
+  const prevCommentsLength = useRef(adminComments.length);
+
+  // Reset viewed status only if NEW comments arrive
+  useEffect(() => {
+    if (adminComments.length > prevCommentsLength.current) {
+      setHasViewedComments(false);
+    }
+    prevCommentsLength.current = adminComments.length;
+  }, [adminComments.length]);
 
   const groupCommentsByDocument = (comments: AdminComment[]) => {
     const grouped: { [key: string]: { name: string; comments: AdminComment[] } } = {};
@@ -469,12 +480,15 @@ const VisaConsultation: React.FC = () => {
       {mounted && user && (
         <>
           <button
-            onClick={() => setShowComments(!showComments)}
+            onClick={() => {
+              setShowComments(!showComments);
+              if (!showComments) setHasViewedComments(true);
+            }}
             className={`fixed top-40 right-0 z-50 p-3 rounded-l-xl shadow-xl transition-all border border-slate-700 hover:shadow-2xl ${showComments ? 'bg-slate-800 text-white translate-x-1' : 'bg-slate-900 text-white'
               }`}
           >
             {showComments ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-            {adminComments.filter(c => currentSubmission?.documents.some(d => d._id === c.documentId)).length > 0 && (
+            {adminComments.filter(c => currentSubmission?.documents.some(d => d._id === c.documentId)).length > 0 && !hasViewedComments && !showComments && (
               <span className="absolute -top-2 -left-2 bg-red-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg animate-pulse">
                 {adminComments.filter(c => currentSubmission?.documents.some(d => d._id === c.documentId)).length}
               </span>
