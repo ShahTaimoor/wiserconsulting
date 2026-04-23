@@ -257,11 +257,11 @@ const AdminFormSubmissions = () => {
             SUBMISSION DETAILS MODAL — fully responsive
         ══════════════════════════════════════════ */}
         {showDetailsModal && selectedSubmission && (
-          <div 
+          <div
             className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-hidden"
             onClick={closeDetails}
           >
-            <div 
+            <div
               className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200"
               onClick={(e) => e.stopPropagation()}
             >

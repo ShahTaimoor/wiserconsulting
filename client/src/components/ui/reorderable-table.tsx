@@ -57,18 +57,18 @@ export default function ReorderableTable({
   // load saved order or default order
   const [columnOrder, setColumnOrder] = useState<string[]>(
     () => {
-        if (typeof window !== 'undefined') {
-            return JSON.parse(localStorage.getItem(LS_ORDER) || "null") || columnKeys;
-        }
-        return columnKeys;
+      if (typeof window !== 'undefined') {
+        return JSON.parse(localStorage.getItem(LS_ORDER) || "null") || columnKeys;
+      }
+      return columnKeys;
     }
   );
 
   // visible columns
   const [visible, setVisible] = useState<Record<string, boolean>>(() => {
     if (typeof window !== 'undefined') {
-        const saved = JSON.parse(localStorage.getItem(LS_VISIBLE) || "null");
-        if (saved) return saved;
+      const saved = JSON.parse(localStorage.getItem(LS_VISIBLE) || "null");
+      if (saved) return saved;
     }
     const initial: Record<string, boolean> = {};
     columnKeys.forEach((k) => (initial[k] = true));
@@ -181,11 +181,11 @@ export default function ReorderableTable({
     <div className="w-full">
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="flex gap-2 items-center">
-          <Input 
-            placeholder="Search..." 
-            value={query} 
-            onChange={(e) => setQuery(e.target.value)} 
-            className="w-[320px] rounded-full border-slate-200 focus:border-slate-400 transition-all duration-300" 
+          <Input
+            placeholder="Search..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-[320px] rounded-full border-slate-200 focus:border-slate-400 transition-all duration-300"
           />
           <Button variant="outline" onClick={() => setQuery("")} className="rounded-full border-slate-200 hover:bg-slate-50">
             Clear
@@ -202,9 +202,9 @@ export default function ReorderableTable({
                 <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Visible Columns</p>
                 {columns.map((col) => (
                   <label key={col.key} className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-1 rounded-md transition-colors">
-                    <Checkbox 
-                        checked={!!visible[col.key]} 
-                        onCheckedChange={() => toggleVisible(col.key)} 
+                    <Checkbox
+                      checked={!!visible[col.key]}
+                      onCheckedChange={() => toggleVisible(col.key)}
                     />
                     <span className="text-sm">{col.label}</span>
                   </label>
@@ -247,19 +247,19 @@ export default function ReorderableTable({
                       </span>
 
                       <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            onClick={() => moveColumn(key, -1)} 
-                            className="h-6 w-6 rounded-md hover:bg-muted"
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => moveColumn(key, -1)}
+                          className="h-6 w-6 rounded-md hover:bg-muted"
                         >
                           <ChevronsLeft className="h-3 w-3" />
                         </Button>
-                        <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            onClick={() => moveColumn(key, 1)} 
-                            className="h-6 w-6 rounded-md hover:bg-muted"
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => moveColumn(key, 1)}
+                          className="h-6 w-6 rounded-md hover:bg-muted"
                         >
                           <ChevronsRight className="h-3 w-3" />
                         </Button>
@@ -279,19 +279,19 @@ export default function ReorderableTable({
                     const key = colDef.key;
                     if (!visible[key]) return null;
                     return (
-                        <TableCell key={key} className="py-4 px-6">
-                            {renderCell(row, key)}
-                        </TableCell>
+                      <TableCell key={key} className="py-4 px-6">
+                        {renderCell(row, key)}
+                      </TableCell>
                     );
                   })}
                 </TableRow>
               ))
             ) : (
-                <TableRow>
-                    <TableCell colSpan={orderedColumns.length} className="h-32 text-center text-muted-foreground">
-                        No results found.
-                    </TableCell>
-                </TableRow>
+              <TableRow>
+                <TableCell colSpan={orderedColumns.length} className="h-32 text-center text-muted-foreground">
+                  No results found.
+                </TableCell>
+              </TableRow>
             )}
           </TableBody>
 
