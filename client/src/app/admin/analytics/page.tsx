@@ -76,7 +76,7 @@ const AdminAnalyticsPage = () => {
   return (
     <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 pb-8">
       {/* Unified Analytics Statement - Compact & Single Row Mobile */}
-      <div className="max-w-4xl mx-auto rounded-3xl bg-slate-950 p-4 sm:p-8 text-white shadow-xl border border-slate-800 relative overflow-hidden">
+      <div className="rounded-3xl bg-slate-950 p-4 sm:p-8 text-white shadow-xl border border-slate-800 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 blur-[60px] -mr-16 -mt-16" />
 
         <div className="relative flex flex-row items-center justify-around gap-2 sm:gap-0">
