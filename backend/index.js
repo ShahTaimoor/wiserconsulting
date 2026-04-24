@@ -49,12 +49,12 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// Input sanitization (must be before body parsing)
-app.use(sanitize);
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// Input sanitization (must be after body parsing)
+app.use(sanitize);
 
 // Rate limiting
 app.use("/api", apiLimiter);
@@ -85,7 +85,7 @@ app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api", userRoutes);
 app.use("/api", assessmentRoutes);
 app.use("/api", formSubmissionRoutes);
-app.use("/api/contact", contactRoutes);
+app.use("/api/contacts", contactRoutes);
 
 app.get("/", (req, res) => {
   res.send("Welcome to the backend");

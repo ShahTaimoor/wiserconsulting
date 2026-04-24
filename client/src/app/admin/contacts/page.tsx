@@ -41,7 +41,7 @@ const ContactsPage = () => {
     setError("");
 
     try {
-      let url = `${API_BASE_URL}/api/contact?page=${pageNum}&limit=10`;
+      let url = `${API_BASE_URL}/api/contacts?page=${pageNum}&limit=10`;
 
       if (search) {
         url += `&search=${encodeURIComponent(search)}`;
@@ -72,7 +72,7 @@ const ContactsPage = () => {
   // Fetch statistics
   const fetchStats = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/contact/stats`, {
+      const response = await fetch(`${API_BASE_URL}/api/contacts/stats`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`
         }
@@ -113,7 +113,7 @@ const ContactsPage = () => {
     if (!confirm("Are you sure you want to delete this submission?")) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/contact/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/contacts/${id}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`
