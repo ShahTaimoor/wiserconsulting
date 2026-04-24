@@ -433,8 +433,8 @@ const AdminFormSubmissions = () => {
         {showDocumentPreview && previewDocument && (
           <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 z-50">
             <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
-              <div className="p-4 sm:p-6">
-                <div className="flex justify-between items-center mb-4">
+              <div className="p-4 sm:p-6 pl-0 sm:pl-0">
+                <div className="flex justify-between items-center mb-4 pl-4 sm:pl-6">
                   <h3 className="text-base sm:text-lg font-semibold text-gray-800 break-words pr-4">{previewDocument.name}</h3>
                   <button
                     onClick={() => { setShowDocumentPreview(false); setPreviewDocument(null); }}

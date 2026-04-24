@@ -6,17 +6,17 @@
 const sanitize = (req, res, next) => {
   // Recursively sanitize object
   const sanitizeObject = (obj) => {
-    if (typeof obj !== 'object' || obj === null) {
-      return typeof obj === 'string' ? sanitizeString(obj) : obj;
+    if (typeof obj !== "object" || obj === null) {
+      return typeof obj === "string" ? sanitizeString(obj) : obj;
     }
 
     if (Array.isArray(obj)) {
-      return obj.map(item => sanitizeObject(item));
+      return obj.map((item) => sanitizeObject(item));
     }
 
     const sanitized = {};
     for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
         sanitized[key] = sanitizeObject(obj[key]);
       }
     }
@@ -25,25 +25,25 @@ const sanitize = (req, res, next) => {
 
   // Basic string sanitization
   const sanitizeString = (str) => {
-    if (typeof str !== 'string') return str;
-    
+    if (typeof str !== "string") return str;
+
     return str
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags
-      .replace(/[<>]/g, ''); // Remove angle brackets
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "") // Remove script tags
+      .replace(/[<>]/g, ""); // Remove angle brackets
   };
 
   // Sanitize request body
-  if (req.body && typeof req.body === 'object') {
+  if (req.body && typeof req.body === "object") {
     req.body = sanitizeObject(req.body);
   }
 
   // Sanitize query parameters
-  if (req.query && typeof req.query === 'object') {
+  if (req.query && typeof req.query === "object") {
     req.query = sanitizeObject(req.query);
   }
 
   // Sanitize URL parameters
-  if (req.params && typeof req.params === 'object') {
+  if (req.params && typeof req.params === "object") {
     req.params = sanitizeObject(req.params);
   }
 
@@ -51,4 +51,3 @@ const sanitize = (req, res, next) => {
 };
 
 module.exports = sanitize;
-
