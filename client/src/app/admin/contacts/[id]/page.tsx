@@ -28,8 +28,7 @@ const ContactDetailPage = () => {
   const [submission, setSubmission] = useState<ContactSubmission | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [replyMessage, setReplyMessage] = useState("");
-  const [replyLoading, setReplyLoading] = useState(false);
+
   const [statusFilter, setStatusFilter] = useState<string>("");
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
@@ -89,41 +88,7 @@ const ContactDetailPage = () => {
     }
   };
 
-  const handleReplySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
 
-    if (!replyMessage.trim()) {
-      setError("Reply message cannot be empty");
-      return;
-    }
-
-    setReplyLoading(true);
-    setError("");
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/contacts/${id}/reply`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify({ message: replyMessage })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setSubmission(data.data);
-        setReplyMessage("");
-        setStatusFilter("responded");
-      } else {
-        setError("Failed to send reply");
-      }
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setReplyLoading(false);
-    }
-  };
 
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { bg: string; text: string }> = {
@@ -143,7 +108,7 @@ const ContactDetailPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+      <div className="h-full bg-slate-50 rounded-xl flex items-center justify-center">
         <div className="text-slate-600">Loading submission details...</div>
       </div>
     );
@@ -151,7 +116,7 @@ const ContactDetailPage = () => {
 
   if (error && !submission) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+      <div className="h-full bg-slate-50 rounded-xl p-4">
         <div className="max-w-4xl mx-auto">
           <Link
             href="/admin/contacts"
@@ -170,7 +135,7 @@ const ContactDetailPage = () => {
 
   if (!submission) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+      <div className="h-full bg-slate-50 rounded-xl p-4">
         <div className="max-w-4xl mx-auto">
           <Link
             href="/admin/contacts"
@@ -186,7 +151,7 @@ const ContactDetailPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="h-full bg-slate-50 rounded-xl">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <motion.div
@@ -282,49 +247,7 @@ const ContactDetailPage = () => {
               </div>
             </div>
 
-            {/* Admin Reply Card */}
-            {submission.adminReply && (
-              <div className="bg-green-50 rounded-lg shadow-sm border border-green-200 p-6">
-                <h2 className="text-lg font-bold text-green-900 mb-4">Admin Response</h2>
-                <div>
-                  <p className="text-sm text-green-700 mb-2">
-                    Replied on {new Date(submission.adminReply.repliedAt).toLocaleString()}
-                  </p>
-                  <div className="bg-white p-4 rounded-lg border border-green-200 text-slate-900 whitespace-pre-wrap">
-                    {submission.adminReply.message}
-                  </div>
-                </div>
-              </div>
-            )}
 
-            {/* Reply Form */}
-            {submission.status !== "responded" && (
-              <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-                <h2 className="text-lg font-bold text-slate-900 mb-4">Send Reply</h2>
-                <form onSubmit={handleReplySubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm text-slate-700 font-medium mb-2">
-                      Your Reply
-                    </label>
-                    <textarea
-                      value={replyMessage}
-                      onChange={(e) => setReplyMessage(e.target.value)}
-                      placeholder="Type your response here..."
-                      rows={6}
-                      className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={replyLoading}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 disabled:bg-emerald-400 disabled:cursor-not-allowed transition"
-                  >
-                    <Send className="w-5 h-5" />
-                    {replyLoading ? "Sending..." : "Send Reply"}
-                  </button>
-                </form>
-              </div>
-            )}
           </motion.div>
 
           {/* Sidebar */}

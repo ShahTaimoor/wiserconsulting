@@ -165,9 +165,9 @@ const AdminFormSubmissions = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6">
+    <div className="h-full bg-gray-100 p-4 sm:p-6 rounded-xl w-full">
+      <div className="max-w-7xl mx-auto w-full">
+        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6 w-full">
           <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">Visa Assessment Submissions</h1>
 
           {/* Filter Controls */}
@@ -186,32 +186,32 @@ const AdminFormSubmissions = () => {
           </div>
 
           {/* Submissions Table */}
-          <div className="overflow-x-auto -mx-4 sm:mx-0">
-            <table className="min-w-full bg-white border border-gray-200">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-left bg-white border border-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Destination</th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Visa Type</th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Date</th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-4 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                  <th className="px-4 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Destination</th>
+                  <th className="px-4 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Visa Type</th>
+                  <th className="px-4 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Date</th>
+                  <th className="px-4 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredSubmissions.map((submission) => (
                   <tr key={submission._id} className="hover:bg-gray-50">
                     <td className="px-4 sm:px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900">{submission.name}</div>
-                      <div className="text-xs text-gray-500">{submission.email}</div>
-                      <div className="text-xs text-gray-500 sm:hidden">{submission.destinationCountry}</div>
+                      <div className="text-sm font-medium text-gray-900 truncate max-w-[150px]">{submission.name}</div>
+                      <div className="text-xs text-gray-500 truncate max-w-[150px]">{submission.email}</div>
+                      <div className="text-xs text-gray-500 sm:hidden truncate max-w-[150px]">{submission.destinationCountry}</div>
                     </td>
                     <td className="px-4 sm:px-6 py-4 hidden sm:table-cell">
-                      <div className="text-sm text-gray-900">{submission.destinationCountry}</div>
-                      {submission.otherCountry && <div className="text-xs text-gray-500">({submission.otherCountry})</div>}
+                      <div className="text-sm text-gray-900 truncate max-w-[150px]">{submission.destinationCountry}</div>
+                      {submission.otherCountry && <div className="text-xs text-gray-500 truncate max-w-[150px]">({submission.otherCountry})</div>}
                     </td>
-                    <td className="px-4 sm:px-6 py-4 hidden md:table-cell text-sm text-gray-900">{submission.visaType}</td>
-                    <td className="px-4 sm:px-6 py-4">
+                    <td className="px-4 sm:px-6 py-4 hidden md:table-cell text-sm text-gray-900 whitespace-nowrap">{submission.visaType}</td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                       <select
                         value={submission.status}
                         onChange={(e) => handleStatusUpdate(submission._id, e.target.value)}
@@ -227,20 +227,20 @@ const AdminFormSubmissions = () => {
                         <option value="completed">Completed</option>
                       </select>
                     </td>
-                    <td className="px-4 sm:px-6 py-4 hidden sm:table-cell text-sm text-gray-500">
+                    <td className="px-4 sm:px-6 py-4 hidden sm:table-cell text-sm text-gray-500 whitespace-nowrap">
                       {new Date(submission.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-4 sm:px-6 py-4">
-                      <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="flex flex-col gap-2 max-w-[120px]">
                         <button
                           onClick={() => { setSelectedSubmissionId(submission._id); setShowDetailsModal(true); }}
-                          className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap shadow-sm"
+                          className="w-full px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-center"
                         >
                           View Details
                         </button>
                         <button
                           onClick={() => handleDeleteSubmission(submission._id, submission.name)}
-                          className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors shadow-sm"
+                          className="w-full px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors shadow-sm text-center"
                         >
                           Delete
                         </button>

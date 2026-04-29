@@ -59,26 +59,26 @@ const AdminOrders = () => {
           <p className="text-gray-600">Manage visa assessment submissions and merge documents</p>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+        <div className="w-full overflow-x-auto">
+          <table className="w-full text-left bg-white border border-gray-200 table-fixed">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
                   Customer
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
                   Destination
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
                   Visa Type
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
                   Documents
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
                   Date
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                   Actions
                 </th>
               </tr>
@@ -87,36 +87,34 @@ const AdminOrders = () => {
               {submissions.map((submission) => (
                 <tr key={submission._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{submission.name}</div>
-                      <div className="text-sm text-gray-500">{submission.email}</div>
-                    </div>
+                    <div className="text-sm font-medium text-gray-900 truncate max-w-[150px]">{submission.name}</div>
+                    <div className="text-sm text-gray-500 truncate max-w-[150px]">{submission.email}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 hidden sm:table-cell text-sm text-gray-900 truncate max-w-[150px]">
                     {submission.destinationCountry}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 hidden md:table-cell text-sm text-gray-900 whitespace-nowrap">
                     {submission.visaType}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 hidden lg:table-cell text-sm text-gray-900 whitespace-nowrap">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                       {submission.documents.length} docs
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 hidden sm:table-cell text-sm text-gray-900 whitespace-nowrap">
                     {new Date(submission.createdAt).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
+                  <td className="px-6 py-4 text-sm font-medium">
+                    <div className="flex flex-col space-y-2">
                       <button
                         onClick={() => handleOpenPDFMerge(submission)}
-                        className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md text-xs font-medium transition"
+                        className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-md text-xs font-medium transition text-center w-full max-w-[120px]"
                       >
                         📄 Merge PDFs
                       </button>
                       <button
                         onClick={() => handleOpenCompress(submission)}
-                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md text-xs font-medium transition"
+                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md text-xs font-medium transition text-center w-full max-w-[120px]"
                       >
                         🗜️ Compress PDFs
                       </button>
