@@ -143,7 +143,7 @@ const ContactDetailPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+      <div className="h-full bg-slate-50 rounded-xl flex items-center justify-center">
         <div className="text-slate-600">Loading submission details...</div>
       </div>
     );
@@ -151,7 +151,7 @@ const ContactDetailPage = () => {
 
   if (error && !submission) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+      <div className="h-full bg-slate-50 rounded-xl p-4">
         <div className="max-w-4xl mx-auto">
           <Link
             href="/admin/contacts"
@@ -170,7 +170,7 @@ const ContactDetailPage = () => {
 
   if (!submission) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+      <div className="h-full bg-slate-50 rounded-xl p-4">
         <div className="max-w-4xl mx-auto">
           <Link
             href="/admin/contacts"
@@ -186,7 +186,7 @@ const ContactDetailPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="h-full bg-slate-50 rounded-xl">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <motion.div
