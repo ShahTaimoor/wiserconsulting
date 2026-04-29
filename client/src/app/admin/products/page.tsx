@@ -230,17 +230,17 @@ const AdminFormSubmissions = () => {
                     <td className="px-4 sm:px-6 py-4 hidden sm:table-cell text-sm text-gray-500 whitespace-nowrap">
                       {new Date(submission.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col sm:flex-row gap-2">
+                    <td className="px-4 sm:px-6 py-4">
+                      <div className="flex flex-col gap-2 max-w-[120px]">
                         <button
                           onClick={() => { setSelectedSubmissionId(submission._id); setShowDetailsModal(true); }}
-                          className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                          className="w-full px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-center"
                         >
                           View Details
                         </button>
                         <button
                           onClick={() => handleDeleteSubmission(submission._id, submission.name)}
-                          className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors shadow-sm"
+                          className="w-full px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors shadow-sm text-center"
                         >
                           Delete
                         </button>

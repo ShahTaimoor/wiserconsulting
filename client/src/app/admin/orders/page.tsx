@@ -104,17 +104,17 @@ const AdminOrders = () => {
                   <td className="px-6 py-4 hidden sm:table-cell text-sm text-gray-900 whitespace-nowrap">
                     {new Date(submission.createdAt).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                  <td className="px-6 py-4 text-sm font-medium">
+                    <div className="flex flex-col space-y-2">
                       <button
                         onClick={() => handleOpenPDFMerge(submission)}
-                        className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-md text-xs font-medium transition"
+                        className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-md text-xs font-medium transition text-center w-full max-w-[120px]"
                       >
                         📄 Merge PDFs
                       </button>
                       <button
                         onClick={() => handleOpenCompress(submission)}
-                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md text-xs font-medium transition"
+                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md text-xs font-medium transition text-center w-full max-w-[120px]"
                       >
                         🗜️ Compress PDFs
                       </button>
