@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, FormEvent } from "react";
+import React, { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
-import { register } from "@/redux/slices/auth/authSlice";
+import { register, login } from "@/redux/slices/auth/authSlice";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -18,8 +18,15 @@ const Register: React.FC = () => {
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
 
   const dispatch = useAppDispatch();
-  const { loading, error, success } = useAppSelector((state) => state.auth);
+  const { loading, error, success, user } = useAppSelector((state) => state.auth);
   const router = useRouter();
+
+  // Redirect to home after login
+  useEffect(() => {
+    if (user && user._id) {
+      router.push("/");
+    }
+  }, [user, router]);
 
   const validateForm = () => {
     const errors: { [key: string]: string } = {};
@@ -58,9 +65,8 @@ const Register: React.FC = () => {
     }
 
     const result = await dispatch(register({ name, email, password }));
-
     if (register.fulfilled.match(result)) {
-      setTimeout(() => router.push("/"), 1000);
+      await dispatch(login({ email, password }));
     }
   };
 

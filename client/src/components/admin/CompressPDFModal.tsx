@@ -1,11 +1,12 @@
 // Compress PDF Modal - Premium Design
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAppDispatch } from '@/redux/hooks';
 import { compressPDFDocuments } from '@/redux/slices/admin/adminSlice';
 import { downloadBlob } from '@/utils/fileDownload';
 import { FormSubmission } from '@/services/adminService';
+import { Toast } from '@/components/ui/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface CompressPDFModalProps {
@@ -20,6 +21,7 @@ const CompressPDFModal: React.FC<CompressPDFModalProps> = ({ isOpen, onClose, su
   const [compressionLevel, setCompressionLevel] = useState<'low' | 'medium' | 'high' | '5mb'>('medium');
   const [compressing, setCompressing] = useState(false);
   const [previewFile, setPreviewFile] = useState<{ url: string, type: string } | null>(null);
+  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const availableDocuments = useMemo(
     () => submission?.documents.filter(doc => doc.cloudinaryUrl) || [],
@@ -34,9 +36,23 @@ const CompressPDFModal: React.FC<CompressPDFModalProps> = ({ isOpen, onClose, su
     );
   };
 
+  const handleCloseModal = () => {
+    setToastMessage(null);
+    setSelectedDocuments([]);
+    setPreviewFile(null);
+    setCompressionLevel('medium');
+    onClose();
+  };
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timer = window.setTimeout(() => setToastMessage(null), 2500);
+    return () => window.clearTimeout(timer);
+  }, [toastMessage]);
+
   const handleCompressPDFs = async () => {
     if (!submission || selectedDocuments.length === 0) {
-      alert('Please select at least one document to compress.');
+      setToastMessage({ type: 'error', message: 'Please select at least one document to compress.' });
       return;
     }
 
@@ -51,11 +67,13 @@ const CompressPDFModal: React.FC<CompressPDFModalProps> = ({ isOpen, onClose, su
       })).unwrap();
 
       downloadBlob(result, `${submission.name.replace(/\s+/g, '_')}_compressed_docs.zip`);
-      alert('Documents compressed successfully!');
-      onClose();
+      setToastMessage({ type: 'success', message: 'Documents compressed successfully!' });
+      setTimeout(() => {
+        handleCloseModal();
+      }, 1200);
     } catch (error) {
       console.error('Error compressing documents:', error);
-      alert('Failed to compress documents. Please try again.');
+      setToastMessage({ type: 'error', message: 'Failed to compress documents. Please try again.' });
     } finally {
       setCompressing(false);
     }
@@ -71,8 +89,10 @@ const CompressPDFModal: React.FC<CompressPDFModalProps> = ({ isOpen, onClose, su
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-          onClick={onClose}
+          onClick={handleCloseModal}
         />
+
+        {toastMessage && <Toast type={toastMessage.type} message={toastMessage.message} />}
         
         <motion.div
           initial={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -87,7 +107,7 @@ const CompressPDFModal: React.FC<CompressPDFModalProps> = ({ isOpen, onClose, su
               <p className="text-xs text-slate-500 mt-0.5">Customer: <span className="font-semibold text-slate-700">{submission.name}</span></p>
             </div>
             <button
-              onClick={onClose}
+              onClick={handleCloseModal}
               className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all"
             >
               <span className="text-2xl font-light">✕</span>
@@ -188,7 +208,7 @@ const CompressPDFModal: React.FC<CompressPDFModalProps> = ({ isOpen, onClose, su
             </p>
             <div className="flex gap-3">
               <button
-                onClick={onClose}
+                onClick={handleCloseModal}
                 className="px-5 py-2 text-sm font-bold text-slate-600 hover:text-slate-900 transition"
                 disabled={compressing}
               >

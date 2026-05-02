@@ -1,12 +1,13 @@
 // PDF Merge Modal - Premium Design
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAppDispatch } from '@/redux/hooks';
 import { mergePDFDocuments } from '@/redux/slices/admin/adminSlice';
 import { downloadBlob } from '@/utils/fileDownload';
 import { FormSubmission } from '@/services/adminService';
 import ProgressBar from '@/components/ui/ProgressBar';
+import { Toast } from '@/components/ui/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface PDFMergeModalProps {
@@ -21,6 +22,7 @@ const PDFMergeModal: React.FC<PDFMergeModalProps> = ({ isOpen, onClose, submissi
   const [mergeLoading, setMergeLoading] = useState(false);
   const [mergeProgress, setMergeProgress] = useState(0);
   const [previewFile, setPreviewFile] = useState<{ url: string, type: string } | null>(null);
+  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const uploadedDocuments = useMemo(
     () => submission?.documents.filter(doc => doc.cloudinaryUrl) || [],
@@ -35,9 +37,20 @@ const PDFMergeModal: React.FC<PDFMergeModalProps> = ({ isOpen, onClose, submissi
     );
   };
 
+  const handleCloseModal = () => {
+    setToastMessage(null);
+    onClose();
+  };
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timer = window.setTimeout(() => setToastMessage(null), 2500);
+    return () => window.clearTimeout(timer);
+  }, [toastMessage]);
+
   const handleMergePDFs = async () => {
     if (!submission || selectedDocuments.length === 0) {
-      alert('Please select at least one document to merge.');
+      setToastMessage({ type: 'error', message: 'Please select at least one document to merge.' });
       return;
     }
 
@@ -53,11 +66,11 @@ const PDFMergeModal: React.FC<PDFMergeModalProps> = ({ isOpen, onClose, submissi
       })).unwrap();
 
       downloadBlob(result, `${submission.name.replace(/\s+/g, '_')}_merged_report.pdf`);
-      alert('Documents merged into PDF successfully!');
-      onClose();
+      setToastMessage({ type: 'success', message: 'Documents merged into PDF successfully!' });
+      setTimeout(() => onClose(), 1200);
     } catch (error) {
       console.error('Error merging documents:', error);
-      alert('Failed to merge documents. Please try again.');
+      setToastMessage({ type: 'error', message: 'Failed to merge documents. Please try again.' });
     } finally {
       setMergeLoading(false);
       setMergeProgress(0);
@@ -74,8 +87,10 @@ const PDFMergeModal: React.FC<PDFMergeModalProps> = ({ isOpen, onClose, submissi
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-          onClick={onClose}
+          onClick={handleCloseModal}
         />
+
+        {toastMessage && <Toast type={toastMessage.type} message={toastMessage.message} />}
         
         <motion.div
           initial={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -90,7 +105,7 @@ const PDFMergeModal: React.FC<PDFMergeModalProps> = ({ isOpen, onClose, submissi
               <p className="text-xs text-slate-500 mt-0.5">Combine multiple files into one professional PDF</p>
             </div>
             <button
-              onClick={onClose}
+              onClick={handleCloseModal}
               className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all"
             >
               <span className="text-2xl font-light">✕</span>

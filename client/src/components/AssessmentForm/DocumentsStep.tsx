@@ -6,6 +6,7 @@ import { FormData } from '@/hooks/useAssessmentForm';
 
 interface DocumentsStepProps {
   formData: FormData;
+  validationErrors: Record<string, string>;
   onFileChange: (field: keyof FormData) => (e: React.ChangeEvent<HTMLInputElement>) => void;
   onRemoveFile: (field: keyof FormData, index: number) => void;
   onPreviewImage: (url: string) => void;
@@ -31,6 +32,7 @@ const documentFields: Array<{ label: string; field: keyof FormData }> = [
 
 export const DocumentsStep: React.FC<DocumentsStepProps> = ({
   formData,
+  validationErrors,
   onFileChange,
   onRemoveFile,
   onPreviewImage,
@@ -48,15 +50,19 @@ export const DocumentsStep: React.FC<DocumentsStepProps> = ({
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {documentFields.map(({ label, field }) => (
-          <FileUpload
-            key={field}
-            label={label}
-            field={field}
-            files={formData[field] as File[]}
-            onFileChange={onFileChange(field)}
-            onRemoveFile={(index) => onRemoveFile(field, index)}
-            onPreviewImage={onPreviewImage}
-          />
+          <div key={field} className="space-y-2">
+            <FileUpload
+              label={label}
+              field={field}
+              files={formData[field] as File[]}
+              onFileChange={onFileChange(field)}
+              onRemoveFile={(index) => onRemoveFile(field, index)}
+              onPreviewImage={onPreviewImage}
+            />
+            {validationErrors[field] && (
+              <p className="text-red-500 text-xs mt-1">{validationErrors[field]}</p>
+            )}
+          </div>
         ))}
       </div>
     </motion.div>

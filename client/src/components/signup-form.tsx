@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
-import { register, clearError } from "@/redux/slices/auth/authSlice";
+import { register, login, clearError } from "@/redux/slices/auth/authSlice";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,21 +29,21 @@ export function SignupForm({
   const { loading, error, success } = useAppSelector((state) => state.auth);
 
   useEffect(() => {
-    if (success === "Registration successful!") {
-      router.push("/login");
-    }
     return () => {
       dispatch(clearError());
     };
-  }, [success, router, dispatch]);
+  }, [dispatch]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
       alert("Passwords do not match");
       return;
     }
-    dispatch(register({ name, email, password }));
+    const result = await dispatch(register({ name, email, password }));
+    if (register.fulfilled.match(result)) {
+      await dispatch(login({ email, password }));
+    }
   };
 
   return (

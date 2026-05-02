@@ -86,6 +86,16 @@ export const loginUser = async (email: string, password: string): Promise<LoginR
       if (!res.ok) {
         throw new Error(data?.message || `Registration failed (${res.status})`);
       }
+
+      // Extract user and token from response
+      const user = data?.user || data?.data?.user;
+      const token = data?.token || data?.data?.token;
+
+      // Store user + token in localStorage for auto-login
+      if (user && token) {
+        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('token', token);
+      }
   
       return data as RegisterResponse;
     } catch (error: unknown) {

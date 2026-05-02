@@ -62,8 +62,8 @@ const VisaConsultation: React.FC = () => {
         "Your Journey to<br><span class=\"block mt-3 bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300\">Global Opportunities</span>"
       ],
       startDelay: 300,
-      typeSpeed: 100,
-      backSpeed: 100,
+      typeSpeed: 40,
+      backSpeed: 40,
       backDelay: 5000,
       showCursor: false,
       smartBackspace: true,
