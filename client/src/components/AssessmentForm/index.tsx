@@ -154,9 +154,10 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
             )}
 
             {/* Step 3: Documents */}
-            {currentStep === 3 && formData.visaType && (
+            {currentStep === 3 && (
               <DocumentsStep
                 formData={formData}
+                validationErrors={validationErrors}
                 onFileChange={handleFileChangeWrapper}
                 onRemoveFile={handleRemoveFile}
                 onPreviewImage={setPreviewImage}

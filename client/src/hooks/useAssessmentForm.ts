@@ -121,27 +121,24 @@ export const useAssessmentForm = (onClose: () => void) => {
 
   const validateStep = useCallback((step: number): boolean => {
     setValidationErrors({});
-    
+    const errors: Record<string, string> = {};
+
     if (step === 1) {
       const result = formStep1Schema.safeParse({
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
       });
-      
+
       if (!result.success) {
-        const errors: Record<string, string> = {};
         result.error.issues.forEach((issue) => {
           if (issue.path[0]) {
             errors[issue.path[0].toString()] = issue.message;
           }
         });
-        setValidationErrors(errors);
-        return false;
       }
-      return true;
     }
-    
+
     if (step === 2) {
       const result = formStep2Schema.safeParse({
         destinationCountry: formData.destinationCountry,
@@ -151,20 +148,30 @@ export const useAssessmentForm = (onClose: () => void) => {
         purpose: formData.purpose,
         otherCountry: formData.otherCountry,
       });
-      
+
       if (!result.success) {
-        const errors: Record<string, string> = {};
         result.error.issues.forEach((issue) => {
           if (issue.path[0]) {
             errors[issue.path[0].toString()] = issue.message;
           }
         });
-        setValidationErrors(errors);
-        return false;
       }
-      return true;
     }
-    
+
+    if (step === 3) {
+      if (formData.passports.length === 0) {
+        errors.passports = 'Please upload at least one passport document.';
+      }
+      if (formData.flightReservation.length === 0 && formData.hotelReservation.length === 0) {
+        errors.flightReservation = 'Please upload a flight or hotel reservation.';
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      return false;
+    }
+
     return true;
   }, [formData]);
 
@@ -227,7 +234,7 @@ export const useAssessmentForm = (onClose: () => void) => {
 
   const handleNextStep = useCallback(() => {
     if (validateStep(currentStep)) {
-      setCurrentStep((prev) => prev + 1);
+      setCurrentStep((prev) => Math.min(prev + 1, 3));
     }
   }, [currentStep, validateStep]);
 
@@ -237,14 +244,30 @@ export const useAssessmentForm = (onClose: () => void) => {
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (currentStep < 3) {
+      if (validateStep(currentStep)) {
+        setCurrentStep((prev) => Math.min(prev + 1, 3));
+      }
+      return;
+    }
+
+    if (!validateStep(1)) {
+      setCurrentStep(1);
+      return;
+    }
+
     if (!validateStep(2)) {
       setCurrentStep(2);
       return;
     }
-    
+
+    if (!validateStep(3)) {
+      return;
+    }
+
     await dispatch(submitAssessmentForm(formData));
-  }, [formData, dispatch, validateStep]);
+  }, [currentStep, dispatch, formData, validateStep]);
 
   return {
     formData,
