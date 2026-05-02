@@ -80,13 +80,23 @@ const Navbar = () => {
                   <span className="font-semibold">+923709706643</span>
                 </div>
               </div>
-              <button
+              <motion.button
                 onClick={() => setIsOpen(!isOpen)}
                 className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200/70 bg-slate-950 text-white shadow-md shadow-slate-950/20 transition hover:bg-slate-800"
                 aria-label="Toggle menu"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
-                {isOpen ? <X size={24} /> : <Menu size={24} />}
-              </button>
+                <motion.div
+                  key={isOpen ? 'close' : 'menu'}
+                  initial={{ rotate: -90, opacity: 0 }}
+                  animate={{ rotate: 0, opacity: 1 }}
+                  exit={{ rotate: 90, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                >
+                  {isOpen ? <X size={24} /> : <Menu size={24} />}
+                </motion.div>
+              </motion.button>
             </div>
           </div>
         ) : (
@@ -111,13 +121,23 @@ const Navbar = () => {
                   <span className="font-semibold">+923709706643</span>
                 </div>
               </div>
-              <button
+              <motion.button
                 onClick={() => setIsOpen(!isOpen)}
                 className={`flex items-center justify-center h-11 w-11 rounded-2xl border ${isLightPage ? 'border-white/10 bg-slate-800/80 hover:bg-slate-700' : 'border-slate-200/10 bg-slate-950/80 hover:bg-slate-900'} text-slate-100 shadow-2xl shadow-slate-950/30 transition`}
                 aria-label="Toggle menu"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
-                {isOpen ? <X size={24} /> : <Menu size={24} />}
-              </button>
+                <motion.div
+                  key={isOpen ? 'close' : 'menu'}
+                  initial={{ rotate: -90, opacity: 0 }}
+                  animate={{ rotate: 0, opacity: 1 }}
+                  exit={{ rotate: 90, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                >
+                  {isOpen ? <X size={24} /> : <Menu size={24} />}
+                </motion.div>
+              </motion.button>
             </div>
           </div>
         )}
@@ -131,6 +151,7 @@ const Navbar = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
               onClick={() => setIsOpen(false)}
               className="fixed inset-0 z-40 bg-slate-950/20 backdrop-blur-[2px]"
             />
@@ -138,7 +159,7 @@ const Navbar = () => {
               initial={{ x: '100%', opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: '100%', opacity: 0 }}
-              transition={{ duration: 0.25 }}
+              transition={{ duration: 0.35, ease: "easeInOut" }}
               className="fixed inset-y-0 right-0 z-50 w-full md:w-1/2 bg-slate-950/95 backdrop-blur-xl text-slate-100 shadow-2xl shadow-slate-950/30"
             >
               <div className="relative flex h-full w-full flex-col justify-between px-6 py-8 sm:px-10 sm:py-12">
@@ -152,13 +173,21 @@ const Navbar = () => {
                       <p className="text-sm font-semibold text-slate-100">Consulting</p>
                     </div>
                   </Link>
-                  <button
+                  <motion.button
                     onClick={() => setIsOpen(false)}
                     className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200/10 bg-slate-900/80 text-slate-100 transition hover:bg-slate-800"
                     aria-label="Close menu"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                   >
-                    <X size={24} />
-                  </button>
+                    <motion.div
+                      initial={{ rotate: 0 }}
+                      whileHover={{ rotate: 90 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <X size={24} />
+                    </motion.div>
+                  </motion.button>
                 </div>
 
                 <div className="flex flex-col justify-center gap-10 px-2 py-6 sm:px-4">
@@ -168,7 +197,7 @@ const Navbar = () => {
                         key={link.href}
                         initial={{ opacity: 0, x: -30 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.15 + index * 0.1, duration: 0.4, ease: "easeOut" }}
+                        transition={{ delay: 0.15 + index * 0.1, duration: 0.5, ease: "easeOut" }}
                       >
                         <Link
                           href={link.href}
@@ -182,14 +211,26 @@ const Navbar = () => {
                     ))}
                   </div>
 
-                  <div className="flex flex-col gap-4">
+                  <motion.div 
+                    className="flex flex-col gap-4"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6, duration: 0.4 }}
+                  >
                     {user ? (
-                      <div className="flex flex-row flex-wrap items-center justify-between gap-3 px-2 py-4 border-t border-slate-800">
+                      <motion.div 
+                        className="flex flex-row flex-wrap items-center justify-between gap-3 px-2 py-4 border-t border-slate-800"
+                        whileHover={{ scale: 1.02 }}
+                        transition={{ duration: 0.2 }}
+                      >
                         {/* User Info */}
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/20">
+                          <motion.div 
+                            className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/20"
+                            whileHover={{ scale: 1.1, boxShadow: "0 0 20px rgba(16, 185, 129, 0.3)" }}
+                          >
                             <UserIcon className="text-emerald-400" size={20} />
-                          </div>
+                          </motion.div>
                           <div className="flex flex-col">
                             <p className="text-sm font-semibold text-slate-100">{user.name}</p>
                             <p className="text-[10px] text-slate-400 truncate max-w-[100px]">{user.email}</p>
@@ -198,47 +239,76 @@ const Navbar = () => {
 
                         <div className="flex items-center gap-2">
                           {isAdminRole(user.role) && (
-                            <Link
-                              href="/admin/products"
-                              onClick={() => setIsOpen(false)}
-                              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-slate-800 border border-slate-700 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-700"
+                            <motion.div
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
                             >
-                              <LayoutDashboard size={14} />
-                              Admin
-                            </Link>
+                              <Link
+                                href="/admin/products"
+                                onClick={() => setIsOpen(false)}
+                                className="inline-flex items-center justify-center gap-1.5 rounded-full bg-slate-800 border border-slate-700 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-700"
+                              >
+                                <LayoutDashboard size={14} />
+                                Admin
+                              </Link>
+                            </motion.div>
                           )}
 
-                          <button
+                          <motion.button
                             onClick={handleLogout}
                             className="inline-flex items-center justify-center gap-1.5 rounded-full bg-red-500/10 border border-red-500/20 px-4 py-2 text-xs font-semibold text-red-400 transition hover:bg-red-500 hover:text-white"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                           >
                             <LogOut size={14} />
                             Logout
-                          </button>
+                          </motion.button>
                         </div>
-                      </div>
+                      </motion.div>
                     ) : (
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
-                        <Link
-                          href="/login"
-                          onClick={() => setIsOpen(false)}
-                          className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-8 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400"
+                      <motion.div 
+                        className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.65, duration: 0.3 }}
+                      >
+                        <motion.div
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          className="w-full sm:w-auto"
                         >
-                          Sign In
-                        </Link>
-                        <Link
-                          href="/register"
-                          onClick={() => setIsOpen(false)}
-                          className="inline-flex items-center justify-center rounded-full border border-emerald-400/40 bg-slate-900/90 px-8 py-3 text-sm font-semibold text-emerald-300 transition hover:border-emerald-300 hover:text-white"
+                          <Link
+                            href="/login"
+                            onClick={() => setIsOpen(false)}
+                            className="inline-flex w-full sm:w-auto items-center justify-center rounded-full bg-emerald-500 px-8 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400"
+                          >
+                            Sign In
+                          </Link>
+                        </motion.div>
+                        <motion.div
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          className="w-full sm:w-auto"
                         >
-                          Sign Up
-                        </Link>
-                      </div>
+                          <Link
+                            href="/register"
+                            onClick={() => setIsOpen(false)}
+                            className="inline-flex w-full sm:w-auto items-center justify-center rounded-full border border-emerald-400/40 bg-slate-900/90 px-8 py-3 text-sm font-semibold text-emerald-300 transition hover:border-emerald-300 hover:text-white"
+                          >
+                            Sign Up
+                          </Link>
+                        </motion.div>
+                      </motion.div>
                     )}
-                  </div>
+                  </motion.div>
                 </div>
 
-                <div className="mt-auto flex flex-col gap-4 border-t border-slate-700/70 pt-6 text-sm text-slate-400">
+                <motion.div 
+                  className="mt-auto flex flex-col gap-4 border-t border-slate-700/70 pt-6 text-sm text-slate-400"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.7, duration: 0.4 }}
+                >
                   <div>
                     <p className="font-semibold text-slate-100">Contact</p>
                     <p>wiserconsulting55@gmail.com</p>
@@ -247,7 +317,7 @@ const Navbar = () => {
                     <p className="font-semibold text-slate-100">Phone</p>
                     <p>+923709706643</p>
                   </div>
-                </div>
+                </motion.div>
               </div>
             </motion.section>
           </>
