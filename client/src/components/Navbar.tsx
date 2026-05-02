@@ -179,23 +179,23 @@ const Navbar = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
+              transition={{ duration: 0.35, ease: 'easeInOut' }}
               onClick={handleClose}
+              onPointerDown={handleClose}
               className="fixed inset-0 z-40 bg-slate-950/20 backdrop-blur-[2px] cursor-pointer"
-              style={{ pointerEvents: "auto" }}
+              style={{ pointerEvents: 'auto' }}
             />
             <motion.section
               initial={{ x: '100%', opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: '100%', opacity: 0 }}
-              transition={{ 
-                type: "spring",
-                stiffness: 300,
-                damping: 30,
-                mass: 1,
+              transition={{
+                type: 'tween',
+                duration: 0.35,
+                ease: 'easeInOut',
               }}
               className="fixed inset-y-0 right-0 z-50 w-full md:w-1/2 bg-slate-950/95 backdrop-blur-xl text-slate-100 shadow-2xl shadow-slate-950/30"
-              style={{ pointerEvents: "auto" }}
+              style={{ pointerEvents: 'auto', transformOrigin: 'right' }}
             >
               <div className="relative flex h-full w-full flex-col justify-between px-6 py-8 sm:px-10 sm:py-12">
                 <motion.div 
