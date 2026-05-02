@@ -105,7 +105,8 @@ const authSlice = createSlice({
       })
       .addCase(register.fulfilled, (state, action) => {
         state.loading = false;
-        state.success = action.payload.message || "Registration successful!";
+        state.user = action.payload.user || null;
+        state.success = action.payload.message || "Registration successful! You are now logged in.";
       })
       .addCase(register.rejected, (state, action) => {
         state.loading = false;
