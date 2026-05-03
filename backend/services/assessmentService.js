@@ -429,54 +429,37 @@ class AssessmentService {
    * Compress PDF
    */
   async compressPDF(pdfBytes, originalSize, targetSize, compressionLevel) {
-    const pdfDoc = await PDFLibDocument.load(pdfBytes);
+    try {
+      const pdfDoc = await PDFLibDocument.load(pdfBytes);
 
-    if (originalSize > 10 * 1024 * 1024) {
-      // Smart compression for large files
-      let compressedBytes = pdfBytes;
-      let currentQuality = 1.0;
-      let attempts = 0;
-      const maxAttempts = 5;
-
-      while (compressedBytes.length > targetSize && attempts < maxAttempts) {
-        attempts++;
-        const compressionRatio = Math.min(
-          0.9,
-          targetSize / compressedBytes.length,
-        );
-        currentQuality = Math.max(0.3, currentQuality * compressionRatio);
-
-        compressedBytes = await pdfDoc.save({
-          useObjectStreams: true,
-          compress: true,
-          imageQuality: Math.max(0.5, currentQuality),
-          removeMetadata: attempts > 2,
-        });
-      }
-
-      return compressedBytes;
-    } else {
-      // Standard compression
       let quality;
-      switch (compressionLevel) {
-        case "low":
-          quality = 0.8;
-          break;
-        case "medium":
-          quality = 0.6;
-          break;
-        case "high":
-          quality = 0.4;
-          break;
-        default:
-          quality = 0.6;
+      if (originalSize > 10 * 1024 * 1024) {
+        quality = 0.45;
+      } else {
+        switch (compressionLevel) {
+          case "low":
+            quality = 0.8;
+            break;
+          case "medium":
+            quality = 0.6;
+            break;
+          case "high":
+            quality = 0.4;
+            break;
+          default:
+            quality = 0.6;
+        }
       }
 
       return await pdfDoc.save({
-        useObjectStreams: true,
+        useObjectStreams: false,
         compress: true,
         imageQuality: quality,
+        removeMetadata: true,
       });
+    } catch (error) {
+      console.error("PDF compression failed, returning original bytes:", error);
+      return pdfBytes;
     }
   }
 
