@@ -305,6 +305,106 @@ class AssessmentService {
   /**
    * Compress PDFs
    */
+  async getCompressionDownloadUrl(document) {
+    if (!document.cloudinaryUrl) return null;
+
+    if (document.cloudinaryPublicId && document.mimetype.startsWith("image/")) {
+      const format = document.mimetype === "image/png" ? "png" : "jpg";
+      return cloudinary.url(document.cloudinaryPublicId, {
+        resource_type: "image",
+        type: "upload",
+        format,
+        quality: "auto",
+        secure: true,
+      });
+    }
+
+    return document.cloudinaryUrl;
+  }
+
+  async downloadDocumentBytes(document) {
+    const url = await this.getCompressionDownloadUrl(document);
+    if (!url) {
+      throw new Error("Document download URL is unavailable");
+    }
+
+    const response = await axios.get(url, {
+      responseType: "arraybuffer",
+      headers: {
+        Accept: document.mimetype.startsWith("image/")
+          ? document.mimetype
+          : "*/*",
+      },
+    });
+
+    return Buffer.from(response.data);
+  }
+
+  async convertImageToPdfBytes(document, imageBuffer) {
+    const imagePdf = await PDFLibDocument.create();
+    await this.embedImage(
+      imagePdf,
+      document,
+      imageBuffer,
+      0,
+      document.mimetype,
+    );
+    return await imagePdf.save({ useObjectStreams: false, compress: false });
+  }
+
+  async createErrorPdfBytes(document, message) {
+    const errorPdf = await PDFLibDocument.create();
+    const page = errorPdf.addPage([595, 842]);
+    page.drawText(`Failed to include ${document.originalname}`, {
+      x: 50,
+      y: 760,
+      size: 16,
+      color: rgb(0.8, 0.1, 0.1),
+    });
+    page.drawText(message, {
+      x: 50,
+      y: 730,
+      size: 12,
+      color: rgb(0.2, 0.2, 0.2),
+      maxWidth: 500,
+    });
+    return await errorPdf.save({ useObjectStreams: false, compress: false });
+  }
+
+  async compressPdfBytes(pdfBytes, compressionLevel) {
+    try {
+      const pdfDoc = await PDFLibDocument.load(pdfBytes);
+
+      let quality;
+      switch (compressionLevel) {
+        case "low":
+          quality = 0.8;
+          break;
+        case "medium":
+          quality = 0.6;
+          break;
+        case "high":
+          quality = 0.4;
+          break;
+        case "5mb":
+          quality = 0.35;
+          break;
+        default:
+          quality = 0.6;
+      }
+
+      return await pdfDoc.save({
+        useObjectStreams: false,
+        compress: true,
+        imageQuality: quality,
+        removeMetadata: true,
+      });
+    } catch (error) {
+      console.error("PDF compression failed, returning original bytes:", error);
+      return pdfBytes;
+    }
+  }
+
   async compressPDFs(
     submissionId,
     documentIds,
@@ -342,68 +442,47 @@ class AssessmentService {
     const compressedFiles = [];
 
     for (const doc of documentsToCompress) {
+      let fileBytes;
+      let outputBytes;
+      let finalFilename;
+
       try {
-        const response = await axios({
-          method: "GET",
-          url: doc.cloudinaryUrl,
-          responseType: "stream",
-        });
+        fileBytes = await this.downloadDocumentBytes(doc);
 
-        const tempFilePath = path.join(
-          tempDir,
-          `${doc._id}_${doc.originalname}`,
-        );
-        const writeStream = fs.createWriteStream(tempFilePath);
-
-        response.data.pipe(writeStream);
-
-        await new Promise((resolve, reject) => {
-          writeStream.on("finish", resolve);
-          writeStream.on("error", reject);
-        });
-
-        let pdfBytes;
         if (doc.mimetype.startsWith("image/")) {
-          // Convert image to PDF first
-          const imagePdf = await PDFLibDocument.create();
-          const imageBytes = fs.readFileSync(tempFilePath);
-          await this.embedImage(imagePdf, doc, imageBytes, 0);
-          pdfBytes = await imagePdf.save();
+          outputBytes = await this.convertImageToPdfBytes(doc, fileBytes);
+          const baseName = doc.originalname.replace(/\.[^/.]+$/, "");
+          finalFilename = `compressed_${baseName}.pdf`;
         } else {
-          pdfBytes = fs.readFileSync(tempFilePath);
+          outputBytes = await this.compressPdfBytes(
+            fileBytes,
+            compressionLevel,
+          );
+          finalFilename = `compressed_${doc.originalname}`;
         }
-
-        const originalSize = pdfBytes.length;
-        const targetSize = 4.9 * 1024 * 1024;
-
-        let compressedBytes = await this.compressPDF(
-          pdfBytes,
-          originalSize,
-          targetSize,
-          compressionLevel,
-        );
-
-        const compressedPath = path.join(
-          tempDir,
-          `compressed_${doc._id}_${doc.originalname}`,
-        );
-        fs.writeFileSync(compressedPath, compressedBytes);
-
-        // Ensure the filename has .pdf extension if it was converted from an image
-        const baseName = doc.originalname.replace(/\.[^/.]+$/, "");
-        const finalFilename = doc.mimetype.startsWith("image/")
-          ? `compressed_${baseName}.pdf`
-          : `compressed_${doc.originalname}`;
-
-        compressedFiles.push({
-          path: compressedPath,
-          filename: finalFilename,
-        });
-
-        fs.unlinkSync(tempFilePath);
       } catch (error) {
         console.error(`Error processing document ${doc.originalname}:`, error);
+        const baseName = doc.originalname.replace(/\.[^/.]+$/, "");
+
+        if (!fileBytes) {
+          outputBytes = await this.createErrorPdfBytes(
+            doc,
+            `Unable to download or read the document for compression. ${error.message}`,
+          );
+          finalFilename = `failed_${baseName}.pdf`;
+        } else {
+          outputBytes = fileBytes;
+          finalFilename = `original_${doc.originalname}`;
+        }
       }
+
+      const compressedPath = path.join(tempDir, finalFilename);
+      fs.writeFileSync(compressedPath, outputBytes);
+
+      compressedFiles.push({
+        path: compressedPath,
+        filename: finalFilename,
+      });
     }
 
     if (compressedFiles.length === 0) {
@@ -423,44 +502,6 @@ class AssessmentService {
       zipFileName: `${customerName || "compressed"}_pdfs.zip`,
       tempDir,
     };
-  }
-
-  /**
-   * Compress PDF
-   */
-  async compressPDF(pdfBytes, originalSize, targetSize, compressionLevel) {
-    try {
-      const pdfDoc = await PDFLibDocument.load(pdfBytes);
-
-      let quality;
-      if (originalSize > 10 * 1024 * 1024) {
-        quality = 0.45;
-      } else {
-        switch (compressionLevel) {
-          case "low":
-            quality = 0.8;
-            break;
-          case "medium":
-            quality = 0.6;
-            break;
-          case "high":
-            quality = 0.4;
-            break;
-          default:
-            quality = 0.6;
-        }
-      }
-
-      return await pdfDoc.save({
-        useObjectStreams: false,
-        compress: true,
-        imageQuality: quality,
-        removeMetadata: true,
-      });
-    } catch (error) {
-      console.error("PDF compression failed, returning original bytes:", error);
-      return pdfBytes;
-    }
   }
 
   /**
