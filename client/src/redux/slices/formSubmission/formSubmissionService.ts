@@ -106,6 +106,14 @@ export interface RenameDocumentResponse {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
+const getRenamedFile = (field: string, file: File, index: number, totalFiles: number): File => {
+  const extensionMatch = file.name.match(/(\.[^\.]+)$/);
+  const extension = extensionMatch ? extensionMatch[1] : '';
+  const baseName = totalFiles > 1 ? `${field}-${index + 1}` : field;
+  const newFileName = `${baseName}${extension}`;
+  return new File([file], newFileName, { type: file.type, lastModified: file.lastModified });
+};
+
 // ✅ Submit assessment form
 export const submitAssessment = async (formData: FormSubmissionData): Promise<FormSubmissionResponse> => {
   const formDataToSend = new FormData();
@@ -113,9 +121,10 @@ export const submitAssessment = async (formData: FormSubmissionData): Promise<Fo
   // Add text fields
   Object.entries(formData).forEach(([key, value]) => {
     if (Array.isArray(value)) {
-      // Handle file arrays
-      (value as File[]).forEach((file) => {
-        formDataToSend.append(key, file);
+      const files = value as File[];
+      files.forEach((file, index) => {
+        const renamedFile = getRenamedFile(key, file, index, files.length);
+        formDataToSend.append(key, renamedFile);
       });
     } else {
       // Handle text fields

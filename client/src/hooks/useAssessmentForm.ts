@@ -67,6 +67,13 @@ const formStep2Schema = z.object({
   path: ['otherCountry'],
 });
 
+const renameSelectedFile = (field: string, file: File, index: number, totalFiles: number): File => {
+  const extensionMatch = file.name.match(/(\.[^\.]+)$/);
+  const extension = extensionMatch ? extensionMatch[1] : '';
+  const baseName = totalFiles > 1 ? `${field}-${index + 1}` : field;
+  return new File([file], `${baseName}${extension}`, { type: file.type, lastModified: file.lastModified });
+};
+
 export const useAssessmentForm = (onClose: () => void) => {
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
@@ -218,10 +225,18 @@ export const useAssessmentForm = (onClose: () => void) => {
       }
       
       if (validFiles.length > 0) {
-        setFormData((prev) => ({
-          ...prev,
-          [field]: [...(prev[field] as File[]), ...validFiles],
-        }));
+        setFormData((prev) => {
+          const existingFiles = prev[field] as File[];
+          const totalFiles = existingFiles.length + validFiles.length;
+          const renamedFiles = validFiles.map((file, index) =>
+            renameSelectedFile(field.toString(), file, existingFiles.length + index, totalFiles)
+          );
+
+          return {
+            ...prev,
+            [field]: [...existingFiles, ...renamedFiles],
+          };
+        });
       }
     }, [dispatch]);
 
