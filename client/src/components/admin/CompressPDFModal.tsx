@@ -36,6 +36,14 @@ const CompressPDFModal: React.FC<CompressPDFModalProps> = ({ isOpen, onClose, su
     );
   };
 
+  const handleSelectAll = () => {
+    if (selectedDocuments.length === availableDocuments.length) {
+      setSelectedDocuments([]);
+    } else {
+      setSelectedDocuments(availableDocuments.map(doc => doc._id));
+    }
+  };
+
   const handleCloseModal = () => {
     setToastMessage(null);
     setSelectedDocuments([]);
@@ -152,7 +160,23 @@ const CompressPDFModal: React.FC<CompressPDFModalProps> = ({ isOpen, onClose, su
                   <p className="text-slate-500 font-medium">No documents found for this user.</p>
                 </div>
               ) : (
-                <div className="grid gap-3">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                    <div
+                      onClick={handleSelectAll}
+                      className={`w-6 h-6 rounded-md flex items-center justify-center border cursor-pointer transition-colors ${
+                        selectedDocuments.length === availableDocuments.length
+                          ? 'bg-blue-600 border-blue-600 text-white'
+                          : 'bg-slate-100 border-slate-300 text-transparent hover:border-slate-400'
+                      }`}
+                    >
+                      <span className="text-xs font-bold">✓</span>
+                    </div>
+                    <label onClick={handleSelectAll} className="flex-1 font-semibold text-sm text-slate-800 cursor-pointer">
+                      {selectedDocuments.length === availableDocuments.length ? 'Deselect All' : 'Select All'}
+                    </label>
+                  </div>
+                  <div className="grid gap-3">
                   {availableDocuments.map((doc) => (
                     <div
                       key={doc._id}
@@ -196,6 +220,7 @@ const CompressPDFModal: React.FC<CompressPDFModalProps> = ({ isOpen, onClose, su
                       </div>
                     </div>
                   ))}
+                  </div>
                 </div>
               )}
             </div>

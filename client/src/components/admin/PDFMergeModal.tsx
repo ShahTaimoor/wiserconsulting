@@ -37,6 +37,14 @@ const PDFMergeModal: React.FC<PDFMergeModalProps> = ({ isOpen, onClose, submissi
     );
   };
 
+  const handleSelectAll = () => {
+    if (selectedDocuments.length === uploadedDocuments.length) {
+      setSelectedDocuments([]);
+    } else {
+      setSelectedDocuments(uploadedDocuments.map(doc => doc._id));
+    }
+  };
+
   const handleCloseModal = () => {
     setToastMessage(null);
     onClose();
@@ -125,7 +133,23 @@ const PDFMergeModal: React.FC<PDFMergeModalProps> = ({ isOpen, onClose, submissi
                 <p className="text-slate-500 font-medium">No documents available to merge.</p>
               </div>
             ) : (
-              <div className="grid gap-3">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <div
+                    onClick={handleSelectAll}
+                    className={`w-6 h-6 rounded-md flex items-center justify-center border cursor-pointer transition-colors ${
+                      selectedDocuments.length === uploadedDocuments.length
+                        ? 'bg-blue-600 border-blue-600 text-white'
+                        : 'bg-slate-100 border-slate-300 text-transparent hover:border-slate-400'
+                    }`}
+                  >
+                    <span className="text-xs font-bold">✓</span>
+                  </div>
+                  <label onClick={handleSelectAll} className="flex-1 font-semibold text-sm text-slate-800 cursor-pointer">
+                    {selectedDocuments.length === uploadedDocuments.length ? 'Deselect All' : 'Select All'}
+                  </label>
+                </div>
+                <div className="grid gap-3">
                 {uploadedDocuments.map((doc) => (
                   <div
                     key={doc._id}
@@ -169,6 +193,7 @@ const PDFMergeModal: React.FC<PDFMergeModalProps> = ({ isOpen, onClose, submissi
                     </div>
                   </div>
                 ))}
+                </div>
               </div>
             )}
 
