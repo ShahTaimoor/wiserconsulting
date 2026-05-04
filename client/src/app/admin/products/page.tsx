@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
+import { toast } from 'sonner';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import PDFMergeModal from '@/components/admin/PDFMergeModal';
 import CompressPDFModal from '@/components/admin/CompressPDFModal';
@@ -68,7 +69,7 @@ const AdminFormSubmissions = () => {
       setPreviewDocument({ url: fileUrl, name: doc.originalname, type: doc.mimetype });
       setShowDocumentPreview(true);
     } else {
-      alert('File URL not available for preview');
+      toast.error('File URL not available for preview');
     }
   };
 
@@ -77,8 +78,9 @@ const AdminFormSubmissions = () => {
     if (fileUrl) {
       try {
         await downloadFile(fileUrl, doc.originalname);
+        toast.success('Download started successfully');
       } catch (error) {
-        alert(`Download failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        toast.error(`Download failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
   };
@@ -88,9 +90,9 @@ const AdminFormSubmissions = () => {
     try {
       await dispatch(saveComment({ submissionId: selectedSubmissionId, documentId, comment })).unwrap();
       setDocumentComments(prev => ({ ...prev, [documentId]: comment }));
-      alert('Comment saved and email sent to customer!');
+      toast.success('Comment saved and email sent to customer!');
     } catch (error) {
-      alert(`Failed to save comment: ${error}`);
+      toast.error(`Failed to save comment: ${error instanceof Error ? error.message : 'Failed to save comment'}`);
     }
   };
 
@@ -112,9 +114,9 @@ const AdminFormSubmissions = () => {
       setShowRenameModal(false);
       setRenamingDocument(null);
       setNewDocumentName('');
-      alert('Document renamed successfully!');
+      toast.success('Document renamed successfully!');
     } catch (error) {
-      alert(`Failed to rename document: ${error}`);
+      toast.error(`Failed to rename document: ${error instanceof Error ? error.message : error}`);
     }
   };
 
@@ -123,9 +125,9 @@ const AdminFormSubmissions = () => {
     if (!window.confirm(`Are you sure you want to delete "${documentName}"? This action cannot be undone.`)) return;
     try {
       await dispatch(removeDocument({ submissionId: selectedSubmissionId, documentId })).unwrap();
-      alert('Document deleted successfully!');
+      toast.success('Document deleted successfully!');
     } catch (error) {
-      alert(`Failed to delete document: ${error}`);
+      toast.error(`Failed to delete document: ${error instanceof Error ? error.message : error}`);
     }
   };
 
@@ -137,9 +139,9 @@ const AdminFormSubmissions = () => {
         setSelectedSubmissionId(null);
         setShowDetailsModal(false);
       }
-      alert('Submission deleted successfully!');
+      toast.success('Submission deleted successfully!');
     } catch (error) {
-      alert(`Failed to delete submission: ${error}`);
+      toast.error(`Failed to delete submission: ${error instanceof Error ? error.message : error}`);
     }
   };
 
