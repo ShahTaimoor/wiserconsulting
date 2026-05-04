@@ -11,12 +11,12 @@ class ReuploadService {
   /**
    * Re-upload a document
    */
-  async reuploadDocument(documentId, file, userId) {
+  async reuploadDocument(documentId, file, userEmail) {
     try {
-      // Find the form submission that contains this document
+      // Find the form submission that contains this document by user email
       const submission = await FormSubmission.findOne({
         'documents._id': documentId,
-        userId: userId
+        email: userEmail
       });
 
       if (!submission) {
@@ -64,10 +64,13 @@ class ReuploadService {
         filename: file.originalname,
         mimetype: file.mimetype,
         size: file.size,
-        uploadedAt: new Date(),
-        // Clear any admin comments since this is a new upload
-        adminComments: []
+        uploadedAt: new Date()
       };
+
+      // Remove admin comments for this specific document since it's being re-uploaded
+      submission.adminComments = submission.adminComments.filter(
+        comment => comment.documentId !== documentId
+      );
 
       // Save the updated submission
       await submission.save();

@@ -127,7 +127,17 @@ const VisaConsultation: React.FC = () => {
 
   const handleReuploadSubmit = async (docId: string) => {
     const file = reuploadFiles[docId];
-    if (!file) return;
+    if (!file) {
+      console.error('No file selected for re-upload');
+      return;
+    }
+
+    console.log('Starting re-upload for document:', docId);
+    console.log('File details:', {
+      name: file.name,
+      size: file.size,
+      type: file.type
+    });
 
     setReuploadingDocId(docId);
     
@@ -136,19 +146,33 @@ const VisaConsultation: React.FC = () => {
       formData.append('file', file);
       formData.append('documentId', docId);
 
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      console.log('Sending request to:', `${process.env.NEXT_PUBLIC_API_URL}/api/reupload-document`);
+      console.log('Token exists:', !!token);
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reupload-document`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: formData,
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
-        throw new Error('Failed to re-upload document');
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`Failed to re-upload document: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();
+      console.log('Re-upload success:', result);
       
       // Clear the re-upload file for this document
       setReuploadFiles(prev => {
@@ -159,13 +183,14 @@ const VisaConsultation: React.FC = () => {
 
       // Refresh admin comments to show updated status
       if (user?.email) {
+        console.log('Refreshing admin comments for user:', user.email);
         dispatch(fetchAdminComments(user.email));
       }
 
       alert('Document re-uploaded successfully!');
     } catch (error) {
       console.error('Re-upload error:', error);
-      alert('Failed to re-upload document. Please try again.');
+      alert(`Failed to re-upload document: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setReuploadingDocId(null);
     }
