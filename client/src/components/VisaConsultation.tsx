@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/redux/store';
-import { fetchAdminComments } from '@/redux/slices/formSubmission/formSubmissionSlice';
+import { fetchAdminComments, fetchCustomerSubmission } from '@/redux/slices/formSubmission/formSubmissionSlice';
 
 interface AuthState {
   user: {
@@ -132,14 +132,17 @@ const VisaConsultation: React.FC = () => {
       return;
     }
 
-    console.log('Starting re-upload for document:', docId);
-    console.log('File details:', {
+    console.log('🚀 Starting re-upload for document:', docId);
+    console.log('📄 File details:', {
       name: file.name,
       size: file.size,
       type: file.type
     });
+    console.log('👤 User logged in:', !!user);
+    console.log('📧 User email:', user?.email);
 
     setReuploadingDocId(docId);
+    console.log('⏳ Set reuploading state for document:', docId);
     
     try {
       const formData = new FormData();
@@ -151,10 +154,22 @@ const VisaConsultation: React.FC = () => {
         throw new Error('No authentication token found');
       }
 
-      console.log('Sending request to:', `${process.env.NEXT_PUBLIC_API_URL}/api/reupload-document`);
-      console.log('Token exists:', !!token);
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/reupload-document`;
+      console.log('🔗 NEXT_PUBLIC_API_URL environment variable:', process.env.NEXT_PUBLIC_API_URL);
+      console.log('🌐 Sending request to:', apiUrl);
+      console.log('📡 Full API URL constructed:', apiUrl);
+      console.log('🔑 Token exists:', !!token);
+      console.log('📦 FormData contents:');
+      for (let [key, value] of formData.entries()) {
+        if (value instanceof File) {
+          console.log(`- ${key}: ${value.name} (${value.size} bytes)`);
+        } else {
+          console.log(`- ${key}: ${value}`);
+        }
+      }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reupload-document`, {
+      console.log('📤 Making fetch request...');
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -162,17 +177,18 @@ const VisaConsultation: React.FC = () => {
         body: formData,
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      console.log('📥 Response status:', response.status);
+      console.log('📋 Response headers:', Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Error response:', errorText);
+        console.error('❌ Error response:', errorText);
         throw new Error(`Failed to re-upload document: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();
-      console.log('Re-upload success:', result);
+      console.log('✅ Response body:', result);
+      console.log('🎉 Re-upload success:', result);
       
       // Clear the re-upload file for this document
       setReuploadFiles(prev => {
@@ -181,10 +197,20 @@ const VisaConsultation: React.FC = () => {
         return newFiles;
       });
 
-      // Refresh admin comments to show updated status
+      // Refresh both admin comments and current submission to show updated image
       if (user?.email) {
-        console.log('Refreshing admin comments for user:', user.email);
+        console.log('🔄 Refreshing admin comments for user:', user.email);
         dispatch(fetchAdminComments(user.email));
+        
+        // Also refresh the current submission to update the image URLs
+        console.log('🔄 Refreshing current submission for user:', user.email);
+        dispatch(fetchCustomerSubmission(user.email));
+        
+        console.log('⏳ Waiting for state updates...');
+        // Add a small delay to ensure state updates are processed
+        setTimeout(() => {
+          console.log('✅ State refresh completed - image should be updated now');
+        }, 1000);
       }
 
       alert('Document re-uploaded successfully!');
