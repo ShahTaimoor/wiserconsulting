@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/redux/store";
@@ -8,14 +8,31 @@ import { logout } from "@/redux/slices/auth/authSlice";
 import { useAppSelector } from "@/redux/hooks";
 import { isAdminRole } from "@/utils/authRole";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/shadcn-space/blocks/sidebar-06/app-sidebar";
+import dynamic from "next/dynamic";
+
+// Dynamically import AppSidebar to prevent SSR
+const AppSidebar = dynamic(
+  () => import("@/components/shadcn-space/blocks/sidebar-06/app-sidebar").then(mod => ({ default: mod.AppSidebar })),
+  { 
+    ssr: false,
+    loading: () => <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+  }
+);
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useAppSelector((state) => state.auth);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    // Only run redirects after component is mounted
+    if (!mounted) return;
+
     // Check if user is logged in
     if (!user) {
       router.replace("/login");
@@ -27,15 +44,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       router.replace("/");
       return;
     }
-  }, [user, router]);
+  }, [user, router, mounted]);
 
   const handleLogout = () => {
     dispatch(logout());
     router.push("/login");
   };
 
-  // Show loading state while checking authentication
-  if (!user || !isAdminRole(user.role)) {
+  // Show loading state while checking authentication or not mounted
+  if (!mounted || !user || !isAdminRole(user.role)) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
