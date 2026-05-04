@@ -21,7 +21,9 @@ import {
   TrendingUp,
   Phone,
   Mail,
-  MapPin
+  MapPin,
+  Upload,
+  Loader2
 } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/redux/store';
@@ -48,6 +50,8 @@ const VisaConsultation: React.FC = () => {
   const [mounted, setMounted] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [hasViewedComments, setHasViewedComments] = useState(false);
+  const [reuploadingDocId, setReuploadingDocId] = useState<string | null>(null);
+  const [reuploadFiles, setReuploadFiles] = useState<{ [key: string]: File }>({});
   const typedEl = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -115,6 +119,56 @@ const VisaConsultation: React.FC = () => {
       grouped[id].comments.push(c);
     });
     return grouped;
+  };
+
+  const handleReuploadFile = (docId: string, file: File) => {
+    setReuploadFiles(prev => ({ ...prev, [docId]: file }));
+  };
+
+  const handleReuploadSubmit = async (docId: string) => {
+    const file = reuploadFiles[docId];
+    if (!file) return;
+
+    setReuploadingDocId(docId);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('documentId', docId);
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reupload-document`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to re-upload document');
+      }
+
+      const result = await response.json();
+      
+      // Clear the re-upload file for this document
+      setReuploadFiles(prev => {
+        const newFiles = { ...prev };
+        delete newFiles[docId];
+        return newFiles;
+      });
+
+      // Refresh admin comments to show updated status
+      if (user?.email) {
+        dispatch(fetchAdminComments(user.email));
+      }
+
+      alert('Document re-uploaded successfully!');
+    } catch (error) {
+      console.error('Re-upload error:', error);
+      alert('Failed to re-upload document. Please try again.');
+    } finally {
+      setReuploadingDocId(null);
+    }
   };
 
   const stats = [
@@ -550,9 +604,51 @@ const VisaConsultation: React.FC = () => {
                                 )}
                               </div>
                             )}
-                            <h4 className="font-semibold text-sm text-slate-900 break-all">
-                              {data.name}
-                            </h4>
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-sm text-slate-900 break-all">
+                                {data.name}
+                              </h4>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="file"
+                                id={`reupload-${docId}`}
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    handleReuploadFile(docId, file);
+                                  }
+                                }}
+                                accept="image/*,.pdf,.doc,.docx"
+                              />
+                              <label
+                                htmlFor={`reupload-${docId}`}
+                                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 cursor-pointer transition-colors"
+                              >
+                                <Upload className="w-3 h-3" />
+                                Re-upload
+                              </label>
+                              {reuploadFiles[docId] && (
+                                <button
+                                  onClick={() => handleReuploadSubmit(docId)}
+                                  disabled={reuploadingDocId === docId}
+                                  className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                  {reuploadingDocId === docId ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                      Uploading...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle2 className="w-3 h-3" />
+                                      Submit
+                                    </>
+                                  )}
+                                </button>
+                              )}
+                            </div>
                           </div>
                           <div className="space-y-3">
                             {data.comments.map((c, i) => (

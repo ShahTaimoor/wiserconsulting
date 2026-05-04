@@ -15,6 +15,7 @@ const assessmentRoutes = require("./routes/assessmentRoutes");
 const formSubmissionRoutes = require("./routes/formSubmissionRoutes");
 const contactRoutes = require("./routes/contactRoutes");
 const adminSettingsRoutes = require("./routes/adminSettingsRoutes");
+const reuploadRoutes = require("./routes/reuploadRoutes");
 const {
   apiLimiter,
   authLimiter,
@@ -88,6 +89,7 @@ app.use("/api", assessmentRoutes);
 app.use("/api", formSubmissionRoutes);
 app.use("/api/contacts", contactRoutes);
 app.use("/api/admin-settings", adminSettingsRoutes);
+app.use("/api/reupload-document", reuploadRoutes);
 
 app.get("/", (req, res) => {
   res.send("Welcome to the backend");
