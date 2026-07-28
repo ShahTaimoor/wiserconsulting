@@ -142,7 +142,7 @@ const Footer = () => {
                 <div>
                   <p className="text-white text-sm font-medium mb-1">Address</p>
                   <p className="text-slate-400 text-sm leading-relaxed whitespace-pre-line">
-                    {settings.address || "Deans Trade Center, UG390\nPeshawar, Pakistan"}
+                    {settings.address || ""}
                   </p>
                 </div>
               </li>
@@ -153,10 +153,10 @@ const Footer = () => {
                 <div>
                   <p className="text-white text-sm font-medium mb-1">Email</p>
                   <a
-                    href={`mailto:${settings.emailAddress || "wiserconsulting55@gmail.com"}`}
+                    href={`mailto:${settings.emailAddress || ""}`}
                     className="text-slate-400 hover:text-white transition-colors text-sm"
                   >
-                    {settings.emailAddress || "wiserconsulting55@gmail.com"}
+                    {settings.emailAddress || ""}
                   </a>
                 </div>
               </li>

@@ -146,7 +146,7 @@ const PrivacyPolicy = () => {
               </div>
               <div className="p-6 bg-slate-900 text-white rounded-lg">
                 <p className="mb-2 font-semibold text-lg">Questions or Concerns?</p>
-                <p>To exercise any of these rights or if you have questions regarding this policy, please contact us at <strong>wiserconsulting55@gmail.com</strong></p>
+                <p>To exercise any of these rights or if you have questions regarding this policy, please contact us.</p>
               </div>
             </div>
           </div>

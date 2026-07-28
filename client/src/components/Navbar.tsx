@@ -389,7 +389,7 @@ const Navbar = () => {
                     transition={{ duration: 0.2 }}
                   >
                     <p className="font-semibold text-slate-100">Contact</p>
-                    <p className="text-slate-400">{settings.emailAddress || "wiserconsulting55@gmail.com"}</p>
+                    <p className="text-slate-400">{settings.emailAddress || ""}</p>
                   </motion.div>
                   <motion.div 
                     whileHover={{ x: 5 }} 

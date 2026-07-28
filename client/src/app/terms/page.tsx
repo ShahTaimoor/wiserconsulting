@@ -112,7 +112,7 @@ const TermsOfService = () => {
               <p className="mb-6">We reserve the right, at our sole operational discretion, to modify or seamlessly replace these Terms at any given time. We will make a reasonable attempt to provide noticeable communication prior to any substantially new terms taking functional effect. Your continued uninterrupted use of our Service extensively constitutes your acceptance of the updated terms.</p>
               <div className="p-6 bg-slate-900 text-white rounded-lg">
                 <p className="mb-2 font-semibold text-lg">Need Clarification?</p>
-                <p>If you have any questions about these Terms of Service, please reach out to us at <strong>wiserconsulting55@gmail.com</strong></p>
+                <p>If you have any questions about these Terms of Service, please reach out to us.</p>
               </div>
             </div>
           </div>

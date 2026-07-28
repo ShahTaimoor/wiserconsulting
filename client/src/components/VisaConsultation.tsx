@@ -542,41 +542,7 @@ const VisaConsultation: React.FC = () => {
             transition={{ duration: 0.6 }}
             className="space-y-8"
           >
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
-              Ready to Start Your Visa Journey?
-            </h2>
-            <p className="text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed">
-              Contact us today for a free consultation and let our expert team guide you through every step of the visa process.
-            </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-              <StarButton
-                onClick={() => setIsFormOpen(true)}
-              >
-                Get Free Assessment
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </StarButton>
-              <motion.a
-                href="tel:+1234567890"
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-8 py-4 bg-transparent text-white font-semibold rounded-lg text-lg border-2 border-white hover:bg-white/10 transition-all flex items-center gap-2"
-              >
-                <Phone className="w-5 h-5" />
-                Call Us Now
-              </motion.a>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center gap-8 pt-8 text-slate-400">
-              <div className="flex items-center gap-2">
-                <Mail className="w-5 h-5" />
-                <span className="text-sm">wiserconsulting55@gmail.com</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <MapPin className="w-5 h-5" />
-                <span className="text-sm">Deans Trade Center, UG390, Peshawar</span>
-              </div>
-            </div>
           </motion.div>
         </div>
       </section>

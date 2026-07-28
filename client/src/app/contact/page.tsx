@@ -133,25 +133,7 @@ const ContactPage = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4 text-white">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sky-500">
-                      <Mail className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-sm uppercase tracking-[0.24em] text-slate-200">Email</p>
-                      <p className="mt-1 text-lg font-semibold">wiserconsulting55@gmail.com</p>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-4 text-white">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-500">
-                      <MapPin className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-sm uppercase tracking-[0.24em] text-slate-200">Office</p>
-                      <p className="mt-1 text-lg font-semibold">Deans Trade Center, UG390, Peshawar</p>
-                    </div>
-                  </div>
                 </div>
               </div>
             </motion.div>
