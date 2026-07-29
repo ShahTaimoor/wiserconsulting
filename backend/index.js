@@ -1,5 +1,6 @@
 // server.js
 const express = require("express");
+const helmet = require("helmet");
 const cors = require("cors");
 const session = require("express-session");
 const passport = require("passport");
@@ -55,6 +56,9 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization"]
 };
 app.use(cors(corsOptions));
+
+// Security headers
+app.use(helmet());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
