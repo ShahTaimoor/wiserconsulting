@@ -11,11 +11,18 @@ import { useSettings } from "@/context/SettingsContext";
 import { usePathname } from "next/navigation";
 import { isAdminRole } from "@/utils/authRole";
 import { LayoutDashboard } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
 
   const isLightPage = pathname === '/about' || pathname === '/services' || pathname === '/contact';
@@ -28,6 +35,10 @@ const Navbar = () => {
   const displayLogo = settings.logoUrl || "/logo.png";
   const displayTitle = settings.websiteTitle || "WISER CONSULTING";
   const displayPhone = settings.phoneNumber || "+923709706643";
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -80,13 +91,23 @@ const Navbar = () => {
   };
 
   const baseNavLinks = [
-    { href: "/", label: "Home" },
-    { href: "/about", label: "About" },
-    { href: "/services", label: "Services" },
-    { href: "/contact", label: "Contact" },
+    { id: "home", href: "/#home", label: "Home" },
+    { id: "about", href: "/#about", label: "About" },
+    { id: "services", href: "/#services", label: "Services" },
+    { id: "contact", href: "/#contact", label: "Contact" },
   ];
 
   const navLinks = baseNavLinks;
+
+  // Smooth-scroll to the matching section when already on the homepage;
+  // otherwise let the Link navigate to "/#id" and the browser scrolls after load.
+  const handleSectionNavClick = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+    if (pathname === "/") {
+      e.preventDefault();
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    }
+    setIsOpen(false);
+  };
 
   return (
     <>
@@ -109,6 +130,19 @@ const Navbar = () => {
               </div>
             </Link>
 
+            <div className="hidden md:flex flex-1 items-center justify-center gap-8 px-4">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={(e) => handleSectionNavClick(e, link.id)}
+                  className="text-sm font-semibold text-slate-700 transition-colors hover:text-emerald-600"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+
             <div className="flex items-center gap-2">
               <div className="hidden sm:flex items-center gap-4 text-sm">
                 <div className="flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-slate-950 shadow-sm shadow-slate-950/10 dark:bg-slate-950 dark:text-slate-50 dark:shadow-slate-950/20">
@@ -116,9 +150,57 @@ const Navbar = () => {
                   <span className="font-semibold">{displayPhone}</span>
                 </div>
               </div>
+
+              <div className="hidden md:flex items-center gap-2">
+                {mounted && user ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 transition hover:bg-slate-200">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10">
+                          <UserIcon className="text-emerald-600" size={14} />
+                        </div>
+                        <span className="max-w-[100px] truncate text-xs font-semibold text-slate-800">{user.name}</span>
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {isAdminRole(user.role) && (
+                        <DropdownMenuItem asChild>
+                          <Link href="/admin/products" className="flex cursor-pointer items-center gap-2">
+                            <LayoutDashboard size={14} />
+                            Admin
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
+                        onClick={handleLogout}
+                        className="cursor-pointer gap-2 text-red-600 focus:text-red-600"
+                      >
+                        <LogOut size={14} />
+                        Logout
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <>
+                    <Link
+                      href="/login"
+                      className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-4 py-2 text-xs font-semibold text-slate-950 shadow-sm transition hover:bg-emerald-400"
+                    >
+                      Sign In
+                    </Link>
+                    <Link
+                      href="/register"
+                      className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-800 transition hover:border-emerald-400 hover:text-emerald-600"
+                    >
+                      Sign Up
+                    </Link>
+                  </>
+                )}
+              </div>
+
               <motion.button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200/70 bg-slate-950 text-white shadow-md shadow-slate-950/20 transition hover:bg-slate-800"
+                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200/70 bg-slate-950 text-white shadow-md shadow-slate-950/20 transition hover:bg-slate-800 md:hidden"
                 aria-label="Toggle menu"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -152,6 +234,18 @@ const Navbar = () => {
                 </span>
               </div>
             </Link>
+            <div className="hidden md:flex flex-1 items-center justify-center gap-8 px-4">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={(e) => handleSectionNavClick(e, link.id)}
+                  className="text-sm font-semibold text-slate-100/90 transition-colors hover:text-white"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
             <div className="flex items-center gap-2">
               <div className="hidden sm:flex items-center gap-4 text-sm">
                 <div className="flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-slate-950 shadow-sm shadow-slate-950/10 dark:bg-slate-950 dark:text-slate-50 dark:shadow-slate-950/20">
@@ -159,9 +253,57 @@ const Navbar = () => {
                   <span className="font-semibold">{displayPhone}</span>
                 </div>
               </div>
+
+              <div className="hidden md:flex items-center gap-2">
+                {mounted && user ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 transition hover:bg-white/20">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20">
+                          <UserIcon className="text-emerald-400" size={14} />
+                        </div>
+                        <span className="max-w-[100px] truncate text-xs font-semibold text-slate-100">{user.name}</span>
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {isAdminRole(user.role) && (
+                        <DropdownMenuItem asChild>
+                          <Link href="/admin/products" className="flex cursor-pointer items-center gap-2">
+                            <LayoutDashboard size={14} />
+                            Admin
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
+                        onClick={handleLogout}
+                        className="cursor-pointer gap-2 text-red-600 focus:text-red-600"
+                      >
+                        <LogOut size={14} />
+                        Logout
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <>
+                    <Link
+                      href="/login"
+                      className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-4 py-2 text-xs font-semibold text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400"
+                    >
+                      Sign In
+                    </Link>
+                    <Link
+                      href="/register"
+                      className="inline-flex items-center justify-center rounded-full border border-emerald-400/40 bg-slate-900/60 px-4 py-2 text-xs font-semibold text-emerald-300 transition hover:border-emerald-300 hover:text-white"
+                    >
+                      Sign Up
+                    </Link>
+                  </>
+                )}
+              </div>
+
               <motion.button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`flex items-center justify-center h-11 w-11 rounded-2xl border ${isLightPage ? 'border-white/10 bg-slate-800/80 hover:bg-slate-700' : 'border-slate-200/10 bg-slate-950/80 hover:bg-slate-900'} text-slate-100 shadow-2xl shadow-slate-950/30 transition`}
+                className={`flex items-center justify-center h-11 w-11 rounded-2xl border ${isLightPage ? 'border-white/10 bg-slate-800/80 hover:bg-slate-700' : 'border-slate-200/10 bg-slate-950/80 hover:bg-slate-900'} text-slate-100 shadow-2xl shadow-slate-950/30 transition md:hidden`}
                 aria-label="Toggle menu"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -248,7 +390,7 @@ const Navbar = () => {
                 </motion.div>
 
                 <div className="flex flex-col justify-center gap-10 px-2 py-6 sm:px-4">
-                  <div className="space-y-4">
+                  <div className="space-y-4 md:hidden">
                     {navLinks.map((link, index) => (
                       <motion.div
                         key={link.href}
@@ -267,9 +409,8 @@ const Navbar = () => {
                         >
                           <Link
                             href={link.href}
-                            onClick={handleClose}
-                            className={`inline-block text-3xl font-semibold transition-all duration-300 ${pathname === link.href ? 'text-emerald-400' : 'text-slate-300 hover:text-emerald-300'
-                              }`}
+                            onClick={(e) => handleSectionNavClick(e, link.id)}
+                            className="inline-block text-3xl font-semibold text-slate-300 transition-all duration-300 hover:text-emerald-300"
                           >
                             {link.label}
                           </Link>
@@ -285,7 +426,7 @@ const Navbar = () => {
                     exit={{ opacity: 0, y: 30 }}
                     transition={{ delay: 0.5, duration: 0.4, ease: "easeOut" }}
                   >
-                    {user ? (
+                    {mounted && user ? (
                       <motion.div 
                         className="flex flex-row flex-wrap items-center justify-between gap-3 px-2 py-4 border-t border-slate-800"
                         whileHover={{ scale: 1.01 }}
