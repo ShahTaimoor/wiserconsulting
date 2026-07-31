@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import Autoplay from "embla-carousel-autoplay";
 import { approvedVisaService, ApprovedVisa } from "@/services/approvedVisaService";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
-  CarouselPrevious,
-  CarouselNext,
 } from "@/components/ui/carousel";
 
 // Matches ServicesSection's grid breakpoints: 1 col mobile, 2 cols sm+, 4 cols lg+
@@ -76,6 +75,13 @@ const ApprovedVisasShowcase = () => {
   const [loading, setLoading] = useState(true);
   const [width, setWidth] = useState(0);
 
+  // Continuous auto-loop: pauses natively on hover (stopOnMouseEnter) and
+  // resumes on mouse-leave; a stray swipe/drag doesn't kill it permanently
+  // (stopOnInteraction: false) since there are no manual controls anymore.
+  const autoplayPlugin = useRef(
+    Autoplay({ delay: 3500, stopOnMouseEnter: true, stopOnInteraction: false })
+  );
+
   useEffect(() => {
     setMounted(true);
     setWidth(window.innerWidth);
@@ -129,7 +135,11 @@ const ApprovedVisasShowcase = () => {
         </motion.div>
 
         {useCarousel ? (
-          <Carousel opts={{ align: "start" }} className="w-full px-8 sm:px-12">
+          <Carousel
+            opts={{ align: "start", loop: true }}
+            plugins={[autoplayPlugin.current]}
+            className="w-full"
+          >
             <CarouselContent>
               {visas.map((visa, index) => (
                 <CarouselItem key={visa._id} className="sm:basis-1/2 lg:basis-1/4">
@@ -137,8 +147,6 @@ const ApprovedVisasShowcase = () => {
                 </CarouselItem>
               ))}
             </CarouselContent>
-            <CarouselPrevious />
-            <CarouselNext />
           </Carousel>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
