@@ -17,6 +17,7 @@ const contactRoutes = require("./routes/contactRoutes");
 const adminSettingsRoutes = require("./routes/adminSettingsRoutes");
 const siteSettingsRoutes = require("./routes/siteSettingsRoutes");
 const reuploadRoutes = require("./routes/reuploadRoutes");
+const approvedVisaRoutes = require("./routes/approvedVisaRoutes");
 const {
   apiLimiter,
   authLimiter,
@@ -96,6 +97,7 @@ app.use("/api/contacts", contactRoutes);
 app.use("/api/admin-settings", adminSettingsRoutes);
 app.use("/api/site-settings", siteSettingsRoutes);
 app.use("/api/reupload-document", reuploadRoutes);
+app.use("/api/approved-visas", approvedVisaRoutes);
 
 app.get("/", (req, res) => {
   res.send("Welcome to the backend");

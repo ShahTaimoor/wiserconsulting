@@ -51,7 +51,7 @@ const errorHandler = (err, req, res, next) => {
     }
     // Zod validation errors
     else if (err.name === 'ZodError') {
-      const message = err.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+      const message = err.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
       error = new AppError(message, 400);
     }
     // Unknown/unexpected errors

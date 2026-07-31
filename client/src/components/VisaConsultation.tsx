@@ -7,6 +7,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import AssessmentForm from './AssessmentForm';
 import StarButton from '@/components/ui/star-button';
+import ApprovedVisasShowcase from './ApprovedVisasShowcase';
 import {
   Globe2,
   FileCheck2,
@@ -19,7 +20,6 @@ import {
   Shield,
   Award,
   TrendingUp,
-  Phone,
   Mail,
   MapPin,
   Upload,
@@ -229,37 +229,6 @@ const VisaConsultation: React.FC = () => {
     { value: '24/7', label: 'Support Available', icon: <Shield className="w-6 h-6" /> },
   ];
 
-  const processSteps = [
-    {
-      step: '01',
-      title: 'Free Consultation',
-      description: 'Schedule a free consultation to discuss your visa requirements and eligibility.',
-      icon: <Phone className="w-8 h-8" />,
-      image: '/free-consultation.jpg',
-    },
-    {
-      step: '02',
-      title: 'Document Review',
-      description: 'Our experts review all your documents and provide personalized guidance.',
-      icon: <FileCheck2 className="w-8 h-8" />,
-      image: '/document-review.jpg',
-    },
-    {
-      step: '03',
-      title: 'Application Submission',
-      description: 'We handle the complete application process with attention to detail.',
-      icon: <CheckCircle2 className="w-8 h-8" />,
-      image: '/application-submission.jpg',
-    },
-    {
-      step: '04',
-      title: 'Visa Approval',
-      description: 'Track your application status and receive your visa approval.',
-      icon: <Award className="w-8 h-8" />,
-      image: '/visa-approved.jpg',
-    },
-  ];
-
   return (
     <div className="relative overflow-x-hidden">
       {/* Hero Section - Modern Design */}
@@ -401,90 +370,8 @@ const VisaConsultation: React.FC = () => {
         </div>
       </section>
 
-      {/* Process Section */}
-      <section className="pt-20 pb-8 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
-              Our Simple Process
-            </h2>
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-              Four simple steps to get your visa approved
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {processSteps.map((step, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="relative h-full"
-              >
-                <div className="group relative w-full h-[380px] bg-white rounded-3xl overflow-hidden transition-all duration-500 hover:shadow-[0_20px_50px_rgba(0,0,0,0.15)] hover:-translate-y-2 border border-slate-100 flex flex-col">
-
-                  {/* Card Image Area (Profile-Pic equivalent) */}
-                  <div className="relative w-full h-[60%] transition-all duration-500 group-hover:h-[45%] shrink-0 overflow-hidden">
-                    <Image
-                      src={step.image}
-                      alt={step.title}
-                      fill
-                      className="object-cover transition-transform duration-700 group-hover:scale-110"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
-
-                    {/* Mail / Contact Icon button top-right */}
-                    <button className="absolute top-4 right-4 w-10 h-10 bg-white/70 backdrop-blur-sm rounded-full flex items-center justify-center text-slate-800 shadow-md hover:bg-slate-900 hover:text-white transition-all z-10">
-                      <svg xmlns="http://www.w3.org/2000/svg" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect width={20} height={16} x={2} y={4} rx={2} /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg>
-                    </button>
-
-                    {/* Step Number Overlay */}
-                    <div className="absolute bottom-3 left-6 text-5xl font-black text-white/90 drop-shadow-md z-10 transition-transform duration-500 group-hover:scale-95 group-hover:translate-x-1 origin-left">
-                      {step.step}
-                    </div>
-                  </div>
-
-                  {/* Content Container */}
-                  <div className="relative flex-1 bg-white transition-all duration-500 flex flex-col p-6 z-20">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-xl font-bold text-slate-900 group-hover:text-amber-600 transition-colors duration-300">
-                        {step.title}
-                      </h3>
-                      <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center text-slate-600 shrink-0 shadow-inner group-hover:bg-amber-100 group-hover:text-amber-700 group-hover:border-amber-200 transition-colors duration-300 -mt-8 relative z-30 bg-white">
-                        {step.icon}
-                      </div>
-                    </div>
-
-                    <p className="text-slate-600 leading-relaxed text-sm line-clamp-3 group-hover:line-clamp-none transition-all duration-500">
-                      {step.description}
-                    </p>
-
-                    {/* Hidden Action Area that appears on hover */}
-                    <div className="mt-auto opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 pb-1">
-                      <Link href="/contact" className="text-sm font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-2 mt-4 w-fit inline-flex cursor-pointer relative z-40">
-                        View Details <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Connector Line (Horizontal) */}
-                {index < processSteps.length - 1 && (
-                  <div className="hidden lg:block absolute top-[30%] -right-4 w-8 h-[2px] bg-slate-200 pointer-events-none" />
-                )}
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Approved Visas Section */}
+      <ApprovedVisasShowcase />
 
       {/* Destinations Section */}
       <section className="pt-8 pb-20 bg-slate-50">
