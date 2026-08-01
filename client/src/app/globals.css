@@ -121,27 +121,31 @@
   }
 }
 
-/* Custom scrollbar - Professional Design */
+/* Custom scrollbar - matches the site's emerald accent + slate neutrals
+   (the site's real accent and background colors are the hardcoded Tailwind
+   emerald and slate utility classes used throughout Navbar/buttons/sections,
+   not the generic un-themed shadcn gray tokens defined above) */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9; /* Tailwind slate-100 */
+  background: #f1f5f9; /* Tailwind slate-100 - matches the site's light page backgrounds */
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #475569; /* Tailwind slate-600 */
+  background: linear-gradient(180deg, #34d399, #059669); /* emerald-400 -> emerald-600 */
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155; /* Tailwind slate-700 */
+  background: linear-gradient(180deg, #10b981, #047857); /* emerald-500 -> emerald-700, richer on hover */
 }
 
-/* For Firefox */
+/* Firefox - only supports two flat colors, no gradient */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #475569 #f1f5f9;
+  scrollbar-color: #059669 #f1f5f9; /* emerald-600 thumb, slate-100 track */
 }
