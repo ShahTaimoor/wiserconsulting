@@ -232,7 +232,7 @@ const VisaConsultation: React.FC = () => {
   return (
     <div className="relative overflow-x-hidden">
       {/* Hero Section - Modern Design */}
-      <section className="relative w-full min-h-screen flex items-center justify-center overflow-hidden">
+      <section className="relative w-full min-h-screen flex items-center justify-center overflow-hidden bg-slate-900">
         <video
           className="absolute top-0 left-0 w-full h-full object-cover z-0"
           src="/U.mp4"
