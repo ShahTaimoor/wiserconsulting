@@ -23,6 +23,7 @@ const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
   const pathname = usePathname();
 
   const isLightPage = pathname === '/about' || pathname === '/services' || pathname === '/contact';
@@ -109,38 +110,89 @@ const Navbar = () => {
     setIsOpen(false);
   };
 
+  // Scroll-spy: highlight whichever section is currently in view, whether the
+  // user got there by clicking a nav link or by scrolling manually. Only runs
+  // client-side (mounted) and only on the homepage, where the sections exist.
+  // Re-runs when `pathname` changes so it (re)attaches after navigating back
+  // to "/" from another route (e.g. a "/#about" link clicked from /privacy).
+  useEffect(() => {
+    if (!mounted || pathname !== "/") {
+      setActiveSection(null);
+      return;
+    }
+
+    const sections = navLinks
+      .map((link) => document.getElementById(link.id))
+      .filter((el): el is HTMLElement => el !== null);
+
+    if (sections.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id);
+          }
+        });
+      },
+      // Active "trigger line" sits just below the fixed navbar and extends
+      // through the top ~40% of the viewport - a natural spot for a section
+      // to be considered "current" without feeling early or late.
+      { rootMargin: "-100px 0px -60% 0px", threshold: 0 }
+    );
+
+    sections.forEach((section) => observer.observe(section));
+
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, pathname]);
+
   return (
     <>
       <nav className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${isScrolled ? "bg-transparent px-3 py-3 sm:px-4" : (isLightPage || isLegalPage ? "bg-slate-900" : "bg-transparent")}`}>
         {isScrolled ? (
           <div className="mx-auto flex max-w-7xl items-center justify-between rounded-full border border-white/70 bg-white/95 px-4 py-2 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.2)] backdrop-blur-xl">
-            <Link href="/" className="flex items-center gap-3">
+            <Link href="/" className="flex shrink-0 items-center gap-3">
               <img
                 src={displayLogo}
                 alt={displayTitle}
                 className="h-12 w-auto rounded-2xl object-contain"
               />
               <div className="hidden sm:flex flex-col leading-tight">
-                <span className={`text-sm font-semibold uppercase tracking-[0.25em] ${isLegalPage ? 'text-slate-900 font-bold' : 'text-slate-900'}`}>
+                <span className={`whitespace-nowrap text-sm font-semibold uppercase tracking-[0.25em] ${isLegalPage ? 'text-slate-900 font-bold' : 'text-slate-900'}`}>
                   {displayTitle}
                 </span>
-                <span className={`text-[11px] uppercase tracking-[0.25em] ${isLegalPage ? 'text-emerald-600 font-semibold' : 'text-slate-500'}`}>
-                  CONSULTANT
+                <span
+                  title="YOUR COMPASS FOR GLOBAL EDUCATION, IMMIGRATION & VISIT"
+                  className={`block max-w-[150px] truncate text-[10px] uppercase tracking-[0.15em] sm:max-w-[150px] md:max-w-[140px] lg:max-w-[300px] xl:max-w-[420px] ${isLegalPage ? 'text-emerald-600 font-semibold' : 'text-slate-500'}`}
+                >
+                  YOUR COMPASS FOR GLOBAL EDUCATION, IMMIGRATION & VISIT
                 </span>
               </div>
             </Link>
 
             <div className="hidden md:flex flex-1 items-center justify-center gap-8 px-4">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={(e) => handleSectionNavClick(e, link.id)}
-                  className="text-sm font-semibold text-slate-700 transition-colors hover:text-emerald-600"
-                >
-                  {link.label}
-                </Link>
-              ))}
+              {navLinks.map((link) => {
+                const isActive = activeSection === link.id;
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={(e) => handleSectionNavClick(e, link.id)}
+                    className={`relative pb-1 text-sm font-semibold transition-colors ${isActive ? "text-emerald-600" : "text-slate-700 hover:text-emerald-600"
+                      }`}
+                  >
+                    {link.label}
+                    {isActive && (
+                      <motion.span
+                        layoutId="nav-active-indicator"
+                        className="absolute inset-x-0 -bottom-0.5 h-0.5 rounded-full bg-emerald-500"
+                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                      />
+                    )}
+                  </Link>
+                );
+              })}
             </div>
 
             <div className="flex items-center gap-2">
@@ -219,32 +271,46 @@ const Navbar = () => {
           </div>
         ) : (
           <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-3">
+            <Link href="/" className="flex shrink-0 items-center gap-3">
               <img
                 src={displayLogo}
                 alt={displayTitle}
                 className="h-11 w-auto rounded-2xl object-contain"
               />
               <div className="hidden sm:flex flex-col leading-tight">
-                <span className={`text-sm font-semibold uppercase tracking-[0.25em] ${isLegalPage ? 'text-white' : 'text-slate-100/90'}`}>
+                <span className={`whitespace-nowrap text-sm font-semibold uppercase tracking-[0.25em] ${isLegalPage ? 'text-white' : 'text-slate-100/90'}`}>
                   {displayTitle}
                 </span>
-                <span className={`text-[11px] uppercase tracking-[0.25em] ${isLegalPage ? 'text-emerald-300' : 'text-slate-300'}`}>
-                  CONSULTANT
+                <span
+                  title="YOUR COMPASS FOR GLOBAL EDUCATION, IMMIGRATION & VISIT"
+                  className={`block max-w-[150px] truncate text-[10px] uppercase tracking-[0.15em] sm:max-w-[150px] md:max-w-[140px] lg:max-w-[300px] xl:max-w-[420px] ${isLegalPage ? 'text-emerald-300' : 'text-slate-300'}`}
+                >
+                  YOUR COMPASS FOR GLOBAL EDUCATION, IMMIGRATION & VISIT
                 </span>
               </div>
             </Link>
             <div className="hidden md:flex flex-1 items-center justify-center gap-8 px-4">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={(e) => handleSectionNavClick(e, link.id)}
-                  className="text-sm font-semibold text-slate-100/90 transition-colors hover:text-white"
-                >
-                  {link.label}
-                </Link>
-              ))}
+              {navLinks.map((link) => {
+                const isActive = activeSection === link.id;
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={(e) => handleSectionNavClick(e, link.id)}
+                    className={`relative pb-1 text-sm font-semibold transition-colors ${isActive ? "text-emerald-400" : "text-slate-100/90 hover:text-white"
+                      }`}
+                  >
+                    {link.label}
+                    {isActive && (
+                      <motion.span
+                        layoutId="nav-active-indicator"
+                        className="absolute inset-x-0 -bottom-0.5 h-0.5 rounded-full bg-emerald-400"
+                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                      />
+                    )}
+                  </Link>
+                );
+              })}
             </div>
             <div className="flex items-center gap-2">
               <div className="hidden sm:flex items-center gap-4 text-sm">
@@ -391,32 +457,43 @@ const Navbar = () => {
 
                 <div className="flex flex-col justify-center gap-10 px-2 py-6 sm:px-4">
                   <div className="space-y-4 md:hidden">
-                    {navLinks.map((link, index) => (
-                      <motion.div
-                        key={link.href}
-                        initial={{ opacity: 0, x: -40 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -40 }}
-                        transition={{ 
-                          delay: 0.12 + index * 0.08, 
-                          duration: 0.4, 
-                          ease: "easeOut"
-                        }}
-                      >
+                    {navLinks.map((link, index) => {
+                      const isActive = activeSection === link.id;
+                      return (
                         <motion.div
-                          whileHover={{ x: 10 }}
-                          transition={{ duration: 0.2, ease: "easeOut" }}
+                          key={link.href}
+                          initial={{ opacity: 0, x: -40 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -40 }}
+                          transition={{
+                            delay: 0.12 + index * 0.08,
+                            duration: 0.4,
+                            ease: "easeOut"
+                          }}
                         >
-                          <Link
-                            href={link.href}
-                            onClick={(e) => handleSectionNavClick(e, link.id)}
-                            className="inline-block text-3xl font-semibold text-slate-300 transition-all duration-300 hover:text-emerald-300"
+                          <motion.div
+                            whileHover={{ x: 10 }}
+                            transition={{ duration: 0.2, ease: "easeOut" }}
                           >
-                            {link.label}
-                          </Link>
+                            <Link
+                              href={link.href}
+                              onClick={(e) => handleSectionNavClick(e, link.id)}
+                              className={`relative inline-block text-3xl font-semibold transition-all duration-300 ${isActive ? "text-emerald-400" : "text-slate-300 hover:text-emerald-300"
+                                }`}
+                            >
+                              {isActive && (
+                                <motion.span
+                                  layoutId="mobile-nav-active-indicator"
+                                  className="absolute -left-4 top-1/2 h-6 w-1.5 -translate-y-1/2 rounded-full bg-emerald-400"
+                                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                                />
+                              )}
+                              {link.label}
+                            </Link>
+                          </motion.div>
                         </motion.div>
-                      </motion.div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <motion.div 
