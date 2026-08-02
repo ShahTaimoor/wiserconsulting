@@ -21,6 +21,14 @@ const defaultSettings: SiteSettings = {
     linkedin: "",
     instagram: "",
   },
+  stat1Value: "10,000+",
+  stat1Label: "Successful Applications",
+  stat2Value: "98%",
+  stat2Label: "Success Rate",
+  stat3Value: "15+",
+  stat3Label: "Years Experience",
+  stat4Value: "24/7",
+  stat4Label: "Support Available",
 };
 
 const SettingsContext = createContext<SettingsContextValue>({

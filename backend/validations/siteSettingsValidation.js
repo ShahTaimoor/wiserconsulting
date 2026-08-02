@@ -25,6 +25,14 @@ const updateSettingsSchema = z.object({
           instagram: z.string().url("Invalid URL").optional().or(z.literal("")),
         })
         .optional(),
+      stat1Value: z.string().trim().optional(),
+      stat1Label: z.string().trim().optional(),
+      stat2Value: z.string().trim().optional(),
+      stat2Label: z.string().trim().optional(),
+      stat3Value: z.string().trim().optional(),
+      stat3Label: z.string().trim().optional(),
+      stat4Value: z.string().trim().optional(),
+      stat4Label: z.string().trim().optional(),
     })
     .refine(
       (data) =>

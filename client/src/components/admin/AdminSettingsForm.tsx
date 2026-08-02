@@ -19,7 +19,25 @@ interface AdminSettings {
         linkedin?: string;
         instagram?: string;
     };
+    stat1Value?: string;
+    stat1Label?: string;
+    stat2Value?: string;
+    stat2Label?: string;
+    stat3Value?: string;
+    stat3Label?: string;
+    stat4Value?: string;
+    stat4Label?: string;
 }
+
+type StatValueKey = "stat1Value" | "stat2Value" | "stat3Value" | "stat4Value";
+type StatLabelKey = "stat1Label" | "stat2Label" | "stat3Label" | "stat4Label";
+
+const STAT_FIELD_ROWS: Array<{ valueKey: StatValueKey; labelKey: StatLabelKey; title: string }> = [
+    { valueKey: "stat1Value", labelKey: "stat1Label", title: "Stat 1" },
+    { valueKey: "stat2Value", labelKey: "stat2Label", title: "Stat 2" },
+    { valueKey: "stat3Value", labelKey: "stat3Label", title: "Stat 3" },
+    { valueKey: "stat4Value", labelKey: "stat4Label", title: "Stat 4" },
+];
 
 const AdminSettingsForm = () => {
     const { user, loading: authLoading } = useAppSelector((state) => state.auth);
@@ -36,6 +54,14 @@ const AdminSettingsForm = () => {
             linkedin: "",
             instagram: "",
         },
+        stat1Value: "",
+        stat1Label: "",
+        stat2Value: "",
+        stat2Label: "",
+        stat3Value: "",
+        stat3Label: "",
+        stat4Value: "",
+        stat4Label: "",
     });
 
     const [loading, setLoading] = useState(false);
@@ -174,6 +200,14 @@ const AdminSettingsForm = () => {
                     address: settings.address,
                     logoUrl,
                     socialLinks: settings.socialLinks,
+                    stat1Value: settings.stat1Value,
+                    stat1Label: settings.stat1Label,
+                    stat2Value: settings.stat2Value,
+                    stat2Label: settings.stat2Label,
+                    stat3Value: settings.stat3Value,
+                    stat3Label: settings.stat3Label,
+                    stat4Value: settings.stat4Value,
+                    stat4Label: settings.stat4Label,
                 },
                 token,
             );
@@ -325,6 +359,46 @@ const AdminSettingsForm = () => {
                             Uploading...
                         </div>
                     )}
+                </div>
+
+                {/* Homepage Statistics */}
+                <div>
+                    <h3 className="text-lg font-semibold mb-1">Homepage Statistics</h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                        Text shown in the 4 stat cards below the homepage hero. Icons are fixed in code.
+                    </p>
+                    <div className="space-y-4">
+                        {STAT_FIELD_ROWS.map((row) => (
+                            <div key={row.valueKey} className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 border border-gray-200 rounded-lg">
+                                <div>
+                                    <label className="block text-xs font-medium mb-1 text-gray-600">
+                                        {row.title} Value
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name={row.valueKey}
+                                        value={settings[row.valueKey] || ""}
+                                        onChange={handleInputChange}
+                                        placeholder="e.g. 10,000+"
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium mb-1 text-gray-600">
+                                        {row.title} Label
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name={row.labelKey}
+                                        value={settings[row.labelKey] || ""}
+                                        onChange={handleInputChange}
+                                        placeholder="e.g. Successful Applications"
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Social Links */}

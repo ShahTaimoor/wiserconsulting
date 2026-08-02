@@ -28,6 +28,7 @@ import {
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/redux/store';
 import { fetchAdminComments, fetchCustomerSubmission } from '@/redux/slices/formSubmission/formSubmissionSlice';
+import { useSettings } from '@/context/SettingsContext';
 
 interface AuthState {
   user: {
@@ -222,11 +223,32 @@ const VisaConsultation: React.FC = () => {
     }
   };
 
+  const { settings } = useSettings();
+
+  // Icons stay fixed in code — only the value/label text is admin-editable
+  // (via Settings > Homepage Statistics), with hardcoded fallbacks so the
+  // cards never show blank if a field is missing/empty.
   const stats = [
-    { value: '10,000+', label: 'Successful Applications', icon: <CheckCircle2 className="w-6 h-6" /> },
-    { value: '98%', label: 'Success Rate', icon: <TrendingUp className="w-6 h-6" /> },
-    { value: '15+', label: 'Years Experience', icon: <Award className="w-6 h-6" /> },
-    { value: '24/7', label: 'Support Available', icon: <Shield className="w-6 h-6" /> },
+    {
+      value: settings.stat1Value || '10,000+',
+      label: settings.stat1Label || 'Successful Applications',
+      icon: <CheckCircle2 className="w-6 h-6" />,
+    },
+    {
+      value: settings.stat2Value || '98%',
+      label: settings.stat2Label || 'Success Rate',
+      icon: <TrendingUp className="w-6 h-6" />,
+    },
+    {
+      value: settings.stat3Value || '15+',
+      label: settings.stat3Label || 'Years Experience',
+      icon: <Award className="w-6 h-6" />,
+    },
+    {
+      value: settings.stat4Value || '24/7',
+      label: settings.stat4Label || 'Support Available',
+      icon: <Shield className="w-6 h-6" />,
+    },
   ];
 
   return (

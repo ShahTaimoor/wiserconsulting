@@ -61,6 +61,47 @@ const siteSettingsSchema = new mongoose.Schema(
       type: socialLinksSchema,
       default: {},
     },
+    // Homepage stat cards — text only, icons stay fixed in the frontend.
+    stat1Value: {
+      type: String,
+      trim: true,
+      default: "10,000+",
+    },
+    stat1Label: {
+      type: String,
+      trim: true,
+      default: "Successful Applications",
+    },
+    stat2Value: {
+      type: String,
+      trim: true,
+      default: "98%",
+    },
+    stat2Label: {
+      type: String,
+      trim: true,
+      default: "Success Rate",
+    },
+    stat3Value: {
+      type: String,
+      trim: true,
+      default: "15+",
+    },
+    stat3Label: {
+      type: String,
+      trim: true,
+      default: "Years Experience",
+    },
+    stat4Value: {
+      type: String,
+      trim: true,
+      default: "24/7",
+    },
+    stat4Label: {
+      type: String,
+      trim: true,
+      default: "Support Available",
+    },
   },
   { timestamps: true },
 );
