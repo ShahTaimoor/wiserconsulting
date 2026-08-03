@@ -21,7 +21,6 @@ import {
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const pathname = usePathname();
@@ -70,16 +69,6 @@ const Navbar = () => {
       document.body.style.overflow = "unset";
     };
   }, [isOpen]);
-
-  useEffect(() => {
-    const savedTheme = typeof window !== "undefined" ? localStorage.getItem("theme") : null;
-    const prefersDark = typeof window !== "undefined" ? window.matchMedia("(prefers-color-scheme: dark)").matches : false;
-    const initialDark = savedTheme === "dark" || (!savedTheme && prefersDark);
-    setIsDarkMode(initialDark);
-    if (typeof document !== "undefined") {
-      document.documentElement.classList.toggle("dark", initialDark);
-    }
-  }, []);
 
   const handleLogout = () => {
     dispatch(logout());
