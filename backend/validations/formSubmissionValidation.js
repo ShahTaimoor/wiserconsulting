@@ -7,7 +7,7 @@ const { z } = require('zod');
 const createSubmissionSchema = z.object({
   body: z.object({
     name: z.string().min(1, 'Name is required').trim(),
-    email: z.string().email('Invalid email format').trim().toLowerCase(),
+    email: z.string().email('Invalid email format').trim().toLowerCase().optional().or(z.literal('')),
     phone: z.string().min(1, 'Phone is required').trim(),
     destinationCountry: z.string().min(1, 'Destination country is required').trim(),
     otherCountry: z.string().trim().optional(),

@@ -20,6 +20,10 @@ export interface SiteSettings {
   stat3Label?: string;
   stat4Value?: string;
   stat4Label?: string;
+  aboutStat1Value?: string;
+  aboutStat1Label?: string;
+  aboutStat2Value?: string;
+  aboutStat2Label?: string;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";

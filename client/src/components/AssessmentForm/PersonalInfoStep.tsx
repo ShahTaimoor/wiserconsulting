@@ -57,19 +57,18 @@ export const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
         </div>
         <div>
           <label className="block text-sm font-semibold text-slate-800 mb-2">
-            Email Address <span className="text-red-500">*</span>
+            Email Address
           </label>
           <input
             type="email"
             name="email"
-            placeholder="Enter your email"
+            placeholder="Enter your email (optional)"
             value={formData.email}
             readOnly={!!user}
             onChange={onInputChange}
             className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-slate-500 focus:border-slate-500 bg-white text-slate-900 disabled:bg-slate-50 ${
               validationErrors.email ? 'border-red-500' : 'border-slate-300'
             }`}
-            required
           />
           {validationErrors.email && (
             <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>

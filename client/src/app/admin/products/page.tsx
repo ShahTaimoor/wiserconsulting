@@ -239,7 +239,7 @@ const AdminFormSubmissions = () => {
                   <tr key={submission._id} className="hover:bg-gray-50">
                     <td className="px-4 sm:px-6 py-4">
                       <div className="text-sm font-medium text-gray-900 truncate max-w-[150px]">{submission.name}</div>
-                      <div className="text-xs text-gray-500 truncate max-w-[150px]">{submission.email}</div>
+                      <div className="text-xs text-gray-500 truncate max-w-[150px]">{submission.email || 'Not provided'}</div>
                       <div className="text-xs text-gray-500 sm:hidden truncate max-w-[150px]">{submission.destinationCountry}</div>
                     </td>
                     <td className="px-4 sm:px-6 py-4 hidden sm:table-cell">
@@ -344,7 +344,7 @@ const AdminFormSubmissions = () => {
                       </div>
                       <div>
                         <dt className="text-xs text-slate-400 font-medium">Email</dt>
-                        <dd className="text-slate-900 font-semibold break-all">{selectedSubmission.email}</dd>
+                        <dd className="text-slate-900 font-semibold break-all">{selectedSubmission.email || '—'}</dd>
                       </div>
                       <div>
                         <dt className="text-xs text-slate-400 font-medium">Phone</dt>

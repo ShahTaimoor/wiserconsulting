@@ -260,6 +260,11 @@ class FormSubmissionService {
    * Send comment email to customer
    */
   async sendCommentEmail(submission, document, comment) {
+    if (!submission.email) {
+      logger.info("Skipping comment email - submission has no email on file");
+      return;
+    }
+
     try {
       const transporter = nodemailer.createTransport({
         service: "gmail",

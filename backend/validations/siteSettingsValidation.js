@@ -33,6 +33,10 @@ const updateSettingsSchema = z.object({
       stat3Label: z.string().trim().optional(),
       stat4Value: z.string().trim().optional(),
       stat4Label: z.string().trim().optional(),
+      aboutStat1Value: z.string().trim().optional(),
+      aboutStat1Label: z.string().trim().optional(),
+      aboutStat2Value: z.string().trim().optional(),
+      aboutStat2Label: z.string().trim().optional(),
     })
     .refine(
       (data) =>

@@ -27,6 +27,10 @@ interface AdminSettings {
     stat3Label?: string;
     stat4Value?: string;
     stat4Label?: string;
+    aboutStat1Value?: string;
+    aboutStat1Label?: string;
+    aboutStat2Value?: string;
+    aboutStat2Label?: string;
 }
 
 type StatValueKey = "stat1Value" | "stat2Value" | "stat3Value" | "stat4Value";
@@ -37,6 +41,14 @@ const STAT_FIELD_ROWS: Array<{ valueKey: StatValueKey; labelKey: StatLabelKey; t
     { valueKey: "stat2Value", labelKey: "stat2Label", title: "Stat 2" },
     { valueKey: "stat3Value", labelKey: "stat3Label", title: "Stat 3" },
     { valueKey: "stat4Value", labelKey: "stat4Label", title: "Stat 4" },
+];
+
+type AboutStatValueKey = "aboutStat1Value" | "aboutStat2Value";
+type AboutStatLabelKey = "aboutStat1Label" | "aboutStat2Label";
+
+const ABOUT_STAT_FIELD_ROWS: Array<{ valueKey: AboutStatValueKey; labelKey: AboutStatLabelKey; title: string }> = [
+    { valueKey: "aboutStat1Value", labelKey: "aboutStat1Label", title: "About Stat 1" },
+    { valueKey: "aboutStat2Value", labelKey: "aboutStat2Label", title: "About Stat 2" },
 ];
 
 const AdminSettingsForm = () => {
@@ -62,6 +74,10 @@ const AdminSettingsForm = () => {
         stat3Label: "",
         stat4Value: "",
         stat4Label: "",
+        aboutStat1Value: "",
+        aboutStat1Label: "",
+        aboutStat2Value: "",
+        aboutStat2Label: "",
     });
 
     const [loading, setLoading] = useState(false);
@@ -208,6 +224,10 @@ const AdminSettingsForm = () => {
                     stat3Label: settings.stat3Label,
                     stat4Value: settings.stat4Value,
                     stat4Label: settings.stat4Label,
+                    aboutStat1Value: settings.aboutStat1Value,
+                    aboutStat1Label: settings.aboutStat1Label,
+                    aboutStat2Value: settings.aboutStat2Value,
+                    aboutStat2Label: settings.aboutStat2Label,
                 },
                 token,
             );
@@ -393,6 +413,46 @@ const AdminSettingsForm = () => {
                                         value={settings[row.labelKey] || ""}
                                         onChange={handleInputChange}
                                         placeholder="e.g. Successful Applications"
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* About Section Statistics */}
+                <div>
+                    <h3 className="text-lg font-semibold mb-1">About Section Statistics</h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                        Text shown in the two &quot;Our Story&quot; stat cards on the About section. Captions (&quot;Trusted by&quot;, &quot;Success rate&quot;) and icons are fixed in code.
+                    </p>
+                    <div className="space-y-4">
+                        {ABOUT_STAT_FIELD_ROWS.map((row) => (
+                            <div key={row.valueKey} className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 border border-gray-200 rounded-lg">
+                                <div>
+                                    <label className="block text-xs font-medium mb-1 text-gray-600">
+                                        {row.title} Value
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name={row.valueKey}
+                                        value={settings[row.valueKey] || ""}
+                                        onChange={handleInputChange}
+                                        placeholder="e.g. 10,000+"
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium mb-1 text-gray-600">
+                                        {row.title} Label
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name={row.labelKey}
+                                        value={settings[row.labelKey] || ""}
+                                        onChange={handleInputChange}
+                                        placeholder="e.g. clients worldwide"
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>

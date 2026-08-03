@@ -153,7 +153,9 @@ const Footer = () => {
                 <div>
                   <p className="text-white text-sm font-medium mb-1">Email</p>
                   <a
-                    href={`mailto:${settings.emailAddress || ""}`}
+                    href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(settings.emailAddress || "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="text-slate-400 hover:text-white transition-colors text-sm"
                   >
                     {settings.emailAddress || ""}
