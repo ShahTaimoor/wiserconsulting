@@ -46,7 +46,7 @@ const fileValidationSchema = z.object({
 
 const formStep1Schema = z.object({
   name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Invalid email address'),
+  email: z.string().email('Invalid email address').optional().or(z.literal('')),
   phone: z.string().min(1, 'Phone number is required'),
 });
 

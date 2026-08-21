@@ -102,6 +102,28 @@ const siteSettingsSchema = new mongoose.Schema(
       trim: true,
       default: "Support Available",
     },
+    // "Our Story" section stat cards — same split as above (icon/caption
+    // fixed in code, value/description editable).
+    aboutStat1Value: {
+      type: String,
+      trim: true,
+      default: "10,000+",
+    },
+    aboutStat1Label: {
+      type: String,
+      trim: true,
+      default: "clients worldwide",
+    },
+    aboutStat2Value: {
+      type: String,
+      trim: true,
+      default: "98%",
+    },
+    aboutStat2Label: {
+      type: String,
+      trim: true,
+      default: "approved applications",
+    },
   },
   { timestamps: true },
 );

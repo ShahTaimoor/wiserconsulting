@@ -3,8 +3,11 @@
 import { motion } from "framer-motion";
 import { ShieldCheck, Heart, Award, TrendingUp } from "lucide-react";
 import TestimonialsShowcase from "@/components/TestimonialsShowcase";
+import { useSettings } from "@/context/SettingsContext";
 
 const AboutSection = () => {
+  const { settings } = useSettings();
+
   const fadeIn = {
     initial: { opacity: 0, y: 40 },
     animate: { opacity: 1, y: 0 },
@@ -69,8 +72,8 @@ const AboutSection = () => {
                   <Heart size={80} className="group-hover:fill-rose-500/20 transition-all duration-500" />
                 </div>
                 <p className="text-xs text-slate-400 uppercase tracking-[0.24em] font-semibold mb-3">Trusted by</p>
-                <p className="text-4xl md:text-5xl font-black text-slate-900">10,000+</p>
-                <p className="mt-2 text-slate-600 font-medium">clients worldwide</p>
+                <p className="text-4xl md:text-5xl font-black text-slate-900">{settings.aboutStat1Value || "10,000+"}</p>
+                <p className="mt-2 text-slate-600 font-medium">{settings.aboutStat1Label || "clients worldwide"}</p>
               </motion.div>
 
               <motion.div whileHover={{ scale: 1.05, y: -5 }} transition={{ type: "spring", stiffness: 300 }} className="relative group rounded-3xl border border-slate-200 bg-white p-7 shadow-sm hover:shadow-xl hover:border-blue-200 transition-all duration-300 overflow-hidden">
@@ -78,8 +81,8 @@ const AboutSection = () => {
                   <TrendingUp size={80} />
                 </div>
                 <p className="text-xs text-slate-400 uppercase tracking-[0.24em] font-semibold mb-3">Success rate</p>
-                <p className="text-4xl md:text-5xl font-black text-slate-900">98%</p>
-                <p className="mt-2 text-slate-600 font-medium">approved applications</p>
+                <p className="text-4xl md:text-5xl font-black text-slate-900">{settings.aboutStat2Value || "98%"}</p>
+                <p className="mt-2 text-slate-600 font-medium">{settings.aboutStat2Label || "approved applications"}</p>
               </motion.div>
             </div>
           </motion.div>

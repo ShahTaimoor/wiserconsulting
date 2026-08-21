@@ -29,6 +29,10 @@ const defaultSettings: SiteSettings = {
   stat3Label: "Years Experience",
   stat4Value: "24/7",
   stat4Label: "Support Available",
+  aboutStat1Value: "10,000+",
+  aboutStat1Label: "clients worldwide",
+  aboutStat2Value: "98%",
+  aboutStat2Label: "approved applications",
 };
 
 const SettingsContext = createContext<SettingsContextValue>({
