@@ -1,0 +1,475 @@
+{
+  "version": "0.1.0-draft",
+  "limits": {
+    "txtMax": 200,
+    "lngMax": 5000,
+    "groupMax": 20,
+    "note": "Proposed values from docs/tourist-visa-form-spec.md (Limits row of Gaps to confirm). Not yet confirmed."
+  },
+  "parts": [
+    { "id": "1", "title": "Travel information" },
+    { "id": "2", "title": "Personal information" }
+  ],
+  "sections": [
+    { "id": "1", "part": "1", "title": "Travel information" },
+    { "id": "2A", "part": "2", "title": "Name, email and contact preferences" },
+    { "id": "2B", "part": "2", "title": "Identity and background" },
+    { "id": "2C", "part": "2", "title": "Address and living situation" },
+    { "id": "2D", "part": "2", "title": "Telephone" }
+  ],
+  "groups": [
+    {
+      "id": "otherNames",
+      "section": "2A",
+      "entryLabel": "Other name",
+      "gate": "q2_3",
+      "max": 20,
+      "questions": ["q2_3a", "q2_3b"],
+      "tbc": "Fields of the other-names group are to confirm (spec 2.3a, 2.3b)."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q1_1",
+      "number": "1.1",
+      "section": "1",
+      "label": "What is the main reason for your visit to the UK?",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "tourism", "label": "[TBC] Tourism" },
+        { "value": "tbc_other", "label": "[TBC] Other reason" }
+      ],
+      "tbc": "Option list to confirm. The value that counts as the tourism option (used by 1.4) is also to confirm."
+    },
+    {
+      "id": "q1_2",
+      "number": "1.2",
+      "section": "1",
+      "label": "Will you be travelling to the UK as part of an organised group?",
+      "type": "YN",
+      "required": true,
+      "tbc": "Follow-up questions for the Yes path are to confirm."
+    },
+    {
+      "id": "q1_3",
+      "number": "1.3",
+      "section": "1",
+      "label": "Will you be travelling to the UK with someone who is not your partner, spouse or dependant?",
+      "type": "YN",
+      "required": true,
+      "tbc": "Follow-up questions for the Yes path are to confirm."
+    },
+    {
+      "id": "q1_4",
+      "number": "1.4",
+      "section": "1",
+      "label": "What is the main reason for your holiday visit to the UK?",
+      "type": "SEL",
+      "required": true,
+      "showWhen": { "q": "q1_1", "eq": "tourism" },
+      "options": [
+        { "value": "tbc_a", "label": "[TBC] Holiday reason A" },
+        { "value": "tbc_b", "label": "[TBC] Holiday reason B" }
+      ],
+      "tbc": "Option list to confirm."
+    },
+    {
+      "id": "q1_5",
+      "number": "1.5",
+      "section": "1",
+      "label": "Give details of the main purpose of your visit and anything else you plan to do on your trip.",
+      "type": "LNG",
+      "required": true,
+      "note": "The printout links this question to the tourist and short stays guidance."
+    },
+    {
+      "id": "q1_6",
+      "number": "1.6",
+      "section": "1",
+      "label": "Date you plan to arrive in the UK",
+      "type": "DATE",
+      "required": true
+    },
+    {
+      "id": "q1_7",
+      "number": "1.7",
+      "section": "1",
+      "label": "Date you plan to leave the UK",
+      "type": "DATE",
+      "required": true,
+      "rules": { "after": "q1_6" }
+    },
+
+    {
+      "id": "q2_1",
+      "number": "2.1",
+      "section": "2A",
+      "label": "Given name(s)",
+      "type": "TXT",
+      "required": true
+    },
+    {
+      "id": "q2_2",
+      "number": "2.2",
+      "section": "2A",
+      "label": "Family name",
+      "type": "TXT",
+      "required": true
+    },
+    {
+      "id": "q2_3",
+      "number": "2.3",
+      "section": "2A",
+      "label": "Are you now or have you ever been known by another name?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q2_3a",
+      "number": "2.3a",
+      "section": "2A",
+      "label": "Given name(s)",
+      "type": "TXT",
+      "required": true,
+      "group": "otherNames"
+    },
+    {
+      "id": "q2_3b",
+      "number": "2.3b",
+      "section": "2A",
+      "label": "Family name",
+      "type": "TXT",
+      "required": true,
+      "group": "otherNames"
+    },
+    {
+      "id": "q2_4",
+      "number": "2.4",
+      "section": "2A",
+      "label": "Email address",
+      "type": "EML",
+      "required": true,
+      "prefill": "account.email",
+      "note": "Proposed: pre-filled from the account email, editable."
+    },
+    {
+      "id": "q2_5",
+      "number": "2.5",
+      "section": "2A",
+      "label": "Who does this email address belong to?",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "tbc_self", "label": "[TBC] Me" },
+        { "value": "tbc_other", "label": "[TBC] Someone else" }
+      ],
+      "tbc": "Option list to confirm."
+    },
+    {
+      "id": "q2_6",
+      "number": "2.6",
+      "section": "2A",
+      "label": "Do you have another email address?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q2_7",
+      "number": "2.7",
+      "section": "2A",
+      "label": "Additional email address",
+      "type": "EML",
+      "required": true,
+      "showWhen": { "q": "q2_6", "eq": true },
+      "tbc": "One additional address or several is to confirm."
+    },
+    {
+      "id": "q2_8",
+      "number": "2.8",
+      "section": "2A",
+      "label": "Who does this email address belong to?",
+      "type": "SEL",
+      "required": true,
+      "showWhen": { "q": "q2_6", "eq": true },
+      "options": [
+        { "value": "tbc_self", "label": "[TBC] Me" },
+        { "value": "tbc_other", "label": "[TBC] Someone else" }
+      ],
+      "tbc": "Option list to confirm."
+    },
+    {
+      "id": "q2_9",
+      "number": "2.9",
+      "section": "2A",
+      "label": "Which email address should we use to contact you with any questions about your application?",
+      "type": "SEL",
+      "required": true,
+      "options": { "from": "answers", "questions": ["q2_4", "q2_7"] }
+    },
+    {
+      "id": "q2_10",
+      "number": "2.10",
+      "section": "2A",
+      "label": "Which email address should we use to send a decision on your application?",
+      "type": "SEL",
+      "required": true,
+      "options": { "from": "answers", "questions": ["q2_4", "q2_7"] }
+    },
+    {
+      "id": "q2_11",
+      "number": "2.11",
+      "section": "2A",
+      "label": "Which email address should we use to communicate with you after your application has been decided?",
+      "type": "SEL",
+      "required": true,
+      "options": { "from": "answers", "questions": ["q2_4", "q2_7"] }
+    },
+
+    {
+      "id": "q2_12",
+      "number": "2.12",
+      "section": "2B",
+      "label": "What is your sex, as shown in your passport or travel document?",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "tbc_a", "label": "[TBC] Option A" },
+        { "value": "tbc_b", "label": "[TBC] Option B" }
+      ],
+      "tbc": "Option list to confirm."
+    },
+    {
+      "id": "q2_13",
+      "number": "2.13",
+      "section": "2B",
+      "label": "What is your relationship status?",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "tbc_single", "label": "[TBC] Single" },
+        { "value": "tbc_married", "label": "[TBC] Married" }
+      ],
+      "tbc": "Option list to confirm, and which statuses show the spouse or partner questions in Part 4.",
+      "note": "The answer decides whether the spouse or partner questions in Part 4 appear."
+    },
+    {
+      "id": "q2_14",
+      "number": "2.14",
+      "section": "2B",
+      "label": "Country of nationality",
+      "type": "CTRY",
+      "required": true
+    },
+    {
+      "id": "q2_15",
+      "number": "2.15",
+      "section": "2B",
+      "label": "Country of birth",
+      "type": "CTRY",
+      "required": true
+    },
+    {
+      "id": "q2_16",
+      "number": "2.16",
+      "section": "2B",
+      "label": "Place of birth",
+      "type": "TXT",
+      "required": true
+    },
+    {
+      "id": "q2_17",
+      "number": "2.17",
+      "section": "2B",
+      "label": "Date of birth",
+      "type": "DATE",
+      "required": true,
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q2_18",
+      "number": "2.18",
+      "section": "2B",
+      "label": "Do you have a valid national identity card?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q2_19",
+      "number": "2.19",
+      "section": "2B",
+      "label": "National identity card number",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q2_18", "eq": true },
+      "sensitive": true
+    },
+    {
+      "id": "q2_20",
+      "number": "2.20",
+      "section": "2B",
+      "label": "Issuing authority",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q2_18", "eq": true }
+    },
+    {
+      "id": "q2_21",
+      "number": "2.21",
+      "section": "2B",
+      "label": "Issue date (if applicable)",
+      "type": "DATE",
+      "required": false,
+      "showWhen": { "q": "q2_18", "eq": true },
+      "rules": { "notFuture": true },
+      "note": "Optional because the label says (if applicable). The spec lists it as C (required when 2.18 is Yes); changed on request."
+    },
+    {
+      "id": "q2_22",
+      "number": "2.22",
+      "section": "2B",
+      "label": "Expiry date (if applicable)",
+      "type": "DATE",
+      "required": false,
+      "showWhen": { "q": "q2_18", "eq": true },
+      "rules": { "after": "q2_21" },
+      "note": "Optional because the label says (if applicable). The after rule runs only when both 2.21 and 2.22 are filled in."
+    },
+    {
+      "id": "q2_23",
+      "number": "2.23",
+      "section": "2B",
+      "label": "Do you currently hold, or have you ever held, any other nationality or citizenship?",
+      "type": "YN",
+      "required": true,
+      "tbc": "Follow-up questions for the Yes path are to confirm."
+    },
+
+    {
+      "id": "q2_24",
+      "number": "2.24",
+      "section": "2C",
+      "label": "Address",
+      "type": "ADDR",
+      "required": true
+    },
+    {
+      "id": "q2_25",
+      "number": "2.25",
+      "section": "2C",
+      "label": "Is this address also your correspondence address?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q2_26",
+      "number": "2.26",
+      "section": "2C",
+      "label": "Address (correspondence)",
+      "type": "ADDR",
+      "required": true,
+      "showWhen": { "q": "q2_25", "eq": false },
+      "note": "The printout shows this block even when 2.25 is Yes, as a copy of 2.24. Proposed: ask only when 2.25 is No, and copy 2.24 into the record when Yes."
+    },
+    {
+      "id": "q2_27",
+      "number": "2.27",
+      "section": "2C",
+      "label": "How long have you lived at this address?",
+      "type": "DUR",
+      "required": true,
+      "rules": { "units": ["years", "months"], "durationMode": "parts" },
+      "note": "Read as two boxes, years and months. The spec only says years and months."
+    },
+    {
+      "id": "q2_28",
+      "number": "2.28",
+      "section": "2C",
+      "label": "What is the ownership status of your home?",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "tbc_owned", "label": "[TBC] Owned" },
+        { "value": "tbc_rented", "label": "[TBC] Rented" },
+        { "value": "other", "label": "[TBC] Other" }
+      ],
+      "tbc": "Option list to confirm."
+    },
+    {
+      "id": "q2_29",
+      "number": "2.29",
+      "section": "2C",
+      "label": "Give more details about your living situation, such as who you live with and who owns the property",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q2_28", "eq": "other" },
+      "tbc": "The printout shows this for the Other option of 2.28. The full condition is to confirm."
+    },
+    {
+      "id": "q2_30",
+      "number": "2.30",
+      "section": "2C",
+      "label": "Do you have a UK driving licence?",
+      "type": "YN",
+      "required": true,
+      "tbc": "Follow-up questions for the Yes path are to confirm."
+    },
+    {
+      "id": "q2_31",
+      "number": "2.31",
+      "section": "2C",
+      "label": "Have you ever been given medical treatment in the UK?",
+      "type": "YN",
+      "required": true,
+      "tbc": "Follow-up questions for the Yes path are to confirm."
+    },
+
+    {
+      "id": "q2_32",
+      "number": "2.32",
+      "section": "2D",
+      "label": "Provide your telephone number",
+      "type": "TEL",
+      "required": true
+    },
+    {
+      "id": "q2_33",
+      "number": "2.33",
+      "section": "2D",
+      "label": "Where do you use this telephone number?",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "tbc_a", "label": "[TBC] Option A" },
+        { "value": "tbc_b", "label": "[TBC] Option B" }
+      ],
+      "tbc": "Option list to confirm."
+    },
+    {
+      "id": "q2_34",
+      "number": "2.34",
+      "section": "2D",
+      "label": "Select whether this is your home, mobile or work telephone number",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "home", "label": "Home" },
+        { "value": "mobile", "label": "Mobile" },
+        { "value": "work", "label": "Work" }
+      ]
+    },
+    {
+      "id": "q2_35",
+      "number": "2.35",
+      "section": "2D",
+      "label": "Are you able to be contacted by telephone?",
+      "type": "CHK",
+      "required": true,
+      "options": [
+        { "value": "call", "label": "Telephone call" },
+        { "value": "sms", "label": "Text message (SMS)" }
+      ],
+      "tbc": "The printout shows these two choices. The full option list is to confirm."
+    }
+  ]
+}
