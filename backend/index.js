@@ -28,6 +28,7 @@ const {
 } = require("./middleware/rateLimiter");
 const sanitize = require("./middleware/sanitize");
 const skipPaths = require("./middleware/skipPaths");
+const touristVisaBodyParser = require("./middleware/touristVisaBodyParser");
 const logger = require("./utils/logger");
 
 connectDB();
@@ -64,6 +65,8 @@ app.use(cors(corsOptions));
 // Security headers
 app.use(helmet());
 
+// Tourist Visa requests are parsed first, with log-safe errors (see the middleware).
+app.use("/api/tourist-visa", touristVisaBodyParser);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

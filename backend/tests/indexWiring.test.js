@@ -18,6 +18,7 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const User = require('../models/User');
 
 const JWT_SECRET = 'test-only-jwt-secret';
+const FIELD_ENCRYPTION_KEY = require('node:crypto').randomBytes(32).toString('base64');
 let mongod;
 let child;
 let childOutput = '';
@@ -49,6 +50,7 @@ before(async () => {
       MONGODB_URI: mongod.getUri(),
       PORT: String(port),
       JWT_SECRET,
+      FIELD_ENCRYPTION_KEY,
       SESSION_SECRET: 'test-only-session-secret',
       FRONTEND_URL: 'http://localhost:3000',
       NODE_ENV: 'test',
@@ -82,13 +84,27 @@ after(async () => {
   if (mongod) await mongod.stop();
 });
 
-const call = async (method, p, token) => {
+const call = async (method, p, token, body) => {
   const res = await fetch(`${baseUrl}/api/tourist-visa${p}`, {
     method,
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body,
   });
-  return { status: res.status, json: await res.json().catch(() => null) };
+  const text = await res.text();
+  let json = null;
+  try { json = JSON.parse(text); } catch { /* not JSON */ }
+  return { status: res.status, json, text };
 };
+
+async function signedInUser(label) {
+  const user = await User.create({ name: `Test ${label}`, email: `test.${label}@example.com`, password: 'not-a-real-password' });
+  const token = jwt.sign({ id: String(user._id) }, JWT_SECRET, { expiresIn: '1h' });
+  await call('POST', '/applications', token);
+  return token;
+}
 
 test('index.js mounts the Tourist Visa routes and requires a token', async () => {
   assert.equal((await call('POST', '/applications')).status, 401);
@@ -116,4 +132,42 @@ test('index.js mounts the Tourist Visa routes and requires a token', async () =>
 test('the other API routes are still mounted after the change', async () => {
   const res = await fetch(`${baseUrl}/api/approved-visas`);
   assert.equal(res.status, 200);
+});
+
+test('saving a section through index.js keeps free text as typed, including < and >', async () => {
+  const token = await signedInUser('save.wiring');
+  const text = 'Visit <b>Test</b> City if 2 < 3 and 5 > 4';
+  const answers = {
+    q1_1: 'tourism', q1_2: false, q1_3: false, q1_4: 'tbc_a', q1_5: text, q1_6: '2027-03-01', q1_7: '2027-03-15',
+  };
+  const saved = await call('PUT', '/applications/me/sections/1', token, JSON.stringify({ answers }));
+  assert.equal(saved.status, 200, saved.text);
+  const mine = await call('GET', '/applications/me', token);
+  assert.equal(mine.json.data.application.answers.q1_5, text, 'the global sanitizer did not touch it');
+});
+
+test('a malformed body sent through index.js leaks nothing to the response or the backend logs', async () => {
+  const token = await signedInUser('leak.wiring');
+  const SECRET = 'SECRET-WIRING-TEXT-7777';
+
+  for (const body of [`{"answers":{"q1_5":"${SECRET}", "q1_6": }}`, `{"answers":{"q1_5":"${SECRET}"`, SECRET]) {
+    const res = await call('PUT', '/applications/me/sections/1', token, body);
+    assert.equal(res.status, 400);
+    assert.equal(res.json.message, 'The request body is not valid JSON.');
+    assert.equal(res.text.includes(SECRET), false);
+  }
+  await sleep(300); // let the child flush its output
+  assert.match(childOutput, /Tourist Visa request body rejected/, 'the failure was logged');
+  assert.equal(childOutput.includes(SECRET), false, `backend output:
+${childOutput}`);
+});
+
+test('a non-JSON body to the Tourist Visa routes is refused before the global parsers', async () => {
+  const token = await signedInUser('type.wiring');
+  const res = await fetch(`${baseUrl}/api/tourist-visa/applications/me/sections/1`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'answers=anything',
+  });
+  assert.equal(res.status, 415);
 });

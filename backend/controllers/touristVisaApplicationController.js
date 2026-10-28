@@ -24,6 +24,27 @@ class TouristVisaApplicationController {
   })
 
   /**
+   * Save one section of my draft application
+   */
+  saveSection = asyncHandler(async (req, res) => {
+    const result = await touristVisaApplicationService.saveSection(
+      req.user._id,
+      req.params.sectionId,
+      req.body
+    );
+
+    if (!result.saved) {
+      return ApiResponse.error(res, result.message, result.status, result.errors);
+    }
+
+    return ApiResponse.success(
+      res,
+      { application: result.application, needsReview: result.needsReview, removed: result.removed },
+      'Section saved'
+    );
+  })
+
+  /**
    * Get my application
    */
   getMyApplication = asyncHandler(async (req, res) => {

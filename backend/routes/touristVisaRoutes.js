@@ -27,6 +27,12 @@ router.get(
   touristVisaApplicationController.getMyApplication.bind(touristVisaApplicationController)
 );
 
+// Save one section of my draft application
+router.put(
+  '/applications/me/sections/:sectionId',
+  touristVisaApplicationController.saveSection.bind(touristVisaApplicationController)
+);
+
 // Must stay last: keeps database error details (which can include answers) out of logs
 router.use(touristVisaErrorHandler);
 
