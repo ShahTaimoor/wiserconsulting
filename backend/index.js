@@ -20,12 +20,14 @@ const siteSettingsRoutes = require("./routes/siteSettingsRoutes");
 const reuploadRoutes = require("./routes/reuploadRoutes");
 const approvedVisaRoutes = require("./routes/approvedVisaRoutes");
 const testimonialRoutes = require("./routes/testimonialRoutes");
+const touristVisaRoutes = require("./routes/touristVisaRoutes");
 const {
   apiLimiter,
   authLimiter,
   uploadLimiter,
 } = require("./middleware/rateLimiter");
 const sanitize = require("./middleware/sanitize");
+const skipPaths = require("./middleware/skipPaths");
 const logger = require("./utils/logger");
 
 connectDB();
@@ -66,8 +68,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Input sanitization (must be after body parsing)
-app.use(sanitize);
+// Input sanitization (must be after body parsing).
+// Skipped for the Tourist Visa routes: it strips < and >, and free-text answers must stay as typed.
+app.use(skipPaths(["/api/tourist-visa"], sanitize));
 
 // Rate limiting
 app.use("/api", apiLimiter);
@@ -95,6 +98,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // API Routes with rate limiting
 app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/tourist-visa", touristVisaRoutes);
 app.use("/api", userRoutes);
 app.use("/api", assessmentRoutes);
 app.use("/api", formSubmissionRoutes);
