@@ -95,3 +95,83 @@ test("describeError gives the applicant a clear message and never exposes server
   assert.match(describeError(new Error("boom")), /Something went wrong/);
   assert.match(describeError(undefined), /Something went wrong/);
 });
+
+// ---------------------------------------------------------------------------
+// saveSection
+// ---------------------------------------------------------------------------
+
+test("saveSection PUTs { answers } as JSON with the Bearer token and returns the saved application", async () => {
+  const calls = stubFetch(200, { success: true, data: { application, needsReview: ["2B"], removed: ["q2_7"] } });
+  const answers = { q1_5: "Visit <b>Test</b> City if 2 < 3" };
+  const result = await touristVisaService.saveSection("test-token", "1", answers);
+
+  assert.deepEqual(result, { application, needsReview: ["2B"], removed: ["q2_7"] });
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].url, /\/tourist-visa\/applications\/me\/sections\/1$/);
+  assert.equal(calls[0].init.method, "PUT");
+  assert.equal(calls[0].init.headers.Authorization, "Bearer test-token");
+  assert.equal(calls[0].init.headers["Content-Type"], "application/json");
+  assert.deepEqual(JSON.parse(calls[0].init.body), { answers }, "free text goes through unchanged");
+});
+
+test("saveSection encodes the section id and defaults the optional result fields", async () => {
+  const calls = stubFetch(200, { success: true, data: { application } });
+  const result = await touristVisaService.saveSection("t", "2A/../x", {});
+  assert.match(calls[0].url, /\/sections\/2A%2F\.\.%2Fx$/);
+  assert.deepEqual([result.needsReview, result.removed], [[], []]);
+});
+
+test("a 422 carries the per-question errors from the server", async () => {
+  const errors = { q1_7: "Must be after the date in question 1.6", "q2_24.line1": "This question is required" };
+  stubFetch(422, { success: false, message: "Some answers need attention.", errors });
+  await assert.rejects(
+    () => touristVisaService.saveSection("t", "1", {}),
+    (e) => e instanceof TouristVisaApiError && e.status === 422 && e.message === "Some answers need attention." && JSON.stringify(e.fieldErrors) === JSON.stringify(errors)
+  );
+});
+
+test("only string messages are accepted as field errors", async () => {
+  stubFetch(422, { success: false, message: "x", errors: { q1_7: "ok", q1_6: { nested: true }, q1_5: 5, q1_4: null } });
+  await assert.rejects(() => touristVisaService.saveSection("t", "1", {}), (e) => JSON.stringify(e.fieldErrors) === JSON.stringify({ q1_7: "ok" }));
+
+  stubFetch(422, { success: false, message: "x", errors: ["not", "a map"] });
+  await assert.rejects(() => touristVisaService.saveSection("t", "1", {}), (e) => e.fieldErrors === undefined);
+
+  stubFetch(422, { success: false, message: "x" });
+  await assert.rejects(() => touristVisaService.saveSection("t", "1", {}), (e) => e.fieldErrors === undefined);
+});
+
+test("saveSection maps locked, unavailable, unauthorised and unreachable cases", async () => {
+  stubFetch(409, { success: false, message: "This application has been submitted and can no longer be edited." });
+  await assert.rejects(() => touristVisaService.saveSection("t", "1", {}), (e) => e.status === 409 && describeError(e) === e.message);
+
+  stubFetch(503, { success: false, message: "Secure storage is not configured (FIELD_ENCRYPTION_KEY is missing)." });
+  await assert.rejects(() => touristVisaService.saveSection("t", "1", {}), (e) => e.status === 503 && /temporarily unavailable/.test(describeError(e)));
+
+  stubFetch(401, { success: false, message: "Invalid or expired token." });
+  await assert.rejects(() => touristVisaService.saveSection("t", "1", {}), (e) => e.status === 401);
+
+  globalThis.fetch = async () => { throw new TypeError("Failed to fetch"); };
+  await assert.rejects(() => touristVisaService.saveSection("t", "1", {}), (e) => e.status === 0 && /couldn't reach the server/.test(describeError(e)));
+});
+
+test("the service never writes answers to the console or to storage", async () => {
+  const seen = [];
+  const originals = {};
+  for (const m of ["log", "info", "warn", "error", "debug"]) {
+    originals[m] = console[m];
+    console[m] = (...args) => seen.push(args);
+  }
+  globalThis.localStorage = { setItem: (...a) => seen.push(a), getItem: () => null };
+  try {
+    stubFetch(422, { success: false, message: "x", errors: { q1_5: "bad" } });
+    await assert.rejects(() => touristVisaService.saveSection("t", "1", { q1_5: "SECRET-ANSWER-TEXT" }));
+    stubFetch(200, { success: true, data: { application } });
+    await touristVisaService.saveSection("t", "1", { q1_5: "SECRET-ANSWER-TEXT" });
+  } finally {
+    Object.assign(console, originals);
+    delete globalThis.localStorage;
+  }
+  assert.equal(JSON.stringify(seen).includes("SECRET-ANSWER-TEXT"), false);
+  assert.equal(seen.length, 0);
+});

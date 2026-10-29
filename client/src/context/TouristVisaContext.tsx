@@ -15,6 +15,11 @@ type LoadState =
   | { status: "error"; message: string }
   | { status: "ready"; application: TouristVisaApplication | null }; // null = not started
 
+/** What the section form needs to know about a save. */
+export type SaveResult =
+  | { ok: true; needsReview: string[] }
+  | { ok: false; status: number; message: string; fieldErrors?: Record<string, string> };
+
 interface TouristVisaContextValue {
   state: LoadState;
   /** Fetch the application again (used by the Retry button). */
@@ -23,6 +28,12 @@ interface TouristVisaContextValue {
   start: () => Promise<boolean>;
   starting: boolean;
   startError: string | null;
+  /**
+   * Save one section (the complete new state of it). On success the shared application is
+   * replaced with the server's copy, so the dashboard and other sections see the change.
+   * The answers go to the server and nowhere else: they are not logged or stored.
+   */
+  saveSection: (sectionId: string, answers: Record<string, unknown>) => Promise<SaveResult>;
 }
 
 const TouristVisaContext = createContext<TouristVisaContextValue | null>(null);
@@ -112,9 +123,33 @@ export function TouristVisaProvider({ children }: { children: React.ReactNode })
     }
   }, [handleUnauthorized]);
 
+  const saveSection = useCallback(
+    async (sectionId: string, answers: Record<string, unknown>): Promise<SaveResult> => {
+      const token = readToken();
+      if (!token) {
+        handleUnauthorized();
+        return { ok: false, status: 401, message: "Please sign in again." };
+      }
+      try {
+        const { application, needsReview } = await touristVisaService.saveSection(token, sectionId, answers);
+        if (alive.current) setState({ status: "ready", application });
+        return { ok: true, needsReview };
+      } catch (error) {
+        if (error instanceof TouristVisaApiError && error.status === 401) {
+          handleUnauthorized();
+          return { ok: false, status: 401, message: "Please sign in again." };
+        }
+        const status = error instanceof TouristVisaApiError ? error.status : 0;
+        const fieldErrors = error instanceof TouristVisaApiError ? error.fieldErrors : undefined;
+        return { ok: false, status, message: describeError(error), fieldErrors };
+      }
+    },
+    [handleUnauthorized]
+  );
+
   const value = useMemo(
-    () => ({ state, reload, start, starting, startError }),
-    [state, reload, start, starting, startError]
+    () => ({ state, reload, start, starting, startError, saveSection }),
+    [state, reload, start, starting, startError, saveSection]
   );
 
   return <TouristVisaContext.Provider value={value}>{children}</TouristVisaContext.Provider>;

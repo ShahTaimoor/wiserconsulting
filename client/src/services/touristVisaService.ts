@@ -31,26 +31,47 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 /** An API failure with its HTTP status. Status 0 means the server could not be reached. */
 export class TouristVisaApiError extends Error {
   status: number;
+  /** For a 422: error message per question, keyed "q1_7", "q2_24.line1" or "otherNames.1.q2_3b". */
+  fieldErrors?: Record<string, string>;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, fieldErrors?: Record<string, string>) {
     super(message);
     this.name = "TouristVisaApiError";
     this.status = status;
+    this.fieldErrors = fieldErrors;
   }
+}
+
+export interface SaveSectionResult {
+  application: TouristVisaApplication;
+  /** Other sections that now need another look because of this change. */
+  needsReview: string[];
+  /** Question ids whose stored answers were removed because they are now hidden. */
+  removed: string[];
 }
 
 /** The parts of the API's JSON envelope this service reads. */
 interface ApiBody {
   message?: unknown;
-  data?: { application?: TouristVisaApplication };
+  errors?: unknown;
+  data?: { application?: TouristVisaApplication; needsReview?: string[]; removed?: string[] };
 }
 
-async function request(path: string, method: "GET" | "POST", token: string): Promise<{ status: number; json: ApiBody | null }> {
+async function request(
+  path: string,
+  method: "GET" | "POST" | "PUT",
+  token: string,
+  body?: unknown
+): Promise<{ status: number; json: ApiBody | null }> {
   let response: Response;
   try {
     response = await fetch(`${API_URL}/tourist-visa${path}`, {
       method,
-      headers: { Authorization: `Bearer ${token}` },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
       cache: "no-store",
     });
   } catch {
@@ -68,7 +89,17 @@ async function request(path: string, method: "GET" | "POST", token: string): Pro
 
 function failure(status: number, json: ApiBody | null): TouristVisaApiError {
   const message = typeof json?.message === "string" && json.message ? json.message : `Request failed with status ${status}`;
-  return new TouristVisaApiError(status, message);
+  return new TouristVisaApiError(status, message, toFieldErrors(json?.errors));
+}
+
+/** Keeps only string messages, so nothing unexpected from the server reaches the form. */
+function toFieldErrors(errors: unknown): Record<string, string> | undefined {
+  if (typeof errors !== "object" || errors === null || Array.isArray(errors)) return undefined;
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(errors)) {
+    if (typeof value === "string") result[key] = value;
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
 }
 
 function requireApplication(json: ApiBody | null): TouristVisaApplication {
@@ -107,5 +138,20 @@ export const touristVisaService = {
     const { status, json } = await request("/applications", "POST", token);
     if (status < 200 || status >= 300) throw failure(status, json);
     return { application: requireApplication(json), created: status === 201 };
+  },
+
+  /**
+   * Save one section ("Save and continue"). `answers` is the complete new state of the section.
+   * A 422 throws a TouristVisaApiError whose fieldErrors say what to fix and where.
+   * The answers are only ever sent to the server; they are never logged or stored by this service.
+   */
+  async saveSection(token: string, sectionId: string, answers: Record<string, unknown>): Promise<SaveSectionResult> {
+    const { status, json } = await request(`/applications/me/sections/${encodeURIComponent(sectionId)}`, "PUT", token, { answers });
+    if (status < 200 || status >= 300) throw failure(status, json);
+    return {
+      application: requireApplication(json),
+      needsReview: Array.isArray(json?.data?.needsReview) ? json.data.needsReview : [],
+      removed: Array.isArray(json?.data?.removed) ? json.data.removed : [],
+    };
   },
 };
