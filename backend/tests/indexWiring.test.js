@@ -138,7 +138,7 @@ test('saving a section through index.js keeps free text as typed, including < an
   const token = await signedInUser('save.wiring');
   const text = 'Visit <b>Test</b> City if 2 < 3 and 5 > 4';
   const answers = {
-    q1_1: 'tourism', q1_2: false, q1_3: false, q1_4: 'tbc_a', q1_5: text, q1_6: '2027-03-01', q1_7: '2027-03-15',
+    q1_1: 'tourism', q1_2: false, q1_3: false, q1_4: 'holiday', q1_5: text, q1_6: '2027-03-01', q1_7: '2027-03-15',
   };
   const saved = await call('PUT', '/applications/me/sections/1', token, JSON.stringify({ answers }));
   assert.equal(saved.status, 200, saved.text);

@@ -42,7 +42,7 @@ export function RepeatGroupField({ cfg, group, members, entries: savedEntries, c
     <div id={`field-${group.id}`} tabIndex={-1} className="space-y-4 focus:outline-none" data-group-id={group.id}>
       {previewMode && group.tbc && (
         <p className="text-xs text-muted-foreground">
-          <TbcBadge note={group.tbc} optionList={false} />
+          <TbcBadge note={group.tbc} />
         </p>
       )}
 

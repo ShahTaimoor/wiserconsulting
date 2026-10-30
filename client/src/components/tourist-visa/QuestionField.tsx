@@ -21,14 +21,30 @@ interface QuestionFieldProps {
   previewMode: boolean;
 }
 
-/** The small "TBC" marker shown in preview mode on questions the spec has not settled. */
-export function TbcBadge({ note, optionList }: { note: string; optionList: boolean }) {
+const badgeClass =
+  "ml-2 inline-flex items-center rounded-full px-2 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset";
+
+/** The small "TBC" marker shown in preview mode on questions with a real unknown in the spec. */
+export function TbcBadge({ note }: { note: string }) {
   return (
     <span
       title={note}
-      className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wide text-amber-900 ring-1 ring-inset ring-amber-600/30 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-400/30"
+      className={`${badgeClass} bg-amber-100 text-amber-900 ring-amber-600/30 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-400/30`}
     >
-      {optionList ? "TBC option list" : "TBC"}
+      TBC
+      <span className="sr-only">: {note}</span>
+    </span>
+  );
+}
+
+/** The "Draft options" marker shown in preview mode on questions whose option list awaits senior review. */
+export function DraftBadge({ note }: { note: string }) {
+  return (
+    <span
+      title={note}
+      className={`${badgeClass} bg-sky-100 text-sky-900 ring-sky-600/30 dark:bg-sky-500/15 dark:text-sky-200 dark:ring-sky-400/30`}
+    >
+      Draft options
       <span className="sr-only">: {note}</span>
     </span>
   );
@@ -61,7 +77,8 @@ export function QuestionField({ cfg, question, idBase, value, onChange, options,
       ) : (
         <span className="ml-2 text-xs font-normal text-muted-foreground">(optional)</span>
       )}
-      {previewMode && question.tbc && <TbcBadge note={question.tbc} optionList={question.type === "SEL" || question.type === "CHK"} />}
+      {previewMode && question.draft && <DraftBadge note={question.draft} />}
+      {previewMode && question.tbc && <TbcBadge note={question.tbc} />}
     </>
   );
 

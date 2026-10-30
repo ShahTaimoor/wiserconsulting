@@ -96,39 +96,39 @@ const daysAhead = (n) => daysAgo(-n);
 const ADDRESS = { line1: '1 Test Street', town: 'Testville', country: 'GB' };
 const gbp = (amount) => ({ amount, currency: 'GBP' });
 const S1 = {
-  q1_1: 'tourism', q1_2: false, q1_3: false, q1_4: 'tbc_a',
+  q1_1: 'tourism', q1_2: false, q1_3: false, q1_4: 'holiday',
   q1_5: 'Test trip for automated tests.', q1_6: '2027-03-01', q1_7: '2027-03-15',
 };
 const S2A = {
   q2_1: 'Testfirst', q2_2: 'Testlast', q2_3: false,
-  q2_4: 'test.applicant@example.com', q2_5: 'tbc_self', q2_6: false,
+  q2_4: 'test.applicant@example.com', q2_5: 'me', q2_6: false,
   q2_9: 'test.applicant@example.com', q2_10: 'test.applicant@example.com', q2_11: 'test.applicant@example.com',
 };
 const S2B = {
-  q2_12: 'tbc_a', q2_13: 'tbc_single', q2_14: 'GB', q2_15: 'GB', q2_16: 'Testville',
+  q2_12: 'female', q2_13: 'single', q2_14: 'GB', q2_15: 'GB', q2_16: 'Testville',
   q2_17: '1990-01-01', q2_18: false, q2_23: false,
 };
-const S2C = { q2_24: ADDRESS, q2_25: true, q2_27: { years: 2, months: 3 }, q2_28: 'tbc_owned', q2_30: false, q2_31: false };
-const S2D = { q2_32: { countryCode: '+44', number: '7700 900123' }, q2_33: 'tbc_a', q2_34: 'mobile', q2_35: ['call'] };
+const S2C = { q2_24: ADDRESS, q2_25: true, q2_27: { years: 2, months: 3 }, q2_28: 'owned', q2_30: false, q2_31: false };
+const S2D = { q2_32: { countryCode: '+44', number: '7700 900123' }, q2_33: 'in_uk', q2_34: 'mobile', q2_35: ['call'] };
 const S3 = { q3_1: 'FAKE-PASSPORT-9876', q3_2: 'Test Passport Office', q3_3: '2022-05-01', q3_4: '2032-05-01' };
 const S4B = { q4_7: false };
-const PARENT = { q4_8a: 'tbc_mother', q4_8b: 'Testmother', q4_8c: 'Testsurname', q4_8d: '1962-01-02', q4_8e: 'GB', q4_8f: true };
+const PARENT = { q4_8a: 'mother', q4_8b: 'Testmother', q4_8c: 'Testsurname', q4_8d: '1962-01-02', q4_8e: 'GB', q4_8f: true };
 const S4C = { parents: [PARENT] };
-const S5 = { q5_1: 'tbc_student' };
-const S6A = { q6_1: 'tbc_none', q6_3: gbp(1500), q6_4: gbp(900), q6_5: false };
+const S5 = { q5_1: 'student' };
+const S6A = { q6_1: 'none', q6_3: gbp(1500), q6_4: gbp(900), q6_5: false };
 const S6B = { q6_6: false };
 const S6C = { q6_7: false };
 const S6D = { q6_8: false };
 
-const VISIT = { q7_5a: 'tbc_visit', q7_5b: monthsAgo(20), q7_5c: { weeks: 2 } };
-const PROBLEM = { q7_7a: 'tbc_refused_visa', q7_7b: 'GB', q7_7c: monthsAgo(200), q7_7d: 'Made-up details of what happened.' };
+const VISIT = { q7_5a: 'tourism', q7_5b: monthsAgo(20), q7_5c: { weeks: 2 } };
+const PROBLEM = { q7_7a: 'refused_visa', q7_7b: 'GB', q7_7c: monthsAgo(200), q7_7d: 'Made-up details of what happened.' };
 const NO7 = { q7_1: false, q7_3: false, q7_4: false, q7_6: false, q7_7: false };
 const S7 = {
   q7_1: true, q7_2: monthsAgo(30), q7_3: false, q7_4: true, q7_5: 2,
   ukVisits: [VISIT, { ...VISIT, q7_5b: monthsAgo(40), q7_5c: { days: 4 } }],
   q7_6: false, q7_7: true, immigrationProblems: [PROBLEM],
 };
-const TRIP = { q8_2a: 'FR', q8_2b: 'tbc_tourism', q8_2c: daysAgo(400), q8_2d: daysAgo(390) };
+const TRIP = { q8_2a: 'FR', q8_2b: 'tourism', q8_2c: daysAgo(400), q8_2d: daysAgo(390) };
 const S8 = { q8_1: 3, q8_2: true, otherCountryTrips: [TRIP] };
 
 const ALL = [

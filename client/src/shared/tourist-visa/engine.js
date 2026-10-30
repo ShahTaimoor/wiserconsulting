@@ -651,6 +651,24 @@ function getReleaseBlockers(cfg) {
     .map((s) => ({ sectionId: s.id, items: bySection.get(s.id) }));
 }
 
+/**
+ * Questions whose option list is a draft that still needs senior review. Unlike a tbc flag,
+ * a draft does not block release: the form works with the draft options, and the senior
+ * signs them off or changes them (editing the config only, then removing the `draft` line).
+ * Returns [{ sectionId, items: [{ id, number, draft }] }].
+ */
+function getDraftItems(cfg) {
+  const bySection = new Map();
+  for (const q of cfg.questions) {
+    if (!q.draft) continue;
+    if (!bySection.has(q.section)) bySection.set(q.section, []);
+    bySection.get(q.section).push({ id: q.id, number: q.number, draft: q.draft });
+  }
+  return cfg.sections
+    .filter((s) => bySection.has(s.id))
+    .map((s) => ({ sectionId: s.id, items: bySection.get(s.id) }));
+}
+
 function isSectionReleasable(cfg, sectionId) {
   return !getReleaseBlockers(cfg).some((b) => b.sectionId === sectionId);
 }
@@ -723,6 +741,15 @@ function validateConfig(cfg) {
     if (typeof q.required !== 'boolean') err(`${w}: required must be true or false`);
     if (q.sensitive !== undefined && typeof q.sensitive !== 'boolean') err(`${w}: sensitive must be a boolean`);
     if (q.tbc !== undefined && (typeof q.tbc !== 'string' || !q.tbc)) err(`${w}: tbc must be a non-empty string`);
+    if (q.draft !== undefined) {
+      if (typeof q.draft !== 'string' || !q.draft) err(`${w}: draft must be a non-empty string`);
+      if ((q.type !== 'SEL' && q.type !== 'CHK') || !Array.isArray(q.options)) err(`${w}: draft is only for a SEL or CHK question with its own option list`);
+    }
+    if (Array.isArray(q.options)) {
+      for (const opt of q.options) {
+        if (/^tbc_/.test(opt.value) || /\[TBC\]/i.test(opt.label || '')) err(`${w}: option ${opt.value} is still a placeholder; use a real value and mark the question draft`);
+      }
+    }
 
     const o = q.options;
     if (q.type === 'SEL' || q.type === 'CHK') {
@@ -862,6 +889,7 @@ module.exports = {
   pruneAnswers,
   validateSection,
   getReleaseBlockers,
+  getDraftItems,
   isSectionReleasable,
   validateConfig,
 };

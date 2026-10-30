@@ -90,16 +90,16 @@ const rawDoc = (appId) => TouristVisaApplication.collection.findOne({ _id: new m
 
 // Made-up answers (same as the shared engine tests).
 const S1 = {
-  q1_1: 'tourism', q1_2: false, q1_3: false, q1_4: 'tbc_a',
+  q1_1: 'tourism', q1_2: false, q1_3: false, q1_4: 'holiday',
   q1_5: 'Test trip for automated tests.', q1_6: '2027-03-01', q1_7: '2027-03-15',
 };
 const S2A = {
   q2_1: 'Testfirst', q2_2: 'Testlast', q2_3: false,
-  q2_4: 'test.applicant@example.com', q2_5: 'tbc_self', q2_6: false,
+  q2_4: 'test.applicant@example.com', q2_5: 'me', q2_6: false,
   q2_9: 'test.applicant@example.com', q2_10: 'test.applicant@example.com', q2_11: 'test.applicant@example.com',
 };
 const S2B = {
-  q2_12: 'tbc_a', q2_13: 'tbc_single', q2_14: 'GB', q2_15: 'GB', q2_16: 'Testville',
+  q2_12: 'female', q2_13: 'single', q2_14: 'GB', q2_15: 'GB', q2_16: 'Testville',
   q2_17: '1990-01-01', q2_18: true, q2_19: 'FAKE-ID-0001', q2_20: 'Test Authority',
   q2_21: '2020-01-01', q2_22: '2030-01-01', q2_23: false,
 };
@@ -201,11 +201,11 @@ test('free text is stored exactly as typed, including < and >', async () => {
 test('answers that become hidden are removed, including stale ones sent by the client', async () => {
   const { token, appId } = await start();
   const second = 'second@example.com';
-  const withSecond = await put(token, '2A', { ...S2A, q2_6: true, q2_7: second, q2_8: 'tbc_other', q2_10: second });
+  const withSecond = await put(token, '2A', { ...S2A, q2_6: true, q2_7: second, q2_8: 'other', q2_10: second });
   assert.equal(withSecond.status, 200, JSON.stringify(withSecond.json));
   assert.equal((await rawDoc(appId)).answers.q2_7, second);
 
-  const without = await put(token, '2A', { ...S2A, q2_6: false, q2_7: second, q2_8: 'tbc_other' });
+  const without = await put(token, '2A', { ...S2A, q2_6: false, q2_7: second, q2_8: 'other' });
   assert.equal(without.status, 200, JSON.stringify(without.json));
   assert.deepEqual(without.json.data.removed.sort(), ['q2_7', 'q2_8']);
   const raw = await rawDoc(appId);

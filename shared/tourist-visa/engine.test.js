@@ -38,24 +38,24 @@ const vs = (cfg, incoming, existing, opts) =>
 
 // Valid made-up answers per section.
 const S1 = {
-  q1_1: 'tourism', q1_2: false, q1_3: false, q1_4: 'tbc_a',
+  q1_1: 'tourism', q1_2: false, q1_3: false, q1_4: 'holiday',
   q1_5: 'Test trip for automated tests.', q1_6: '2027-03-01', q1_7: '2027-03-15',
 };
 const S2A = {
   q2_1: 'Testfirst', q2_2: 'Testlast', q2_3: false,
-  q2_4: 'test.applicant@example.com', q2_5: 'tbc_self', q2_6: false,
+  q2_4: 'test.applicant@example.com', q2_5: 'me', q2_6: false,
   q2_9: 'test.applicant@example.com', q2_10: 'test.applicant@example.com', q2_11: 'test.applicant@example.com',
 };
 const ADDRESS = { line1: '1 Test Street', town: 'Testville', country: 'GB' };
 const S2B = {
-  q2_12: 'tbc_a', q2_13: 'tbc_single', q2_14: 'GB', q2_15: 'GB', q2_16: 'Testville',
+  q2_12: 'female', q2_13: 'single', q2_14: 'GB', q2_15: 'GB', q2_16: 'Testville',
   q2_17: '1990-01-01', q2_18: false, q2_23: false,
 };
 const S2C = {
-  q2_24: ADDRESS, q2_25: true, q2_27: { years: 2, months: 3 }, q2_28: 'tbc_owned', q2_30: false, q2_31: false,
+  q2_24: ADDRESS, q2_25: true, q2_27: { years: 2, months: 3 }, q2_28: 'owned', q2_30: false, q2_31: false,
 };
 const S2D = {
-  q2_32: { countryCode: '+44', number: '7700 900123' }, q2_33: 'tbc_a', q2_34: 'mobile', q2_35: ['call'],
+  q2_32: { countryCode: '+44', number: '7700 900123' }, q2_33: 'in_uk', q2_34: 'mobile', q2_35: ['call'],
 };
 
 // ---------------------------------------------------------------------------
@@ -100,12 +100,103 @@ test('config: sections are 1, 2A-2D, 3, 4A-4C, 5, 6A-6D, 7, 8 and every question
   assert.ok(config.questions.every((q) => ids.has(q.section)));
 });
 
-test('config: every [TBC] placeholder option sits on a question flagged tbc', () => {
+test('config: no option is a [TBC] placeholder or a tbc_ value any more', () => {
   for (const q of config.questions) {
-    if (Array.isArray(q.options) && q.options.some((o) => o.label.includes('[TBC]'))) {
-      assert.ok(q.tbc, `${q.number} has [TBC] options but no tbc flag`);
+    for (const o of Array.isArray(q.options) ? q.options : []) {
+      assert.ok(!o.label.includes('[TBC]'), `${q.number}: ${o.label}`);
+      assert.ok(!/^tbc_/.test(o.value), `${q.number}: ${o.value}`);
     }
   }
+});
+
+test('config: the draft option lists are exactly the ones that replaced the placeholders, each on a SEL or CHK question', () => {
+  const drafts = config.questions.filter((q) => q.draft);
+  assert.deepEqual(
+    drafts.map((q) => q.number),
+    ['1.1', '1.4', '2.5', '2.8', '2.12', '2.13', '2.28', '2.33', '2.35', '4.7a', '4.8a', '5.1', '6.1', '7.5a', '7.7a', '8.2b']
+  );
+  for (const q of drafts) {
+    assert.ok(['SEL', 'CHK'].includes(q.type) && Array.isArray(q.options), q.number);
+    assert.ok(q.options.length >= 2, `${q.number} offers a real choice`);
+    assert.match(q.draft, /senior review/, q.number);
+  }
+});
+
+test('config: a draft option list is not a tbc flag: real unknowns keep tbc, drafts alone do not block', () => {
+  const q = (n) => config.questions.find((x) => x.number === n);
+  for (const n of ['1.1', '1.4', '2.5', '2.8', '2.12', '2.13', '2.28', '2.33', '2.35', '4.7a', '4.8a', '7.5a', '7.7a', '8.2b']) {
+    assert.equal(q(n).tbc, undefined, `${n} is only a draft`);
+  }
+  // 5.1 and 6.1 are drafts and also carry a real unknown (the other statuses; single or multiple choice).
+  for (const n of ['5.1', '6.1']) assert.ok(q(n).draft && q(n).tbc, n);
+  // Real unknowns about Yes paths and structure are still tbc.
+  for (const n of ['1.2', '1.3', '2.23', '2.30', '2.31', '4.8f', '6.5', '6.6', '6.7', '6.8', '7.3', '7.6', '8.1']) assert.ok(q(n).tbc, n);
+});
+
+test('draft items: getDraftItems lists them by section, and a draft alone leaves a section releasable', () => {
+  const items = engine.getDraftItems(config);
+  assert.equal(items.reduce((n, s) => n + s.items.length, 0), 16);
+  assert.deepEqual(items.find((s) => s.sectionId === '2D').items.map((i) => i.number), ['2.33', '2.35']);
+  assert.ok(items.every((s) => s.items.every((i) => i.draft && i.id && i.number)));
+  for (const id of ['2D', '4B']) {
+    assert.equal(engine.isSectionReleasable(config, id), true, `${id} has only drafts`);
+    assert.equal(items.some((s) => s.sectionId === id), true);
+  }
+  assert.equal(engine.isSectionReleasable(config, '5'), false, '5 has a draft and a real unknown');
+});
+
+test('config: validateConfig rejects a draft on the wrong kind of question and any leftover placeholder option', () => {
+  const q = (c, id) => c.questions.find((x) => x.id === id);
+  const cases = [
+    ['draft on a text question', (c) => { q(c, 'q2_1').draft = 'x'; }, /draft is only for a SEL or CHK question/],
+    ['draft on a list taken from answers', (c) => { q(c, 'q2_9').draft = 'x'; }, /draft is only for a SEL or CHK question/],
+    ['empty draft', (c) => { q(c, 'q1_1').draft = ''; }, /draft must be a non-empty string/],
+    ['tbc_ option value', (c) => { q(c, 'q1_1').options[0].value = 'tbc_x'; }, /still a placeholder/],
+    ['[TBC] option label', (c) => { q(c, 'q1_1').options[1].label = '[TBC] Other'; }, /still a placeholder/],
+  ];
+  for (const [name, mutate, pattern] of cases) {
+    const c = clone(config);
+    mutate(c);
+    const problems = engine.validateConfig(c);
+    assert.ok(problems.some((p) => pattern.test(p)), `${name}: got ${JSON.stringify(problems)}`);
+  }
+});
+
+test('options: every question with a draft list offers stable snake_case values', () => {
+  for (const q of config.questions.filter((x) => x.draft)) {
+    for (const o of q.options) assert.match(o.value, /^[a-z][a-z_]*$/, `${q.number}: ${o.value}`);
+    assert.equal(new Set(q.options.map((o) => o.value)).size, q.options.length, q.number);
+  }
+});
+
+test('options: the answers that open something are on the lists (2.13 -> 4A, 5.1 -> 5.2-5.9, 6.1 -> 6.2, 1.1 -> 1.4, 2.28 -> 2.29)', () => {
+  const values = (id) => config.questions.find((x) => x.id === id).options.map((o) => o.value);
+  for (const v of ['married', 'civil_partnership', 'unmarried_partner', 'single', 'separated', 'divorced', 'widowed']) assert.ok(values('q2_13').includes(v), v);
+  assert.ok(values('q5_1').includes('employed'));
+  for (const v of ['savings', 'savings_and_income', 'other_income', 'none']) assert.ok(values('q6_1').includes(v), v);
+  assert.ok(values('q1_1').includes('tourism'));
+  assert.ok(values('q2_28').includes('other'));
+  assert.ok(values('q2_35').includes('call') && values('q2_35').includes('sms'), '2.35 keeps the two choices the printout shows');
+});
+
+test('gates with the real values: each 2.13 status decides section 4A, each 5.1 status 5.2-5.9, each 6.1 answer 6.2', () => {
+  const sections = (answers) => engine.getVisibleSections(config, answers).map((s) => s.id);
+  const partner = { single: false, married: true, civil_partnership: true, unmarried_partner: true, separated: false, divorced: false, widowed: false };
+  for (const [status, shows] of Object.entries(partner)) assert.equal(sections({ q2_13: status }).includes('4A'), shows, status);
+  const sectionFive = (status) => engine.getVisibleQuestions(config, '5', { q5_1: status }).map((x) => x.id);
+  for (const status of ['employed', 'self_employed', 'retired', 'student', 'homemaker', 'unemployed', 'other']) {
+    assert.equal(sectionFive(status).length, status === 'employed' ? 9 : 1, status);
+  }
+  const savings = (v) => engine.getVisibleQuestions(config, '6A', { q6_1: v }).some((x) => x.id === 'q6_2');
+  assert.deepEqual(['savings', 'savings_and_income', 'other_income', 'none'].map(savings), [true, true, false, false]);
+});
+
+test('compatibility: an answer saved with an old placeholder value is refused as not on the list and hides what it used to open', () => {
+  assert.equal(validate('2B', { ...S2B, q2_13: 'tbc_married' }).errors.q2_13, 'Choose from the listed options');
+  assert.equal(validate('5', { q5_1: 'tbc_employed' }).errors.q5_1, 'Choose from the listed options');
+  assert.equal(validate('1', { ...S1, q1_4: 'tbc_a' }).errors.q1_4, 'Choose from the listed options');
+  assert.equal(engine.isSectionVisible(config, '4A', { q2_13: 'tbc_married' }), false, 'an old value no longer shows 4A');
+  assert.deepEqual(engine.getVisibleQuestions(config, '5', { q5_1: 'tbc_employed' }).map((x) => x.id), ['q5_1'], 'an old value shows only 5.1');
 });
 
 test('config: sensitive questions are the national ID number and the passport number only', () => {
@@ -143,13 +234,13 @@ test('config: validateConfig reports broken configs', () => {
 // Release gate
 // ---------------------------------------------------------------------------
 
-test('release gate: every section with open tbc flags is blocked; the passport section has none', () => {
+test('release gate: every section with open tbc flags is blocked; sections with none (3, 2D, 4B) are releasable', () => {
   const blockers = engine.getReleaseBlockers(config);
   assert.deepEqual(
     blockers.map((b) => b.sectionId),
-    ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8']
+    ['1', '2A', '2B', '2C', '4A', '4C', '5', '6A', '6B', '6C', '6D', '7', '8']
   );
-  for (const s of config.sections) assert.equal(engine.isSectionReleasable(config, s.id), s.id === '3');
+  for (const s of config.sections) assert.equal(engine.isSectionReleasable(config, s.id), ['2D', '3', '4B'].includes(s.id));
   assert.ok(blockers.every((b) => b.items.every((i) => i.tbc)));
 });
 
@@ -174,7 +265,7 @@ test('release gate: a tbc on a repeating group blocks its section', () => {
 
 test('visibility: 1.4 only appears for the tourism option of 1.1', () => {
   assert.equal(engine.isVisible(config, 'q1_4', {}), false);
-  assert.equal(engine.isVisible(config, 'q1_4', { q1_1: 'tbc_other' }), false);
+  assert.equal(engine.isVisible(config, 'q1_4', { q1_1: 'other' }), false);
   assert.equal(engine.isVisible(config, 'q1_4', { q1_1: 'tourism' }), true);
 });
 
@@ -196,7 +287,7 @@ test('visibility: ID card details 2.19-2.22 follow 2.18', () => {
 test('visibility: 2.26 is asked only when 2.25 is No; 2.29 only for the Other option', () => {
   assert.equal(engine.isVisible(config, 'q2_26', { q2_25: true }), false);
   assert.equal(engine.isVisible(config, 'q2_26', { q2_25: false }), true);
-  assert.equal(engine.isVisible(config, 'q2_29', { q2_28: 'tbc_owned' }), false);
+  assert.equal(engine.isVisible(config, 'q2_29', { q2_28: 'owned' }), false);
   assert.equal(engine.isVisible(config, 'q2_29', { q2_28: 'other' }), true);
 });
 
@@ -251,9 +342,9 @@ test('options: country questions use the shared country list', () => {
 
 test('prune: drops answers to hidden questions and unknown keys, across sections', () => {
   const { answers, removed } = engine.pruneAnswers(config, {
-    q1_1: 'tbc_other', q1_4: 'tbc_a', q2_6: false, q2_7: 'b@example.com', q2_18: true, q2_19: 'ID-FAKE', evil: 1,
+    q1_1: 'other', q1_4: 'holiday', q2_6: false, q2_7: 'b@example.com', q2_18: true, q2_19: 'ID-FAKE', evil: 1,
   });
-  assert.deepEqual(answers, { q1_1: 'tbc_other', q2_6: false, q2_18: true, q2_19: 'ID-FAKE' });
+  assert.deepEqual(answers, { q1_1: 'other', q2_6: false, q2_18: true, q2_19: 'ID-FAKE' });
   assert.deepEqual(removed.sort(), ['q1_4', 'q2_7']);
 });
 
@@ -297,7 +388,7 @@ test('section 1: empty submission lists every required question except hidden 1.
 test('section 1: choosing tourism makes 1.4 required; other reasons hide and discard it', () => {
   const without = validate('1', { ...S1, q1_4: undefined });
   assert.deepEqual(Object.keys(without.errors), ['q1_4']);
-  const other = validate('1', { ...S1, q1_1: 'tbc_other' }, { q1_4: 'tbc_a' });
+  const other = validate('1', { ...S1, q1_1: 'other' }, { q1_4: 'holiday' });
   assert.equal(other.success, true, JSON.stringify(other.errors));
   assert.equal('q1_4' in other.data, false);
   assert.deepEqual(other.removed, ['q1_4']);
@@ -340,7 +431,7 @@ test('section 2A: 2.9-2.11 must pick one of the entered addresses', () => {
   const bad = validate('2A', { ...S2A, q2_9: 'someone.else@example.com' });
   assert.equal(bad.errors.q2_9, 'Choose from the listed options');
   const two = validate('2A', {
-    ...S2A, q2_6: true, q2_7: 'second@example.com', q2_8: 'tbc_other', q2_10: 'second@example.com',
+    ...S2A, q2_6: true, q2_7: 'second@example.com', q2_8: 'other', q2_10: 'second@example.com',
   });
   assert.equal(two.success, true, JSON.stringify(two.errors));
   const hidden = validate('2A', { ...S2A, q2_7: 'second@example.com', q2_10: 'second@example.com' });
@@ -636,8 +727,8 @@ test('FILE questions are skipped here; uploads are validated by the document end
 
 const S3 = { q3_1: 'FAKE-PASSPORT-001', q3_2: 'Test Passport Office', q3_3: '2022-05-01', q3_4: '2032-05-01' };
 const PARTNER = { q4_1: 'Testpartner', q4_2: 'Testsurname', q4_3: '1991-02-03', q4_4: 'GB', q4_5: true, q4_6: false };
-const DEPENDANT = { q4_7a: 'tbc_child', q4_7b: 'Testchild', q4_7c: 'Testsurname', q4_7d: '2015-06-07', q4_7e: true, q4_7f: false };
-const PARENT = { q4_8a: 'tbc_mother', q4_8b: 'Testmother', q4_8c: 'Testsurname', q4_8d: '1962-01-02', q4_8e: 'GB', q4_8f: true };
+const DEPENDANT = { q4_7a: 'son', q4_7b: 'Testchild', q4_7c: 'Testsurname', q4_7d: '2015-06-07', q4_7e: true, q4_7f: false };
+const PARENT = { q4_8a: 'mother', q4_8b: 'Testmother', q4_8c: 'Testsurname', q4_8d: '1962-01-02', q4_8e: 'GB', q4_8f: true };
 
 test('part 3: valid passport details pass; every question is required', () => {
   const ok = validate('3', S3, { q1_7: '2027-03-15' });
@@ -697,26 +788,26 @@ test('2.23a is one plain text box: no question about another country identity or
 
 test('4A: the spouse or partner questions follow 2.13 (placeholder statuses)', () => {
   const ids = ['q4_1', 'q4_2', 'q4_3', 'q4_4', 'q4_5', 'q4_6'];
-  for (const status of ['tbc_married', 'tbc_partner']) {
+  for (const status of ['married', 'unmarried_partner']) {
     for (const id of ids) assert.equal(engine.isVisible(config, id, { q2_13: status }), true, `${id} for ${status}`);
   }
-  for (const answers of [{ q2_13: 'tbc_single' }, {}]) {
+  for (const answers of [{ q2_13: 'single' }, {}]) {
     for (const id of ids) assert.equal(engine.isVisible(config, id, answers), false);
   }
 });
 
 test('4A: valid partner details pass, and all of them are required when shown', () => {
-  const ok = validate('4A', PARTNER, { q2_13: 'tbc_married' });
+  const ok = validate('4A', PARTNER, { q2_13: 'married' });
   assert.equal(ok.success, true, JSON.stringify(ok.errors));
-  const empty = validate('4A', {}, { q2_13: 'tbc_partner' });
+  const empty = validate('4A', {}, { q2_13: 'unmarried_partner' });
   assert.deepEqual(Object.keys(empty.errors), ['q4_1', 'q4_2', 'q4_3', 'q4_4', 'q4_5', 'q4_6']);
-  assert.equal(validate('4A', { ...PARTNER, q4_3: '2090-01-01' }, { q2_13: 'tbc_married' }).errors.q4_3, 'Cannot be in the future');
+  assert.equal(validate('4A', { ...PARTNER, q4_3: '2090-01-01' }, { q2_13: 'married' }).errors.q4_3, 'Cannot be in the future');
 });
 
 test('4A: when 2.13 does not indicate a partner the section is hidden and stored answers are removed', () => {
-  const single = { q2_13: 'tbc_single' };
+  const single = { q2_13: 'single' };
   assert.equal(engine.isSectionVisible(config, '4A', single), false);
-  assert.equal(engine.isSectionVisible(config, '4A', { q2_13: 'tbc_married' }), true);
+  assert.equal(engine.isSectionVisible(config, '4A', { q2_13: 'married' }), true);
   const r = validate('4A', PARTNER, { ...single, ...PARTNER });
   assert.equal(r.success, true);
   assert.deepEqual(r.data, {});
@@ -749,13 +840,13 @@ test('4C: the parents group has no Yes/No question; it is always open and needs 
   assert.equal(validate('4C', { parents: [] }).errors.parents, 'Add at least one entry');
   const one = validate('4C', { parents: [PARENT] });
   assert.equal(one.success, true, JSON.stringify(one.errors));
-  const two = validate('4C', { parents: [PARENT, { ...PARENT, q4_8a: 'tbc_father', q4_8f: false }] });
+  const two = validate('4C', { parents: [PARENT, { ...PARENT, q4_8a: 'father', q4_8f: false }] });
   assert.equal(two.success, true);
   assert.equal(two.data.parents.length, 2);
 });
 
 test('4C: entries are validated one by one with errors on the right entry and field', () => {
-  const r = validate('4C', { parents: [PARENT, { q4_8a: 'tbc_father', q4_8b: 'Testfather', q4_8e: 'ZZ' }] });
+  const r = validate('4C', { parents: [PARENT, { q4_8a: 'father', q4_8b: 'Testfather', q4_8e: 'ZZ' }] });
   assert.deepEqual(Object.keys(r.errors).sort(), ['parents.1.q4_8c', 'parents.1.q4_8d', 'parents.1.q4_8e', 'parents.1.q4_8f']);
   assert.equal(r.errors['parents.1.q4_8e'], 'Choose a country from the list');
 });
@@ -797,17 +888,17 @@ test('sections: on the real config only 4A can be hidden, and only by 2.13', () 
   const visible = (answers) => engine.getVisibleSections(config, answers).map((s) => s.id);
   const rest = ['5', '6A', '6B', '6C', '6D', '7', '8'];
   assert.deepEqual(visible({}), ['1', '2A', '2B', '2C', '2D', '3', '4B', '4C', ...rest]);
-  assert.deepEqual(visible({ q2_13: 'tbc_single' }), ['1', '2A', '2B', '2C', '2D', '3', '4B', '4C', ...rest]);
-  assert.deepEqual(visible({ q2_13: 'tbc_married' }), ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', ...rest]);
-  assert.deepEqual(visible({ q2_13: 'tbc_partner' }), ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', ...rest]);
+  assert.deepEqual(visible({ q2_13: 'single' }), ['1', '2A', '2B', '2C', '2D', '3', '4B', '4C', ...rest]);
+  assert.deepEqual(visible({ q2_13: 'married' }), ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', ...rest]);
+  assert.deepEqual(visible({ q2_13: 'unmarried_partner' }), ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', ...rest]);
 });
 
 test('prune: changing 2.13 removes the spouse or partner answers held in another section', () => {
-  const before = { q2_13: 'tbc_married', ...PARTNER, q4_7: false };
+  const before = { q2_13: 'married', ...PARTNER, q4_7: false };
   assert.equal(engine.pruneAnswers(config, before).answers.q4_1, 'Testpartner');
-  const after = engine.pruneAnswers(config, { ...before, q2_13: 'tbc_single' });
+  const after = engine.pruneAnswers(config, { ...before, q2_13: 'single' });
   assert.deepEqual(after.removed.sort(), ['q4_1', 'q4_2', 'q4_3', 'q4_4', 'q4_5', 'q4_6']);
-  assert.deepEqual(after.answers, { q2_13: 'tbc_single', q4_7: false });
+  assert.deepEqual(after.answers, { q2_13: 'single', q4_7: false });
 });
 
 test('compatibility: answers saved before step 6a (config 0.1.0) still validate unchanged', () => {
@@ -816,7 +907,7 @@ test('compatibility: answers saved before step 6a (config 0.1.0) still validate 
     assert.equal(r.success, true, `${section}: ${JSON.stringify(r.errors)}`);
   }
   // 2.13 values saved earlier are still on the list.
-  assert.equal(validate('2B', { ...S2B, q2_13: 'tbc_married' }).success, true);
+  assert.equal(validate('2B', { ...S2B, q2_13: 'married' }).success, true);
 });
 
 // ---------------------------------------------------------------------------
@@ -825,11 +916,11 @@ test('compatibility: answers saved before step 6a (config 0.1.0) still validate 
 
 const gbp = (amount) => ({ amount, currency: 'GBP' });
 const EMPLOYED = {
-  q5_1: 'tbc_employed', q5_2: '2019-04', q5_3: 'Test Employer Ltd', q5_4: ADDRESS,
+  q5_1: 'employed', q5_2: '2019-04', q5_3: 'Test Employer Ltd', q5_4: ADDRESS,
   q5_5: { countryCode: '+44', number: '20 7946 0000' }, q5_6: 'Test Analyst',
   q5_7: gbp(2500), q5_8: 'Made-up description of a made-up job.', q5_9: 'Previous Test Co',
 };
-const S6A = { q6_1: 'tbc_savings', q6_2: gbp(8000), q6_3: gbp(1500), q6_4: gbp(900), q6_5: false };
+const S6A = { q6_1: 'savings', q6_2: gbp(8000), q6_3: gbp(1500), q6_4: gbp(900), q6_5: false };
 const STAY = {
   q6_7a: 'Test Hotel', q6_7b: { line1: '2 Test Road', town: 'Testtown', country: 'GB' },
   q6_7c: '2027-03-01', q6_7d: '2027-03-08',
@@ -842,12 +933,12 @@ test('part 5: the employed path needs 5.2 to 5.8 and takes an optional 5.9', () 
   assert.equal(validate('5', EMPLOYED).success, true);
   const { q5_9, ...withoutPrevious } = EMPLOYED;
   assert.equal(validate('5', withoutPrevious).success, true);
-  const empty = validate('5', { q5_1: 'tbc_employed' });
+  const empty = validate('5', { q5_1: 'employed' });
   assert.deepEqual(Object.keys(empty.errors).sort(), ['q5_2', 'q5_3', 'q5_4', 'q5_5', 'q5_6', 'q5_7', 'q5_8']);
 });
 
 test('part 5: any other status shows only 5.1', () => {
-  for (const status of ['tbc_self_employed', 'tbc_student', 'tbc_not_working']) {
+  for (const status of ['self_employed', 'student', 'unemployed']) {
     const r = validate('5', { q5_1: status });
     assert.equal(r.success, true, `${status}: ${JSON.stringify(r.errors)}`);
     assert.deepEqual(r.data, { q5_1: status });
@@ -857,12 +948,12 @@ test('part 5: any other status shows only 5.1', () => {
 });
 
 test('part 5 gate: changing 5.1 away from employed removes 5.2 to 5.9', () => {
-  const r = validate('5', { ...EMPLOYED, q5_1: 'tbc_student' }, EMPLOYED);
+  const r = validate('5', { ...EMPLOYED, q5_1: 'student' }, EMPLOYED);
   assert.equal(r.success, true);
   assert.deepEqual(r.removed.sort(), ['q5_2', 'q5_3', 'q5_4', 'q5_5', 'q5_6', 'q5_7', 'q5_8', 'q5_9']);
-  assert.deepEqual(r.data, { q5_1: 'tbc_student' });
-  const pruned = engine.pruneAnswers(config, { ...EMPLOYED, q5_1: 'tbc_not_working' });
-  assert.deepEqual(pruned.answers, { q5_1: 'tbc_not_working' });
+  assert.deepEqual(r.data, { q5_1: 'student' });
+  const pruned = engine.pruneAnswers(config, { ...EMPLOYED, q5_1: 'unemployed' });
+  assert.deepEqual(pruned.answers, { q5_1: 'unemployed' });
   assert.equal(pruned.removed.length, 8);
 });
 
@@ -909,9 +1000,9 @@ test('money: an AMT question without its own rules.max keeps the 1,000,000,000 d
 
 test('part 6A: 6.2 only appears when 6.1 includes savings', () => {
   assert.equal(validate('6A', S6A).success, true);
-  assert.equal(validate('6A', { ...S6A, q6_1: 'tbc_both' }).success, true);
+  assert.equal(validate('6A', { ...S6A, q6_1: 'savings_and_income' }).success, true);
   assert.equal(validate('6A', { ...S6A, q6_2: undefined }).errors.q6_2, 'This question is required');
-  for (const v of ['tbc_income', 'tbc_none']) {
+  for (const v of ['other_income', 'none']) {
     const { q6_2, ...rest } = S6A;
     const r = validate('6A', { ...rest, q6_1: v });
     assert.equal(r.success, true, `${v}: ${JSON.stringify(r.errors)}`);
@@ -921,11 +1012,11 @@ test('part 6A: 6.2 only appears when 6.1 includes savings', () => {
 });
 
 test('part 6A gate: changing 6.1 to an answer without savings removes 6.2', () => {
-  const r = validate('6A', { ...S6A, q6_1: 'tbc_none' }, S6A);
+  const r = validate('6A', { ...S6A, q6_1: 'none' }, S6A);
   assert.equal(r.success, true);
   assert.deepEqual(r.removed, ['q6_2']);
   assert.equal(r.data.q6_2, undefined);
-  const pruned = engine.pruneAnswers(config, { ...S6A, q6_1: 'tbc_income' });
+  const pruned = engine.pruneAnswers(config, { ...S6A, q6_1: 'other_income' });
   assert.deepEqual(pruned.removed, ['q6_2']);
   assert.equal(pruned.answers.q6_2, undefined);
 });
@@ -1058,7 +1149,7 @@ test('compatibility: answers saved under config 0.2.0 (Parts 1-4) still validate
     const r = validate(section, answers, section === '3' ? S1 : undefined);
     assert.equal(r.success, true, `${section}: ${JSON.stringify(r.errors)}`);
   }
-  assert.equal(validate('4A', PARTNER, { q2_13: 'tbc_married' }).success, true);
+  assert.equal(validate('4A', PARTNER, { q2_13: 'married' }).success, true);
 });
 
 // ---------------------------------------------------------------------------
@@ -1066,14 +1157,14 @@ test('compatibility: answers saved under config 0.2.0 (Parts 1-4) still validate
 // ---------------------------------------------------------------------------
 // validate() fixes "today" at 2026-10-28, so the 10-year window starts on 2016-10-28.
 
-const VISIT = { q7_5a: 'tbc_visit', q7_5b: '2024-05', q7_5c: { weeks: 2 } };
-const PROBLEM = { q7_7a: 'tbc_refused_visa', q7_7b: 'GB', q7_7c: '2015-03', q7_7d: 'Made-up details of what happened.' };
+const VISIT = { q7_5a: 'tourism', q7_5b: '2024-05', q7_5c: { weeks: 2 } };
+const PROBLEM = { q7_7a: 'refused_visa', q7_7b: 'GB', q7_7c: '2015-03', q7_7d: 'Made-up details of what happened.' };
 const S7 = {
   q7_1: true, q7_2: '2023-06', q7_3: false, q7_4: true, q7_5: 2,
   ukVisits: [VISIT, { ...VISIT, q7_5b: '2022-08', q7_5c: { days: 4 } }],
   q7_6: false, q7_7: true, immigrationProblems: [PROBLEM],
 };
-const TRIP8 = { q8_2a: 'FR', q8_2b: 'tbc_tourism', q8_2c: '2024-07-01', q8_2d: '2024-07-10' };
+const TRIP8 = { q8_2a: 'FR', q8_2b: 'tourism', q8_2c: '2024-07-01', q8_2d: '2024-07-10' };
 const S8 = { q8_1: 3, q8_2: true, otherCountryTrips: [TRIP8] };
 const NO7 = { q7_1: false, q7_3: false, q7_4: false, q7_6: false, q7_7: false };
 

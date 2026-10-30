@@ -80,26 +80,26 @@ const rawDoc = (appId) => TouristVisaApplication.collection.findOne({ _id: new m
 // Made-up answers.
 const ADDRESS = { line1: '1 Test Street', town: 'Testville', country: 'GB' };
 const S1 = {
-  q1_1: 'tourism', q1_2: false, q1_3: false, q1_4: 'tbc_a',
+  q1_1: 'tourism', q1_2: false, q1_3: false, q1_4: 'holiday',
   q1_5: 'Test trip for automated tests.', q1_6: '2027-03-01', q1_7: '2027-03-15',
 };
 const S2A = {
   q2_1: 'Testfirst', q2_2: 'Testlast', q2_3: false,
-  q2_4: 'test.applicant@example.com', q2_5: 'tbc_self', q2_6: false,
+  q2_4: 'test.applicant@example.com', q2_5: 'me', q2_6: false,
   q2_9: 'test.applicant@example.com', q2_10: 'test.applicant@example.com', q2_11: 'test.applicant@example.com',
 };
 const S2B = {
-  q2_12: 'tbc_a', q2_13: 'tbc_married', q2_14: 'GB', q2_15: 'GB', q2_16: 'Testville',
+  q2_12: 'female', q2_13: 'married', q2_14: 'GB', q2_15: 'GB', q2_16: 'Testville',
   q2_17: '1990-01-01', q2_18: false, q2_23: false,
 };
-const S2C = { q2_24: ADDRESS, q2_25: true, q2_27: { years: 2, months: 3 }, q2_28: 'tbc_owned', q2_30: false, q2_31: false };
-const S2D = { q2_32: { countryCode: '+44', number: '7700 900123' }, q2_33: 'tbc_a', q2_34: 'mobile', q2_35: ['call'] };
+const S2C = { q2_24: ADDRESS, q2_25: true, q2_27: { years: 2, months: 3 }, q2_28: 'owned', q2_30: false, q2_31: false };
+const S2D = { q2_32: { countryCode: '+44', number: '7700 900123' }, q2_33: 'in_uk', q2_34: 'mobile', q2_35: ['call'] };
 const S3 = { q3_1: 'FAKE-PASSPORT-9876', q3_2: 'Test Passport Office', q3_3: '2022-05-01', q3_4: '2032-05-01' };
 const S4A = { q4_1: 'Testpartner', q4_2: 'Testsurname', q4_3: '1991-02-03', q4_4: 'GB', q4_5: true, q4_6: false };
-const DEPENDANT = { q4_7a: 'tbc_child', q4_7b: 'Testchild', q4_7c: 'Testsurname', q4_7d: '2015-06-07', q4_7e: true, q4_7f: false };
+const DEPENDANT = { q4_7a: 'son', q4_7b: 'Testchild', q4_7c: 'Testsurname', q4_7d: '2015-06-07', q4_7e: true, q4_7f: false };
 const S4B = { q4_7: true, dependants: [DEPENDANT] };
-const PARENT = { q4_8a: 'tbc_mother', q4_8b: 'Testmother', q4_8c: 'Testsurname', q4_8d: '1962-01-02', q4_8e: 'GB', q4_8f: true };
-const S4C = { parents: [PARENT, { ...PARENT, q4_8a: 'tbc_father', q4_8b: 'Testfather', q4_8f: false }] };
+const PARENT = { q4_8a: 'mother', q4_8b: 'Testmother', q4_8c: 'Testsurname', q4_8d: '1962-01-02', q4_8e: 'GB', q4_8f: true };
+const S4C = { parents: [PARENT, { ...PARENT, q4_8a: 'father', q4_8b: 'Testfather', q4_8f: false }] };
 
 const ALL = [['1', S1], ['2A', S2A], ['2B', S2B], ['2C', S2C], ['2D', S2D], ['3', S3], ['4A', S4A], ['4B', S4B], ['4C', S4C]];
 
@@ -139,7 +139,7 @@ test('GATE CHANGE: changing 2.13 to a status without a partner prunes the 4A ans
   for (const id of PARTNER_IDS) assert.notEqual(before.answers[id], undefined, `${id} was stored`);
   assert.equal(before.sectionStatus['4A'], 'saved');
 
-  const res = await put(token, '2B', { ...S2B, q2_13: 'tbc_single' });
+  const res = await put(token, '2B', { ...S2B, q2_13: 'single' });
   assert.equal(res.status, 200, JSON.stringify(res.json));
 
   // The response says what was removed, and nothing else is flagged: 4B and 4C do not depend on 2.13.
@@ -153,7 +153,7 @@ test('GATE CHANGE: changing 2.13 to a status without a partner prunes the 4A ans
   assert.equal('4A' in stored.sectionStatus, false, '4A has no status: it no longer applies');
 
   // Everything else is untouched.
-  assert.equal(stored.answers.q2_13, 'tbc_single');
+  assert.equal(stored.answers.q2_13, 'single');
   assert.match(stored.answers.q3_1, /^enc:v1:/);
   assert.equal(stored.answers.dependants.length, 1);
   assert.equal(stored.answers.parents.length, 2);
@@ -168,9 +168,9 @@ test('GATE CHANGE: changing 2.13 to a status without a partner prunes the 4A ans
 
 test('changing 2.13 back brings 4A back as not started, with the old answers gone', async () => {
   const { token, appId } = await fullApplication();
-  await put(token, '2B', { ...S2B, q2_13: 'tbc_single' });
+  await put(token, '2B', { ...S2B, q2_13: 'single' });
 
-  const back = await put(token, '2B', { ...S2B, q2_13: 'tbc_partner' });
+  const back = await put(token, '2B', { ...S2B, q2_13: 'unmarried_partner' });
   assert.equal(back.status, 200);
   assert.deepEqual(back.json.data.needsReview, [], 'a section that was never re-saved is not flagged');
   assert.equal('4A' in back.json.data.application.sectionStatus, false);
@@ -194,7 +194,7 @@ test('a section that does not apply cannot be saved, and nothing is written', as
 
   // Same after 2.13 says single.
   const { token, appId } = await fullApplication();
-  await put(token, '2B', { ...S2B, q2_13: 'tbc_single' });
+  await put(token, '2B', { ...S2B, q2_13: 'single' });
   const snapshot = await rawDoc(appId);
   const again = await put(token, '4A', S4A);
   assert.equal(again.status, 400);
@@ -291,7 +291,7 @@ test('4C: the parents group is always open and needs at least one parent, entrie
 
 test('applications saved before step 6a (config 0.1.0) keep their answers and resume at the new Part 3', async () => {
   const { token, appId } = await start();
-  const answers = { ...S1, ...S2A, ...S2B, q2_13: 'tbc_single', ...S2C, ...S2D };
+  const answers = { ...S1, ...S2A, ...S2B, q2_13: 'single', ...S2C, ...S2D };
   await TouristVisaApplication.collection.updateOne(
     { _id: new mongoose.Types.ObjectId(appId) },
     { $set: {
@@ -309,13 +309,13 @@ test('applications saved before step 6a (config 0.1.0) keep their answers and re
   assert.equal(app.configVersion, '0.1.0-draft', 'the version the answers were collected with is kept');
 
   // Part 2 can still be re-saved as it was.
-  const resave = await put(token, '2B', { ...S2B, q2_13: 'tbc_single' });
+  const resave = await put(token, '2B', { ...S2B, q2_13: 'single' });
   assert.equal(resave.status, 200, JSON.stringify(resave.json));
 });
 
 test('an old saved 2B with 2.23 = Yes is shown as needing review, because the follow-up 2.23a is new', async () => {
   const { token, appId } = await start();
-  const answers = { ...S1, ...S2A, ...S2B, q2_13: 'tbc_single', q2_23: true, ...S2C, ...S2D };
+  const answers = { ...S1, ...S2A, ...S2B, q2_13: 'single', q2_23: true, ...S2C, ...S2D };
   await TouristVisaApplication.collection.updateOne(
     { _id: new mongoose.Types.ObjectId(appId) },
     { $set: {
@@ -331,7 +331,7 @@ test('an old saved 2B with 2.23 = Yes is shown as needing review, because the fo
   assert.equal(app.currentSection, '2B');
   assert.equal(app.answers.q2_23, true, 'the saved answer is not touched');
 
-  const fix = await put(token, '2B', { ...S2B, q2_13: 'tbc_single', q2_23: true, q2_23a: 'Plain made-up details' });
+  const fix = await put(token, '2B', { ...S2B, q2_13: 'single', q2_23: true, q2_23a: 'Plain made-up details' });
   assert.equal(fix.status, 200, JSON.stringify(fix.json));
   assert.equal(fix.json.data.application.sectionStatus['2B'], 'saved');
   assert.equal(fix.json.data.application.currentSection, '3');

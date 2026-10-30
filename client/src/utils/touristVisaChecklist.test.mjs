@@ -60,11 +60,11 @@ const rows = (checklist) => checklist.parts.flatMap((p) => p.sections.map((s) =>
 
 test("changing 2.13 adds or removes the 4A row, and the counts follow", () => {
   const status = { 1: "saved", "2A": "saved", "2B": "saved", "2C": "saved", "2D": "saved", 3: "saved", "4B": "saved", "4C": "saved" };
-  const single = buildChecklist(config, { sectionStatus: status, answers: { q2_13: "tbc_single" } });
+  const single = buildChecklist(config, { sectionStatus: status, answers: { q2_13: "single" } });
   assert.equal(rows(single).includes("4A"), false);
   assert.deepEqual([single.saved, single.total], [8, 15], "the eight sections of Parts 1-4 are saved; Parts 5-8 are not started");
 
-  const married = buildChecklist(config, { sectionStatus: status, answers: { q2_13: "tbc_married" } });
+  const married = buildChecklist(config, { sectionStatus: status, answers: { q2_13: "married" } });
   assert.deepEqual(rows(married), ["1", "2A", "2B", "2C", "2D", "3", "4A", "4B", "4C", "5", "6A", "6B", "6C", "6D", "7", "8"]);
   assert.deepEqual([married.saved, married.total], [8, 16]);
   const row = married.parts[3].sections.find((s) => s.id === "4A");
@@ -72,7 +72,7 @@ test("changing 2.13 adds or removes the 4A row, and the counts follow", () => {
 });
 
 test("a status the server still reports for a section that does not apply is not counted", () => {
-  const checklist = buildChecklist(config, { sectionStatus: { "4A": "saved", 1: "saved" }, answers: { q2_13: "tbc_single" } });
+  const checklist = buildChecklist(config, { sectionStatus: { "4A": "saved", 1: "saved" }, answers: { q2_13: "single" } });
   assert.equal(rows(checklist).includes("4A"), false);
   assert.equal(checklist.saved, 1);
 });

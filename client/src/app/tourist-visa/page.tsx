@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTouristVisa } from "@/context/TouristVisaContext";
-import { config, getReleaseBlockers } from "@/shared/tourist-visa/engine";
+import { config, getDraftItems, getReleaseBlockers } from "@/shared/tourist-visa/engine";
 import type { TouristVisaApplication } from "@/services/touristVisaService";
 import {
   buildChecklist,
@@ -93,6 +93,7 @@ export default function TouristVisaDashboardPage() {
 
   const preview = isPreviewMode();
   const blocked = getReleaseBlockers(config).length;
+  const drafted = getDraftItems(config).length;
   const open = isFormOpen(blocked, preview);
 
   const application = state.status === "ready" ? state.application : null;
@@ -109,11 +110,22 @@ export default function TouristVisaDashboardPage() {
         </p>
       </header>
 
-      {preview && blocked > 0 && (
+      {preview && (blocked > 0 || drafted > 0) && (
         <div className="mb-6">
           <Notice tone="warning">
-            <strong>Preview mode.</strong> {blocked} section{blocked === 1 ? "" : "s"} still use questions or answer lists
-            that are not confirmed yet (marked [TBC]). Do not use real applicant details.
+            <strong>Preview mode.</strong>{" "}
+            {blocked > 0 && (
+              <>
+                {blocked} section{blocked === 1 ? "" : "s"} still have questions that are not confirmed yet (marked TBC).{" "}
+              </>
+            )}
+            {drafted > 0 && (
+              <>
+                {drafted} section{drafted === 1 ? "" : "s"} use draft answer lists that still need review (marked Draft
+                options).{" "}
+              </>
+            )}
+            Do not use real applicant details.
           </Notice>
         </div>
       )}

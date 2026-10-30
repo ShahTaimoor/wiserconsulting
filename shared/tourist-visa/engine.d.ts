@@ -76,6 +76,11 @@ export interface Question {
   note?: string;
   /** Open gap from the spec. Any tbc blocks release of the section. */
   tbc?: string;
+  /**
+   * The option list of this SEL or CHK question is a draft that needs senior review.
+   * It does not block release; it is listed separately from tbc items.
+   */
+  draft?: string;
 }
 
 export interface RepeatGroup {
@@ -146,6 +151,11 @@ export interface ReleaseBlocker {
   items: Array<{ id: string; number: string | null; tbc: string }>;
 }
 
+export interface DraftItems {
+  sectionId: string;
+  items: Array<{ id: string; number: string; draft: string }>;
+}
+
 export const config: TouristVisaConfig;
 
 export function getCountries(): Array<{ code: string; name: string }>;
@@ -192,5 +202,7 @@ export function validateSection(
 ): SectionResult;
 
 export function getReleaseBlockers(cfg: TouristVisaConfig): ReleaseBlocker[];
+/** Questions with a draft option list, by section, for the release check. */
+export function getDraftItems(cfg: TouristVisaConfig): DraftItems[];
 export function isSectionReleasable(cfg: TouristVisaConfig, sectionId: string): boolean;
 export function validateConfig(cfg: unknown): string[];

@@ -27,34 +27,34 @@ import {
 const cfg = engine.config;
 
 // Valid made-up values for each section, as the form would hold them.
-const V1 = { q1_1: "tourism", q1_2: false, q1_3: false, q1_4: "tbc_a", q1_5: "Test trip.", q1_6: "2027-03-01", q1_7: "2027-03-15" };
+const V1 = { q1_1: "tourism", q1_2: false, q1_3: false, q1_4: "holiday", q1_5: "Test trip.", q1_6: "2027-03-01", q1_7: "2027-03-15" };
 const V2A = {
-  q2_1: "Testfirst", q2_2: "Testlast", q2_3: false, q2_4: "test.applicant@example.com", q2_5: "tbc_self", q2_6: false,
+  q2_1: "Testfirst", q2_2: "Testlast", q2_3: false, q2_4: "test.applicant@example.com", q2_5: "me", q2_6: false,
   q2_9: "test.applicant@example.com", q2_10: "test.applicant@example.com", q2_11: "test.applicant@example.com",
 };
 const V2B = {
-  q2_12: "tbc_a", q2_13: "tbc_single", q2_14: "GB", q2_15: "GB", q2_16: "Testville", q2_17: "1990-01-01",
+  q2_12: "female", q2_13: "single", q2_14: "GB", q2_15: "GB", q2_16: "Testville", q2_17: "1990-01-01",
   q2_18: true, q2_19: "FAKE-ID-0001", q2_20: "Test Authority", q2_23: false,
 };
 const V2C = {
   q2_24: { line1: "1 Test Street", town: "Testville", country: "GB" }, q2_25: true,
-  q2_27: { years: 2, months: 3 }, q2_28: "tbc_owned", q2_30: false, q2_31: false,
+  q2_27: { years: 2, months: 3 }, q2_28: "owned", q2_30: false, q2_31: false,
 };
-const V2D = { q2_32: { countryCode: "+44", number: "7700 900123" }, q2_33: "tbc_a", q2_34: "mobile", q2_35: ["call"] };
+const V2D = { q2_32: { countryCode: "+44", number: "7700 900123" }, q2_33: "in_uk", q2_34: "mobile", q2_35: ["call"] };
 const V3 = { q3_1: "FAKE-PASSPORT-9876", q3_2: "Test Passport Office", q3_3: "2022-05-01", q3_4: "2032-05-01" };
 const V4A = { q4_1: "Testpartner", q4_2: "Testsurname", q4_3: "1991-02-03", q4_4: "GB", q4_5: true, q4_6: false };
-const DEPENDANT = { q4_7a: "tbc_child", q4_7b: "Testchild", q4_7c: "Testsurname", q4_7d: "2015-06-07", q4_7e: true, q4_7f: false };
+const DEPENDANT = { q4_7a: "son", q4_7b: "Testchild", q4_7c: "Testsurname", q4_7d: "2015-06-07", q4_7e: true, q4_7f: false };
 const V4B = { q4_7: true, dependants: [DEPENDANT] };
-const PARENT = { q4_8a: "tbc_mother", q4_8b: "Testmother", q4_8c: "Testsurname", q4_8d: "1962-01-02", q4_8e: "GB", q4_8f: true };
-const V4C = { parents: [PARENT, { ...PARENT, q4_8a: "tbc_father", q4_8b: "Testfather", q4_8f: false }] };
+const PARENT = { q4_8a: "mother", q4_8b: "Testmother", q4_8c: "Testsurname", q4_8d: "1962-01-02", q4_8e: "GB", q4_8f: true };
+const V4C = { parents: [PARENT, { ...PARENT, q4_8a: "father", q4_8b: "Testfather", q4_8f: false }] };
 const gbp = (amount) => ({ amount, currency: "GBP" });
 const V5 = {
-  q5_1: "tbc_employed", q5_2: "2019-04", q5_3: "Test Employer Ltd",
+  q5_1: "employed", q5_2: "2019-04", q5_3: "Test Employer Ltd",
   q5_4: { line1: "3 Test Street", town: "Testville", country: "GB" },
   q5_5: { countryCode: "+44", number: "20 7946 0000" }, q5_6: "Test Analyst",
   q5_7: gbp(2500.5), q5_8: "Made-up description of a made-up job.", q5_9: "Previous Test Co",
 };
-const V6A = { q6_1: "tbc_savings", q6_2: gbp(8000), q6_3: gbp(1500), q6_4: gbp(900), q6_5: false };
+const V6A = { q6_1: "savings", q6_2: gbp(8000), q6_3: gbp(1500), q6_4: gbp(900), q6_5: false };
 const STAY = {
   q6_7a: "Test Hotel", q6_7b: { line1: "2 Test Road", town: "Testtown", country: "GB" },
   q6_7c: "2027-03-01", q6_7d: "2027-03-08",
@@ -63,17 +63,17 @@ const V6C = { q6_7: true, accommodation: [STAY, { ...STAY, q6_7a: "Second Hotel"
 // Parts 7 and 8. Dates are worked out from today because the shared rules check them against the clock.
 const ago = (days) => new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
 const monthAgo = (days) => ago(days).slice(0, 7);
-const VISIT = { q7_5a: "tbc_visit", q7_5b: monthAgo(600), q7_5c: { weeks: 2 } };
-const PROBLEM = { q7_7a: "tbc_refused_visa", q7_7b: "GB", q7_7c: monthAgo(6000), q7_7d: "Made-up details of what happened." };
+const VISIT = { q7_5a: "tourism", q7_5b: monthAgo(600), q7_5c: { weeks: 2 } };
+const PROBLEM = { q7_7a: "refused_visa", q7_7b: "GB", q7_7c: monthAgo(6000), q7_7d: "Made-up details of what happened." };
 const V7 = {
   q7_1: true, q7_2: monthAgo(900), q7_3: false, q7_4: true, q7_5: 2, ukVisits: [VISIT, { ...VISIT, q7_5c: { days: 4 } }],
   q7_6: false, q7_7: true, immigrationProblems: [PROBLEM],
 };
-const TRIP = { q8_2a: "FR", q8_2b: "tbc_tourism", q8_2c: ago(400), q8_2d: ago(390) };
+const TRIP = { q8_2a: "FR", q8_2b: "tourism", q8_2c: ago(400), q8_2d: ago(390) };
 const V8 = { q8_1: 3, q8_2: true, otherCountryTrips: [TRIP] };
 // 2.13 is married here, so that section 4A applies and is exercised too.
 const ALL = {
-  1: V1, "2A": V2A, "2B": { ...V2B, q2_13: "tbc_married" }, "2C": V2C, "2D": V2D, 3: V3, "4A": V4A, "4B": V4B, "4C": V4C,
+  1: V1, "2A": V2A, "2B": { ...V2B, q2_13: "married" }, "2C": V2C, "2D": V2D, 3: V3, "4A": V4A, "4B": V4B, "4C": V4C,
   5: V5, "6A": V6A, "6B": { q6_6: false }, "6C": V6C, "6D": { q6_8: false }, 7: V7, 8: V8,
 };
 
@@ -191,9 +191,9 @@ test("payload: a complete section is sent as typed", () => {
 });
 
 test("payload: hidden questions are left out even if they hold a value", () => {
-  const out = payload("1", { ...V1, q1_1: "tbc_other" }); // 1.4 only shows for the tourism option
+  const out = payload("1", { ...V1, q1_1: "other" }); // 1.4 only shows for the tourism option
   assert.equal("q1_4" in out, false);
-  const noSecond = payload("2A", { ...V2A, q2_6: false, q2_7: "x@example.com", q2_8: "tbc_self" });
+  const noSecond = payload("2A", { ...V2A, q2_6: false, q2_7: "x@example.com", q2_8: "me" });
   assert.equal("q2_7" in noSecond || "q2_8" in noSecond, false);
   const noId = payload("2B", { ...V2B, q2_18: false });
   assert.equal(["q2_19", "q2_20", "q2_21", "q2_22"].some((k) => k in noId), false);
@@ -280,7 +280,7 @@ test("round trip: the payload built for every section passes the shared validati
 test("round trip: a section with an open repeating group and the second email passes", () => {
   const values = {
     ...V2A, q2_3: true, otherNames: [{ q2_3a: "Alias", q2_3b: "One" }, { q2_3a: "Second", q2_3b: "Alias" }],
-    q2_6: true, q2_7: "second@example.com", q2_8: "tbc_other", q2_10: "second@example.com",
+    q2_6: true, q2_7: "second@example.com", q2_8: "other", q2_10: "second@example.com",
   };
   const result = engine.validateSection(z, cfg, "2A", payload("2A", values), {});
   assert.equal(result.success, true, JSON.stringify(result.errors));
@@ -385,10 +385,10 @@ test("hintFor builds a hint from the question's rules", () => {
 // ---------------------------------------------------------------------------
 
 test("next and previous section skip a section that does not apply (4A without a partner)", () => {
-  const single = { q2_13: "tbc_single" };
+  const single = { q2_13: "single" };
   assert.equal(nextSectionId(cfg, "3", single), "4B");
   assert.equal(previousSectionId(cfg, "4B", single), "3");
-  for (const status of ["tbc_married", "tbc_partner"]) {
+  for (const status of ["married", "unmarried_partner"]) {
     assert.equal(nextSectionId(cfg, "3", { q2_13: status }), "4A");
     assert.equal(previousSectionId(cfg, "4B", { q2_13: status }), "4A");
   }
@@ -426,9 +426,9 @@ test("payload: the parents group is sent with its entries, blank ones included, 
 });
 
 test("payload: section 4A is empty while 2.13 does not indicate a partner, and full once it does", () => {
-  assert.deepEqual(payload("4A", V4A, { q2_13: "tbc_single" }), {});
+  assert.deepEqual(payload("4A", V4A, { q2_13: "single" }), {});
   assert.deepEqual(payload("4A", V4A, {}), {});
-  assert.deepEqual(payload("4A", V4A, { q2_13: "tbc_partner" }), V4A);
+  assert.deepEqual(payload("4A", V4A, { q2_13: "unmarried_partner" }), V4A);
 });
 
 test("payload: yes/no answers inside a dependants entry stay real booleans, false included", () => {
@@ -438,7 +438,7 @@ test("payload: yes/no answers inside a dependants entry stay real booleans, fals
 });
 
 test("round trip: with 2.13 = single the 4A payload is empty and validates as nothing to answer", () => {
-  const saved = { q2_13: "tbc_single" };
+  const saved = { q2_13: "single" };
   const answers = payload("4A", V4A, saved);
   const result = engine.validateSection(z, cfg, "4A", answers, saved);
   assert.equal(result.success, true);
@@ -498,8 +498,8 @@ test("initialValues: the accommodation group stays closed until 6.7 is Yes, then
 
 test("payload: section 5 sends only 5.1 unless the status is employed", () => {
   assert.deepEqual(payload("5", V5), V5);
-  assert.deepEqual(payload("5", { ...V5, q5_1: "tbc_student" }), { q5_1: "tbc_student" });
-  assert.deepEqual(payload("5", { ...V5, q5_1: "tbc_student" }, {}), { q5_1: "tbc_student" });
+  assert.deepEqual(payload("5", { ...V5, q5_1: "student" }), { q5_1: "student" });
+  assert.deepEqual(payload("5", { ...V5, q5_1: "student" }, {}), { q5_1: "student" });
 });
 
 test("payload: an amount of zero is a real answer and is kept; an empty amount is not", () => {

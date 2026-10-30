@@ -1,5 +1,5 @@
 {
-  "version": "0.4.0-draft",
+  "version": "0.5.0-draft",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
@@ -106,10 +106,15 @@
       "type": "SEL",
       "required": true,
       "options": [
-        { "value": "tourism", "label": "[TBC] Tourism" },
-        { "value": "tbc_other", "label": "[TBC] Other reason" }
+        { "value": "tourism", "label": "Tourism or holiday" },
+        { "value": "family_friends", "label": "Visiting family or friends" },
+        { "value": "business", "label": "Business" },
+        { "value": "study", "label": "Short course of study" },
+        { "value": "medical", "label": "Medical treatment" },
+        { "value": "transit", "label": "Passing through the UK on the way to another country" },
+        { "value": "other", "label": "Another reason" }
       ],
-      "tbc": "Option list to confirm. The value that counts as the tourism option (used by 1.4) is also to confirm."
+      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review. The value 'tourism' is the one that opens 1.4."
     },
     {
       "id": "q1_2",
@@ -138,10 +143,13 @@
       "required": true,
       "showWhen": { "q": "q1_1", "eq": "tourism" },
       "options": [
-        { "value": "tbc_a", "label": "[TBC] Holiday reason A" },
-        { "value": "tbc_b", "label": "[TBC] Holiday reason B" }
+        { "value": "holiday", "label": "Holiday or sightseeing" },
+        { "value": "event", "label": "Attending an event, for example a concert, festival or sports match" },
+        { "value": "shopping", "label": "A shopping trip" },
+        { "value": "cruise", "label": "Joining or leaving a cruise" },
+        { "value": "other", "label": "Another leisure reason" }
       ],
-      "tbc": "Option list to confirm."
+      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review."
     },
     {
       "id": "q1_5",
@@ -230,10 +238,12 @@
       "type": "SEL",
       "required": true,
       "options": [
-        { "value": "tbc_self", "label": "[TBC] Me" },
-        { "value": "tbc_other", "label": "[TBC] Someone else" }
+        { "value": "me", "label": "Me" },
+        { "value": "family_or_friend", "label": "A family member or friend" },
+        { "value": "representative", "label": "A representative or agent helping me apply" },
+        { "value": "other", "label": "Someone else" }
       ],
-      "tbc": "Option list to confirm."
+      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review."
     },
     {
       "id": "q2_6",
@@ -262,10 +272,12 @@
       "required": true,
       "showWhen": { "q": "q2_6", "eq": true },
       "options": [
-        { "value": "tbc_self", "label": "[TBC] Me" },
-        { "value": "tbc_other", "label": "[TBC] Someone else" }
+        { "value": "me", "label": "Me" },
+        { "value": "family_or_friend", "label": "A family member or friend" },
+        { "value": "representative", "label": "A representative or agent helping me apply" },
+        { "value": "other", "label": "Someone else" }
       ],
-      "tbc": "Option list to confirm."
+      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review."
     },
     {
       "id": "q2_9",
@@ -303,10 +315,11 @@
       "type": "SEL",
       "required": true,
       "options": [
-        { "value": "tbc_a", "label": "[TBC] Option A" },
-        { "value": "tbc_b", "label": "[TBC] Option B" }
+        { "value": "female", "label": "Female" },
+        { "value": "male", "label": "Male" },
+        { "value": "other", "label": "Another term shown in my passport, for example X" }
       ],
-      "tbc": "Option list to confirm."
+      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review."
     },
     {
       "id": "q2_13",
@@ -316,11 +329,15 @@
       "type": "SEL",
       "required": true,
       "options": [
-        { "value": "tbc_single", "label": "[TBC] Single" },
-        { "value": "tbc_married", "label": "[TBC] Married" },
-        { "value": "tbc_partner", "label": "[TBC] Unmarried partner" }
+        { "value": "single", "label": "Single" },
+        { "value": "married", "label": "Married" },
+        { "value": "civil_partnership", "label": "In a civil partnership" },
+        { "value": "unmarried_partner", "label": "Unmarried partner" },
+        { "value": "separated", "label": "Separated" },
+        { "value": "divorced", "label": "Divorced or civil partnership dissolved" },
+        { "value": "widowed", "label": "Widowed" }
       ],
-      "tbc": "Option list to confirm, and which statuses show the spouse or partner questions in Part 4. Placeholder mapping: tbc_married and tbc_partner show section 4A; tbc_single does not.",
+      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review. Draft mapping: married, civil_partnership and unmarried_partner show section 4A; single, separated, divorced and widowed do not.",
       "note": "The answer decides whether the spouse or partner questions in Part 4 appear."
     },
     {
@@ -469,11 +486,13 @@
       "type": "SEL",
       "required": true,
       "options": [
-        { "value": "tbc_owned", "label": "[TBC] Owned" },
-        { "value": "tbc_rented", "label": "[TBC] Rented" },
-        { "value": "other", "label": "[TBC] Other" }
+        { "value": "owned", "label": "I own my home" },
+        { "value": "rented", "label": "I rent my home" },
+        { "value": "with_family_or_friends", "label": "I live with family or friends" },
+        { "value": "employer_provided", "label": "My employer provides my home" },
+        { "value": "other", "label": "Other" }
       ],
-      "tbc": "Option list to confirm."
+      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review. The value 'other' is the one the printout links to 2.29."
     },
     {
       "id": "q2_29",
@@ -520,10 +539,11 @@
       "type": "SEL",
       "required": true,
       "options": [
-        { "value": "tbc_a", "label": "[TBC] Option A" },
-        { "value": "tbc_b", "label": "[TBC] Option B" }
+        { "value": "in_home_country", "label": "In my home country" },
+        { "value": "in_uk", "label": "In the UK" },
+        { "value": "in_other_country", "label": "In another country" }
       ],
-      "tbc": "Option list to confirm."
+      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review."
     },
     {
       "id": "q2_34",
@@ -547,9 +567,10 @@
       "required": true,
       "options": [
         { "value": "call", "label": "Telephone call" },
-        { "value": "sms", "label": "Text message (SMS)" }
+        { "value": "sms", "label": "Text message (SMS)" },
+        { "value": "messaging_app", "label": "Messaging app, for example WhatsApp" }
       ],
-      "tbc": "The printout shows these two choices. The full option list is to confirm."
+      "draft": "Draft option list. The printout shows telephone call and text message (SMS); the messaging app choice is an addition. Needs senior review."
     },
 
     {
@@ -597,8 +618,8 @@
       "label": "Given names",
       "type": "TXT",
       "required": true,
-      "showWhen": { "q": "q2_13", "in": ["tbc_married", "tbc_partner"] },
-      "tbc": "Which relationship statuses of 2.13 show the spouse or partner questions is to confirm. Placeholder mapping: tbc_married and tbc_partner show them, tbc_single does not. 4.2 to 4.6 follow the same condition."
+      "showWhen": { "q": "q2_13", "in": ["married", "civil_partnership", "unmarried_partner"] },
+      "tbc": "Which relationship statuses of 2.13 show the spouse or partner questions is to confirm. Draft mapping: married, civil_partnership and unmarried_partner show them; single, separated, divorced and widowed do not. 4.2 to 4.6 follow the same condition."
     },
     {
       "id": "q4_2",
@@ -607,7 +628,7 @@
       "label": "Family name",
       "type": "TXT",
       "required": true,
-      "showWhen": { "q": "q2_13", "in": ["tbc_married", "tbc_partner"] }
+      "showWhen": { "q": "q2_13", "in": ["married", "civil_partnership", "unmarried_partner"] }
     },
     {
       "id": "q4_3",
@@ -616,7 +637,7 @@
       "label": "Date of birth",
       "type": "DATE",
       "required": true,
-      "showWhen": { "q": "q2_13", "in": ["tbc_married", "tbc_partner"] },
+      "showWhen": { "q": "q2_13", "in": ["married", "civil_partnership", "unmarried_partner"] },
       "rules": { "notFuture": true }
     },
     {
@@ -626,7 +647,7 @@
       "label": "Country of nationality",
       "type": "CTRY",
       "required": true,
-      "showWhen": { "q": "q2_13", "in": ["tbc_married", "tbc_partner"] }
+      "showWhen": { "q": "q2_13", "in": ["married", "civil_partnership", "unmarried_partner"] }
     },
     {
       "id": "q4_5",
@@ -635,7 +656,7 @@
       "label": "Do they currently live with you?",
       "type": "YN",
       "required": true,
-      "showWhen": { "q": "q2_13", "in": ["tbc_married", "tbc_partner"] }
+      "showWhen": { "q": "q2_13", "in": ["married", "civil_partnership", "unmarried_partner"] }
     },
     {
       "id": "q4_6",
@@ -644,7 +665,7 @@
       "label": "Will they be travelling with you to the UK?",
       "type": "YN",
       "required": true,
-      "showWhen": { "q": "q2_13", "in": ["tbc_married", "tbc_partner"] }
+      "showWhen": { "q": "q2_13", "in": ["married", "civil_partnership", "unmarried_partner"] }
     },
 
     {
@@ -664,10 +685,16 @@
       "required": true,
       "group": "dependants",
       "options": [
-        { "value": "tbc_child", "label": "[TBC] Child" },
-        { "value": "tbc_other", "label": "[TBC] Other relative" }
+        { "value": "son", "label": "Son" },
+        { "value": "daughter", "label": "Daughter" },
+        { "value": "stepchild", "label": "Stepchild" },
+        { "value": "grandchild", "label": "Grandchild" },
+        { "value": "parent", "label": "Parent" },
+        { "value": "sibling", "label": "Brother or sister" },
+        { "value": "other_relative", "label": "Other relative" },
+        { "value": "other", "label": "Someone else who depends on me" }
       ],
-      "tbc": "Option list to confirm."
+      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review."
     },
     {
       "id": "q4_7b",
@@ -725,10 +752,13 @@
       "required": true,
       "group": "parents",
       "options": [
-        { "value": "tbc_mother", "label": "[TBC] Mother" },
-        { "value": "tbc_father", "label": "[TBC] Father" }
+        { "value": "mother", "label": "Mother" },
+        { "value": "father", "label": "Father" },
+        { "value": "stepmother", "label": "Stepmother" },
+        { "value": "stepfather", "label": "Stepfather" },
+        { "value": "guardian", "label": "Legal guardian" }
       ],
-      "tbc": "Option list to confirm."
+      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review."
     },
     {
       "id": "q4_8b",
@@ -786,12 +816,16 @@
       "type": "SEL",
       "required": true,
       "options": [
-        { "value": "tbc_employed", "label": "[TBC] Employed" },
-        { "value": "tbc_self_employed", "label": "[TBC] Self-employed" },
-        { "value": "tbc_student", "label": "[TBC] Student" },
-        { "value": "tbc_not_working", "label": "[TBC] Not working" }
+        { "value": "employed", "label": "Employed" },
+        { "value": "self_employed", "label": "Self-employed" },
+        { "value": "retired", "label": "Retired" },
+        { "value": "student", "label": "Student" },
+        { "value": "homemaker", "label": "Homemaker (looking after the home or family)" },
+        { "value": "unemployed", "label": "Not working" },
+        { "value": "other", "label": "Other" }
       ],
-      "tbc": "Option list to confirm, and the questions shown for each status other than employed. Placeholder mapping: only tbc_employed shows 5.2 to 5.9; the other placeholder statuses show nothing further.",
+      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review.",
+      "tbc": "The questions shown for each status other than employed are to confirm. Draft mapping: only 'employed' shows 5.2 to 5.9; every other status shows nothing further.",
       "note": "The answer decides which of 5.2 to 5.9 appear."
     },
     {
@@ -801,7 +835,7 @@
       "label": "Date you started working for this employer",
       "type": "MY",
       "required": true,
-      "showWhen": { "q": "q5_1", "eq": "tbc_employed" },
+      "showWhen": { "q": "q5_1", "eq": "employed" },
       "rules": { "notFuture": true }
     },
     {
@@ -811,7 +845,7 @@
       "label": "Employer's name",
       "type": "TXT",
       "required": true,
-      "showWhen": { "q": "q5_1", "eq": "tbc_employed" }
+      "showWhen": { "q": "q5_1", "eq": "employed" }
     },
     {
       "id": "q5_4",
@@ -820,7 +854,7 @@
       "label": "Employer's address",
       "type": "ADDR",
       "required": true,
-      "showWhen": { "q": "q5_1", "eq": "tbc_employed" }
+      "showWhen": { "q": "q5_1", "eq": "employed" }
     },
     {
       "id": "q5_5",
@@ -829,7 +863,7 @@
       "label": "Employer's telephone number",
       "type": "TEL",
       "required": true,
-      "showWhen": { "q": "q5_1", "eq": "tbc_employed" }
+      "showWhen": { "q": "q5_1", "eq": "employed" }
     },
     {
       "id": "q5_6",
@@ -838,7 +872,7 @@
       "label": "Your job title",
       "type": "TXT",
       "required": true,
-      "showWhen": { "q": "q5_1", "eq": "tbc_employed" }
+      "showWhen": { "q": "q5_1", "eq": "employed" }
     },
     {
       "id": "q5_7",
@@ -847,7 +881,7 @@
       "label": "How much do you earn each month - after tax?",
       "type": "AMT",
       "required": true,
-      "showWhen": { "q": "q5_1", "eq": "tbc_employed" },
+      "showWhen": { "q": "q5_1", "eq": "employed" },
       "rules": { "max": 1000000 }
     },
     {
@@ -857,7 +891,7 @@
       "label": "Describe your job",
       "type": "LNG",
       "required": true,
-      "showWhen": { "q": "q5_1", "eq": "tbc_employed" }
+      "showWhen": { "q": "q5_1", "eq": "employed" }
     },
     {
       "id": "q5_9",
@@ -866,7 +900,7 @@
       "label": "Previous employment organisation",
       "type": "TXT",
       "required": false,
-      "showWhen": { "q": "q5_1", "eq": "tbc_employed" },
+      "showWhen": { "q": "q5_1", "eq": "employed" },
       "help": "Leave this blank if you have no previous employment to list.",
       "tbc": "Answer type and options to confirm. The printout suggests a pick-list with a none-of-the-above choice. Default: an optional text box, so the organisation's name is kept and a blank answer means none."
     },
@@ -879,12 +913,13 @@
       "type": "SEL",
       "required": true,
       "options": [
-        { "value": "tbc_savings", "label": "[TBC] Savings" },
-        { "value": "tbc_income", "label": "[TBC] Another income" },
-        { "value": "tbc_both", "label": "[TBC] Savings and another income" },
-        { "value": "tbc_none", "label": "[TBC] Neither" }
+        { "value": "savings", "label": "I have savings" },
+        { "value": "other_income", "label": "I have another income" },
+        { "value": "savings_and_income", "label": "I have savings and another income" },
+        { "value": "none", "label": "I have neither" }
       ],
-      "tbc": "Option list, and whether more than one can be chosen, to confirm. Default: one choice from the list. Placeholder mapping: tbc_savings and tbc_both show 6.2; the other two do not.",
+      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review.",
+      "tbc": "Whether more than one choice can be picked is to confirm. Draft: one choice from the list, with a combined choice. 'savings' and 'savings_and_income' show 6.2; the other two do not.",
       "note": "6.2 shows when the answer includes savings."
     },
     {
@@ -894,7 +929,7 @@
       "label": "How much money do you have in savings?",
       "type": "AMT",
       "required": true,
-      "showWhen": { "q": "q6_1", "in": ["tbc_savings", "tbc_both"] },
+      "showWhen": { "q": "q6_1", "in": ["savings", "savings_and_income"] },
       "rules": { "max": 100000000 }
     },
     {
@@ -1091,12 +1126,16 @@
       "required": true,
       "group": "ukVisits",
       "options": [
-        { "value": "tbc_visit", "label": "[TBC] Visit or tourism" },
-        { "value": "tbc_business", "label": "[TBC] Business" },
-        { "value": "tbc_study", "label": "[TBC] Study" },
-        { "value": "tbc_other", "label": "[TBC] Other" }
+        { "value": "tourism", "label": "Tourism or holiday" },
+        { "value": "family_friends", "label": "Visiting family or friends" },
+        { "value": "business", "label": "Business" },
+        { "value": "study", "label": "Study" },
+        { "value": "work", "label": "Work" },
+        { "value": "medical", "label": "Medical treatment" },
+        { "value": "transit", "label": "Passing through the UK on the way to another country" },
+        { "value": "other", "label": "Another reason" }
       ],
-      "tbc": "Option list to confirm."
+      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review."
     },
     {
       "id": "q7_5b",
@@ -1171,16 +1210,16 @@
       "required": true,
       "group": "immigrationProblems",
       "options": [
-        { "value": "tbc_refused_visa", "label": "[TBC] Refused a visa" },
-        { "value": "tbc_refused_entry", "label": "[TBC] Refused entry at the border" },
-        { "value": "tbc_refused_stay", "label": "[TBC] Refused permission to stay or remain" },
-        { "value": "tbc_refused_asylum", "label": "[TBC] Refused asylum" },
-        { "value": "tbc_deported", "label": "[TBC] Deported" },
-        { "value": "tbc_removed", "label": "[TBC] Removed" },
-        { "value": "tbc_required_to_leave", "label": "[TBC] Required to leave" },
-        { "value": "tbc_banned", "label": "[TBC] Excluded or banned from entry" }
+        { "value": "refused_visa", "label": "Refused a visa" },
+        { "value": "refused_entry", "label": "Refused entry at the border" },
+        { "value": "refused_stay", "label": "Refused permission to stay or remain" },
+        { "value": "refused_asylum", "label": "Refused asylum" },
+        { "value": "deported", "label": "Deported" },
+        { "value": "removed", "label": "Removed" },
+        { "value": "required_to_leave", "label": "Required to leave" },
+        { "value": "excluded_or_banned", "label": "Excluded or banned from entry" }
       ],
-      "tbc": "Option list to confirm. The placeholders are the eight items of 7.7."
+      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review. The choices are the eight items listed under 7.7."
     },
     {
       "id": "q7_7b",
@@ -1256,12 +1295,16 @@
       "required": true,
       "group": "otherCountryTrips",
       "options": [
-        { "value": "tbc_tourism", "label": "[TBC] Tourism" },
-        { "value": "tbc_business", "label": "[TBC] Business" },
-        { "value": "tbc_study", "label": "[TBC] Study" },
-        { "value": "tbc_other", "label": "[TBC] Other" }
+        { "value": "tourism", "label": "Tourism or holiday" },
+        { "value": "family_friends", "label": "Visiting family or friends" },
+        { "value": "business", "label": "Business" },
+        { "value": "study", "label": "Study" },
+        { "value": "work", "label": "Work" },
+        { "value": "medical", "label": "Medical treatment" },
+        { "value": "transit", "label": "Passing through the UK on the way to another country" },
+        { "value": "other", "label": "Another reason" }
       ],
-      "tbc": "Option list to confirm."
+      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review."
     },
     {
       "id": "q8_2c",
