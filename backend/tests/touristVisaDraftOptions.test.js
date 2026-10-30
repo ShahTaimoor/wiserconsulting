@@ -220,9 +220,14 @@ test('GATE 5.1 with the real values: only Employed shows 5.2-5.9; every other st
   assert.equal((await rawDoc(appId)).answers.q5_3, 'Test Employer Ltd');
 
   const others = ['self_employed', 'retired', 'student', 'homemaker', 'unemployed', 'other'];
+  // The statuses that ask their own required questions (7c) get them in the same save.
+  const ownBlock = {
+    self_employed: { q5_1a: 'Test Business Ltd', q5_1b: '2020-03', q5_1c: ADDRESS, q5_1d: 'Made-up business.', q5_1e: { amount: 3000, currency: 'GBP' } },
+    student: { q5_1f: 'Test University' },
+  };
   for (const status of others) {
     assert.equal((await put(token, '5', EMPLOYED)).status, 200);
-    const res = await put(token, '5', { ...EMPLOYED, q5_1: status });
+    const res = await put(token, '5', { ...EMPLOYED, q5_1: status, ...(ownBlock[status] || {}) });
     assert.equal(res.status, 200, `${status}: ${JSON.stringify(res.json)}`);
     assert.deepEqual(res.json.data.removed.sort(), ['q5_2', 'q5_3', 'q5_4', 'q5_5', 'q5_6', 'q5_7', 'q5_8'], status);
     const stored = await rawDoc(appId);

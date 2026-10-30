@@ -85,7 +85,12 @@ test('config: covers exactly the questions of Parts 1 to 8 in the spec (plus the
   for (let i = 1; i <= 9; i++) expected.add(`5.${i}`);
   for (let i = 1; i <= 8; i++) expected.add(`6.${i}`);
   for (const l of 'abcd') expected.add(`6.7${l}`);
-  for (const n of ['6.5', '6.6', '6.8', '7.3', '7.6']) expected.add(`${n}a`); // placeholder follow-ups added in step 6c, not in the spec
+  for (const n of ['7.3', '7.6']) expected.add(`${n}a`); // placeholder follow-ups added in step 6c, not in the spec (Part 7 is not drafted yet)
+  for (const l of 'abcdefghijkl') expected.add(`5.1${l}`); // other employment statuses (7c)
+  expected.add('6.1a');
+  for (const l of 'bcdefg') { expected.add(`6.5${l}`); expected.add(`6.6${l}`); } // payers and relatives in the UK (7c)
+  expected.add('6.7x'); expected.add('6.7y');
+  for (const l of 'bcde') expected.add(`6.8${l}`);
   for (let i = 1; i <= 7; i++) expected.add(`7.${i}`);
   for (const l of 'abc') expected.add(`7.5${l}`);
   for (const l of 'abcd') expected.add(`7.7${l}`);
@@ -119,32 +124,29 @@ test('config: the drafts are exactly the defaults we chose, each with a note', (
   const drafts = config.questions.filter((q) => q.draft);
   assert.deepEqual(
     drafts.map((q) => q.number),
-    ['1.1', '1.2', '1.3', '1.4', '2.5', '2.7', '2.8', '2.12', '2.13', '2.23', '2.28', '2.29', '2.30', '2.31', '2.33', '2.35', '4.1', '4.7a', '4.8a', '4.8f', '5.1', '6.1', '7.5a', '7.7a', '8.2b']
+    ['1.1', '1.2', '1.3', '1.4', '2.5', '2.7', '2.8', '2.12', '2.13', '2.23', '2.28', '2.29', '2.30', '2.31', '2.33', '2.35', '4.1', '4.7a', '4.8a', '4.8f', '5.1', '5.9', '6.1', '6.5', '6.6', '6.7', '6.8', '7.5a', '7.7a', '8.2b']
   );
-  assert.deepEqual(config.groups.filter((g) => g.draft).map((g) => g.id), ['otherNames', 'parents']);
+  assert.deepEqual(config.groups.filter((g) => g.draft).map((g) => g.id), ['otherNames', 'parents', 'accommodation']);
   for (const x of [...drafts, ...config.groups.filter((g) => g.draft)]) assert.ok(x.draft.length > 20, x.id);
 });
 
-test('config: Parts 1 to 4 have no tbc left (only drafts); Parts 5 to 8 still do', () => {
-  const early = ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C'];
-  assert.deepEqual(config.questions.filter((q) => early.includes(q.section) && q.tbc).map((q) => q.number), []);
-  assert.deepEqual(config.groups.filter((g) => early.includes(g.section) && g.tbc).map((g) => g.id), []);
-  assert.deepEqual(engine.getReleaseBlockers(config).map((b) => b.sectionId), ['5', '6A', '6B', '6C', '6D', '7', '8']);
-  // 5.1 and 6.1 carry both a draft list and a real unknown.
-  const q = (n) => config.questions.find((x) => x.number === n);
-  for (const n of ['5.1', '6.1']) assert.ok(q(n).draft && q(n).tbc, n);
+test('config: Parts 1 to 6 have no tbc left (only drafts); only Parts 7 and 8 still do', () => {
+  const done = ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D'];
+  assert.deepEqual(config.questions.filter((q) => done.includes(q.section) && q.tbc).map((q) => q.number), []);
+  assert.deepEqual(config.groups.filter((g) => done.includes(g.section) && g.tbc).map((g) => g.id), []);
+  assert.deepEqual(engine.getReleaseBlockers(config).map((b) => b.sectionId), ['7', '8']);
 });
 
 test('draft items: getDraftItems lists them by section, and a draft alone leaves a section releasable but held', () => {
   const items = engine.getDraftItems(config);
-  assert.equal(items.reduce((n, s) => n + s.items.length, 0), 27, '25 questions and 2 groups');
+  assert.equal(items.reduce((n, s) => n + s.items.length, 0), 33, '30 questions and 3 groups');
   assert.deepEqual(items.find((s) => s.sectionId === '2D').items.map((i) => i.number), ['2.33', '2.35']);
   assert.ok(items.every((s) => s.items.every((i) => i.draft && i.id && (i.number === null || typeof i.number === 'string'))));
-  for (const id of ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C']) {
+  for (const id of ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D']) {
     assert.equal(engine.isSectionReleasable(config, id), true, `${id} has only drafts`);
     assert.equal(items.some((s) => s.sectionId === id), true);
   }
-  assert.equal(engine.isSectionReleasable(config, '5'), false, '5 has a draft and a real unknown');
+  assert.equal(engine.isSectionReleasable(config, '7'), false, '7 still has real unknowns');
 });
 
 test('config: placeholder options are rejected', () => {
@@ -175,14 +177,13 @@ test('options: the answers that open something are on the lists (2.13 -> 4A, 5.1
   assert.ok(values('q2_35').includes('call') && values('q2_35').includes('sms'), '2.35 keeps the two choices the printout shows');
 });
 
-test('gates with the real values: each 2.13 status decides section 4A, each 5.1 status 5.2-5.9, each 6.1 answer 6.2', () => {
+test('gates with the real values: each 2.13 status decides section 4A, each 5.1 status its block, each 6.1 answer 6.2', () => {
   const sections = (answers) => engine.getVisibleSections(config, answers).map((s) => s.id);
   const partner = { single: false, married: true, civil_partnership: true, unmarried_partner: true, separated: false, divorced: false, widowed: false };
   for (const [status, shows] of Object.entries(partner)) assert.equal(sections({ q2_13: status }).includes('4A'), shows, status);
   const sectionFive = (status) => engine.getVisibleQuestions(config, '5', { q5_1: status }).map((x) => x.id);
-  for (const status of ['employed', 'self_employed', 'retired', 'student', 'homemaker', 'unemployed', 'other']) {
-    assert.equal(sectionFive(status).length, status === 'employed' ? 9 : 1, status);
-  }
+  const expected = { employed: 9, self_employed: 6, student: 4, retired: 3, homemaker: 2, unemployed: 2, other: 2 };
+  for (const [status, count] of Object.entries(expected)) assert.equal(sectionFive(status).length, count, status);
   const savings = (v) => engine.getVisibleQuestions(config, '6A', { q6_1: v }).some((x) => x.id === 'q6_2');
   assert.deepEqual(['savings', 'savings_and_income', 'other_income', 'none'].map(savings), [true, true, false, false]);
 });
@@ -230,27 +231,27 @@ test('config: validateConfig reports broken configs', () => {
 // Release gate
 // ---------------------------------------------------------------------------
 
-test('release gate: sections with open tbc flags are blocked; the others (1-4 and 3) are releasable', () => {
+test('release gate: only sections with open tbc flags (7 and 8) are blocked; all the others are releasable', () => {
   const blockers = engine.getReleaseBlockers(config);
-  assert.deepEqual(blockers.map((b) => b.sectionId), ['5', '6A', '6B', '6C', '6D', '7', '8']);
-  const early = ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C'];
-  for (const s of config.sections) assert.equal(engine.isSectionReleasable(config, s.id), early.includes(s.id));
+  assert.deepEqual(blockers.map((b) => b.sectionId), ['7', '8']);
+  for (const s of config.sections) assert.equal(engine.isSectionReleasable(config, s.id), !['7', '8'].includes(s.id));
   assert.ok(blockers.every((b) => b.items.every((i) => i.tbc)));
 });
 
 test('release gate: a section is releasable once its tbc flags are gone', () => {
   const c = clone(config);
-  for (const q of c.questions) if (q.section === '6B') delete q.tbc;
-  assert.equal(engine.isSectionReleasable(c, '6B'), true);
-  assert.equal(engine.isSectionReleasable(c, '6A'), false);
+  for (const q of c.questions) if (q.section === '8') delete q.tbc;
+  assert.equal(engine.isSectionReleasable(c, '8'), true);
+  assert.equal(engine.isSectionReleasable(c, '7'), false);
 });
 
 test('release gate: a tbc on a repeating group blocks its section', () => {
   const c = clone(config);
-  for (const q of c.questions) if (q.section === '6C') delete q.tbc;
-  assert.equal(engine.isSectionReleasable(c, '6C'), false); // the accommodation group is still tbc
-  delete c.groups.find((g) => g.id === 'accommodation').tbc;
-  assert.equal(engine.isSectionReleasable(c, '6C'), true);
+  assert.equal(engine.isSectionReleasable(c, '4C'), true);
+  c.groups.find((g) => g.id === 'parents').tbc = 'x';
+  assert.equal(engine.isSectionReleasable(c, '4C'), false);
+  delete c.groups.find((g) => g.id === 'parents').tbc;
+  assert.equal(engine.isSectionReleasable(c, '4C'), true);
 });
 
 // ---------------------------------------------------------------------------
@@ -896,21 +897,16 @@ test('part 5: the employed path needs 5.2 to 5.8 and takes an optional 5.9', () 
   assert.deepEqual(Object.keys(empty.errors).sort(), ['q5_2', 'q5_3', 'q5_4', 'q5_5', 'q5_6', 'q5_7', 'q5_8']);
 });
 
-test('part 5: any other status shows only 5.1', () => {
-  for (const status of ['self_employed', 'student', 'unemployed']) {
-    const r = validate('5', { q5_1: status });
-    assert.equal(r.success, true, `${status}: ${JSON.stringify(r.errors)}`);
-    assert.deepEqual(r.data, { q5_1: status });
-  }
+test('part 5: an unknown status is refused, and 5.1 is the only question that is always required', () => {
   assert.deepEqual(Object.keys(validate('5', {}).errors), ['q5_1']);
   assert.equal(validate('5', { q5_1: 'bogus' }).errors.q5_1, 'Choose from the listed options');
 });
 
 test('part 5 gate: changing 5.1 away from employed removes 5.2 to 5.9', () => {
-  const r = validate('5', { ...EMPLOYED, q5_1: 'student' }, EMPLOYED);
+  const r = validate('5', { ...EMPLOYED, q5_1: 'retired' }, EMPLOYED);
   assert.equal(r.success, true);
   assert.deepEqual(r.removed.sort(), ['q5_2', 'q5_3', 'q5_4', 'q5_5', 'q5_6', 'q5_7', 'q5_8', 'q5_9']);
-  assert.deepEqual(r.data, { q5_1: 'student' });
+  assert.deepEqual(r.data, { q5_1: 'retired' });
   const pruned = engine.pruneAnswers(config, { ...EMPLOYED, q5_1: 'unemployed' });
   assert.deepEqual(pruned.answers, { q5_1: 'unemployed' });
   assert.equal(pruned.removed.length, 8);
@@ -980,18 +976,15 @@ test('part 6A gate: changing 6.1 to an answer without savings removes 6.2', () =
   assert.equal(pruned.answers.q6_2, undefined);
 });
 
-test('parts 6B and 6D: one required Yes/No each; a Yes needs the details box', () => {
-  assert.equal(validate('6B', { q6_6: true, q6_6a: 'Made-up details' }).success, true);
-  assert.equal(validate('6B', { q6_6: true }).errors.q6_6a, 'This question is required');
-  assert.equal(validate('6D', { q6_8: true }).errors.q6_8a, 'This question is required');
+test('parts 6B and 6D: one required Yes/No each', () => {
   assert.equal(validate('6B', { q6_6: false }).success, true);
   assert.equal(validate('6B', {}).errors.q6_6, 'This question is required');
   assert.equal(validate('6D', { q6_8: false }).success, true);
   assert.equal(validate('6D', {}).errors.q6_8, 'This question is required');
 });
 
-test('part 6C: a Yes on 6.7 needs at least one place of stay; a No needs nothing more', () => {
-  assert.equal(validate('6C', { q6_7: false }).success, true);
+test('part 6C: a Yes on 6.7 needs at least one place of stay; a No asks for the accommodation plans', () => {
+  assert.equal(validate('6C', { q6_7: false, q6_7x: 'not_decided' }).success, true);
   assert.equal(validate('6C', { q6_7: true }).errors.accommodation, 'Add at least one entry');
   const ok = validate('6C', { q6_7: true, accommodation: [STAY] }, TRIP);
   assert.equal(ok.success, true, JSON.stringify(ok.errors));
@@ -1002,10 +995,10 @@ test('part 6C: a Yes on 6.7 needs at least one place of stay; a No needs nothing
 });
 
 test('part 6C gate: changing 6.7 to No removes every place of stay', () => {
-  const r = validate('6C', { q6_7: false, accommodation: [STAY] }, { accommodation: [STAY] });
+  const r = validate('6C', { q6_7: false, q6_7x: 'not_decided', accommodation: [STAY] }, { accommodation: [STAY] });
   assert.equal(r.success, true);
   assert.deepEqual(r.removed, ['accommodation']);
-  assert.deepEqual(r.data, { q6_7: false });
+  assert.deepEqual(r.data, { q6_7: false, q6_7x: 'not_decided' });
   const pruned = engine.pruneAnswers(config, { q6_7: false, accommodation: [STAY, STAY] });
   assert.deepEqual(pruned.removed, ['accommodation']);
   assert.deepEqual(pruned.answers, { q6_7: false });
@@ -1279,22 +1272,20 @@ test('part 8: dates of a trip are real past dates, the leave date follows the en
   assert.equal(overlapping.success, true, 'only places of stay in the UK are checked for overlap');
 });
 
-test('new follow-ups: 6.5a, 6.6a and 6.8a are required details boxes that go away with a No', () => {
-  const sixA = (a) => validate('6A', { ...S6A, ...a });
-  assert.equal(sixA({ q6_5: true }).errors.q6_5a, 'This question is required');
-  assert.equal(sixA({ q6_5: true, q6_5a: 'Made-up details' }).success, true);
-  assert.deepEqual(sixA({ q6_5: false, q6_5a: 'stale' }).removed, ['q6_5a']);
-  assert.deepEqual(engine.pruneAnswers(config, { q6_6: false, q6_6a: 'x', q6_8: false, q6_8a: 'y' }).removed.sort(), ['q6_6a', 'q6_8a']);
-  assert.equal(validate('6B', { q6_6: false, q6_6a: 'stale' }, { q6_6a: 'stale' }).removed[0], 'q6_6a');
-  assert.equal(validate('6D', { q6_8: true, q6_8a: 'Made-up details' }).success, true);
-  for (const id of ['q6_5a', 'q6_6a', 'q6_8a', 'q7_3a', 'q7_6a']) {
+test('the placeholder details boxes that remain (7.3a and 7.6a) are required, go away with a No and carry a tbc flag', () => {
+  const seven = (a) => validate('7', { q7_1: false, q7_3: false, q7_4: false, q7_6: false, q7_7: false, ...a });
+  assert.equal(seven({ q7_3: true }).errors.q7_3a, 'This question is required');
+  assert.equal(seven({ q7_3: true, q7_3a: 'Made-up details' }).success, true);
+  assert.deepEqual(seven({ q7_3a: 'stale' }).removed, ['q7_3a']);
+  assert.deepEqual(engine.pruneAnswers(config, { q7_3: false, q7_3a: 'x', q7_6: false, q7_6a: 'y' }).removed.sort(), ['q7_3a', 'q7_6a']);
+  for (const id of ['q7_3a', 'q7_6a']) {
     const q = config.questions.find((x) => x.id === id);
     assert.equal(q.type, 'LNG', id);
     assert.equal(q.label, 'Please give details', id);
     assert.ok(q.tbc, `${id} carries a tbc flag`);
     assert.equal(q.sensitive, undefined, id);
   }
-  // None of the new follow-ups asks about identity or passport numbers.
+  // None of the follow-ups asks about identity or passport numbers.
   assert.ok(!config.questions.some((q) => q.section === '7' && /passport|identity|national id/i.test(q.label)));
 });
 
@@ -1328,16 +1319,12 @@ test('sections: Parts 7 and 8 are always shown', () => {
   for (const id of ['7', '8']) assert.equal(engine.isSectionVisible(config, id, {}), true);
 });
 
-test('compatibility: answers saved under config 0.3.0 (Parts 1-6) still validate, except a Yes that now needs its details', () => {
+test('compatibility: answers saved under config 0.3.0 (Parts 1-6) still validate where nothing new is asked', () => {
   assert.equal(validate('5', EMPLOYED).success, true);
   assert.equal(validate('6A', S6A).success, true);
   assert.equal(validate('6B', { q6_6: false }).success, true);
   assert.equal(validate('6D', { q6_8: false }).success, true);
   assert.equal(validate('6C', { q6_7: true, accommodation: [STAY] }, TRIP).success, true);
-  // A Yes saved before 6.5a, 6.6a and 6.8a existed is kept, but the section has to be saved once more.
-  assert.equal(validate('6A', { ...S6A, q6_5: true }).errors.q6_5a, 'This question is required');
-  assert.equal(validate('6B', { q6_6: true }).errors.q6_6a, 'This question is required');
-  assert.equal(validate('6D', { q6_8: true }).errors.q6_8a, 'This question is required');
 });
 
 // ---------------------------------------------------------------------------
@@ -1520,8 +1507,9 @@ test('getHeldSections: a section is held while it has a tbc flag or a draft; not
   assert.deepEqual(held.map((h) => h.sectionId), ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8']);
   assert.deepEqual(held.find((h) => h.sectionId === '3'), undefined, 'section 3 has neither');
   assert.deepEqual(held.find((h) => h.sectionId === '2D'), { sectionId: '2D', tbc: 0, draft: 2 });
-  assert.deepEqual(held.find((h) => h.sectionId === '6B'), { sectionId: '6B', tbc: 2, draft: 0 });
-  assert.deepEqual(held.find((h) => h.sectionId === '5'), { sectionId: '5', tbc: 2, draft: 1 });
+  assert.deepEqual(held.find((h) => h.sectionId === '6B'), { sectionId: '6B', tbc: 0, draft: 1 });
+  assert.deepEqual(held.find((h) => h.sectionId === '5'), { sectionId: '5', tbc: 0, draft: 2 });
+  assert.deepEqual(held.find((h) => h.sectionId === '7'), { sectionId: '7', tbc: 6, draft: 2 });
 
   const c = clone(config);
   for (const q of c.questions) { delete q.tbc; delete q.draft; }
@@ -1617,4 +1605,229 @@ test('prune: saving a different section does not remove the parents of an applic
   assert.deepEqual(r.removed, []);
   const { removed } = engine.pruneAnswers(config, { ...stored, ...r.data });
   assert.deepEqual(removed, []);
+});
+
+// ---------------------------------------------------------------------------
+// Step 7c: Parts 5 and 6 follow-ups (employment statuses, other income, who is paying,
+// family in the UK, no UK address, public funds)
+// ---------------------------------------------------------------------------
+
+const SELF_EMPLOYED = { q5_1: 'self_employed', q5_1a: 'Test Business Ltd', q5_1b: '2020-03', q5_1c: ADDRESS, q5_1d: 'Made-up description of a made-up business.', q5_1e: gbp(3000) };
+const STUDENT = { q5_1: 'student', q5_1f: 'Test University' };
+const PAYER = { q6_5b: 'relative', q6_5c: 'Testpayer', q6_5d: 'parent', q6_5e: 'GB' };
+const RELATIVE = { q6_6b: 'sibling', q6_6c: 'Testrelative', q6_6d: 'Testsurname', q6_6f: 'GB', q6_6g: 'british_citizen' };
+const FUNDS = { q6_8b: 'housing_benefit', q6_8c: '2023-01' };
+const PART56 = ['5', '6A', '6B', '6C', '6D'];
+
+test('5.1 self-employed: business name, start, address, what it does and monthly income are all required', () => {
+  const blank = validate('5', { q5_1: 'self_employed' });
+  assert.deepEqual(Object.keys(blank.errors).sort(), ['q5_1a', 'q5_1b', 'q5_1c', 'q5_1d', 'q5_1e']);
+  const ok = validate('5', SELF_EMPLOYED);
+  assert.equal(ok.success, true, JSON.stringify(ok.errors));
+  assert.equal(validate('5', { ...SELF_EMPLOYED, q5_1b: '2090-01' }).errors.q5_1b, 'Cannot be in the future');
+  assert.equal(validate('5', { ...SELF_EMPLOYED, q5_1e: gbp(-1) }).errors['q5_1e.amount'], 'Cannot be negative');
+  assert.equal(validate('5', { ...SELF_EMPLOYED, q5_1e: gbp(1000001) }).errors['q5_1e.amount'], 'Amount cannot be more than 1,000,000');
+  assert.equal(validate('5', { ...SELF_EMPLOYED, q5_1e: gbp(0) }).success, true, 'zero is a real answer');
+  assert.equal(validate('5', { ...SELF_EMPLOYED, q5_1d: 'x'.repeat(2000) }).success, true);
+  assert.equal(validate('5', { ...SELF_EMPLOYED, q5_1d: 'x'.repeat(2001) }).errors.q5_1d, 'Must be 2000 characters or fewer');
+  assert.ok(validate('5', { ...SELF_EMPLOYED, q5_1c: { line1: '1 Test Street' } }).errors['q5_1c.town']);
+});
+
+test('5.1 student: only the institution is required; its address and the course are optional', () => {
+  assert.deepEqual(Object.keys(validate('5', { q5_1: 'student' }).errors), ['q5_1f']);
+  assert.equal(validate('5', STUDENT).success, true);
+  const full = validate('5', { ...STUDENT, q5_1g: ADDRESS, q5_1h: 'Made-up course' });
+  assert.equal(full.success, true, JSON.stringify(full.errors));
+  assert.equal(full.data.q5_1h, 'Made-up course');
+  assert.equal(validate('5', { ...STUDENT, q5_1f: 'x'.repeat(201) }).errors.q5_1f, 'Must be 200 characters or fewer');
+});
+
+test('5.1 retired: nothing is required; the retirement date cannot be in the future; the pension cannot be negative', () => {
+  assert.equal(validate('5', { q5_1: 'retired' }).success, true);
+  assert.equal(validate('5', { q5_1: 'retired', q5_1i: '2018-06', q5_1j: gbp(900) }).success, true);
+  assert.equal(validate('5', { q5_1: 'retired', q5_1i: '2090-06' }).errors.q5_1i, 'Cannot be in the future');
+  assert.equal(validate('5', { q5_1: 'retired', q5_1j: gbp(-5) }).errors['q5_1j.amount'], 'Cannot be negative');
+  assert.equal(validate('5', { q5_1: 'retired', q5_1j: gbp(1000001) }).errors['q5_1j.amount'], 'Amount cannot be more than 1,000,000');
+});
+
+test('5.1 homemaker, not working and other: an optional list, and a required description when the answer is "other"', () => {
+  for (const status of ['homemaker', 'unemployed', 'other']) {
+    assert.equal(validate('5', { q5_1: status }).success, true, `${status}: the list is optional`);
+    assert.equal(validate('5', { q5_1: status, q5_1k: 'spouse_partner' }).success, true, status);
+    assert.equal(validate('5', { q5_1: status, q5_1k: 'nonsense' }).errors.q5_1k, 'Choose from the listed options', status);
+    assert.equal(validate('5', { q5_1: status, q5_1k: 'other' }).errors.q5_1l, 'This question is required', status);
+    assert.equal(validate('5', { q5_1: status, q5_1k: 'other', q5_1l: 'Made-up support' }).success, true, status);
+  }
+  assert.equal(validate('5', { q5_1: 'unemployed', q5_1k: 'other', q5_1l: 'x'.repeat(2001) }).errors.q5_1l, 'Must be 2000 characters or fewer');
+  for (const v of ['spouse_partner', 'parents_family', 'savings', 'benefits_pension']) {
+    assert.equal(engine.isVisible(config, 'q5_1l', { q5_1: 'unemployed', q5_1k: v }), false, v);
+  }
+  // The block belongs to those three statuses only.
+  assert.equal(engine.isVisible(config, 'q5_1k', { q5_1: 'employed' }), false);
+  assert.equal(engine.isVisible(config, 'q5_1k', { q5_1: 'student' }), false);
+});
+
+test('5.1 gate: changing the status removes the answers of the block that no longer applies', () => {
+  const remove = (from, patch, existing) => validate('5', { ...from, ...patch }, existing).removed.sort();
+  assert.deepEqual(remove(EMPLOYED, { q5_1: 'retired' }, EMPLOYED), ['q5_2', 'q5_3', 'q5_4', 'q5_5', 'q5_6', 'q5_7', 'q5_8', 'q5_9']);
+  assert.deepEqual(remove(SELF_EMPLOYED, { q5_1: 'student', q5_1f: 'Test University' }, SELF_EMPLOYED), ['q5_1a', 'q5_1b', 'q5_1c', 'q5_1d', 'q5_1e']);
+  assert.deepEqual(remove({ ...STUDENT, q5_1g: ADDRESS, q5_1h: 'x' }, { q5_1: 'retired' }, { ...STUDENT, q5_1g: ADDRESS, q5_1h: 'x' }), ['q5_1f', 'q5_1g', 'q5_1h']);
+  const retired = { q5_1: 'retired', q5_1i: '2018-06', q5_1j: gbp(900) };
+  assert.deepEqual(remove(retired, { q5_1: 'homemaker' }, retired), ['q5_1i', 'q5_1j']);
+  const supported = { q5_1: 'homemaker', q5_1k: 'other', q5_1l: 'Made-up support' };
+  assert.deepEqual(remove(supported, { q5_1: 'employed', ...EMPLOYED }, supported), ['q5_1k', 'q5_1l']);
+  // Changing only the list answer removes only the description.
+  assert.deepEqual(remove(supported, { q5_1k: 'savings' }, supported), ['q5_1l']);
+  // The same through pruneAnswers, which the server runs over the whole application.
+  assert.deepEqual(engine.pruneAnswers(config, { ...SELF_EMPLOYED, q5_1: 'employed' }).removed.sort(), ['q5_1a', 'q5_1b', 'q5_1c', 'q5_1d', 'q5_1e']);
+});
+
+test('5.1 keep-until-answered: an old "employed" application keeps every employer answer, with or without 5.1', () => {
+  // The application as step 6b saved it: 5.1 = employed and the employer answers.
+  const kept = engine.pruneAnswers(config, { ...EMPLOYED });
+  assert.deepEqual(kept.removed, []);
+  assert.equal(Object.keys(kept.answers).length, Object.keys(EMPLOYED).length, 'nothing is dropped');
+  assert.equal(validate('5', EMPLOYED).success, true, 'and the section still validates, so it stays saved');
+  // Saving another section never removes them.
+  assert.deepEqual(validate('6A', S6A, EMPLOYED).removed, []);
+  // Even if the status itself were missing, answers that wait for it are not removed.
+  const withoutStatus = { ...EMPLOYED };
+  delete withoutStatus.q5_1;
+  assert.deepEqual(engine.pruneAnswers(config, withoutStatus).removed, [], 'waiting for 5.1');
+  // A status that is answered and hides them does remove them.
+  assert.equal(engine.pruneAnswers(config, { ...EMPLOYED, q5_1: 'student' }).removed.length, 8);
+});
+
+test('6.1a: the monthly other income is optional and shows only when other income applies', () => {
+  const income = (v, extra = {}) => validate('6A', { ...S6A, q6_1: v, ...(v === 'savings' || v === 'savings_and_income' ? {} : { q6_2: undefined }), ...extra });
+  for (const v of ['other_income', 'savings_and_income']) {
+    assert.equal(engine.isVisible(config, 'q6_1a', { q6_1: v }), true, v);
+    assert.equal(income(v).success, true, `${v}: optional`);
+    assert.equal(income(v, { q6_1a: gbp(400) }).success, true, v);
+  }
+  for (const v of ['savings', 'none']) assert.equal(engine.isVisible(config, 'q6_1a', { q6_1: v }), false, v);
+  assert.equal(income('other_income', { q6_1a: gbp(-1) }).errors['q6_1a.amount'], 'Cannot be negative');
+  assert.equal(income('other_income', { q6_1a: gbp(1000001) }).errors['q6_1a.amount'], 'Amount cannot be more than 1,000,000');
+  const closed = validate('6A', { ...S6A, q6_1: 'none', q6_2: undefined, q6_1a: gbp(5) }, { ...S6A, q6_1a: gbp(5) });
+  assert.deepEqual(closed.removed.sort(), ['q6_1a', 'q6_2']);
+});
+
+test('6.5: Yes opens up to 5 payers; who, name, relationship and country are required; amount and what it covers are optional', () => {
+  const six = (payers, extra = {}) => validate('6A', { ...S6A, q6_5: true, payers, ...extra });
+  assert.equal(validate('6A', { ...S6A, q6_5: true }).errors.payers, 'Add at least one entry');
+  const ok = six([PAYER]);
+  assert.equal(ok.success, true, JSON.stringify(ok.errors));
+  assert.deepEqual(Object.keys(six([{}]).errors).sort(), ['payers.0.q6_5b', 'payers.0.q6_5c', 'payers.0.q6_5d', 'payers.0.q6_5e']);
+  assert.equal(six([{ ...PAYER, q6_5f: gbp(1500), q6_5g: ['travel', 'living_costs'] }]).success, true);
+  assert.equal(six([{ ...PAYER, q6_5f: gbp(-1) }]).errors['payers.0.q6_5f.amount'], 'Cannot be negative');
+  assert.equal(six([{ ...PAYER, q6_5f: gbp(1000001) }]).errors['payers.0.q6_5f.amount'], 'Amount cannot be more than 1,000,000');
+  assert.equal(six([{ ...PAYER, q6_5g: ['travel', 'travel'] }]).errors['payers.0.q6_5g'], 'Each choice can only be selected once');
+  assert.equal(six([{ ...PAYER, q6_5g: ['nonsense'] }]).errors['payers.0.q6_5g'], 'Choose from the listed options');
+  assert.equal(six([{ ...PAYER, q6_5e: 'ZZ' }]).errors['payers.0.q6_5e'], 'Choose a country from the list');
+  assert.equal(six([{ ...PAYER, q6_5b: 'nonsense' }]).errors['payers.0.q6_5b'], 'Choose from the listed options');
+  assert.match(six(Array.from({ length: 6 }, () => PAYER)).errors.payers, /up to 5 entries/);
+  assert.equal(six(Array.from({ length: 5 }, () => PAYER)).success, true);
+});
+
+test('6.5 gate: changing to No removes every payer', () => {
+  const r = validate('6A', { ...S6A, q6_5: false, payers: [PAYER] }, { payers: [PAYER] });
+  assert.equal(r.success, true);
+  assert.deepEqual(r.removed, ['payers']);
+  assert.deepEqual(engine.pruneAnswers(config, { q6_5: false, payers: [PAYER] }).removed, ['payers']);
+});
+
+test('6.6: Yes opens up to 10 relatives; the birth date is optional, everything else is required', () => {
+  const six = (relatives) => validate('6B', { q6_6: true, ukFamily: relatives });
+  assert.equal(validate('6B', { q6_6: true }).errors.ukFamily, 'Add at least one entry');
+  assert.equal(six([RELATIVE]).success, true);
+  assert.deepEqual(Object.keys(six([{}]).errors).sort(), ['ukFamily.0.q6_6b', 'ukFamily.0.q6_6c', 'ukFamily.0.q6_6d', 'ukFamily.0.q6_6f', 'ukFamily.0.q6_6g']);
+  assert.equal(six([{ ...RELATIVE, q6_6e: '1985-04-02' }]).success, true);
+  assert.equal(six([{ ...RELATIVE, q6_6e: '2090-01-01' }]).errors['ukFamily.0.q6_6e'], 'Cannot be in the future');
+  assert.equal(six([{ ...RELATIVE, q6_6g: 'nonsense' }]).errors['ukFamily.0.q6_6g'], 'Choose from the listed options');
+  for (const status of ['british_citizen', 'settled', 'pre_settled', 'work', 'student', 'visitor', 'protection', 'other', 'dont_know']) {
+    assert.equal(six([{ ...RELATIVE, q6_6g: status }]).success, true, status);
+  }
+  assert.match(six(Array.from({ length: 11 }, () => RELATIVE)).errors.ukFamily, /up to 10 entries/);
+  assert.equal(six(Array.from({ length: 10 }, () => RELATIVE)).success, true);
+});
+
+test('6.6 gate: changing to No removes every relative', () => {
+  const r = validate('6B', { q6_6: false, ukFamily: [RELATIVE] }, { ukFamily: [RELATIVE] });
+  assert.deepEqual(r.removed, ['ukFamily']);
+  assert.deepEqual(engine.pruneAnswers(config, { q6_6: false, ukFamily: [RELATIVE] }).removed, ['ukFamily']);
+});
+
+test('6.7 No: accommodation plans are required and the area is optional; a Yes removes both and asks for the stays', () => {
+  assert.equal(validate('6C', { q6_7: false }).errors.q6_7x, 'This question is required');
+  assert.equal(validate('6C', { q6_7: false, q6_7x: 'not_decided' }).success, true);
+  assert.equal(validate('6C', { q6_7: false, q6_7x: 'paid_stay', q6_7y: 'Test City' }).success, true);
+  for (const v of ['not_decided', 'paid_stay', 'family_friends', 'address_unknown', 'other']) {
+    assert.equal(validate('6C', { q6_7: false, q6_7x: v }).success, true, v);
+  }
+  assert.equal(validate('6C', { q6_7: false, q6_7x: 'nonsense' }).errors.q6_7x, 'Choose from the listed options');
+  assert.equal(validate('6C', { q6_7: false, q6_7x: 'other', q6_7y: 'x'.repeat(201) }).errors.q6_7y, 'Must be 200 characters or fewer');
+  const yes = validate('6C', { q6_7: true, accommodation: [STAY], q6_7x: 'not_decided', q6_7y: 'Test City' }, { ...TRIP, q6_7x: 'not_decided', q6_7y: 'Test City' });
+  assert.equal(yes.success, true, JSON.stringify(yes.errors));
+  assert.deepEqual(yes.removed.sort(), ['q6_7x', 'q6_7y']);
+  assert.deepEqual(engine.pruneAnswers(config, { q6_7: true, q6_7x: 'not_decided', q6_7y: 'x', accommodation: [STAY] }).removed.sort(), ['q6_7x', 'q6_7y']);
+});
+
+test('6.8: Yes opens up to 5 public-funds entries; type and start are required; the end and the amount are optional', () => {
+  const six = (funds) => validate('6D', { q6_8: true, publicFunds: funds });
+  assert.equal(validate('6D', { q6_8: true }).errors.publicFunds, 'Add at least one entry');
+  assert.equal(six([FUNDS]).success, true);
+  assert.deepEqual(Object.keys(six([{}]).errors).sort(), ['publicFunds.0.q6_8b', 'publicFunds.0.q6_8c']);
+  assert.equal(six([{ ...FUNDS, q6_8d: '2023-06', q6_8e: gbp(250) }]).success, true);
+  assert.equal(six([{ ...FUNDS, q6_8d: '2023-01' }]).success, true, 'it may stop in the same month it started');
+  assert.equal(six([{ ...FUNDS, q6_8d: '2022-12' }]).errors['publicFunds.0.q6_8d'], 'Must be on or after the date in question 6.8c');
+  assert.equal(six([{ ...FUNDS, q6_8c: '2090-01' }]).errors['publicFunds.0.q6_8c'], 'Cannot be in the future');
+  assert.equal(six([{ ...FUNDS, q6_8d: '2090-01' }]).errors['publicFunds.0.q6_8d'], 'Cannot be in the future');
+  assert.equal(six([{ ...FUNDS, q6_8e: gbp(-1) }]).errors['publicFunds.0.q6_8e.amount'], 'Cannot be negative');
+  assert.equal(six([{ ...FUNDS, q6_8b: 'nonsense' }]).errors['publicFunds.0.q6_8b'], 'Choose from the listed options');
+  for (const type of ['housing_benefit', 'universal_credit', 'child_benefit', 'council_tax_reduction', 'other']) {
+    assert.equal(six([{ ...FUNDS, q6_8b: type }]).success, true, type);
+  }
+  assert.match(six(Array.from({ length: 6 }, () => FUNDS)).errors.publicFunds, /up to 5 entries/);
+});
+
+test('6.8 gate: changing to No removes every entry', () => {
+  const r = validate('6D', { q6_8: false, publicFunds: [FUNDS] }, { publicFunds: [FUNDS] });
+  assert.deepEqual(r.removed, ['publicFunds']);
+  assert.deepEqual(engine.pruneAnswers(config, { q6_8: false, publicFunds: [FUNDS] }).removed, ['publicFunds']);
+});
+
+test('the old placeholder boxes 6.5a, 6.6a and 6.8a no longer exist, and nothing in Parts 5 and 6 is encrypted', () => {
+  for (const id of ['q6_5a', 'q6_6a', 'q6_8a']) assert.equal(config.questions.some((q) => q.id === id), false, id);
+  assert.deepEqual(config.questions.filter((q) => PART56.includes(q.section) && q.sensitive), []);
+  // Their old values are unknown keys: pruning leaves them alone (they are not "hidden", they have no question).
+  const { removed } = engine.pruneAnswers(config, { q6_5: true, q6_5a: 'old text', q6_6: false, q6_6a: 'old text', q6_8: true, q6_8a: 'old text' });
+  assert.deepEqual(removed, []);
+});
+
+test('Parts 5 and 6 carry drafts and no tbc; every draft says what the default is', () => {
+  assert.deepEqual(config.questions.filter((q) => PART56.includes(q.section) && q.tbc), []);
+  assert.deepEqual(config.groups.filter((g) => PART56.includes(g.section) && g.tbc), []);
+  const items = engine.getDraftItems(config).filter((s) => PART56.includes(s.sectionId));
+  assert.deepEqual(items.map((s) => [s.sectionId, s.items.map((i) => i.number || i.id)]), [
+    ['5', ['5.1', '5.9']], ['6A', ['6.1', '6.5']], ['6B', ['6.6']], ['6C', ['accommodation', '6.7']], ['6D', ['6.8']],
+  ]);
+  for (const s of items) for (const i of s.items) assert.match(i.draft, /^Draft/, i.id);
+  for (const id of ['q5_1d', 'q5_1l']) assert.equal(config.questions.find((q) => q.id === id).rules.maxLen, 2000, id);
+});
+
+test('compatibility: answers saved under config 0.6.0 keep validating, except a Yes or No that now needs its follow-up', () => {
+  assert.equal(validate('5', EMPLOYED).success, true);
+  assert.equal(validate('5', { q5_1: 'retired' }).success, true);
+  assert.equal(validate('5', { q5_1: 'homemaker' }).success, true);
+  assert.equal(validate('6A', S6A).success, true);
+  assert.equal(validate('6B', { q6_6: false }).success, true);
+  assert.equal(validate('6D', { q6_8: false }).success, true);
+  assert.equal(validate('6C', { q6_7: true, accommodation: [STAY] }, TRIP).success, true);
+  // These were fine before and now need a follow-up, so the section shows "Needs review".
+  assert.equal(validate('5', { q5_1: 'self_employed' }).success, false);
+  assert.equal(validate('5', { q5_1: 'student' }).success, false);
+  assert.equal(validate('6A', { ...S6A, q6_5: true }).success, false);
+  assert.equal(validate('6B', { q6_6: true }).success, false);
+  assert.equal(validate('6C', { q6_7: false }).success, false);
+  assert.equal(validate('6D', { q6_8: true }).success, false);
 });

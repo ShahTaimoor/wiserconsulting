@@ -499,22 +499,20 @@ test("initialValues: the accommodation group stays closed until 6.7 is Yes, then
   assert.deepEqual(initialValues(cfg, "6C", { q6_7: true, accommodation: V6C.accommodation }).accommodation, V6C.accommodation);
 });
 
-test("payload: section 5 sends only 5.1 unless the status is employed", () => {
+test("payload: section 5 sends only 5.1 and the questions of the chosen status", () => {
   assert.deepEqual(payload("5", V5), V5);
-  assert.deepEqual(payload("5", { ...V5, q5_1: "student" }), { q5_1: "student" });
+  assert.deepEqual(payload("5", { ...V5, q5_1: "student" }), { q5_1: "student" }, "the employer answers are not sent for a student");
   assert.deepEqual(payload("5", { ...V5, q5_1: "student" }, {}), { q5_1: "student" });
 });
-
 test("payload: an amount of zero is a real answer and is kept; an empty amount is not", () => {
   assert.deepEqual(payload("6A", { ...V6A, q6_4: gbp(0) }).q6_4, gbp(0));
   assert.equal("q6_4" in payload("6A", { ...V6A, q6_4: undefined }), false);
 });
 
 test("payload: places of stay are sent only while 6.7 is Yes", () => {
-  assert.deepEqual(payload("6C", { ...V6C, q6_7: false }), { q6_7: false });
+  assert.deepEqual(payload("6C", { ...V6C, q6_7: false, q6_7x: "not_decided" }), { q6_7: false, q6_7x: "not_decided" });
   assert.deepEqual(payload("6C", V6C).accommodation.length, 2);
 });
-
 test("round trip: the optional previous employer can be left out", () => {
   const rest = { ...V5 };
   delete rest.q5_9;
@@ -594,13 +592,10 @@ test("payload: a No on 7.1, 7.3, 7.4 or 7.7 leaves out what it hides", () => {
   assert.deepEqual(out, { q7_1: false, q7_3: false, q7_4: false, q7_6: false, q7_7: false });
 });
 
-test("payload: the details boxes are sent only while their Yes/No is Yes", () => {
+test("payload: the Part 7 details boxes are sent only while their Yes/No is Yes", () => {
   assert.deepEqual(payload("7", { ...V7, q7_3: true, q7_3a: "Made-up details", q7_6a: "stale" }).q7_3a, "Made-up details");
   assert.equal("q7_6a" in payload("7", { ...V7, q7_6a: "stale" }), false);
-  assert.equal("q6_5a" in payload("6A", { ...V6A, q6_5a: "stale" }), false);
-  assert.equal(payload("6A", { ...V6A, q6_5: true, q6_5a: "Made-up details" }).q6_5a, "Made-up details");
 });
-
 test("sectionItems: in section 7 the visits sit after 7.5 and the problems after 7.7", () => {
   const order = sectionItems(cfg, "7").map((i) => (i.kind === "question" ? i.question.id : `group:${i.group.id}`));
   assert.deepEqual(order, ["q7_1", "q7_2", "q7_3", "q7_3a", "q7_4", "q7_5", "group:ukVisits", "q7_6", "q7_6a", "q7_7", "group:immigrationProblems"]);
@@ -743,4 +738,120 @@ test("every section of Parts 1 to 4 still renders, the new groups appear once an
   assert.deepEqual(ids("2B").slice(-2), ["q2_23", "group:otherNationalities"]);
   assert.deepEqual(ids("2C").slice(-4), ["q2_30", "q2_30a", "q2_31", "group:medicalTreatments"]);
   assert.deepEqual(ids("4C"), ["q4_8", "q4_8g", "group:parents"]);
+});
+
+// ---------------------------------------------------------------------------
+// Step 7c: Parts 5 and 6 follow-ups in the form logic
+// ---------------------------------------------------------------------------
+
+const SELF = { q5_1: "self_employed", q5_1a: "Test Business Ltd", q5_1b: "2020-03", q5_1c: { line1: "1 Test Street", town: "Testville", country: "GB" }, q5_1d: "Made-up business.", q5_1e: gbp(3000) };
+const PAYER = { q6_5b: "relative", q6_5c: "Testpayer", q6_5d: "parent", q6_5e: "GB" };
+const RELATIVE = { q6_6b: "sibling", q6_6c: "Testrelative", q6_6d: "Testsurname", q6_6f: "GB", q6_6g: "british_citizen" };
+const FUNDS = { q6_8b: "housing_benefit", q6_8c: "2023-01" };
+
+test("payload: each employment status sends only its own block", () => {
+  const all = { ...V5, ...SELF, q5_1f: "Test University", q5_1i: "2018-06", q5_1k: "other", q5_1l: "Made-up support" };
+  const only = (status) => Object.keys(payload("5", { ...all, q5_1: status })).sort();
+  assert.deepEqual(only("employed"), Object.keys(V5).sort());
+  assert.deepEqual(only("self_employed"), ["q5_1", "q5_1a", "q5_1b", "q5_1c", "q5_1d", "q5_1e"]);
+  assert.deepEqual(only("student"), ["q5_1", "q5_1f"]);
+  assert.deepEqual(only("retired"), ["q5_1", "q5_1i"]);
+  for (const status of ["homemaker", "unemployed", "other"]) assert.deepEqual(only(status), ["q5_1", "q5_1k", "q5_1l"], status);
+});
+
+test("payload: the description of 5.1l is sent only when the support list says 'other'", () => {
+  const out = (k) => payload("5", { q5_1: "unemployed", q5_1k: k, q5_1l: "Made-up support" });
+  assert.equal(out("other").q5_1l, "Made-up support");
+  assert.equal("q5_1l" in out("savings"), false);
+  assert.deepEqual(payload("5", { q5_1: "unemployed" }), { q5_1: "unemployed" }, "the list is optional");
+});
+
+test("payload: the optional 6.1a amount is sent only while other income applies", () => {
+  const out = (v) => payload("6A", { ...V6A, q6_1: v, q6_1a: gbp(400) });
+  assert.deepEqual(out("other_income").q6_1a, gbp(400));
+  assert.deepEqual(out("savings_and_income").q6_1a, gbp(400));
+  assert.equal("q6_1a" in out("savings"), false);
+  assert.equal("q6_1a" in out("none"), false);
+});
+
+test("initialValues: the payers, relatives and public-funds groups start closed and open with one entry on Yes", () => {
+  assert.equal(initialValues(cfg, "6A", {}).payers, undefined);
+  assert.deepEqual(initialValues(cfg, "6A", { q6_5: true }).payers, [{}]);
+  assert.deepEqual(initialValues(cfg, "6B", { q6_6: true }).ukFamily, [{}]);
+  assert.deepEqual(initialValues(cfg, "6D", { q6_8: true }).publicFunds, [{}]);
+  assert.deepEqual(initialValues(cfg, "6A", { q6_5: true, payers: [PAYER] }).payers, [PAYER]);
+});
+
+test("payload: payers, relatives and public funds are sent only on Yes; an empty tick box is left out", () => {
+  const six = payload("6A", { ...V6A, q6_5: true, payers: [{ ...PAYER, q6_5g: [], q6_5f: gbp(0) }] });
+  assert.equal("q6_5g" in six.payers[0], false, "no tick box ticked = unanswered");
+  assert.deepEqual(six.payers[0].q6_5f, gbp(0), "an amount of zero is a real answer");
+  assert.deepEqual(payload("6A", { ...V6A, q6_5: true, payers: [{ ...PAYER, q6_5g: ["travel"] }] }).payers[0].q6_5g, ["travel"]);
+  assert.equal("payers" in payload("6A", { ...V6A, q6_5: false, payers: [PAYER] }), false);
+  assert.equal("ukFamily" in payload("6B", { q6_6: false, ukFamily: [RELATIVE] }), false);
+  assert.equal("publicFunds" in payload("6D", { q6_8: false, publicFunds: [FUNDS] }), false);
+  assert.deepEqual(payload("6B", { q6_6: true, ukFamily: [{}] }), { q6_6: true, ukFamily: [{}] }, "blank entries are kept so errors line up");
+});
+
+test("payload: a No on 6.7 sends the plans and the area, and leaves the stays out; a Yes does the opposite", () => {
+  assert.deepEqual(payload("6C", { ...V6C, q6_7: false, q6_7x: "paid_stay", q6_7y: "Test City" }), { q6_7: false, q6_7x: "paid_stay", q6_7y: "Test City" });
+  const yes = payload("6C", { ...V6C, q6_7x: "paid_stay", q6_7y: "Test City" });
+  assert.equal("q6_7x" in yes || "q6_7y" in yes, false);
+  assert.equal(yes.accommodation.length, 2);
+});
+
+test("round trip: every changed section of Parts 5 and 6 builds a payload the shared rules accept", () => {
+  const values = {
+    5: SELF,
+    "6A": { ...V6A, q6_1: "savings_and_income", q6_1a: gbp(400), q6_5: true, payers: [{ ...PAYER, q6_5f: gbp(1500), q6_5g: ["travel", "living_costs"] }] },
+    "6B": { q6_6: true, ukFamily: [RELATIVE, { ...RELATIVE, q6_6e: "1985-04-02", q6_6g: "dont_know" }] },
+    "6C": { q6_7: false, q6_7x: "address_unknown", q6_7y: "Test City" },
+    "6D": { q6_8: true, publicFunds: [{ ...FUNDS, q6_8d: "2023-06", q6_8e: gbp(250) }] },
+  };
+  const saved = {};
+  for (const [section, v] of Object.entries(values)) {
+    const result = engine.validateSection(z, cfg, section, payload(section, v, saved), saved);
+    assert.equal(result.success, true, `${section}: ${JSON.stringify(result.errors)}`);
+    Object.assign(saved, result.data);
+  }
+  for (const status of [{ q5_1: "student", q5_1f: "Test University" }, { q5_1: "retired" }, { q5_1: "homemaker" }, { q5_1: "unemployed", q5_1k: "other", q5_1l: "Made-up support" }]) {
+    const result = engine.validateSection(z, cfg, "5", payload("5", status), {});
+    assert.equal(result.success, true, `${status.q5_1}: ${JSON.stringify(result.errors)}`);
+  }
+});
+
+test("round trip: missing follow-ups come back as errors on the right fields, with readable labels", () => {
+  const six = engine.validateSection(z, cfg, "6A", payload("6A", { ...V6A, q6_5: true, payers: [{}] }), {});
+  const items = collectErrors(cfg, "6A", six.errors);
+  assert.deepEqual(items.map((i) => i.targetId), ["field-payers-0-q6_5b", "field-payers-0-q6_5c", "field-payers-0-q6_5d", "field-payers-0-q6_5e"]);
+  assert.equal(items[0].label, "Payer 1: Who is paying?");
+  const funds = engine.validateSection(z, cfg, "6D", payload("6D", { q6_8: true, publicFunds: [{ ...FUNDS, q6_8d: "2022-12" }] }), {});
+  const fundItems = collectErrors(cfg, "6D", funds.errors);
+  assert.deepEqual(fundItems.map((i) => [i.targetId, i.message]), [["field-publicFunds-0-q6_8d", "Must be on or after the date in question 6.8c"]]);
+  assert.equal(fundItems[0].label, "Public funds 1: When did it stop?");
+  const self = engine.validateSection(z, cfg, "5", payload("5", { q5_1: "self_employed" }), {});
+  assert.deepEqual(collectErrors(cfg, "5", self.errors).map((i) => i.targetId), ["field-q5_1a", "field-q5_1b", "field-q5_1c", "field-q5_1d", "field-q5_1e"]);
+});
+
+test("hintFor: the new month questions say they cannot be in the future; 6.8d also says it follows the start", () => {
+  const q = (id) => cfg.questions.find((x) => x.id === id);
+  for (const id of ["q5_1b", "q5_1i", "q6_8c"]) assert.equal(hintFor(cfg, q(id)), "Cannot be in the future.", id);
+  assert.equal(hintFor(cfg, q("q6_8d")), "Must be on or after the date in question 6.8c. Cannot be in the future.");
+});
+
+test("sectionItems: the new questions and groups come in order in sections 5, 6A, 6B, 6C and 6D", () => {
+  const ids = (section) => sectionItems(cfg, section).map((i) => (i.kind === "question" ? i.question.id : `group:${i.group.id}`));
+  assert.deepEqual(ids("5").slice(0, 3), ["q5_1", "q5_1a", "q5_1b"]);
+  assert.equal(ids("5").indexOf("q5_1l") < ids("5").indexOf("q5_2"), true, "the other statuses come right under 5.1, before the employer questions");
+  assert.deepEqual(ids("6A"), ["q6_1", "q6_1a", "q6_2", "q6_3", "q6_4", "q6_5", "group:payers"]);
+  assert.deepEqual(ids("6B"), ["q6_6", "group:ukFamily"]);
+  assert.deepEqual(ids("6C"), ["q6_7", "q6_7x", "q6_7y", "group:accommodation"]);
+  assert.deepEqual(ids("6D"), ["q6_8", "group:publicFunds"]);
+});
+
+test("the placeholder boxes 6.5a, 6.6a and 6.8a are gone from the form", () => {
+  for (const section of ["6A", "6B", "6D"]) {
+    const keys = sectionKeys(cfg, section);
+    assert.equal(keys.some((k) => ["q6_5a", "q6_6a", "q6_8a"].includes(k)), false, section);
+  }
 });

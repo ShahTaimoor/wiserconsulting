@@ -1,5 +1,5 @@
 {
-  "version": "0.6.0-draft",
+  "version": "0.7.0-draft",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
@@ -70,7 +70,7 @@
       "max": 20,
       "questions": ["q6_7a", "q6_7b", "q6_7c", "q6_7d"],
       "noOverlap": { "start": "q6_7c", "end": "q6_7d" },
-      "tbc": "Spec 6.7d proposes that the next stay starts when this one ends. Default: stays may not overlap, but a gap between two stays, or two stays that meet on the same day, is accepted. To confirm."
+      "draft": "Draft: stays may not overlap, but a gap between two stays, or two stays that meet on the same day, is accepted (the spec proposes that the next stay starts when this one ends)."
     },
     {
       "id": "companions",
@@ -95,6 +95,30 @@
       "gate": "q2_31",
       "max": 5,
       "questions": ["q2_31a", "q2_31b", "q2_31c", "q2_31d", "q2_31e"]
+    },
+    {
+      "id": "payers",
+      "section": "6A",
+      "entryLabel": "Payer",
+      "gate": "q6_5",
+      "max": 5,
+      "questions": ["q6_5b", "q6_5c", "q6_5d", "q6_5e", "q6_5f", "q6_5g"]
+    },
+    {
+      "id": "ukFamily",
+      "section": "6B",
+      "entryLabel": "Relative",
+      "gate": "q6_6",
+      "max": 10,
+      "questions": ["q6_6b", "q6_6c", "q6_6d", "q6_6e", "q6_6f", "q6_6g"]
+    },
+    {
+      "id": "publicFunds",
+      "section": "6D",
+      "entryLabel": "Public funds",
+      "gate": "q6_8",
+      "max": 5,
+      "questions": ["q6_8b", "q6_8c", "q6_8d", "q6_8e"]
     },
     {
       "id": "ukVisits",
@@ -1077,9 +1101,129 @@
         { "value": "unemployed", "label": "Not working" },
         { "value": "other", "label": "Other" }
       ],
-      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review.",
-      "tbc": "The questions shown for each status other than employed are to confirm. Draft mapping: only 'employed' shows 5.2 to 5.9; every other status shows nothing further.",
+      "draft": "Draft: option list modelled on the UK online application. Only 'employed' shows 5.2 to 5.9. Self-employed asks the business name, start date, address, what it does and monthly income after tax (all required). Student asks the institution (required), its address and the course (optional). Retired asks when you retired and the monthly pension (both optional). Homemaker, not working and other ask who supports you financially (optional list), with a required description when that answer is 'other'.",
       "note": "The answer decides which of 5.2 to 5.9 appear."
+    },
+    {
+      "id": "q5_1a",
+      "number": "5.1a",
+      "section": "5",
+      "label": "Business name",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "self_employed" }
+    },
+    {
+      "id": "q5_1b",
+      "number": "5.1b",
+      "section": "5",
+      "label": "When did you start this business?",
+      "type": "MY",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "self_employed" },
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q5_1c",
+      "number": "5.1c",
+      "section": "5",
+      "label": "Business address",
+      "type": "ADDR",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "self_employed" }
+    },
+    {
+      "id": "q5_1d",
+      "number": "5.1d",
+      "section": "5",
+      "label": "What does your business do?",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "self_employed" },
+      "rules": { "maxLen": 2000 }
+    },
+    {
+      "id": "q5_1e",
+      "number": "5.1e",
+      "section": "5",
+      "label": "How much do you earn each month from this business - after tax?",
+      "type": "AMT",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "self_employed" },
+      "rules": { "max": 1000000 }
+    },
+    {
+      "id": "q5_1f",
+      "number": "5.1f",
+      "section": "5",
+      "label": "Name of your school, college or university",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "student" }
+    },
+    {
+      "id": "q5_1g",
+      "number": "5.1g",
+      "section": "5",
+      "label": "Address of your school, college or university",
+      "type": "ADDR",
+      "required": false,
+      "showWhen": { "q": "q5_1", "eq": "student" }
+    },
+    {
+      "id": "q5_1h",
+      "number": "5.1h",
+      "section": "5",
+      "label": "What are you studying?",
+      "type": "TXT",
+      "required": false,
+      "showWhen": { "q": "q5_1", "eq": "student" }
+    },
+    {
+      "id": "q5_1i",
+      "number": "5.1i",
+      "section": "5",
+      "label": "When did you retire?",
+      "type": "MY",
+      "required": false,
+      "showWhen": { "q": "q5_1", "eq": "retired" },
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q5_1j",
+      "number": "5.1j",
+      "section": "5",
+      "label": "How much pension do you receive each month?",
+      "type": "AMT",
+      "required": false,
+      "showWhen": { "q": "q5_1", "eq": "retired" },
+      "rules": { "max": 1000000 }
+    },
+    {
+      "id": "q5_1k",
+      "number": "5.1k",
+      "section": "5",
+      "label": "Who or what supports you financially?",
+      "type": "SEL",
+      "required": false,
+      "options": [
+        { "value": "spouse_partner", "label": "My spouse or partner" },
+        { "value": "parents_family", "label": "My parents or other family" },
+        { "value": "savings", "label": "My savings" },
+        { "value": "benefits_pension", "label": "Benefits or a pension" },
+        { "value": "other", "label": "Something else" }
+      ],
+      "showWhen": { "q": "q5_1", "in": ["homemaker", "unemployed", "other"] }
+    },
+    {
+      "id": "q5_1l",
+      "number": "5.1l",
+      "section": "5",
+      "label": "Please describe how you are supported financially",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q5_1k", "eq": "other" },
+      "rules": { "maxLen": 2000 }
     },
     {
       "id": "q5_2",
@@ -1155,7 +1299,7 @@
       "required": false,
       "showWhen": { "q": "q5_1", "eq": "employed" },
       "help": "Leave this blank if you have no previous employment to list.",
-      "tbc": "Answer type and options to confirm. The printout suggests a pick-list with a none-of-the-above choice. Default: an optional text box, so the organisation's name is kept and a blank answer means none."
+      "draft": "Draft: an optional text box, so the organisation's name is kept and a blank answer means none."
     },
 
     {
@@ -1171,9 +1315,18 @@
         { "value": "savings_and_income", "label": "I have savings and another income" },
         { "value": "none", "label": "I have neither" }
       ],
-      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review.",
-      "tbc": "Whether more than one choice can be picked is to confirm. Draft: one choice from the list, with a combined choice. 'savings' and 'savings_and_income' show 6.2; the other two do not.",
+      "draft": "Draft: option list modelled on the UK online application; one choice, with a combined choice. 'savings' and 'savings_and_income' show 6.2. 'other_income' and 'savings_and_income' show an optional monthly other-income amount (6.1a).",
       "note": "6.2 shows when the answer includes savings."
+    },
+    {
+      "id": "q6_1a",
+      "number": "6.1a",
+      "section": "6A",
+      "label": "How much other income do you receive each month?",
+      "type": "AMT",
+      "required": false,
+      "showWhen": { "q": "q6_1", "in": ["other_income", "savings_and_income"] },
+      "rules": { "max": 1000000 }
     },
     {
       "id": "q6_2",
@@ -1210,17 +1363,84 @@
       "label": "Will anyone be paying towards the cost of your visit?",
       "type": "YN",
       "required": true,
-      "tbc": "Follow-up questions for the Yes path (who is paying and how much) are to confirm."
+      "draft": "Draft: Yes opens up to 5 payers: who is paying, name, relationship to you and the country they live in (required); the amount (optional, up to 1,000,000) and what it covers (optional tick boxes)."
     },
     {
-      "id": "q6_5a",
-      "number": "6.5a",
+      "id": "q6_5b",
+      "number": "6.5b",
       "section": "6A",
-      "label": "Please give details",
-      "type": "LNG",
+      "label": "Who is paying?",
+      "type": "SEL",
       "required": true,
-      "showWhen": { "q": "q6_5", "eq": true },
-      "tbc": "Placeholder. The real follow-up for the Yes path of 6.5 (who is paying and how much) is to be confirmed. It is one plain text box on purpose."
+      "group": "payers",
+      "options": [
+        { "value": "relative", "label": "A relative" },
+        { "value": "friend", "label": "A friend" },
+        { "value": "employer", "label": "My employer" },
+        { "value": "sponsoring_organisation", "label": "A sponsoring organisation" },
+        { "value": "other", "label": "Someone else" }
+      ]
+    },
+    {
+      "id": "q6_5c",
+      "number": "6.5c",
+      "section": "6A",
+      "label": "Name of the person or organisation",
+      "type": "TXT",
+      "required": true,
+      "group": "payers"
+    },
+    {
+      "id": "q6_5d",
+      "number": "6.5d",
+      "section": "6A",
+      "label": "What is their relationship to you?",
+      "type": "SEL",
+      "required": true,
+      "group": "payers",
+      "options": [
+        { "value": "spouse_partner", "label": "Spouse or partner" },
+        { "value": "parent", "label": "Parent" },
+        { "value": "child", "label": "Child" },
+        { "value": "sibling", "label": "Brother or sister" },
+        { "value": "other_relative", "label": "Other relative" },
+        { "value": "friend", "label": "Friend" },
+        { "value": "employer", "label": "My employer or a business" },
+        { "value": "other", "label": "Other" }
+      ]
+    },
+    {
+      "id": "q6_5e",
+      "number": "6.5e",
+      "section": "6A",
+      "label": "Country where they live",
+      "type": "CTRY",
+      "required": true,
+      "group": "payers"
+    },
+    {
+      "id": "q6_5f",
+      "number": "6.5f",
+      "section": "6A",
+      "label": "How much will they pay?",
+      "type": "AMT",
+      "required": false,
+      "group": "payers",
+      "rules": { "max": 1000000 }
+    },
+    {
+      "id": "q6_5g",
+      "number": "6.5g",
+      "section": "6A",
+      "label": "What will they pay for?",
+      "type": "CHK",
+      "required": false,
+      "group": "payers",
+      "options": [
+        { "value": "travel", "label": "Travel" },
+        { "value": "accommodation", "label": "Accommodation" },
+        { "value": "living_costs", "label": "Living costs" }
+      ]
     },
 
     {
@@ -1230,17 +1450,83 @@
       "label": "Do you have any family in the UK?",
       "type": "YN",
       "required": true,
-      "tbc": "Follow-up questions for the Yes path (likely one entry per relative) are to confirm."
+      "draft": "Draft: Yes opens up to 10 relatives: relationship, given names, family name, nationality and immigration status in the UK (required); date of birth (optional)."
     },
     {
-      "id": "q6_6a",
-      "number": "6.6a",
+      "id": "q6_6b",
+      "number": "6.6b",
       "section": "6B",
-      "label": "Please give details",
-      "type": "LNG",
+      "label": "What is their relationship to you?",
+      "type": "SEL",
       "required": true,
-      "showWhen": { "q": "q6_6", "eq": true },
-      "tbc": "Placeholder. The real follow-up for the Yes path of 6.6 (likely one entry per relative) is to be confirmed. It is one plain text box on purpose."
+      "group": "ukFamily",
+      "options": [
+        { "value": "spouse_partner", "label": "Spouse or partner" },
+        { "value": "parent", "label": "Parent" },
+        { "value": "child", "label": "Child" },
+        { "value": "sibling", "label": "Brother or sister" },
+        { "value": "grandparent", "label": "Grandparent" },
+        { "value": "aunt_uncle", "label": "Aunt or uncle" },
+        { "value": "cousin", "label": "Cousin" },
+        { "value": "other", "label": "Other" }
+      ]
+    },
+    {
+      "id": "q6_6c",
+      "number": "6.6c",
+      "section": "6B",
+      "label": "Given names",
+      "type": "TXT",
+      "required": true,
+      "group": "ukFamily"
+    },
+    {
+      "id": "q6_6d",
+      "number": "6.6d",
+      "section": "6B",
+      "label": "Family name",
+      "type": "TXT",
+      "required": true,
+      "group": "ukFamily"
+    },
+    {
+      "id": "q6_6e",
+      "number": "6.6e",
+      "section": "6B",
+      "label": "Date of birth",
+      "type": "DATE",
+      "required": false,
+      "group": "ukFamily",
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q6_6f",
+      "number": "6.6f",
+      "section": "6B",
+      "label": "Country of nationality",
+      "type": "CTRY",
+      "required": true,
+      "group": "ukFamily"
+    },
+    {
+      "id": "q6_6g",
+      "number": "6.6g",
+      "section": "6B",
+      "label": "What is their immigration status in the UK?",
+      "type": "SEL",
+      "required": true,
+      "group": "ukFamily",
+      "options": [
+        { "value": "british_citizen", "label": "British citizen" },
+        { "value": "settled", "label": "Settled (indefinite leave to remain)" },
+        { "value": "pre_settled", "label": "Pre-settled status" },
+        { "value": "work", "label": "Work visa" },
+        { "value": "student", "label": "Student visa" },
+        { "value": "visitor", "label": "Visitor" },
+        { "value": "protection", "label": "Protection (refugee or humanitarian)" },
+        { "value": "other", "label": "Other" },
+        { "value": "dont_know", "label": "I don't know" }
+      ]
     },
 
     {
@@ -1250,7 +1536,32 @@
       "label": "Do you have an address for where you are going to stay in the UK?",
       "type": "YN",
       "required": true,
-      "tbc": "What is asked on the No path is to confirm."
+      "draft": "Draft: a No asks for your accommodation plans (list, required) and the area or city you expect to stay in (optional)."
+    },
+    {
+      "id": "q6_7x",
+      "number": "6.7x",
+      "section": "6C",
+      "label": "What are your plans for accommodation?",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "not_decided", "label": "I have not decided yet" },
+        { "value": "paid_stay", "label": "I will book a hotel or other paid stay" },
+        { "value": "family_friends", "label": "I will stay with family or friends" },
+        { "value": "address_unknown", "label": "I will stay somewhere, but I don't have the address yet" },
+        { "value": "other", "label": "Other" }
+      ],
+      "showWhen": { "q": "q6_7", "eq": false }
+    },
+    {
+      "id": "q6_7y",
+      "number": "6.7y",
+      "section": "6C",
+      "label": "Which area or city do you expect to stay in?",
+      "type": "TXT",
+      "required": false,
+      "showWhen": { "q": "q6_7", "eq": false }
     },
     {
       "id": "q6_7a",
@@ -1298,17 +1609,53 @@
       "label": "Have you received any public funds (money) in the UK?",
       "type": "YN",
       "required": true,
-      "tbc": "Follow-up questions for the Yes path are to confirm."
+      "draft": "Draft: Yes opens up to 5 entries: type of public funds (list) and when it started (month and year) are required; when it stopped (month and year, on or after the start) and the amount are optional."
     },
     {
-      "id": "q6_8a",
-      "number": "6.8a",
+      "id": "q6_8b",
+      "number": "6.8b",
       "section": "6D",
-      "label": "Please give details",
-      "type": "LNG",
+      "label": "What type of public funds did you receive?",
+      "type": "SEL",
       "required": true,
-      "showWhen": { "q": "q6_8", "eq": true },
-      "tbc": "Placeholder. The real follow-up for the Yes path of 6.8 is to be confirmed. It is one plain text box on purpose."
+      "group": "publicFunds",
+      "options": [
+        { "value": "housing_benefit", "label": "Housing benefit" },
+        { "value": "universal_credit", "label": "Universal credit" },
+        { "value": "child_benefit", "label": "Child benefit" },
+        { "value": "council_tax_reduction", "label": "Council tax reduction" },
+        { "value": "other", "label": "Other" }
+      ]
+    },
+    {
+      "id": "q6_8c",
+      "number": "6.8c",
+      "section": "6D",
+      "label": "When did you start receiving it?",
+      "type": "MY",
+      "required": true,
+      "group": "publicFunds",
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q6_8d",
+      "number": "6.8d",
+      "section": "6D",
+      "label": "When did it stop?",
+      "type": "MY",
+      "required": false,
+      "group": "publicFunds",
+      "rules": { "onOrAfter": "q6_8c", "notFuture": true }
+    },
+    {
+      "id": "q6_8e",
+      "number": "6.8e",
+      "section": "6D",
+      "label": "How much did you receive?",
+      "type": "AMT",
+      "required": false,
+      "group": "publicFunds",
+      "rules": { "max": 1000000 }
     },
 
     {

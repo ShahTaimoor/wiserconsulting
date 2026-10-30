@@ -115,10 +115,10 @@ const S3 = { q3_1: 'FAKE-PASSPORT-9876', q3_2: 'Test Passport Office', q3_3: '20
 const S4B = { q4_7: false };
 const PARENT = { q4_8a: 'mother', q4_8b: 'Testmother', q4_8c: 'Testsurname', q4_8d: '1962-01-02', q4_8e: 'GB', q4_8f: true };
 const S4C = { q4_8: true, parents: [PARENT] };
-const S5 = { q5_1: 'student' };
+const S5 = { q5_1: 'retired' };
 const S6A = { q6_1: 'none', q6_3: gbp(1500), q6_4: gbp(900), q6_5: false };
 const S6B = { q6_6: false };
-const S6C = { q6_7: false };
+const S6C = { q6_7: false, q6_7x: 'not_decided' };
 const S6D = { q6_8: false };
 
 const VISIT = { q7_5a: 'tourism', q7_5b: monthsAgo(20), q7_5c: { weeks: 2 } };
@@ -182,11 +182,8 @@ test('GATE 7.1: changing to No prunes the application date', async () => {
   assert.equal(back.json.errors.q7_2, 'This question is required');
 });
 
-// Every Yes/No that opens a plain "Please give details" box: Yes keeps the box, No removes it.
+// Every Yes/No that still opens a plain "Please give details" box (Part 7): Yes keeps the box, No removes it.
 const DETAILS_GATES = [
-  { name: '6.5', section: '6A', base: S6A, gate: 'q6_5', follow: 'q6_5a' },
-  { name: '6.6', section: '6B', base: S6B, gate: 'q6_6', follow: 'q6_6a' },
-  { name: '6.8', section: '6D', base: S6D, gate: 'q6_8', follow: 'q6_8a' },
   { name: '7.3', section: '7', base: S7, gate: 'q7_3', follow: 'q7_3a' },
   { name: '7.6', section: '7', base: S7, gate: 'q7_6', follow: 'q7_6a' },
 ];
@@ -325,7 +322,7 @@ test('applications saved under config 0.3.0 (Parts 1-6) keep their answers; a sa
   assert.deepEqual(Object.entries(app.sectionStatus).filter(([, s]) => s !== 'saved').map(([id]) => id), ['6B']);
   assert.equal(app.currentSection, '6B');
 
-  const fix = await put(token, '6B', { q6_6: true, q6_6a: 'Plain made-up details' });
+  const fix = await put(token, '6B', { q6_6: true, ukFamily: [{ q6_6b: 'sibling', q6_6c: 'Testrelative', q6_6d: 'Testsurname', q6_6f: 'GB', q6_6g: 'british_citizen' }] });
   assert.equal(fix.status, 200, JSON.stringify(fix.json));
   assert.equal(fix.json.data.application.sectionStatus['6B'], 'saved');
   assert.equal(fix.json.data.application.currentSection, '7', 'the new Part 7 is next');

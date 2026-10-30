@@ -158,7 +158,7 @@ test('GATE CHANGE 5.1: changing the employment status prunes 5.2 to 5.9 on the s
   const before = await rawDoc(appId);
   for (const id of EMPLOYED_IDS) assert.notEqual(before.answers[id], undefined, `${id} was stored`);
 
-  const res = await put(token, '5', { ...S5, q5_1: 'student' });
+  const res = await put(token, '5', { ...S5, q5_1: 'retired' });
   assert.equal(res.status, 200, JSON.stringify(res.json));
   assert.deepEqual(res.json.data.removed.sort(), EMPLOYED_IDS);
   assert.deepEqual(res.json.data.needsReview, []);
@@ -166,7 +166,7 @@ test('GATE CHANGE 5.1: changing the employment status prunes 5.2 to 5.9 on the s
   const stored = await rawDoc(appId);
   for (const id of EMPLOYED_IDS) assert.equal(id in stored.answers, false, `${id} was removed from the database`);
   assert.equal(JSON.stringify(stored.answers).includes('Test Employer Ltd'), false);
-  assert.equal(stored.answers.q5_1, 'student');
+  assert.equal(stored.answers.q5_1, 'retired');
   assert.equal(stored.sectionStatus['5'], 'saved', 'the section stays saved: it still applies, with fewer questions');
 
   // Everything else is untouched.
@@ -207,7 +207,7 @@ test('GATE CHANGE 6.7: changing to No prunes every place of stay', async () => {
   const { token, appId } = await fullApplication();
   assert.equal((await rawDoc(appId)).answers.accommodation.length, 2);
 
-  const res = await put(token, '6C', { q6_7: false, accommodation: S6C.accommodation });
+  const res = await put(token, '6C', { q6_7: false, q6_7x: 'not_decided', accommodation: S6C.accommodation });
   assert.equal(res.status, 200, JSON.stringify(res.json));
   assert.deepEqual(res.json.data.removed, ['accommodation']);
 
@@ -215,6 +215,7 @@ test('GATE CHANGE 6.7: changing to No prunes every place of stay', async () => {
   assert.equal('accommodation' in stored.answers, false);
   assert.equal(JSON.stringify(stored.answers).includes('Test Hotel'), false);
   assert.equal(stored.answers.q6_7, false);
+  assert.equal(stored.answers.q6_7x, 'not_decided', 'a No keeps the accommodation plans');
   assert.equal(stored.sectionStatus['6C'], 'saved');
 });
 
@@ -301,18 +302,22 @@ test('6C can be saved before section 1; the date check applies once section 1 is
   assert.deepEqual(later.json.data.needsReview, ['6C']);
 });
 
-test('a No on 6.7 needs no further answers; a Yes on 6.5, 6.6 or 6.8 asks for one details box', async () => {
+test('a No on 6.7 asks for the accommodation plans; a Yes on 6.5, 6.6 or 6.8 opens its group', async () => {
   const { token } = await start();
-  assert.equal((await put(token, '6C', { q6_7: false })).status, 200);
-  const noDetails = await put(token, '6B', { q6_6: true });
-  assert.equal(noDetails.status, 422);
-  assert.equal(noDetails.json.errors.q6_6a, 'This question is required');
-  assert.equal((await put(token, '6B', { q6_6: true, q6_6a: 'Made-up details' })).status, 200);
-  assert.equal((await put(token, '6D', { q6_8: true, q6_8a: 'Made-up details' })).status, 200);
-  assert.equal((await put(token, '6A', { ...S6A, q6_5: true, q6_5a: 'Made-up details' })).status, 200);
+  const noPlans = await put(token, '6C', { q6_7: false });
+  assert.equal(noPlans.status, 422);
+  assert.equal(noPlans.json.errors.q6_7x, 'This question is required');
+  assert.equal((await put(token, '6C', { q6_7: false, q6_7x: 'not_decided' })).status, 200);
+  const noGroup = await put(token, '6B', { q6_6: true });
+  assert.equal(noGroup.status, 422);
+  assert.equal(noGroup.json.errors.ukFamily, 'Add at least one entry');
+  const relative = { q6_6b: 'sibling', q6_6c: 'Testrelative', q6_6d: 'Testsurname', q6_6f: 'GB', q6_6g: 'british_citizen' };
+  assert.equal((await put(token, '6B', { q6_6: true, ukFamily: [relative] })).status, 200);
+  assert.equal((await put(token, '6D', { q6_8: true, publicFunds: [{ q6_8b: 'housing_benefit', q6_8c: '2023-01' }] })).status, 200);
+  const payer = { q6_5b: 'relative', q6_5c: 'Testpayer', q6_5d: 'parent', q6_5e: 'GB' };
+  assert.equal((await put(token, '6A', { ...S6A, q6_5: true, payers: [payer] })).status, 200);
   assert.equal((await put(token, '6B', {})).status, 422);
 });
-
 test('applications saved under config 0.2.0 (Parts 1-4 only) keep their answers and resume at Part 5', async () => {
   const { token, appId } = await start();
   // Save Parts 1-4 through the real routes (so the passport number is encrypted), then put the
