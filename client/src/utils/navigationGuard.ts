@@ -18,7 +18,27 @@ export interface AnchorLike {
   hasDownload: boolean;
 }
 
-export const UNSAVED_CHANGES_MESSAGE = "You have unsaved changes in this section. Leave without saving?";
+/** The words on the unsaved-changes dialog. Kept here so they are written once and can be tested. */
+export const UNSAVED_CHANGES_DIALOG = {
+  title: "Leave without saving?",
+  description: "You have unsaved changes in this section. If you leave now, they will be lost.",
+  stayLabel: "Stay on this page",
+  leaveLabel: "Leave without saving",
+} as const;
+
+/**
+ * What the guard does with a click, given where it stands:
+ *  - "allow": let it through (the user already agreed to leave, or the click does not leave the page);
+ *  - "ask":   cancel the click and show the dialog;
+ *  - "block": cancel the click and do nothing more (the dialog is already open, so a second
+ *             click must neither navigate nor open a second dialog).
+ */
+export type GuardDecision = "allow" | "ask" | "block";
+
+export function decideLeave(state: { allowed: boolean; dialogOpen: boolean; leaving: boolean }): GuardDecision {
+  if (state.allowed || !state.leaving) return "allow";
+  return state.dialogOpen ? "block" : "ask";
+}
 
 /**
  * True when following this link would leave the page the user is on. A click that opens

@@ -31,7 +31,9 @@ import {
 import { ErrorSummary } from "./ErrorSummary";
 import { QuestionField } from "./QuestionField";
 import { RepeatGroupField } from "./RepeatGroupField";
+import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
 import { asRecord } from "./fields/types";
+import { notifySaved, notifySaveFailed } from "./notify";
 
 type SaveMode = "continue" | "dashboard";
 
@@ -85,7 +87,7 @@ export function SectionForm({ sectionId, application }: SectionFormProps) {
   const mounted = useRef(true);
 
   const dirty = !valuesEqual(values, snapshot);
-  const { allowNavigation } = useUnsavedChangesGuard(dirty);
+  const { allowNavigation, leaveDialog } = useUnsavedChangesGuard(dirty);
   const merged = useMemo(() => mergedAnswers(config, sectionId, saved, values), [sectionId, saved, values]);
   const errorItems = useMemo(() => collectErrors(config, sectionId, errors), [sectionId, errors]);
 
@@ -153,6 +155,7 @@ export function SectionForm({ sectionId, application }: SectionFormProps) {
         setSnapshot(values);
         setErrors({});
         allowNavigation();
+        notifySaved(section?.title ?? "Your answers");
         router.push(mode === "continue" && nextId ? `/tourist-visa/${nextId}` : "/tourist-visa");
         return;
       }
@@ -160,13 +163,15 @@ export function SectionForm({ sectionId, application }: SectionFormProps) {
       if (result.status === 409) setLocked(true);
       if (result.status === 422 && result.fieldErrors) {
         setErrors(result.fieldErrors);
+        notifySaveFailed("Not saved yet. Please check the answers marked in red.");
         const first = collectErrors(config, sectionId, result.fieldErrors)[0];
         if (first) setFocusRequest({ id: first.targetId, n: Date.now() });
         return;
       }
       setBanner(result.message);
+      notifySaveFailed(result.message);
     },
-    [saving, locked, sectionId, values, saved, saveSection, allowNavigation, router, nextId]
+    [saving, locked, sectionId, section?.title, values, saved, saveSection, allowNavigation, router, nextId]
   );
 
   if (!section) return null;
@@ -277,6 +282,9 @@ export function SectionForm({ sectionId, application }: SectionFormProps) {
           </div>
         </CardFooter>
       </Card>
+
+      {/* Rendered in a portal, so it sits above the page whatever the layout. */}
+      <UnsavedChangesDialog {...leaveDialog} />
     </form>
   );
 }

@@ -2,7 +2,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isLeavingClick } from "./navigationGuard.ts";
+import { decideLeave, isLeavingClick, UNSAVED_CHANGES_DIALOG } from "./navigationGuard.ts";
 
 const HERE = "http://localhost:3000/tourist-visa/2A";
 const click = (over = {}) => ({ button: 0, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, defaultPrevented: false, ...over });
@@ -51,4 +51,29 @@ test("mailto:, tel: and javascript: links do not leave the page", () => {
 test("an unparseable address does not block the user", () => {
   assert.equal(isLeavingClick(click(), anchor("http://[bad"), HERE), false);
   assert.equal(isLeavingClick(click(), anchor("/x"), "not a url"), false);
+});
+
+test("decideLeave: a click that leaves asks, once", () => {
+  assert.equal(decideLeave({ allowed: false, dialogOpen: false, leaving: true }), "ask");
+});
+
+test("decideLeave: while the dialog is open, another leaving click is swallowed, not asked again", () => {
+  assert.equal(decideLeave({ allowed: false, dialogOpen: true, leaving: true }), "block");
+});
+
+test("decideLeave: clicks that do not leave the page are never held back", () => {
+  assert.equal(decideLeave({ allowed: false, dialogOpen: false, leaving: false }), "allow");
+  assert.equal(decideLeave({ allowed: false, dialogOpen: true, leaving: false }), "allow");
+});
+
+test("decideLeave: once the user has agreed to leave (or has saved), nothing is asked", () => {
+  assert.equal(decideLeave({ allowed: true, dialogOpen: false, leaving: true }), "allow");
+  assert.equal(decideLeave({ allowed: true, dialogOpen: true, leaving: true }), "allow");
+});
+
+test("the dialog wording gives two different, clearly labelled choices", () => {
+  assert.equal(UNSAVED_CHANGES_DIALOG.stayLabel, "Stay on this page");
+  assert.equal(UNSAVED_CHANGES_DIALOG.leaveLabel, "Leave without saving");
+  assert.notEqual(UNSAVED_CHANGES_DIALOG.stayLabel, UNSAVED_CHANGES_DIALOG.leaveLabel);
+  assert.ok(UNSAVED_CHANGES_DIALOG.title.length > 0 && UNSAVED_CHANGES_DIALOG.description.length > 0);
 });
