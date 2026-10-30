@@ -348,13 +348,19 @@ export function collectErrors(cfg: TouristVisaConfig, sectionId: string, errors:
 export function hintFor(cfg: TouristVisaConfig, question: Question): string | undefined {
   const parts: string[] = [];
   if (question.help) parts.push(question.help);
-  const after = question.rules?.after;
-  if (after) {
-    const numbers = (Array.isArray(after) ? after : [after])
+  const dateRules = [
+    ["after", "after"],
+    ["onOrAfter", "on or after"],
+    ["onOrBefore", "on or before"],
+  ] as const;
+  for (const [key, words] of dateRules) {
+    const ref = question.rules?.[key];
+    if (!ref) continue;
+    const numbers = (Array.isArray(ref) ? ref : [ref])
       .map((id) => cfg.questions.find((q) => q.id === id)?.number)
       .filter((n): n is string => Boolean(n));
-    if (numbers.length === 1) parts.push(`Must be after the date in question ${numbers[0]}.`);
-    else if (numbers.length > 1) parts.push(`Must be after the dates in questions ${numbers.slice(0, -1).join(", ")} and ${numbers[numbers.length - 1]}.`);
+    if (numbers.length === 1) parts.push(`Must be ${words} the date in question ${numbers[0]}.`);
+    else if (numbers.length > 1) parts.push(`Must be ${words} the dates in questions ${numbers.slice(0, -1).join(", ")} and ${numbers[numbers.length - 1]}.`);
   }
   if (question.rules?.notFuture) parts.push("Cannot be in the future.");
   if (question.type === "TEL") parts.push("Include the country code, for example +44.");

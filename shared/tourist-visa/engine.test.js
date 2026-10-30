@@ -62,11 +62,11 @@ const S2D = {
 // Config
 // ---------------------------------------------------------------------------
 
-test('config: the real Parts 1-4 config is structurally valid', () => {
+test('config: the real Parts 1-6 config is structurally valid', () => {
   assert.deepEqual(engine.validateConfig(config), []);
 });
 
-test('config: covers exactly the questions of Parts 1 to 4 in the spec (plus the 2.23 follow-up)', () => {
+test('config: covers exactly the questions of Parts 1 to 6 in the spec (plus the 2.23 follow-up)', () => {
   const expected = new Set();
   for (let i = 1; i <= 7; i++) expected.add(`1.${i}`);
   for (let i = 1; i <= 35; i++) expected.add(`2.${i}`);
@@ -76,14 +76,20 @@ test('config: covers exactly the questions of Parts 1 to 4 in the spec (plus the
   for (let i = 1; i <= 4; i++) expected.add(`3.${i}`);
   for (let i = 1; i <= 7; i++) expected.add(`4.${i}`);
   for (const l of 'abcdef') { expected.add(`4.7${l}`); expected.add(`4.8${l}`); }
+  for (let i = 1; i <= 9; i++) expected.add(`5.${i}`);
+  for (let i = 1; i <= 8; i++) expected.add(`6.${i}`);
+  for (const l of 'abcd') expected.add(`6.7${l}`);
   const actual = new Set(config.questions.map((q) => q.number));
   assert.deepEqual([...actual].sort(), [...expected].sort());
   assert.equal(config.questions.length, expected.size);
 });
 
-test('config: sections are 1, 2A-2D, 3, 4A-4C and every question belongs to one', () => {
-  assert.deepEqual(config.sections.map((s) => s.id), ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C']);
-  assert.deepEqual(config.parts.map((p) => p.id), ['1', '2', '3', '4']);
+test('config: sections are 1, 2A-2D, 3, 4A-4C, 5, 6A-6D and every question belongs to one', () => {
+  assert.deepEqual(
+    config.sections.map((s) => s.id),
+    ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D']
+  );
+  assert.deepEqual(config.parts.map((p) => p.id), ['1', '2', '3', '4', '5', '6']);
   const ids = new Set(config.sections.map((s) => s.id));
   assert.ok(config.questions.every((q) => ids.has(q.section)));
 });
@@ -133,7 +139,10 @@ test('config: validateConfig reports broken configs', () => {
 
 test('release gate: every section with open tbc flags is blocked; the passport section has none', () => {
   const blockers = engine.getReleaseBlockers(config);
-  assert.deepEqual(blockers.map((b) => b.sectionId), ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C']);
+  assert.deepEqual(
+    blockers.map((b) => b.sectionId),
+    ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D']
+  );
   for (const s of config.sections) assert.equal(engine.isSectionReleasable(config, s.id), s.id === '3');
   assert.ok(blockers.every((b) => b.items.every((i) => i.tbc)));
 });
@@ -780,10 +789,11 @@ test('sections: a section is hidden exactly when none of its questions is visibl
 
 test('sections: on the real config only 4A can be hidden, and only by 2.13', () => {
   const visible = (answers) => engine.getVisibleSections(config, answers).map((s) => s.id);
-  assert.deepEqual(visible({}), ['1', '2A', '2B', '2C', '2D', '3', '4B', '4C']);
-  assert.deepEqual(visible({ q2_13: 'tbc_single' }), ['1', '2A', '2B', '2C', '2D', '3', '4B', '4C']);
-  assert.deepEqual(visible({ q2_13: 'tbc_married' }), ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C']);
-  assert.deepEqual(visible({ q2_13: 'tbc_partner' }), ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C']);
+  const rest = ['5', '6A', '6B', '6C', '6D'];
+  assert.deepEqual(visible({}), ['1', '2A', '2B', '2C', '2D', '3', '4B', '4C', ...rest]);
+  assert.deepEqual(visible({ q2_13: 'tbc_single' }), ['1', '2A', '2B', '2C', '2D', '3', '4B', '4C', ...rest]);
+  assert.deepEqual(visible({ q2_13: 'tbc_married' }), ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', ...rest]);
+  assert.deepEqual(visible({ q2_13: 'tbc_partner' }), ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', ...rest]);
 });
 
 test('prune: changing 2.13 removes the spouse or partner answers held in another section', () => {
@@ -801,4 +811,244 @@ test('compatibility: answers saved before step 6a (config 0.1.0) still validate 
   }
   // 2.13 values saved earlier are still on the list.
   assert.equal(validate('2B', { ...S2B, q2_13: 'tbc_married' }).success, true);
+});
+
+// ---------------------------------------------------------------------------
+// Step 6b: Parts 5 and 6 (employment, money, family in the UK, accommodation)
+// ---------------------------------------------------------------------------
+
+const gbp = (amount) => ({ amount, currency: 'GBP' });
+const EMPLOYED = {
+  q5_1: 'tbc_employed', q5_2: '2019-04', q5_3: 'Test Employer Ltd', q5_4: ADDRESS,
+  q5_5: { countryCode: '+44', number: '20 7946 0000' }, q5_6: 'Test Analyst',
+  q5_7: gbp(2500), q5_8: 'Made-up description of a made-up job.', q5_9: 'Previous Test Co',
+};
+const S6A = { q6_1: 'tbc_savings', q6_2: gbp(8000), q6_3: gbp(1500), q6_4: gbp(900), q6_5: false };
+const STAY = {
+  q6_7a: 'Test Hotel', q6_7b: { line1: '2 Test Road', town: 'Testtown', country: 'GB' },
+  q6_7c: '2027-03-01', q6_7d: '2027-03-08',
+};
+const stayOn = (from, to) => ({ ...STAY, q6_7c: from, q6_7d: to });
+// Section 1 as saved: arrive 2027-03-01, leave 2027-03-15.
+const TRIP = { q1_6: S1.q1_6, q1_7: S1.q1_7 };
+
+test('part 5: the employed path needs 5.2 to 5.8 and takes an optional 5.9', () => {
+  assert.equal(validate('5', EMPLOYED).success, true);
+  const { q5_9, ...withoutPrevious } = EMPLOYED;
+  assert.equal(validate('5', withoutPrevious).success, true);
+  const empty = validate('5', { q5_1: 'tbc_employed' });
+  assert.deepEqual(Object.keys(empty.errors).sort(), ['q5_2', 'q5_3', 'q5_4', 'q5_5', 'q5_6', 'q5_7', 'q5_8']);
+});
+
+test('part 5: any other status shows only 5.1', () => {
+  for (const status of ['tbc_self_employed', 'tbc_student', 'tbc_not_working']) {
+    const r = validate('5', { q5_1: status });
+    assert.equal(r.success, true, `${status}: ${JSON.stringify(r.errors)}`);
+    assert.deepEqual(r.data, { q5_1: status });
+  }
+  assert.deepEqual(Object.keys(validate('5', {}).errors), ['q5_1']);
+  assert.equal(validate('5', { q5_1: 'bogus' }).errors.q5_1, 'Choose from the listed options');
+});
+
+test('part 5 gate: changing 5.1 away from employed removes 5.2 to 5.9', () => {
+  const r = validate('5', { ...EMPLOYED, q5_1: 'tbc_student' }, EMPLOYED);
+  assert.equal(r.success, true);
+  assert.deepEqual(r.removed.sort(), ['q5_2', 'q5_3', 'q5_4', 'q5_5', 'q5_6', 'q5_7', 'q5_8', 'q5_9']);
+  assert.deepEqual(r.data, { q5_1: 'tbc_student' });
+  const pruned = engine.pruneAnswers(config, { ...EMPLOYED, q5_1: 'tbc_not_working' });
+  assert.deepEqual(pruned.answers, { q5_1: 'tbc_not_working' });
+  assert.equal(pruned.removed.length, 8);
+});
+
+test('part 5: the start date is a month and year and cannot be in the future', () => {
+  assert.equal(validate('5', { ...EMPLOYED, q5_2: '2026-10' }).success, true);
+  assert.equal(validate('5', { ...EMPLOYED, q5_2: '2026-11' }).errors.q5_2, 'Cannot be in the future');
+  assert.equal(validate('5', { ...EMPLOYED, q5_2: '2019-13' }).errors.q5_2, 'Enter a real month and year');
+});
+
+test('part 5: employer address and telephone use the normal address and phone checks', () => {
+  assert.ok(validate('5', { ...EMPLOYED, q5_4: { line1: '1 Test Street' } }).errors['q5_4.town']);
+  assert.ok(validate('5', { ...EMPLOYED, q5_5: { countryCode: '44', number: '123' } }).errors['q5_5.countryCode']);
+});
+
+test('money: negative, too large, over-precise and foreign-currency amounts are rejected', () => {
+  const earns = (a) => validate('5', { ...EMPLOYED, q5_7: a }).errors['q5_7.amount'];
+  assert.equal(earns(gbp(-1)), 'Cannot be negative');
+  assert.equal(earns(gbp(-0.01)), 'Cannot be negative');
+  assert.equal(earns(gbp(1000000.01)), 'Amount cannot be more than 1,000,000');
+  assert.equal(earns(gbp(1000000)), undefined);
+  assert.equal(earns(gbp(0)), undefined);
+  assert.equal(earns(gbp(10.005)), 'Use at most two decimal places');
+  assert.equal(earns(gbp(10.5)), undefined);
+  assert.ok(validate('5', { ...EMPLOYED, q5_7: { amount: 5, currency: 'USD' } }).errors['q5_7.currency']);
+  assert.equal(validate('5', { ...EMPLOYED, q5_7: { amount: '5', currency: 'GBP' } }).errors['q5_7.amount'], 'Enter a valid answer');
+  assert.equal(validate('5', { ...EMPLOYED, q5_7: { amount: null, currency: 'GBP' } }).success, false);
+  assert.equal(validate('5', { ...EMPLOYED, q5_7: { amount: 5, currency: 'GBP', extra: 1 } }).success, false);
+});
+
+test('money: each amount question has its own maximum', () => {
+  const max = (n) => config.questions.find((q) => q.number === n).rules.max;
+  assert.deepEqual(['5.7', '6.2', '6.3', '6.4'].map(max), [1e6, 1e8, 1e6, 1e6]);
+  assert.equal(validate('6A', { ...S6A, q6_2: gbp(100000000) }).success, true);
+  assert.equal(validate('6A', { ...S6A, q6_2: gbp(100000001) }).errors['q6_2.amount'], 'Amount cannot be more than 100,000,000');
+  assert.equal(validate('6A', { ...S6A, q6_3: gbp(1000001) }).errors['q6_3.amount'], 'Amount cannot be more than 1,000,000');
+  assert.equal(validate('6A', { ...S6A, q6_4: gbp(-5) }).errors['q6_4.amount'], 'Cannot be negative');
+});
+
+test('money: an AMT question without its own rules.max keeps the 1,000,000,000 default', () => {
+  const cfg = mk([{ id: 'q1_1', number: '1.1', type: 'AMT' }]);
+  assert.equal(vs(cfg, { q1_1: gbp(1e9) }).success, true);
+  assert.equal(vs(cfg, { q1_1: gbp(1e9 + 1) }).errors['q1_1.amount'], 'Amount cannot be more than 1,000,000,000');
+});
+
+test('part 6A: 6.2 only appears when 6.1 includes savings', () => {
+  assert.equal(validate('6A', S6A).success, true);
+  assert.equal(validate('6A', { ...S6A, q6_1: 'tbc_both' }).success, true);
+  assert.equal(validate('6A', { ...S6A, q6_2: undefined }).errors.q6_2, 'This question is required');
+  for (const v of ['tbc_income', 'tbc_none']) {
+    const { q6_2, ...rest } = S6A;
+    const r = validate('6A', { ...rest, q6_1: v });
+    assert.equal(r.success, true, `${v}: ${JSON.stringify(r.errors)}`);
+    assert.equal(r.data.q6_2, undefined);
+  }
+  assert.deepEqual(Object.keys(validate('6A', {}).errors).sort(), ['q6_1', 'q6_3', 'q6_4', 'q6_5']);
+});
+
+test('part 6A gate: changing 6.1 to an answer without savings removes 6.2', () => {
+  const r = validate('6A', { ...S6A, q6_1: 'tbc_none' }, S6A);
+  assert.equal(r.success, true);
+  assert.deepEqual(r.removed, ['q6_2']);
+  assert.equal(r.data.q6_2, undefined);
+  const pruned = engine.pruneAnswers(config, { ...S6A, q6_1: 'tbc_income' });
+  assert.deepEqual(pruned.removed, ['q6_2']);
+  assert.equal(pruned.answers.q6_2, undefined);
+});
+
+test('parts 6B and 6D: one required Yes/No each', () => {
+  assert.equal(validate('6B', { q6_6: true }).success, true);
+  assert.equal(validate('6B', { q6_6: false }).success, true);
+  assert.equal(validate('6B', {}).errors.q6_6, 'This question is required');
+  assert.equal(validate('6D', { q6_8: false }).success, true);
+  assert.equal(validate('6D', {}).errors.q6_8, 'This question is required');
+});
+
+test('part 6C: a Yes on 6.7 needs at least one place of stay; a No needs nothing more', () => {
+  assert.equal(validate('6C', { q6_7: false }).success, true);
+  assert.equal(validate('6C', { q6_7: true }).errors.accommodation, 'Add at least one entry');
+  const ok = validate('6C', { q6_7: true, accommodation: [STAY] }, TRIP);
+  assert.equal(ok.success, true, JSON.stringify(ok.errors));
+  const blank = validate('6C', { q6_7: true, accommodation: [{}] }, TRIP);
+  assert.deepEqual(Object.keys(blank.errors).sort(), [
+    'accommodation.0.q6_7a', 'accommodation.0.q6_7b', 'accommodation.0.q6_7c', 'accommodation.0.q6_7d',
+  ]);
+});
+
+test('part 6C gate: changing 6.7 to No removes every place of stay', () => {
+  const r = validate('6C', { q6_7: false, accommodation: [STAY] }, { accommodation: [STAY] });
+  assert.equal(r.success, true);
+  assert.deepEqual(r.removed, ['accommodation']);
+  assert.deepEqual(r.data, { q6_7: false });
+  const pruned = engine.pruneAnswers(config, { q6_7: false, accommodation: [STAY, STAY] });
+  assert.deepEqual(pruned.removed, ['accommodation']);
+  assert.deepEqual(pruned.answers, { q6_7: false });
+});
+
+test('part 6C: a stay must fall inside the travel dates of 1.6 and 1.7 (a cross-section rule)', () => {
+  const check = (from, to) => validate('6C', { q6_7: true, accommodation: [stayOn(from, to)] }, TRIP).errors;
+  assert.deepEqual(check('2027-03-01', '2027-03-15'), {}); // the whole trip: both end days are allowed
+  assert.equal(check('2027-02-28', '2027-03-05')['accommodation.0.q6_7c'], 'Must be on or after the date in question 1.6');
+  assert.equal(check('2027-03-02', '2027-03-16')['accommodation.0.q6_7d'], 'Must be on or before the date in question 1.7');
+  assert.equal(check('2027-03-16', '2027-03-20')['accommodation.0.q6_7c'], 'Must be on or before the date in question 1.7');
+  assert.equal(check('2027-03-05', '2027-03-05')['accommodation.0.q6_7d'], 'Must be after the date in question 6.7c');
+  assert.equal(check('2027-03-06', '2027-03-05')['accommodation.0.q6_7d'], 'Must be after the date in question 6.7c');
+});
+
+test('part 6C: the trip-date rules wait until section 1 has been saved', () => {
+  const body = { q6_7: true, accommodation: [stayOn('2030-01-01', '2030-01-09')] };
+  const r = validate('6C', body, {});
+  assert.equal(r.success, true, JSON.stringify(r.errors));
+  assert.equal(validate('6C', body, TRIP).success, false);
+});
+
+test('part 6C: stays may meet on one day or leave a gap, but may not overlap', () => {
+  const stays = (...ranges) => ({ q6_7: true, accommodation: ranges.map(([a, b]) => stayOn(a, b)) });
+  const errors = (...ranges) => validate('6C', stays(...ranges), TRIP).errors;
+  assert.deepEqual(errors(['2027-03-01', '2027-03-05'], ['2027-03-05', '2027-03-09']), {});
+  assert.deepEqual(errors(['2027-03-01', '2027-03-05'], ['2027-03-07', '2027-03-09']), {});
+  assert.deepEqual(errors(['2027-03-07', '2027-03-09'], ['2027-03-01', '2027-03-05']), {}); // order does not matter
+  const overlap = 'Overlaps the dates of Place of stay 1';
+  assert.equal(errors(['2027-03-01', '2027-03-06'], ['2027-03-05', '2027-03-09'])['accommodation.1.q6_7c'], overlap);
+  assert.equal(errors(['2027-03-05', '2027-03-09'], ['2027-03-01', '2027-03-06'])['accommodation.1.q6_7c'], overlap);
+  assert.equal(errors(['2027-03-01', '2027-03-10'], ['2027-03-03', '2027-03-04'])['accommodation.1.q6_7c'], overlap);
+  assert.equal(
+    errors(['2027-03-01', '2027-03-04'], ['2027-03-06', '2027-03-08'], ['2027-03-03', '2027-03-07'])['accommodation.2.q6_7c'],
+    overlap
+  );
+  // The message names the entry, never an answer.
+  assert.ok(!JSON.stringify(errors(['2027-03-01', '2027-03-06'], ['2027-03-05', '2027-03-09'])).includes('2027'));
+});
+
+test('dates: onOrAfter and onOrBefore allow the same day and follow the same rules as after', () => {
+  const bad = mk([
+    { id: 'q1_1', number: '1.1', type: 'DATE', rules: { onOrAfter: 'q1_2' } },
+    { id: 'q1_2', number: '1.2', type: 'DATE' },
+  ]);
+  assert.ok(engine.validateConfig(bad).some((p) => /must refer to an earlier question/.test(p)));
+
+  const ok = mk([
+    { id: 'q1_1', number: '1.1', type: 'DATE' },
+    { id: 'q1_2', number: '1.2', type: 'DATE' },
+    { id: 'q1_3', number: '1.3', type: 'DATE', rules: { onOrAfter: 'q1_1', onOrBefore: ['q1_2'] } },
+  ]);
+  assert.deepEqual(engine.validateConfig(ok), []);
+  assert.equal(vs(ok, { q1_1: '2027-01-01', q1_2: '2027-01-10', q1_3: '2027-01-01' }).success, true);
+  assert.equal(vs(ok, { q1_1: '2027-01-01', q1_2: '2027-01-10', q1_3: '2027-01-10' }).success, true);
+  assert.equal(
+    vs(ok, { q1_1: '2027-01-02', q1_2: '2027-01-10', q1_3: '2027-01-01' }).errors.q1_3,
+    'Must be on or after the date in question 1.1'
+  );
+  assert.equal(
+    vs(ok, { q1_1: '2027-01-01', q1_2: '2027-01-10', q1_3: '2027-01-11' }).errors.q1_3,
+    'Must be on or before the date in question 1.2'
+  );
+});
+
+test('config: validateConfig checks the new date, amount and group rules', () => {
+  const q = (c, id) => c.questions.find((x) => x.id === id);
+  const g = (c) => c.groups.find((x) => x.id === 'accommodation');
+  const cases = [
+    ['onOrAfter on a non-date', (c) => { q(c, 'q6_3').rules.onOrAfter = 'q1_6'; }, /rules.onOrAfter needs a DATE or MY/],
+    ['onOrBefore on an unknown question', (c) => { q(c, 'q6_7c').rules.onOrBefore = 'q9_9'; }, /unknown question/],
+    ['onOrAfter on a later question', (c) => { q(c, 'q1_6').rules = { onOrAfter: 'q6_7c' }; }, /earlier question/],
+    ['AMT max above the hard limit', (c) => { q(c, 'q6_3').rules.max = 5e9; }, /rules.max must be from 0/],
+    ['AMT max negative', (c) => { q(c, 'q6_3').rules.max = -1; }, /rules.max must be from 0/],
+    ['AMT min', (c) => { q(c, 'q6_3').rules.min = -5; }, /never negative/],
+    ['max on a text question', (c) => { q(c, 'q5_3').rules = { max: 5 }; }, /only for NUM and AMT/],
+    ['max that is not a number', (c) => { q(c, 'q6_3').rules.max = '5'; }, /must be a number/],
+    ['noOverlap on a missing member', (c) => { g(c).noOverlap.end = 'q9_9'; }, /noOverlap.end must be a DATE member/],
+    ['noOverlap on a non-date', (c) => { g(c).noOverlap.start = 'q6_7a'; }, /noOverlap.start must be a DATE member/],
+    ['noOverlap on the same question twice', (c) => { g(c).noOverlap.end = 'q6_7c'; }, /must differ/],
+  ];
+  for (const [name, mutate, pattern] of cases) {
+    const c = clone(config);
+    mutate(c);
+    const problems = engine.validateConfig(c);
+    assert.ok(problems.some((p) => pattern.test(p)), `${name}: got ${JSON.stringify(problems)}`);
+  }
+});
+
+test('sections: Parts 5 and 6 are always shown', () => {
+  for (const id of ['5', '6A', '6B', '6C', '6D']) assert.equal(engine.isSectionVisible(config, id, {}), true);
+});
+
+test('compatibility: answers saved under config 0.2.0 (Parts 1-4) still validate unchanged', () => {
+  const sections = [
+    ['1', S1], ['2A', S2A], ['2B', S2B], ['2C', S2C], ['2D', S2D], ['3', S3],
+    ['4B', { q4_7: true, dependants: [DEPENDANT] }], ['4C', { parents: [PARENT] }],
+  ];
+  for (const [section, answers] of sections) {
+    const r = validate(section, answers, section === '3' ? S1 : undefined);
+    assert.equal(r.success, true, `${section}: ${JSON.stringify(r.errors)}`);
+  }
+  assert.equal(validate('4A', PARTNER, { q2_13: 'tbc_married' }).success, true);
 });

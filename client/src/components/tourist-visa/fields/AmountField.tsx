@@ -23,6 +23,7 @@ export function AmountField(props: FieldProps) {
           type="number"
           inputMode="decimal"
           min={0}
+          max={question.rules?.max}
           step="0.01"
           value={typeof current.amount === "number" ? String(current.amount) : ""}
           onChange={(event) =>

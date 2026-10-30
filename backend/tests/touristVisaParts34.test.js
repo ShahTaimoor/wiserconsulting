@@ -121,7 +121,7 @@ test('a complete application: every section saves, the passport number is cipher
   const app = await get(token);
 
   assert.deepEqual(app.sectionStatus, { 1: 'saved', '2A': 'saved', '2B': 'saved', '2C': 'saved', '2D': 'saved', 3: 'saved', '4A': 'saved', '4B': 'saved', '4C': 'saved' });
-  assert.equal(app.currentSection, '4C', 'all saved: resume on the last section');
+  assert.equal(app.currentSection, '5', 'Parts 1-4 saved: resume at the first section of Part 5');
   assert.equal(app.answers.q3_1, 'FAKE-PASSPORT-9876');
   assert.equal(app.answers.q4_1, 'Testpartner');
   assert.equal(app.answers.dependants[0].q4_7b, 'Testchild');
@@ -162,7 +162,7 @@ test('GATE CHANGE: changing 2.13 to a status without a partner prunes the 4A ans
   // What the applicant sees: no 4A row, resume skips it.
   const app = await get(token);
   assert.equal('4A' in app.sectionStatus, false);
-  assert.equal(app.currentSection, '4C');
+  assert.equal(app.currentSection, '5');
   assert.deepEqual(res.json.data.application.sectionStatus, app.sectionStatus);
 });
 
@@ -180,7 +180,7 @@ test('changing 2.13 back brings 4A back as not started, with the old answers gon
   const fill = await put(token, '4A', S4A);
   assert.equal(fill.status, 200, JSON.stringify(fill.json));
   assert.equal(fill.json.data.application.sectionStatus['4A'], 'saved');
-  assert.equal(fill.json.data.application.currentSection, '4C');
+  assert.equal(fill.json.data.application.currentSection, '5');
 });
 
 test('a section that does not apply cannot be saved, and nothing is written', async () => {

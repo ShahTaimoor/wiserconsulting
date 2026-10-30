@@ -22,6 +22,8 @@ const TYPES = [
 ];
 const DURATION_UNITS = ['years', 'months', 'weeks', 'days'];
 const DURATION_MAX = { years: 150, months: 1800, weeks: 7800, days: 54750 };
+// Largest amount an AMT question accepts unless it sets its own rules.max.
+const AMOUNT_MAX = 1e9;
 const REQUIRED_MSG = 'This question is required';
 const COUNTRY_CODES = new Set(countries.map((c) => c.code));
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
@@ -332,11 +334,12 @@ function typeSchema(z, cfg, q) {
     }
     case 'AMT': {
       const currencies = rules.currencies || ['GBP'];
+      const maxAmount = rules.max !== undefined ? rules.max : AMOUNT_MAX;
       return z.strictObject({
         amount: z
           .number()
           .min(0, 'Cannot be negative')
-          .max(1e9, 'Amount is too large')
+          .max(maxAmount, `Amount cannot be more than ${maxAmount.toLocaleString('en-GB')}`)
           .refine((a) => Math.abs(a * 100 - Math.round(a * 100)) < 1e-6, 'Use at most two decimal places'),
         currency: z.enum(currencies),
       });
@@ -401,17 +404,23 @@ function relationalIssues(cfg, q, value, flat, entry, today) {
     if (!vals.every((v) => allowed.has(v))) issues.push({ path: [], message: 'Choose from the listed options' });
   }
 
-  if (rules.after) {
-    const refs = Array.isArray(rules.after) ? rules.after : [rules.after];
-    for (const refId of refs) {
+  // after is strict; onOrAfter and onOrBefore allow the same day. A reference
+  // is skipped until the other question is shown and answered, so a rule that
+  // points at another section does nothing until that section has been saved.
+  const compareWith = (key, fails, message) => {
+    if (!rules[key]) return;
+    for (const refId of Array.isArray(rules[key]) ? rules[key] : [rules[key]]) {
       const ref = idx.byId.get(refId);
       if (!ref || !isVisibleIn(cfg, ref, flat, entry)) continue;
       const other = scopeGet(flat, entry, refId);
-      if (typeof other === 'string' && typeof value === 'string' && value <= other) {
-        issues.push({ path: [], message: `Must be after the date in question ${ref.number}` });
+      if (typeof other === 'string' && typeof value === 'string' && fails(value, other)) {
+        issues.push({ path: [], message: `${message} ${ref.number}` });
       }
     }
-  }
+  };
+  compareWith('after', (v, o) => v <= o, 'Must be after the date in question');
+  compareWith('onOrAfter', (v, o) => v < o, 'Must be on or after the date in question');
+  compareWith('onOrBefore', (v, o) => v > o, 'Must be on or before the date in question');
 
   if (rules.notFuture && typeof value === 'string') {
     const limit = q.type === 'MY' ? today.slice(0, 7) : today;
@@ -561,6 +570,27 @@ function validateSection(z, cfg, sectionId, incoming, existing, opts) {
         }
       }
     });
+
+    // Entries that each cover a date range must not overlap. Touching is fine
+    // (one stay ends the day the next begins). The error goes on the later entry.
+    const span = g.noOverlap;
+    if (span) {
+      const entries = data[g.id];
+      entries.forEach((entryData, j) => {
+        const key = `${g.id}.${j}.${span.start}`;
+        const startJ = entryData[span.start];
+        const endJ = entryData[span.end];
+        if (errors[key] || typeof startJ !== 'string' || typeof endJ !== 'string') return;
+        for (let i = 0; i < j; i++) {
+          const startI = entries[i][span.start];
+          const endI = entries[i][span.end];
+          if (typeof startI === 'string' && typeof endI === 'string' && startJ < endI && startI < endJ) {
+            errors[key] = `Overlaps the dates of ${g.entryLabel} ${i + 1}`;
+            return;
+          }
+        }
+      });
+    }
   }
 
   return {
@@ -695,17 +725,26 @@ function validateConfig(cfg) {
     if (q.showWhen) checkCondition(q.showWhen, q, `${w}.showWhen`);
 
     const r = q.rules || {};
-    if (r.after !== undefined) {
-      if (q.type !== 'DATE' && q.type !== 'MY') err(`${w}: rules.after needs a DATE or MY question`);
-      for (const id of Array.isArray(r.after) ? r.after : [r.after]) {
+    for (const key of ['after', 'onOrAfter', 'onOrBefore']) {
+      if (r[key] === undefined) continue;
+      if (q.type !== 'DATE' && q.type !== 'MY') err(`${w}: rules.${key} needs a DATE or MY question`);
+      for (const id of Array.isArray(r[key]) ? r[key] : [r[key]]) {
         const ref = byId.get(id);
-        if (!ref) err(`${w}: rules.after refers to unknown question ${id}`);
+        if (!ref) err(`${w}: rules.${key} refers to unknown question ${id}`);
         else {
-          if (ref.type !== q.type) err(`${w}: rules.after ${id} must have the same type (${q.type})`);
-          if (order.get(id) >= order.get(q.id)) err(`${w}: rules.after must refer to an earlier question (${id})`);
+          if (ref.type !== q.type) err(`${w}: rules.${key} ${id} must have the same type (${q.type})`);
+          if (order.get(id) >= order.get(q.id)) err(`${w}: rules.${key} must refer to an earlier question (${id})`);
         }
       }
     }
+    for (const key of ['min', 'max']) {
+      if (r[key] === undefined) continue;
+      if (q.type !== 'NUM' && q.type !== 'AMT') err(`${w}: rules.${key} is only for NUM and AMT`);
+      else if (typeof r[key] !== 'number' || !Number.isFinite(r[key])) err(`${w}: rules.${key} must be a number`);
+      else if (q.type === 'AMT' && key === 'min') err(`${w}: AMT amounts are never negative, rules.min is not used`);
+      else if (q.type === 'AMT' && (r[key] < 0 || r[key] > AMOUNT_MAX)) err(`${w}: rules.max must be from 0 to ${AMOUNT_MAX}`);
+    }
+    if (typeof r.min === 'number' && typeof r.max === 'number' && r.min > r.max) err(`${w}: rules.min is above rules.max`);
     if (r.notFuture !== undefined && q.type !== 'DATE' && q.type !== 'MY') err(`${w}: rules.notFuture needs a DATE or MY question`);
     if (r.units !== undefined) {
       if (q.type !== 'DUR') err(`${w}: rules.units is only for DUR`);
@@ -733,6 +772,14 @@ function validateConfig(cfg) {
     if (!Array.isArray(g.questions) || !g.questions.length) err(`${w}: needs member questions`);
     if (g.tbc !== undefined && (typeof g.tbc !== 'string' || !g.tbc)) err(`${w}: tbc must be a non-empty string`);
     if (g.min !== undefined && (!Number.isInteger(g.min) || g.min < 1 || g.min > g.max)) err(`${w}: min must be an integer from 1 to max`);
+    if (g.noOverlap !== undefined) {
+      const { start, end } = g.noOverlap || {};
+      for (const [what, id] of [['start', start], ['end', end]]) {
+        const m = byId.get(id);
+        if (!m || m.group !== g.id || m.type !== 'DATE') err(`${w}: noOverlap.${what} must be a DATE member of the group`);
+      }
+      if (start !== undefined && start === end) err(`${w}: noOverlap.start and noOverlap.end must differ`);
+    }
     // A group without a gate is always open. Count-based groups are not supported yet.
     const gate = g.gate === undefined ? undefined : byId.get(g.gate);
     if (g.gate !== undefined && !gate) err(`${w}: unknown gate ${g.gate}`);

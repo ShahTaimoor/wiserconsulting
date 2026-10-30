@@ -1,5 +1,5 @@
 {
-  "version": "0.2.0-draft",
+  "version": "0.3.0-draft",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
@@ -10,7 +10,9 @@
     { "id": "1", "title": "Travel information" },
     { "id": "2", "title": "Personal information" },
     { "id": "3", "title": "Passport details" },
-    { "id": "4", "title": "Family" }
+    { "id": "4", "title": "Family" },
+    { "id": "5", "title": "Employment" },
+    { "id": "6", "title": "Money, family in the UK and accommodation" }
   ],
   "sections": [
     { "id": "1", "part": "1", "title": "Travel information" },
@@ -21,7 +23,12 @@
     { "id": "3", "part": "3", "title": "Passport details" },
     { "id": "4A", "part": "4", "title": "Spouse or partner details" },
     { "id": "4B", "part": "4", "title": "Dependants" },
-    { "id": "4C", "part": "4", "title": "Parent details" }
+    { "id": "4C", "part": "4", "title": "Parent details" },
+    { "id": "5", "part": "5", "title": "Employment" },
+    { "id": "6A", "part": "6", "title": "Income and expenditure" },
+    { "id": "6B", "part": "6", "title": "Family in the UK" },
+    { "id": "6C", "part": "6", "title": "Accommodation details" },
+    { "id": "6D", "part": "6", "title": "Public funds" }
   ],
   "groups": [
     {
@@ -49,6 +56,16 @@
       "max": 20,
       "questions": ["q4_8a", "q4_8b", "q4_8c", "q4_8d", "q4_8e", "q4_8f"],
       "tbc": "Spec 4.8 does not say whether a Yes/No question opens this group or how many parents are required. Default: no Yes/No question, the group is always shown and needs at least 1 entry (up to the group limit). To confirm."
+    },
+    {
+      "id": "accommodation",
+      "section": "6C",
+      "entryLabel": "Place of stay",
+      "gate": "q6_7",
+      "max": 20,
+      "questions": ["q6_7a", "q6_7b", "q6_7c", "q6_7d"],
+      "noOverlap": { "start": "q6_7c", "end": "q6_7d" },
+      "tbc": "Spec 6.7d proposes that the next stay starts when this one ends. Default: stays may not overlap, but a gap between two stays, or two stays that meet on the same day, is accepted. To confirm."
     }
   ],
   "questions": [
@@ -730,6 +747,221 @@
       "required": true,
       "group": "parents",
       "tbc": "Follow-up questions for the No path are to confirm."
+    },
+
+    {
+      "id": "q5_1",
+      "number": "5.1",
+      "section": "5",
+      "label": "What is your employment status?",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "tbc_employed", "label": "[TBC] Employed" },
+        { "value": "tbc_self_employed", "label": "[TBC] Self-employed" },
+        { "value": "tbc_student", "label": "[TBC] Student" },
+        { "value": "tbc_not_working", "label": "[TBC] Not working" }
+      ],
+      "tbc": "Option list to confirm, and the questions shown for each status other than employed. Placeholder mapping: only tbc_employed shows 5.2 to 5.9; the other placeholder statuses show nothing further.",
+      "note": "The answer decides which of 5.2 to 5.9 appear."
+    },
+    {
+      "id": "q5_2",
+      "number": "5.2",
+      "section": "5",
+      "label": "Date you started working for this employer",
+      "type": "MY",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "tbc_employed" },
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q5_3",
+      "number": "5.3",
+      "section": "5",
+      "label": "Employer's name",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "tbc_employed" }
+    },
+    {
+      "id": "q5_4",
+      "number": "5.4",
+      "section": "5",
+      "label": "Employer's address",
+      "type": "ADDR",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "tbc_employed" }
+    },
+    {
+      "id": "q5_5",
+      "number": "5.5",
+      "section": "5",
+      "label": "Employer's telephone number",
+      "type": "TEL",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "tbc_employed" }
+    },
+    {
+      "id": "q5_6",
+      "number": "5.6",
+      "section": "5",
+      "label": "Your job title",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "tbc_employed" }
+    },
+    {
+      "id": "q5_7",
+      "number": "5.7",
+      "section": "5",
+      "label": "How much do you earn each month - after tax?",
+      "type": "AMT",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "tbc_employed" },
+      "rules": { "max": 1000000 }
+    },
+    {
+      "id": "q5_8",
+      "number": "5.8",
+      "section": "5",
+      "label": "Describe your job",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "tbc_employed" }
+    },
+    {
+      "id": "q5_9",
+      "number": "5.9",
+      "section": "5",
+      "label": "Previous employment organisation",
+      "type": "TXT",
+      "required": false,
+      "showWhen": { "q": "q5_1", "eq": "tbc_employed" },
+      "help": "Leave this blank if you have no previous employment to list.",
+      "tbc": "Answer type and options to confirm. The printout suggests a pick-list with a none-of-the-above choice. Default: an optional text box, so the organisation's name is kept and a blank answer means none."
+    },
+
+    {
+      "id": "q6_1",
+      "number": "6.1",
+      "section": "6A",
+      "label": "Do you have another income or any savings?",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "tbc_savings", "label": "[TBC] Savings" },
+        { "value": "tbc_income", "label": "[TBC] Another income" },
+        { "value": "tbc_both", "label": "[TBC] Savings and another income" },
+        { "value": "tbc_none", "label": "[TBC] Neither" }
+      ],
+      "tbc": "Option list, and whether more than one can be chosen, to confirm. Default: one choice from the list. Placeholder mapping: tbc_savings and tbc_both show 6.2; the other two do not.",
+      "note": "6.2 shows when the answer includes savings."
+    },
+    {
+      "id": "q6_2",
+      "number": "6.2",
+      "section": "6A",
+      "label": "How much money do you have in savings?",
+      "type": "AMT",
+      "required": true,
+      "showWhen": { "q": "q6_1", "in": ["tbc_savings", "tbc_both"] },
+      "rules": { "max": 100000000 }
+    },
+    {
+      "id": "q6_3",
+      "number": "6.3",
+      "section": "6A",
+      "label": "How much money are you personally planning to spend on your visit to the UK?",
+      "type": "AMT",
+      "required": true,
+      "rules": { "max": 1000000 }
+    },
+    {
+      "id": "q6_4",
+      "number": "6.4",
+      "section": "6A",
+      "label": "What is the total amount of money you spend each month?",
+      "type": "AMT",
+      "required": true,
+      "rules": { "max": 1000000 }
+    },
+    {
+      "id": "q6_5",
+      "number": "6.5",
+      "section": "6A",
+      "label": "Will anyone be paying towards the cost of your visit?",
+      "type": "YN",
+      "required": true,
+      "tbc": "Follow-up questions for the Yes path (who is paying and how much) are to confirm."
+    },
+
+    {
+      "id": "q6_6",
+      "number": "6.6",
+      "section": "6B",
+      "label": "Do you have any family in the UK?",
+      "type": "YN",
+      "required": true,
+      "tbc": "Follow-up questions for the Yes path (likely one entry per relative) are to confirm."
+    },
+
+    {
+      "id": "q6_7",
+      "number": "6.7",
+      "section": "6C",
+      "label": "Do you have an address for where you are going to stay in the UK?",
+      "type": "YN",
+      "required": true,
+      "tbc": "What is asked on the No path is to confirm."
+    },
+    {
+      "id": "q6_7a",
+      "number": "6.7a",
+      "section": "6C",
+      "label": "Where are you planning to stay in the UK?",
+      "type": "TXT",
+      "required": true,
+      "group": "accommodation"
+    },
+    {
+      "id": "q6_7b",
+      "number": "6.7b",
+      "section": "6C",
+      "label": "Enter the address for where you are staying",
+      "type": "ADDR",
+      "required": true,
+      "group": "accommodation"
+    },
+    {
+      "id": "q6_7c",
+      "number": "6.7c",
+      "section": "6C",
+      "label": "When will you arrive there?",
+      "type": "DATE",
+      "required": true,
+      "group": "accommodation",
+      "rules": { "onOrAfter": "q1_6", "onOrBefore": "q1_7" }
+    },
+    {
+      "id": "q6_7d",
+      "number": "6.7d",
+      "section": "6C",
+      "label": "When will you leave there?",
+      "type": "DATE",
+      "required": true,
+      "group": "accommodation",
+      "rules": { "after": "q6_7c", "onOrBefore": "q1_7" }
+    },
+
+    {
+      "id": "q6_8",
+      "number": "6.8",
+      "section": "6D",
+      "label": "Have you received any public funds (money) in the UK?",
+      "type": "YN",
+      "required": true,
+      "tbc": "Follow-up questions for the Yes path are to confirm."
     }
   ]
 }

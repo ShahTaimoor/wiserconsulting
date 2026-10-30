@@ -46,8 +46,24 @@ const DEPENDANT = { q4_7a: "tbc_child", q4_7b: "Testchild", q4_7c: "Testsurname"
 const V4B = { q4_7: true, dependants: [DEPENDANT] };
 const PARENT = { q4_8a: "tbc_mother", q4_8b: "Testmother", q4_8c: "Testsurname", q4_8d: "1962-01-02", q4_8e: "GB", q4_8f: true };
 const V4C = { parents: [PARENT, { ...PARENT, q4_8a: "tbc_father", q4_8b: "Testfather", q4_8f: false }] };
+const gbp = (amount) => ({ amount, currency: "GBP" });
+const V5 = {
+  q5_1: "tbc_employed", q5_2: "2019-04", q5_3: "Test Employer Ltd",
+  q5_4: { line1: "3 Test Street", town: "Testville", country: "GB" },
+  q5_5: { countryCode: "+44", number: "20 7946 0000" }, q5_6: "Test Analyst",
+  q5_7: gbp(2500.5), q5_8: "Made-up description of a made-up job.", q5_9: "Previous Test Co",
+};
+const V6A = { q6_1: "tbc_savings", q6_2: gbp(8000), q6_3: gbp(1500), q6_4: gbp(900), q6_5: false };
+const STAY = {
+  q6_7a: "Test Hotel", q6_7b: { line1: "2 Test Road", town: "Testtown", country: "GB" },
+  q6_7c: "2027-03-01", q6_7d: "2027-03-08",
+};
+const V6C = { q6_7: true, accommodation: [STAY, { ...STAY, q6_7a: "Second Hotel", q6_7c: "2027-03-08", q6_7d: "2027-03-15" }] };
 // 2.13 is married here, so that section 4A applies and is exercised too.
-const ALL = { 1: V1, "2A": V2A, "2B": { ...V2B, q2_13: "tbc_married" }, "2C": V2C, "2D": V2D, 3: V3, "4A": V4A, "4B": V4B, "4C": V4C };
+const ALL = {
+  1: V1, "2A": V2A, "2B": { ...V2B, q2_13: "tbc_married" }, "2C": V2C, "2D": V2D, 3: V3, "4A": V4A, "4B": V4B, "4C": V4C,
+  5: V5, "6A": V6A, "6B": { q6_6: false }, "6C": V6C, "6D": { q6_8: false },
+};
 
 const payload = (section, values, saved = {}) => buildPayload(cfg, section, values, saved).answers;
 
@@ -99,7 +115,10 @@ test("next and previous section follow the form order", () => {
   assert.equal(nextSectionId(cfg, "1"), "2A");
   assert.equal(nextSectionId(cfg, "2C"), "2D");
   assert.equal(nextSectionId(cfg, "2D"), "3");
-  assert.equal(nextSectionId(cfg, "4C"), null);
+  assert.equal(nextSectionId(cfg, "4C"), "5");
+  assert.equal(nextSectionId(cfg, "5"), "6A");
+  assert.equal(nextSectionId(cfg, "6D"), null);
+  assert.equal(previousSectionId(cfg, "6A"), "5");
   assert.equal(nextSectionId(cfg, "nope"), null);
   assert.equal(previousSectionId(cfg, "1"), null);
   assert.equal(previousSectionId(cfg, "2B"), "2A");
@@ -360,7 +379,8 @@ test("next and previous section skip a section that does not apply (4A without a
     assert.equal(previousSectionId(cfg, "4B", { q2_13: status }), "4A");
   }
   assert.equal(nextSectionId(cfg, "3", {}), "4B", "no 2.13 answer yet: no partner section");
-  assert.equal(nextSectionId(cfg, "4C", single), null);
+  assert.equal(nextSectionId(cfg, "4C", single), "5");
+  assert.equal(nextSectionId(cfg, "6D", single), null);
   assert.equal(previousSectionId(cfg, "1", single), null);
   assert.equal(nextSectionId(cfg, "3"), "4A", "without answers the plain order is used");
 });
@@ -443,4 +463,80 @@ test("hintFor words a date that must follow several earlier dates", () => {
 test("every Part 3 and Part 4 section renders: no section is empty and the sensitive passport number turns autocomplete off", () => {
   for (const id of ["3", "4A", "4B", "4C"]) assert.ok(sectionItems(cfg, id).length > 0, id);
   assert.equal(cfg.questions.find((q) => q.id === "q3_1").sensitive, true);
+});
+
+// ---------------------------------------------------------------------------
+// Step 6b: Parts 5 and 6
+// ---------------------------------------------------------------------------
+
+test("hintFor words the inclusive trip-date rules of a place of stay", () => {
+  const q = (id) => cfg.questions.find((x) => x.id === id);
+  assert.equal(hintFor(cfg, q("q6_7c")), "Must be on or after the date in question 1.6. Must be on or before the date in question 1.7.");
+  assert.equal(hintFor(cfg, q("q6_7d")), "Must be after the date in question 6.7c. Must be on or before the date in question 1.7.");
+  assert.equal(hintFor(cfg, q("q5_9")), "Leave this blank if you have no previous employment to list.");
+});
+
+test("initialValues: the accommodation group stays closed until 6.7 is Yes, then offers one place of stay", () => {
+  assert.equal(initialValues(cfg, "6C", {}).accommodation, undefined);
+  assert.deepEqual(initialValues(cfg, "6C", { q6_7: true }).accommodation, [{}]);
+  assert.deepEqual(initialValues(cfg, "6C", { q6_7: true, accommodation: V6C.accommodation }).accommodation, V6C.accommodation);
+});
+
+test("payload: section 5 sends only 5.1 unless the status is employed", () => {
+  assert.deepEqual(payload("5", V5), V5);
+  assert.deepEqual(payload("5", { ...V5, q5_1: "tbc_student" }), { q5_1: "tbc_student" });
+  assert.deepEqual(payload("5", { ...V5, q5_1: "tbc_student" }, {}), { q5_1: "tbc_student" });
+});
+
+test("payload: an amount of zero is a real answer and is kept; an empty amount is not", () => {
+  assert.deepEqual(payload("6A", { ...V6A, q6_4: gbp(0) }).q6_4, gbp(0));
+  assert.equal("q6_4" in payload("6A", { ...V6A, q6_4: undefined }), false);
+});
+
+test("payload: places of stay are sent only while 6.7 is Yes", () => {
+  assert.deepEqual(payload("6C", { ...V6C, q6_7: false }), { q6_7: false });
+  assert.deepEqual(payload("6C", V6C).accommodation.length, 2);
+});
+
+test("round trip: the optional previous employer can be left out", () => {
+  const { q5_9, ...rest } = V5;
+  const result = engine.validateSection(z, cfg, "5", payload("5", rest), {});
+  assert.equal(result.success, true, JSON.stringify(result.errors));
+});
+
+test("round trip: a negative or oversized amount comes back as an error on the amount box", () => {
+  const bad = engine.validateSection(z, cfg, "5", payload("5", { ...V5, q5_7: gbp(-5) }), {});
+  assert.equal(bad.success, false);
+  const items = collectErrors(cfg, "5", bad.errors);
+  assert.deepEqual(items.map((i) => [i.targetId, i.message]), [["field-q5_7-amount", "Cannot be negative"]]);
+  assert.equal(items[0].label, "5.7 How much do you earn each month - after tax?");
+
+  const big = engine.validateSection(z, cfg, "6A", payload("6A", { ...V6A, q6_3: gbp(2000000) }), {});
+  assert.equal(collectErrors(cfg, "6A", big.errors)[0].message, "Amount cannot be more than 1,000,000");
+});
+
+test("round trip: a stay outside the travel dates, and overlapping stays, point at the right place-of-stay field", () => {
+  const saved = { q1_6: "2027-03-01", q1_7: "2027-03-15" };
+  const outside = engine.validateSection(z, cfg, "6C", payload("6C", { ...V6C, accommodation: [{ ...STAY, q6_7c: "2027-02-20" }] }, saved), saved);
+  const items = collectErrors(cfg, "6C", outside.errors);
+  assert.deepEqual(items.map((i) => i.targetId), ["field-accommodation-0-q6_7c"]);
+  assert.equal(items[0].label, "Place of stay 1: When will you arrive there?");
+  assert.match(items[0].message, /on or after the date in question 1\.6/);
+
+  const overlap = { ...V6C, accommodation: [STAY, { ...STAY, q6_7a: "Second Hotel", q6_7c: "2027-03-05", q6_7d: "2027-03-12" }] };
+  const result = engine.validateSection(z, cfg, "6C", payload("6C", overlap, saved), saved);
+  const overlapItems = collectErrors(cfg, "6C", result.errors);
+  assert.deepEqual(overlapItems.map((i) => [i.targetId, i.message]), [
+    ["field-accommodation-1-q6_7c", "Overlaps the dates of Place of stay 1"],
+  ]);
+});
+
+test("round trip: stays that meet on the same day are accepted", () => {
+  const saved = { q1_6: "2027-03-01", q1_7: "2027-03-15" };
+  const result = engine.validateSection(z, cfg, "6C", payload("6C", V6C, saved), saved);
+  assert.equal(result.success, true, JSON.stringify(result.errors));
+});
+
+test("every Part 5 and Part 6 section renders: no section is empty", () => {
+  for (const id of ["5", "6A", "6B", "6C", "6D"]) assert.ok(sectionItems(cfg, id).length > 0, id);
 });

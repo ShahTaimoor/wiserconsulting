@@ -28,6 +28,10 @@ export type OptionsSpec =
 export interface QuestionRules {
   /** DATE/MY must be later than the answer(s) to these earlier questions. */
   after?: string | string[];
+  /** DATE/MY must be the same day as, or later than, the answer(s) to these earlier questions. */
+  onOrAfter?: string | string[];
+  /** DATE/MY must be the same day as, or earlier than, the answer(s) to these earlier questions. */
+  onOrBefore?: string | string[];
   /** DATE/MY must not be later than today. */
   notFuture?: boolean;
   /** DUR: which units are asked, and whether all of them ('parts') or exactly one ('single'). */
@@ -39,6 +43,7 @@ export interface QuestionRules {
   maxLen?: number;
   /** NUM: inclusive bounds (default 0..1000). */
   min?: number;
+  /** NUM: inclusive upper bound. AMT: largest amount accepted (default 1,000,000,000; never negative). */
   max?: number;
 }
 
@@ -82,6 +87,11 @@ export interface RepeatGroup {
   min?: number;
   max: number;
   questions: string[];
+  /**
+   * Two DATE members that give each entry a date range. Ranges of different
+   * entries may touch but not overlap.
+   */
+  noOverlap?: { start: string; end: string };
   tbc?: string;
 }
 
