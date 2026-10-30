@@ -13,7 +13,7 @@ Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-
 
 ## 2. What is built
 
-**Questions: Parts 1 to 8 of the spec, in 16 sections.**
+**Questions: Parts 1 to 8 of the spec, in 16 sections.** Section 4A (spouse or partner) only applies when 2.13 is married, civil partnership or unmarried partner, so an applicant sees 15 or 16 sections, and the dashboard counts only the ones that apply (for example "5 of 15 sections saved").
 
 | Part | Sections |
 | --- | --- |
@@ -102,7 +102,7 @@ Existing variables the feature relies on and does not change: `JWT_SECRET` (sign
 
 ## 6. What changed in existing files
 
-Only six existing files were modified. Everything else is new.
+Only six existing files were modified. Everything else is new, including `backend/.env.example` (it did not exist before; it names `FIELD_ENCRYPTION_KEY` only).
 
 | File | Change |
 | --- | --- |
@@ -111,7 +111,7 @@ Only six existing files were modified. Everything else is new.
 | `backend/package.json` (and lock file) | `npm test` now runs the backend tests (it was a placeholder), one file at a time (`--test-concurrency=1`); adds the dev dependency `mongodb-memory-server`. |
 | `client/package.json` | Adds the `test:unit` script. |
 | `client/.env.example` | Documents `NEXT_PUBLIC_TOURIST_VISA_PREVIEW`. |
-| `backend/package-lock.json` | Lock file for the dev dependency above. |
+| `backend/package-lock.json` | Lock file for the dev dependency above. It adds 30 packages (the in-memory database for tests, dev only) and also moved the locked versions of six existing indirect packages: `b4a` 1.6.7 to 1.9.0, `bare-events` 2.6.1 to 2.9.2, `semver` 7.7.2 to 7.8.5, `streamx` 2.22.1 to 2.28.1, `tar-stream` 3.1.7 to 3.2.2 and `text-decoder` 1.2.3 to 1.2.7. These are not used by the Tourist Visa code. If you want the lock file to change by the new packages only, regenerate it from main with `npm install --save-dev mongodb-memory-server@^11.3.0`. |
 
 New at the repository root: `package.json` (scripts only, no dependencies) and `scripts/` (`sync-shared.js`, `check-tourist-visa-release.js`), plus `shared/tourist-visa/`, which is the canonical copy of the config and engine.
 
@@ -243,6 +243,10 @@ These are existing problems in the rest of the application. They were found whil
 3. **Global input sanitizer.** `backend/middleware/sanitize.js` strips `<` and `>` from every string on every route except the new Tourist Visa path, which can silently alter user text.
 4. **Error logging.** `backend/middleware/errorHandler.js` logs the whole error object for unexpected errors. Database cast errors can include the submitted value, so personal data can end up in logs. The Tourist Visa routes use their own log-safe handler; the rest of the app does not.
 5. **Default session secret.** `backend/index.js` falls back to the string `"your-secret-key"` when `SESSION_SECRET` is not set. Set it explicitly on every environment.
+6. **A database connection string with credentials in the git history of main.** Two old commits (`2117279` and `6e1ad3a`) added a `mongodb+srv://user:password@...` string to `backend/config/db.js`. It is no longer in the current file, but anyone with access to the repository can read it in the history. Treat that password as exposed: check whether it is still in use, and rotate it if so.
+7. **An old `client/.env` in the history of main.** It was committed in `8575276` and removed in `f08eb0f`. It held `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (both are meant to be visible in the browser, so the risk is low).
+
+Items 6 and 7 were already on main before this feature. The feature's own commits were searched and add no secret, no key value, no connection string and no env file.
 
 ## 12. Native browser dialogs elsewhere in the client
 
