@@ -254,6 +254,7 @@ export function SectionForm({ sectionId, application }: SectionFormProps) {
                   members={item.members}
                   entries={entries}
                   count={groupEntryCount(config, item.group, merged)}
+                  reported={item.group.count && typeof merged[item.group.count] === "number" ? (merged[item.group.count] as number) : undefined}
                   merged={merged}
                   errors={errors}
                   previewMode={previewMode}

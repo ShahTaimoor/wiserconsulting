@@ -11,6 +11,8 @@ export type AnswerType =
 export type Condition =
   | { q: string; eq: string | boolean | number }
   | { q: string; in: Array<string | boolean | number> }
+  /** The answer to a NUM question is a number greater than this. */
+  | { q: string; gt: number }
   | { all: Condition[] }
   | { any: Condition[] }
   | { not: Condition };
@@ -67,6 +69,11 @@ export interface Question {
   rules?: QuestionRules;
   /** Short items shown as a bulleted list under the question text. */
   items?: string[];
+  /**
+   * An expandable note that lists countries, for example "Which countries are part of the EEA?".
+   * The countries are ISO codes from countries.json, so the names stay in one maintained list.
+   */
+  helpCountries?: { summary: string; countries: string[] };
   /** Encrypt at rest (passport and ID numbers, Part 9, Part 10A). */
   sensitive?: boolean;
   /** Pre-fill hint for the client only. */
@@ -98,7 +105,8 @@ export interface RepeatGroup {
   /**
    * NUM question in the same section that says how many entries there are. The group then
    * has exactly that many entries, and the applicant cannot add or remove any.
-   * Needs a gate; the count question needs rules.min of at least 1 and rules.max within `max`.
+   * Needs a gate; the count question needs rules.min of at least 1. Its rules.max may be larger
+   * than `max`: the group then asks for exactly `max` entries (the most recent), not the full count.
    */
   count?: string;
   max: number;

@@ -160,6 +160,7 @@ function evalCondition(cfg, c, flat, entry) {
   const value = scopeGet(flat, entry, c.q);
   if ('eq' in c) return value === c.eq;
   if ('in' in c) return c.in.includes(value);
+  if ('gt' in c) return typeof value === 'number' && value > c.gt;
   return false;
 }
 
@@ -556,9 +557,14 @@ function validateSection(z, cfg, sectionId, incoming, existing, opts) {
       // valid answer it shows its own error, so the group stays quiet.
       const n = data[g.count];
       if (!Number.isInteger(n)) continue;
-      if (!Array.isArray(raw) || raw.length !== n) {
+      // The count may be larger than the group allows (7.5 takes up to 99 visits, 20 are listed):
+      // then exactly `max` entries are asked for, the most recent ones.
+      const expected = Math.min(n, max);
+      if (!Array.isArray(raw) || raw.length !== expected) {
         const label = String(g.entryLabel || 'entry').toLowerCase();
-        errors[g.id] = `Give details for exactly ${n} ${n === 1 ? label : `${label}s`}`;
+        errors[g.id] = n > expected
+          ? `Give details for your ${expected} most recent ${label}s`
+          : `Give details for exactly ${n} ${n === 1 ? label : `${label}s`}`;
         continue;
       }
     } else if (!Array.isArray(raw) || raw.length < min) {
@@ -766,9 +772,11 @@ function validateConfig(cfg) {
       return list.forEach((x) => checkCondition(x, q, where));
     }
     if (c.not) return checkCondition(c.not, q, where);
-    if (!('eq' in c) === !('in' in c)) return err(`${where}: condition on ${c.q} needs exactly one of eq, in`);
+    if (['eq', 'in', 'gt'].filter((k) => k in c).length !== 1) return err(`${where}: condition on ${c.q} needs exactly one of eq, in, gt`);
     if ('in' in c && !Array.isArray(c.in)) err(`${where}: "in" must be an array`);
+    if ('gt' in c && (typeof c.gt !== 'number' || !Number.isFinite(c.gt))) err(`${where}: "gt" must be a number`);
     if (!byId.has(c.q)) return err(`${where}: refers to unknown question ${c.q}`);
+    if ('gt' in c && byId.get(c.q).type !== 'NUM') err(`${where}: "gt" needs a NUM question (${c.q})`);
     if (order.get(c.q) >= order.get(q.id)) err(`${where}: must refer to an earlier question than itself (${c.q})`);
   };
 
@@ -841,6 +849,16 @@ function validateConfig(cfg) {
       if (q.type !== 'DATE' && q.type !== 'MY') err(`${w}: rules.withinYears needs a DATE or MY question`);
       if (!Number.isInteger(r.withinYears) || r.withinYears < 1 || r.withinYears > 100) err(`${w}: rules.withinYears must be a whole number from 1 to 100`);
     }
+    if (q.helpCountries !== undefined) {
+      const h = q.helpCountries;
+      const known = new Set(countries.map((c) => c.code));
+      if (!h || typeof h !== 'object' || typeof h.summary !== 'string' || !h.summary.trim()) err(`${w}: helpCountries needs a summary`);
+      else if (!Array.isArray(h.countries) || !h.countries.length) err(`${w}: helpCountries needs a list of country codes`);
+      else {
+        for (const code of h.countries) if (!known.has(code)) err(`${w}: helpCountries has an unknown country code ${code}`);
+        if (new Set(h.countries).size !== h.countries.length) err(`${w}: helpCountries lists a country twice`);
+      }
+    }
     if (q.items !== undefined && (!Array.isArray(q.items) || !q.items.length || !q.items.every((s) => typeof s === 'string' && s.trim()))) {
       err(`${w}: items must be a non-empty list of text`);
     }
@@ -889,7 +907,8 @@ function validateConfig(cfg) {
         if (counter.section !== g.section || counter.group) err(`${w}: count question must be in the same section and not a group member`);
         const cr = counter.rules || {};
         if (!Number.isInteger(cr.min) || cr.min < 1) err(`${w}: count question ${g.count} needs rules.min of at least 1`);
-        if (!Number.isInteger(cr.max) || cr.max > Math.min(g.max, lim.groupMax || 0)) err(`${w}: count question ${g.count} needs rules.max no larger than the group limit`);
+        // The count may exceed the group limit: the group then lists only that many entries.
+        if (!Number.isInteger(cr.max) || cr.max < cr.min) err(`${w}: count question ${g.count} needs a whole-number rules.max of at least rules.min`);
         for (const id of g.questions || []) if (order.get(g.count) >= order.get(id)) err(`${w}: count question must come before member ${id}`);
       }
       if (g.gate === undefined) err(`${w}: a count-driven group needs a Yes/No gate`);

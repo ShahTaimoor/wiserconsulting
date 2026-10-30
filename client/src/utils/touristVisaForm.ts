@@ -11,7 +11,7 @@
  * file for the unit tests; Next.js and TypeScript resolve it the same way.
  */
 
-import { isSectionVisible, isVisible, resolveOptions } from "../shared/tourist-visa/engine.js";
+import { getCountries, isSectionVisible, isVisible, resolveOptions } from "../shared/tourist-visa/engine.js";
 import type { Answers, GroupEntry, Question, RepeatGroup, TouristVisaConfig } from "../shared/tourist-visa/engine.js";
 
 export type FormValues = Record<string, unknown>;
@@ -179,14 +179,28 @@ export function mergedAnswers(
 
 /**
  * How many entries a count-driven group shows: the whole number its count question holds
- * (such as 7.5), or 0 while that is empty or outside the allowed range. Returns undefined
- * for a group that is not count-driven, where the applicant adds and removes entries.
+ * (such as 7.5), or the group's limit when the number is larger (7.5 takes up to 99 visits but
+ * lists only the 20 most recent). 0 while the count is empty or outside the range its question
+ * allows. Returns undefined for a group that is not count-driven, where the applicant adds and
+ * removes entries.
  */
 export function groupEntryCount(cfg: TouristVisaConfig, group: RepeatGroup, answers: Record<string, unknown>): number | undefined {
   if (!group.count) return undefined;
   const n = answers[group.count];
   const limit = Math.min(group.max, cfg.limits.groupMax);
-  return typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= limit ? n : 0;
+  const counter = cfg.questions.find((q) => q.id === group.count);
+  const lowest = Math.max(counter?.rules?.min ?? 1, 1);
+  const highest = counter?.rules?.max ?? limit;
+  return typeof n === "number" && Number.isInteger(n) && n >= lowest && n <= highest ? Math.min(n, limit) : 0;
+}
+
+/** The countries of a question's expandable help list (such as the EEA list), by name, in alphabetical order. */
+export function helpCountryNames(question: Question): string[] {
+  const codes = new Set(question.helpCountries?.countries ?? []);
+  return getCountries()
+    .filter((country) => codes.has(country.code))
+    .map((country) => country.name)
+    .sort((a, b) => a.localeCompare(b));
 }
 
 /** Whether a repeating group is open: its Yes/No question is shown and answered Yes, or it has no Yes/No question. */

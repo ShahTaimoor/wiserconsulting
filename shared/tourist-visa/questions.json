@@ -1,5 +1,5 @@
 {
-  "version": "0.7.0-draft",
+  "version": "0.8.0-draft",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
@@ -121,6 +121,23 @@
       "questions": ["q6_8b", "q6_8c", "q6_8d", "q6_8e"]
     },
     {
+      "id": "ukVisas",
+      "section": "7",
+      "entryLabel": "Visa",
+      "gate": "q7_1",
+      "max": 10,
+      "questions": ["q7_2a", "q7_2b", "q7_2c"],
+      "draft": "Draft: Yes opens up to 10 visas: date applied (month and year, within 10 years) and type of visa (list) are required; the visa reference is optional and stored encrypted."
+    },
+    {
+      "id": "ukLeaveApplications",
+      "section": "7",
+      "entryLabel": "Application",
+      "gate": "q7_3",
+      "max": 5,
+      "questions": ["q7_3b", "q7_3c", "q7_3d", "q7_3e", "q7_3f"]
+    },
+    {
       "id": "ukVisits",
       "section": "7",
       "entryLabel": "Visit",
@@ -128,6 +145,14 @@
       "count": "q7_5",
       "max": 20,
       "questions": ["q7_5a", "q7_5b", "q7_5c"]
+    },
+    {
+      "id": "breaches",
+      "section": "7",
+      "entryLabel": "Breach",
+      "gate": "q7_6",
+      "max": 5,
+      "questions": ["q7_6b", "q7_6c", "q7_6d"]
     },
     {
       "id": "immigrationProblems",
@@ -1667,15 +1692,42 @@
       "required": true
     },
     {
-      "id": "q7_2",
-      "number": "7.2",
+      "id": "q7_2a",
+      "number": "7.2a",
       "section": "7",
       "label": "Date of application",
       "type": "MY",
       "required": true,
-      "showWhen": { "q": "q7_1", "eq": true },
-      "rules": { "notFuture": true, "withinYears": 10 },
-      "tbc": "The spec leaves open whether this is one date or one entry per visa. Default: one month and year. Someone who held several visas in the past 10 years can only give one date for now."
+      "group": "ukVisas",
+      "rules": { "notFuture": true, "withinYears": 10 }
+    },
+    {
+      "id": "q7_2b",
+      "number": "7.2b",
+      "section": "7",
+      "label": "What type of visa was it?",
+      "type": "SEL",
+      "required": true,
+      "group": "ukVisas",
+      "options": [
+        { "value": "visitor", "label": "Visitor" },
+        { "value": "student", "label": "Student" },
+        { "value": "work", "label": "Work" },
+        { "value": "family_partner", "label": "Family or partner" },
+        { "value": "transit", "label": "Transit" },
+        { "value": "other", "label": "Other" }
+      ]
+    },
+    {
+      "id": "q7_2c",
+      "number": "7.2c",
+      "section": "7",
+      "label": "Visa reference number",
+      "type": "TXT",
+      "required": false,
+      "group": "ukVisas",
+      "rules": { "maxLen": 50 },
+      "sensitive": true
     },
     {
       "id": "q7_3",
@@ -1684,17 +1736,70 @@
       "label": "Have you applied for leave to remain in the UK in the past 10 years?",
       "type": "YN",
       "required": true,
-      "tbc": "Follow-up questions for the Yes path are to confirm."
+      "draft": "Draft: Yes opens up to 5 applications: date applied (month and year, within 10 years), purpose (list) and outcome (list) are required; decision date (optional, on or after the date applied) and application reference number (optional, stored encrypted)."
     },
     {
-      "id": "q7_3a",
-      "number": "7.3a",
+      "id": "q7_3b",
+      "number": "7.3b",
       "section": "7",
-      "label": "Please give details",
-      "type": "LNG",
+      "label": "Date you applied",
+      "type": "MY",
       "required": true,
-      "showWhen": { "q": "q7_3", "eq": true },
-      "tbc": "Placeholder. The real follow-up for the Yes path of 7.3 (details of a leave to remain application) is to be confirmed. It is one plain text box on purpose."
+      "group": "ukLeaveApplications",
+      "rules": { "notFuture": true, "withinYears": 10 }
+    },
+    {
+      "id": "q7_3c",
+      "number": "7.3c",
+      "section": "7",
+      "label": "What was the application for?",
+      "type": "SEL",
+      "required": true,
+      "group": "ukLeaveApplications",
+      "options": [
+        { "value": "work", "label": "Work" },
+        { "value": "study", "label": "Study" },
+        { "value": "family_partner", "label": "Family or partner" },
+        { "value": "protection", "label": "Protection (refugee or humanitarian)" },
+        { "value": "long_residence", "label": "Long residence" },
+        { "value": "other", "label": "Other" }
+      ]
+    },
+    {
+      "id": "q7_3d",
+      "number": "7.3d",
+      "section": "7",
+      "label": "What was the outcome?",
+      "type": "SEL",
+      "required": true,
+      "group": "ukLeaveApplications",
+      "options": [
+        { "value": "granted", "label": "Granted" },
+        { "value": "refused", "label": "Refused" },
+        { "value": "withdrawn", "label": "Withdrawn" },
+        { "value": "waiting", "label": "Still waiting for a decision" }
+      ]
+    },
+    {
+      "id": "q7_3e",
+      "number": "7.3e",
+      "section": "7",
+      "label": "Date of the decision",
+      "type": "MY",
+      "required": false,
+      "group": "ukLeaveApplications",
+      "rules": { "onOrAfter": "q7_3b", "notFuture": true }
+    },
+    {
+      "id": "q7_3f",
+      "number": "7.3f",
+      "section": "7",
+      "label": "Application reference number",
+      "type": "TXT",
+      "required": false,
+      "group": "ukLeaveApplications",
+      "rules": { "maxLen": 50 },
+      "sensitive": true
     },
     {
       "id": "q7_4",
@@ -1712,10 +1817,10 @@
       "type": "NUM",
       "required": true,
       "showWhen": { "q": "q7_4", "eq": true },
-      "rules": { "min": 1, "max": 20 },
-      "help": "One entry is asked for each visit, up to 20.",
-      "note": "Sets how many visit entries 7.5a to 7.5c appear.",
-      "tbc": "The spec proposes up to 20 entries per group and has not confirmed it. Default: the answer must be from 1 to 20, which is the group limit. Someone who has been more than 20 times cannot list every visit yet."
+      "rules": { "min": 1, "max": 99 },
+      "help": "Enter the real number of times. Only your 20 most recent visits are listed below: if you have been more than 20 times, give details of the latest 20.",
+      "draft": "Draft: the number can be 1 to 99, but only the 20 most recent visits are listed (when it is more than 20, exactly 20 are asked for).",
+      "note": "Sets how many visit entries 7.5a to 7.5c appear."
     },
     {
       "id": "q7_5a",
@@ -1771,17 +1876,44 @@
         "given false information when applying for a visa, leave to enter, or leave to remain",
         "breached UK immigration law in any other way"
       ],
-      "tbc": "Follow-up questions for the Yes path (any of the five) are to confirm."
+      "draft": "Draft: Yes opens up to 5 entries: which of the five items (list), when (month and year, no look-back) and details (up to 2,000 characters, stored encrypted), all required."
     },
     {
-      "id": "q7_6a",
-      "number": "7.6a",
+      "id": "q7_6b",
+      "number": "7.6b",
       "section": "7",
-      "label": "Please give details",
+      "label": "Which of these applies?",
+      "type": "SEL",
+      "required": true,
+      "group": "breaches",
+      "options": [
+        { "value": "entered_illegally", "label": "I entered the UK illegally" },
+        { "value": "overstayed", "label": "I remained in the UK beyond the validity of my visa or permission to stay" },
+        { "value": "breached_conditions", "label": "I breached the conditions of my leave" },
+        { "value": "false_information", "label": "I gave false information when applying for a visa, leave to enter, or leave to remain" },
+        { "value": "other_breach", "label": "I breached UK immigration law in another way" }
+      ]
+    },
+    {
+      "id": "q7_6c",
+      "number": "7.6c",
+      "section": "7",
+      "label": "When did this happen?",
+      "type": "MY",
+      "required": true,
+      "group": "breaches",
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q7_6d",
+      "number": "7.6d",
+      "section": "7",
+      "label": "Give details",
       "type": "LNG",
       "required": true,
-      "showWhen": { "q": "q7_6", "eq": true },
-      "tbc": "Placeholder. The real follow-up for the Yes path of 7.6 is to be confirmed. It is one plain text box on purpose."
+      "group": "breaches",
+      "rules": { "maxLen": 2000 },
+      "sensitive": true
     },
     {
       "id": "q7_7",
@@ -1857,6 +1989,7 @@
       "label": "How many times have you visited the following places in the past 10 years?",
       "type": "NUM",
       "required": true,
+      "rules": { "min": 0, "max": 1000 },
       "items": [
         "Australia",
         "Canada",
@@ -1865,9 +1998,29 @@
         "Switzerland",
         "European Economic Area (do not include travel to the UK)"
       ],
-      "rules": { "min": 0, "max": 1000 },
+      "helpCountries": {
+        "summary": "Which countries are part of the European Economic Area (EEA)?",
+        "countries": ["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE", "IS", "LI", "NO"]
+      },
       "help": "Give one combined number for all of these places. Enter 0 if you have not been to any.",
-      "tbc": "Whether a count above zero opens follow-up entries is to confirm. Default: no follow-up. Also still to build: the printout's help list 'Which countries are part of the European Economic Area (EEA)?', which needs a maintained country list. The number is limited to 0 to 1000, which is an assumption."
+      "draft": "Draft: a whole number from 0 to 1000; a count above 0 shows an optional tick list of which places (8.1a); the EEA help list (the 27 EU states plus Iceland, Liechtenstein and Norway) is an expandable note."
+    },
+    {
+      "id": "q8_1a",
+      "number": "8.1a",
+      "section": "8",
+      "label": "Which of these places have you visited?",
+      "type": "CHK",
+      "required": false,
+      "options": [
+        { "value": "australia", "label": "Australia" },
+        { "value": "canada", "label": "Canada" },
+        { "value": "new_zealand", "label": "New Zealand" },
+        { "value": "usa", "label": "USA" },
+        { "value": "switzerland", "label": "Switzerland" },
+        { "value": "eea", "label": "European Economic Area" }
+      ],
+      "showWhen": { "q": "q8_1", "gt": 0 }
     },
     {
       "id": "q8_2",

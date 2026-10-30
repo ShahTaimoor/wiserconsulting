@@ -22,6 +22,7 @@ import {
   withoutEntryErrors,
   collectErrors,
   hintFor,
+  helpCountryNames,
 } from "./touristVisaForm.ts";
 
 const cfg = engine.config;
@@ -65,8 +66,11 @@ const ago = (days) => new Date(Date.now() - days * 86400000).toISOString().slice
 const monthAgo = (days) => ago(days).slice(0, 7);
 const VISIT = { q7_5a: "tourism", q7_5b: monthAgo(600), q7_5c: { weeks: 2 } };
 const PROBLEM = { q7_7a: "refused_visa", q7_7b: "GB", q7_7c: monthAgo(6000), q7_7d: "Made-up details of what happened." };
+const VISA = { q7_2a: monthAgo(900), q7_2b: "visitor", q7_2c: "MADE-UP-VISA-REF" };
+const LEAVE = { q7_3b: monthAgo(1200), q7_3c: "work", q7_3d: "granted", q7_3e: monthAgo(1100), q7_3f: "MADE-UP-LEAVE-REF" };
+const BREACH = { q7_6b: "overstayed", q7_6c: monthAgo(2000), q7_6d: "Made-up details of the breach." };
 const V7 = {
-  q7_1: true, q7_2: monthAgo(900), q7_3: false, q7_4: true, q7_5: 2, ukVisits: [VISIT, { ...VISIT, q7_5c: { days: 4 } }],
+  q7_1: true, ukVisas: [VISA], q7_3: false, q7_4: true, q7_5: 2, ukVisits: [VISIT, { ...VISIT, q7_5c: { days: 4 } }],
   q7_6: false, q7_7: true, immigrationProblems: [PROBLEM],
 };
 const TRIP = { q8_2a: "FR", q8_2b: "tourism", q8_2c: ago(400), q8_2d: ago(390) };
@@ -561,12 +565,24 @@ test("every Part 5 and Part 6 section renders: no section is empty", () => {
 // Step 6c: Parts 7 and 8
 // ---------------------------------------------------------------------------
 
-test("groupEntryCount: only a count-driven group has one, and it follows the count question within its limit", () => {
+test("groupEntryCount: only a count-driven group has one, and it follows the count question, capped at the group's 20", () => {
   const visits = cfg.groups.find((g) => g.id === "ukVisits");
   assert.equal(groupEntryCount(cfg, cfg.groups.find((g) => g.id === "dependants"), {}), undefined);
+  assert.equal(groupEntryCount(cfg, cfg.groups.find((g) => g.id === "ukVisas"), {}), undefined, "an add-and-remove group has no count");
+  assert.equal(groupEntryCount(cfg, visits, { q7_5: 1 }), 1);
   assert.equal(groupEntryCount(cfg, visits, { q7_5: 3 }), 3);
   assert.equal(groupEntryCount(cfg, visits, { q7_5: 20 }), 20);
-  for (const bad of [undefined, 0, -1, 21, 1.5, "3", null, Number.NaN]) assert.equal(groupEntryCount(cfg, visits, { q7_5: bad }), 0, String(bad));
+  for (const big of [21, 50, 99]) assert.equal(groupEntryCount(cfg, visits, { q7_5: big }), 20, `${big} lists only the 20 most recent`);
+  for (const bad of [undefined, 0, -1, 100, 1000, 1.5, "3", null, Number.NaN]) assert.equal(groupEntryCount(cfg, visits, { q7_5: bad }), 0, String(bad));
+});
+
+test("helpCountryNames: 8.1 lists the 30 EEA countries by name, in alphabetical order; other questions have none", () => {
+  const names = helpCountryNames(cfg.questions.find((x) => x.id === "q8_1"));
+  assert.equal(names.length, 30);
+  assert.deepEqual(names, [...names].sort((a, b) => a.localeCompare(b)));
+  for (const expected of ["Austria", "Iceland", "Liechtenstein", "Norway", "Sweden"]) assert.ok(names.includes(expected), expected);
+  for (const notIn of ["United Kingdom", "Switzerland", "United States"]) assert.equal(names.includes(notIn), false, notIn);
+  assert.deepEqual(helpCountryNames(cfg.questions.find((x) => x.id === "q8_2")), []);
 });
 
 test("initialValues: the visits group starts empty (the count decides), the problems group starts with one entry once opened", () => {
@@ -584,31 +600,60 @@ test("payload: a count-driven group is sent with exactly as many entries as 7.5 
   assert.deepEqual(sent(3, []).length, 3);
   const holey = []; holey[1] = VISIT;
   assert.deepEqual(sent(2, holey), [{}, VISIT]);
-  for (const count of [undefined, 0, 21]) assert.equal("ukVisits" in payload("7", { ...base, q7_5: count, ukVisits: [VISIT] }), false, `count ${count}: no visits are sent`);
+  for (const count of [undefined, 0, 100]) assert.equal("ukVisits" in payload("7", { ...base, q7_5: count, ukVisits: [VISIT] }), false, `count ${count}: no visits are sent`);
 });
 
-test("payload: a No on 7.1, 7.3, 7.4 or 7.7 leaves out what it hides", () => {
-  const out = payload("7", { ...V7, q7_1: false, q7_4: false, q7_7: false, q7_3a: "stale", q7_6a: "stale" });
+test("payload: a count above 20 is sent with 20 visits and the number as typed", () => {
+  const base = { q7_1: false, q7_3: false, q7_4: true, q7_6: false, q7_7: false };
+  const many = Array.from({ length: 25 }, () => VISIT);
+  const out = payload("7", { ...base, q7_5: 60, ukVisits: many });
+  assert.equal(out.q7_5, 60);
+  assert.equal(out.ukVisits.length, 20, "typed entries beyond the 20th are left out");
+  assert.equal(payload("7", { ...base, q7_5: 60, ukVisits: [VISIT] }).ukVisits.length, 20, "missing ones go as blank entries");
+});
+
+test("payload: a No on 7.1, 7.3, 7.4, 7.6 or 7.7 leaves out what it hides", () => {
+  const out = payload("7", { ...V7, q7_1: false, q7_4: false, q7_7: false, ukLeaveApplications: [LEAVE], breaches: [BREACH] });
   assert.deepEqual(out, { q7_1: false, q7_3: false, q7_4: false, q7_6: false, q7_7: false });
 });
 
-test("payload: the Part 7 details boxes are sent only while their Yes/No is Yes", () => {
-  assert.deepEqual(payload("7", { ...V7, q7_3: true, q7_3a: "Made-up details", q7_6a: "stale" }).q7_3a, "Made-up details");
-  assert.equal("q7_6a" in payload("7", { ...V7, q7_6a: "stale" }), false);
-});
-test("sectionItems: in section 7 the visits sit after 7.5 and the problems after 7.7", () => {
-  const order = sectionItems(cfg, "7").map((i) => (i.kind === "question" ? i.question.id : `group:${i.group.id}`));
-  assert.deepEqual(order, ["q7_1", "q7_2", "q7_3", "q7_3a", "q7_4", "q7_5", "group:ukVisits", "q7_6", "q7_6a", "q7_7", "group:immigrationProblems"]);
-  assert.deepEqual(sectionItems(cfg, "8").map((i) => (i.kind === "question" ? i.question.id : `group:${i.group.id}`)), ["q8_1", "q8_2", "group:otherCountryTrips"]);
+test("payload: the 7.3 and 7.6 lists are sent only while their Yes/No is Yes, and 8.1a only while 8.1 is above zero", () => {
+  const yes = payload("7", { ...V7, q7_3: true, ukLeaveApplications: [LEAVE], q7_6: true, breaches: [BREACH] });
+  assert.deepEqual(yes.ukLeaveApplications, [LEAVE]);
+  assert.deepEqual(yes.breaches, [BREACH]);
+  const no = payload("7", { ...V7, ukLeaveApplications: [LEAVE], breaches: [BREACH] });
+  assert.equal("ukLeaveApplications" in no, false);
+  assert.equal("breaches" in no, false);
+  assert.deepEqual(payload("8", { ...V8, q8_1: 3, q8_1a: ["usa", "eea"] }).q8_1a, ["usa", "eea"]);
+  assert.equal("q8_1a" in payload("8", { ...V8, q8_1: 0, q8_1a: ["usa"] }), false, "0 visits hides the places");
+  assert.equal("q8_1a" in payload("8", { ...V8, q8_1a: undefined }), false, "optional: nothing ticked sends nothing");
 });
 
-test("hintFor words the look-back window and 7.5's limit", () => {
+test("initialValues: the new lists start with one entry once their Yes/No is Yes", () => {
+  assert.equal(initialValues(cfg, "7", {}).ukVisas, undefined);
+  assert.deepEqual(initialValues(cfg, "7", { q7_1: true }).ukVisas, [{}]);
+  assert.deepEqual(initialValues(cfg, "7", { q7_3: true }).ukLeaveApplications, [{}]);
+  assert.deepEqual(initialValues(cfg, "7", { q7_6: true }).breaches, [{}]);
+});
+
+test("sectionItems: in section 7 the lists sit after their Yes/No, and 8.1a follows 8.1", () => {
+  const order = sectionItems(cfg, "7").map((i) => (i.kind === "question" ? i.question.id : `group:${i.group.id}`));
+  assert.deepEqual(order, ["q7_1", "group:ukVisas", "q7_3", "group:ukLeaveApplications", "q7_4", "q7_5", "group:ukVisits", "q7_6", "group:breaches", "q7_7", "group:immigrationProblems"]);
+  assert.deepEqual(sectionItems(cfg, "8").map((i) => (i.kind === "question" ? i.question.id : `group:${i.group.id}`)), ["q8_1", "q8_1a", "q8_2", "group:otherCountryTrips"]);
+});
+
+test("hintFor words the look-back window, 7.3e's order rule and 7.5's limit of 20 listed visits", () => {
   const q = (id) => cfg.questions.find((x) => x.id === id);
-  assert.equal(hintFor(cfg, q("q7_2")), "Cannot be in the future. Must be within the past 10 years.");
+  assert.equal(hintFor(cfg, q("q7_2a")), "Cannot be in the future. Must be within the past 10 years.");
+  assert.equal(hintFor(cfg, q("q7_3b")), "Cannot be in the future. Must be within the past 10 years.");
+  assert.equal(hintFor(cfg, q("q7_3e")), "Must be on or after the date in question 7.3b. Cannot be in the future.");
   assert.equal(hintFor(cfg, q("q7_5b")), "Cannot be in the future. Must be within the past 10 years.");
   assert.equal(hintFor(cfg, q("q8_2d")), "Must be after the date in question 8.2c. Cannot be in the future. Must be within the past 10 years.");
+  assert.equal(hintFor(cfg, q("q7_6c")), "Cannot be in the future.", "7.6 says ever: no look-back");
   assert.equal(hintFor(cfg, q("q7_7c")), "Cannot be in the future.", "7.7 says ever: no look-back");
-  assert.equal(hintFor(cfg, q("q7_5")), "One entry is asked for each visit, up to 20.");
+  const count = hintFor(cfg, q("q7_5"));
+  assert.match(count, /Only your 20 most recent visits are listed/);
+  assert.match(count, /more than 20 times/);
 });
 
 test("round trip: Parts 7 and 8 build a payload the shared rules accept", () => {
@@ -618,6 +663,24 @@ test("round trip: Parts 7 and 8 build a payload the shared rules accept", () => 
     assert.equal(result.success, true, `${id}: ${JSON.stringify(result.errors)}`);
     Object.assign(saved, result.data);
   }
+});
+
+test("round trip: the new lists build payloads the shared rules accept, and their errors point at the right fields", () => {
+  const values = { ...V7, q7_3: true, ukLeaveApplications: [LEAVE], q7_6: true, breaches: [BREACH] };
+  assert.equal(engine.validateSection(z, cfg, "7", payload("7", values), {}).success, true);
+  const broken = { ...values, ukVisas: [{ q7_2b: "visitor" }], ukLeaveApplications: [{ ...LEAVE, q7_3d: undefined }], breaches: [{ ...BREACH, q7_6d: "" }] };
+  const result = engine.validateSection(z, cfg, "7", payload("7", broken), {});
+  const items = collectErrors(cfg, "7", result.errors);
+  assert.deepEqual(items.map((i) => i.targetId).sort(), ["field-breaches-0-q7_6d", "field-ukLeaveApplications-0-q7_3d", "field-ukVisas-0-q7_2a"]);
+});
+
+test("round trip: a count of 60 with 20 visits is accepted; with fewer, the 20 most recent are asked for", () => {
+  const values = { ...V7, q7_5: 60, ukVisits: Array.from({ length: 20 }, () => VISIT) };
+  assert.equal(engine.validateSection(z, cfg, "7", payload("7", values), {}).success, true);
+  const few = engine.validateSection(z, cfg, "7", payload("7", { ...values, ukVisits: [VISIT] }), {});
+  assert.equal(few.success, false);
+  const items = collectErrors(cfg, "7", few.errors);
+  assert.equal(items.length, 57, "19 blank entries of three required fields each are flagged");
 });
 
 test("round trip: too few visits come back as blank, numbered entries; a wrong count is told apart from them", () => {

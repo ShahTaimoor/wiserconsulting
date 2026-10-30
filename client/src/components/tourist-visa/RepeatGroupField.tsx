@@ -19,6 +19,8 @@ interface RepeatGroupFieldProps {
    * neither add nor remove any. Left out for a group the applicant extends with "Add another".
    */
   count?: number;
+  /** For a count-driven group: the number the applicant gave, when it is larger than the entries listed. */
+  reported?: number;
   /** The whole application's answers as they would be saved, for conditions and option lists. */
   merged: Record<string, unknown>;
   errors: Record<string, string>;
@@ -32,7 +34,7 @@ interface RepeatGroupFieldProps {
  * A repeating group: one card per entry with the group's questions, "Add another" and
  * "Remove". Each question shows or hides per entry, using the shared engine.
  */
-export function RepeatGroupField({ cfg, group, members, entries: savedEntries, count, merged, errors, previewMode, onEntryChange, onAdd, onRemove }: RepeatGroupFieldProps) {
+export function RepeatGroupField({ cfg, group, members, entries: savedEntries, count, reported, merged, errors, previewMode, onEntryChange, onAdd, onRemove }: RepeatGroupFieldProps) {
   const max = Math.min(group.max, cfg.limits.groupMax);
   const groupError = errors[group.id];
   const counted = count !== undefined;
@@ -44,6 +46,12 @@ export function RepeatGroupField({ cfg, group, members, entries: savedEntries, c
         <p className="text-xs text-muted-foreground">
           {group.draft && <DraftBadge note={group.draft} />}
           {group.tbc && <TbcBadge note={group.tbc} />}
+        </p>
+      )}
+
+      {counted && reported !== undefined && reported > entries.length && (
+        <p className="text-sm text-muted-foreground" data-testid="count-capped-note">
+          You entered {reported}. Only your {entries.length} most recent {group.entryLabel.toLowerCase()}s are listed here.
         </p>
       )}
 

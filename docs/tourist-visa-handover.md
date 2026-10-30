@@ -2,12 +2,12 @@
 
 For the engineer who will review and deploy this. It describes what is built, what is not, how to switch it on, what it needs on production, what it changed in existing files, and what still needs a decision.
 
-Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-spec.md](tourist-visa-form-spec.md). Config version at the time of writing: `0.7.0-draft`.
+Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-spec.md](tourist-visa-form-spec.md). Config version at the time of writing: `0.8.0-draft`. This describes the final state of Parts 1 to 8.
 
 ## 1. At a glance
 
 - A signed-in user fills in a UK visitor (tourist) visa application, one section at a time, and can leave and come back. Answers are saved on the server per section ("Save and continue").
-- It is **not ready to open to the public**. 2 of the 16 sections (7 and 8, the travel history) still carry open `tbc` items (real unknowns in the spec, mostly what to ask after a Yes), and 15 sections carry **drafts**: defaults we chose, each with a short note, that need senior review (every section except the passport section). In all, 15 of the 16 sections are still held by a `tbc` item or a draft. **The client opens the form only when no section has a `tbc` item and none has a draft**, so an unreviewed default cannot reach the public by accident. Until then the live site shows "The application isn't open yet".
+- It is **not ready to open to the public**. **No `tbc` item is left anywhere** (every real unknown has been turned into a default), but **15 of the 16 sections carry drafts**: 38 defaults we chose (34 questions and 4 repeating groups), each with a short note, that need senior review (section 10.6 lists them all). Only the passport section (3) is free of drafts. **The client opens the form only when no section has a `tbc` item and none has a draft**, so an unreviewed default cannot reach the public by accident. Until then the live site shows "The application isn't open yet".
 - **Two switches keep it closed** (section 4): the backend variable `TOURIST_VISA_ENABLED`, which is **off unless it is exactly `true`**, and the client's own gate. With the backend switch off, the whole API is inert: every request gets one fixed "closed" answer and nothing is read, stored or logged. **Production must keep both switches consistent.**
 - Nothing links to the form yet. It can only be reached by typing `/tourist-visa`.
 - It adds one new database collection and does not change the data of any existing feature.
@@ -27,19 +27,19 @@ Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-
 | 7 Travel history (UK) | 7 |
 | 8 Travel history (other countries) | 8 |
 
-163 questions and 13 repeating groups in all.
+172 questions and 16 repeating groups in all.
 
 **One config drives both sides.** The questions live in `shared/tourist-visa/questions.json` and the rules in `shared/tourist-visa/engine.js`. The client form and the server validation both run the same engine, so they cannot disagree. Changing a question, an option list or a condition means editing the JSON, not code.
 
 **Save and resume.** Each section is validated and saved on its own. The dashboard (`/tourist-visa`) shows every section as saved, not started or needs review, and "Continue" goes to the first section that is not done. A saved section is flagged "needs review" automatically when something it depends on changes (for example, moving the leave date in section 1 flags the accommodation dates in 6C).
 
-**Gates (a Yes/No or a choice decides what appears).** When an answer changes and hides questions, the server removes the hidden answers from the database. Examples: 2.13 relationship status shows or hides the whole of section 4A; 5.1 employment status shows its own block of questions (employed: 5.2 to 5.9; self-employed, student, retired, and homemaker / not working / other each have theirs, section 10.3); 6.1 shows 6.2 for savings and an optional monthly other-income amount (6.1a) for other income; a Yes on 1.2, 1.3, 2.23, 2.30 or 2.31, or on the new 4.8 ("can you give your parents' details?"), opens its follow-up questions (section 10.2); a Yes on 6.5, 6.6 or 6.8, and a No on 6.7, open structured follow-ups (section 10.3); a Yes on 7.3 or 7.6 still opens one placeholder "Please give details" box (Part 7 is not drafted yet); 7.1, 7.4, 7.7 and 8.2 open their questions and groups. A section with no visible question is hidden everywhere (dashboard, progress count, Back and Next, direct address) and cannot be saved. **An answer that is hidden only because its gate has never been answered is kept, not removed**: when a new Yes/No is put in front of questions that already hold saved answers (as 4.8 was put in front of the parents), those answers wait, untouched, until the Yes/No is answered.
+**Gates (a Yes/No or a choice decides what appears).** When an answer changes and hides questions, the server removes the hidden answers from the database. Examples: 2.13 relationship status shows or hides the whole of section 4A; 5.1 employment status shows its own block of questions (employed: 5.2 to 5.9; self-employed, student, retired, and homemaker / not working / other each have theirs, section 10.3); 6.1 shows 6.2 for savings and an optional monthly other-income amount (6.1a) for other income; a Yes on 1.2, 1.3, 2.23, 2.30 or 2.31, or on the new 4.8 ("can you give your parents' details?"), opens its follow-up questions (section 10.2); a Yes on 6.5, 6.6 or 6.8, and a No on 6.7, open structured follow-ups (section 10.3); a Yes on 7.1, 7.3 or 7.6 opens a list of entries (visas, leave-to-remain applications, breaches), and 7.4, 7.7 and 8.2 open their questions and groups; a number above 0 at 8.1 shows the optional tick boxes of 8.1a (section 10.4). A section with no visible question is hidden everywhere (dashboard, progress count, Back and Next, direct address) and cannot be saved. **An answer that is hidden only because its gate has never been answered is kept, not removed**: when a new Yes/No is put in front of questions that already hold saved answers (as 4.8 was put in front of the parents), those answers wait, untouched, until the Yes/No is answered.
 
-**Repeating groups.** Add another and Remove for companions (1.3, up to 10), other names (2.3, up to 10), other nationalities (2.23, up to 5), medical treatments (2.31, up to 5), dependants (4B), parents (4C, opened by 4.8, 1 to 4), payers (6.5, up to 5), relatives in the UK (6.6, up to 10), places of stay (6C), public funds received (6.8, up to 5), immigration problems (7.7) and other-country trips (8.2). The UK visits (7.5a to 7.5c) are count-driven: the number typed at 7.5 decides how many visit entries there are, with no Add or Remove.
+**Repeating groups.** Add another and Remove for companions (1.3, up to 10), other names (2.3, up to 10), other nationalities (2.23, up to 5), medical treatments (2.31, up to 5), dependants (4B), parents (4C, opened by 4.8, 1 to 4), payers (6.5, up to 5), relatives in the UK (6.6, up to 10), places of stay (6C), public funds received (6.8, up to 5), UK visas issued (7.2, up to 10), leave-to-remain applications (7.3, up to 5), breaches of UK immigration law (7.6, up to 5), immigration problems (7.7) and other-country trips (8.2). The UK visits (7.5a to 7.5c) are count-driven: the number typed at 7.5 (1 to 99) decides how many visit entries there are, with no Add or Remove, **but at most the 20 most recent visits are listed**: a number above 20 asks for exactly 20 entries, the question's help text and a note above the entries say so, and the number typed is stored as given.
 
 **Cross-section and date rules.** Passport expiry (3.4) must be after the issue date and after the planned leave date (1.7). Places of stay must fall inside the travel dates (1.6 to 1.7) and must not overlap. Past-event dates cannot be in the future, and "in the past 10 years" dates cannot be older than 10 years.
 
-**Encryption at rest.** The national identity card number (2.19), the UK driving licence number (2.30a), the medical treatment text (2.31b, inside each treatment entry) and the passport number (3.1) are encrypted before they are stored (AES-256-GCM, stored as `enc:v1:...`). The ciphertext is bound to the application and the field, so it cannot be copied into another field or entry. Everything else is stored as typed. Answers are never written to logs, localStorage, Redux, URLs, the console or analytics.
+**Encryption at rest.** 7 answers are encrypted: the national identity card number (2.19), the UK driving licence number (2.30a), the medical treatment text (2.31b), the passport number (3.1), and, new in step 7d, the UK visa reference number (7.2c), the leave-to-remain application reference number (7.3f) and the breach details (7.6d). The medical text and the three new answers sit inside group entries, and each entry is encrypted on its own. They are encrypted before they are stored (AES-256-GCM, stored as `enc:v1:...`). The ciphertext is bound to the application and the field, so it cannot be copied into another field or entry. Everything else is stored as typed. Answers are never written to logs, localStorage, Redux, URLs, the console or analytics.
 
 **Interface.** Accessible labels, errors and focus handling, an error summary, light and dark mode, and a layout that works at 375 px. Leaving a section with unsaved changes opens a dialog in the site's own style ("Stay on this page" / "Leave without saving"); saving shows a "Section saved" toast. The feature uses no native browser alert, confirm or prompt.
 
@@ -54,8 +54,8 @@ Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-
 - **Review page and final submit.** There is no review step and no way to submit; an application stays a draft.
 - **Admin view** of applications and **PDF export** in the printout's layout.
 - **Entry points.** No link to `/tourist-visa` was added to the Footer, the Navbar or the Services pages (the Footer's existing "Tourist Visa" link points at `/services/tourist-visa`, which does not exist). Add links only once the form is ready to open.
-- **Follow-up questions for the Yes paths of Parts 7 and 8** that the spec does not define (7.2, 7.3, 7.5, 7.6 and 8.1). Each has a plain placeholder text box or nothing for now (step 7d). Parts 1 to 6 are drafted (sections 10.2 and 10.3).
-- A **help list of EEA countries** for question 8.1 (the printout shows one; it needs a maintained country list).
+- **Senior review of the drafts.** Nothing is confirmed: all 38 drafts (section 10.6) still need a decision before release. No question is left open as a `tbc`.
+- The **EEA help list** at 8.1 is a fixed list of 30 country codes in the config (27 EU states, Iceland, Liechtenstein and Norway). It is not maintained automatically: update it by hand if membership changes.
 - **Tying the server to the client's release gate.** The server switch is one all-or-nothing flag set by a person. It does not look at the open `tbc` items. If someone sets it to `true` while `tbc` items remain, the form still shows "not open yet" but the API accepts calls from a signed-in user. Keep the two consistent (section 4).
 - **Key rotation** for the encryption key (section 5).
 - **Deleting or exporting** an applicant's data.
@@ -115,7 +115,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 Rules for the key:
 
 - **Store it safely**, in the host's secret store, and keep a copy in your password manager or vault. It is never in the repository and the feature never logs it.
-- **Losing it, or changing it, makes every encrypted answer (2.19, 2.30a, 2.31b and 3.1) unrecoverable.** There is no recovery and no key rotation yet. Back it up before the first real applicant saves anything.
+- **Losing it, or changing it, makes every encrypted answer (2.19, 2.30a, 2.31b, 3.1, 7.2c, 7.3f and 7.6d) unrecoverable.** There is no recovery and no key rotation yet. Back it up before the first real applicant saves anything.
 - Do not reuse the key from a test environment, and use a different key per environment.
 - If the switch is on and it is missing or malformed, the server **refuses every section save** with a 503 ("Secure storage is not configured") and logs an error at startup. Nothing is stored in plain text as a fallback. Reading an application only needs the key when it holds encrypted answers.
 
@@ -158,6 +158,8 @@ The feature adds **one new collection**, `touristvisaapplications` (model `Touri
 
 Each application records the `configVersion` its answers were collected with. When the config changes, saved answers are never rewritten: the server works out the status of each section when it reads the application, and a section whose answers no longer fit shows as **Needs review**.
 
+**Config `0.8.0-draft` (step 7d) and saved answers.** Nothing is deleted or rewritten. The single "date of your UK visa application" (7.2) became a list of visas (7.2a to 7.2c), and the placeholder boxes 7.3a and 7.6a became lists (7.3b to 7.3f, 7.6b to 7.6d). A saved section 7 where 7.1, 7.3 or 7.6 is **Yes** now shows **Needs review**, because the new list is empty; one where all three are No stays saved. The old values (`q7_2`, `q7_3a`, `q7_6a`) no longer have a question: they stay in the database untouched, are not shown, and saving the section again does not remove them. The 7.5 count used to allow 1 to 20 and now allows 1 to 99, so every saved count is still valid. Reading an application writes nothing. All of this is covered by tests (`touristVisaPart78Followups.test.js`).
+
 **Config `0.7.0-draft` (step 7c) and saved answers.** Nothing is deleted or rewritten. A saved section shows **Needs review** only where an old answer now needs a follow-up: section 5 (status self-employed or student; employed, retired, homemaker, not working and other need nothing new, so an application saved as **employed stays saved and every employer answer is untouched**), 6A (6.5 is Yes), 6B (6.6 is Yes), 6C (6.7 is No) and 6D (6.8 is Yes). The old placeholder boxes 6.5a, 6.6a and 6.8a no longer have a question: their text stays in the database untouched and is not shown, and saving the sections again does not remove it. Employer answers saved without a status (an older shape) are kept, waiting for 5.1, rather than removed. All of this is covered by tests (`touristVisaPart56Followups.test.js`).
 
 **Config `0.6.0-draft` (step 7b) and saved answers.** Nothing is deleted or rewritten. Saved sections where an old Yes now needs a follow-up show **Needs review** until they are saved again: section 1 (1.2 or 1.3 is Yes), 2B (2.23 is Yes), 2C (2.30 or 2.31 is Yes, or 2.28 is `with_family_or_friends` or `employer_provided`) and **4C always**, because the new Yes/No in front of the parents is unanswered. The parents that were saved before 4.8 existed stay stored and are not pruned while 4.8 is unanswered. The old single-box answer to 2.23 (`q2_23a`) no longer has a question: it stays in the database untouched and is not shown. Both behaviours are covered by tests (`touristVisaFollowups.test.js`).
@@ -171,8 +173,8 @@ From the repository root:
 ```
 npm run sync:shared                  # after editing shared/tourist-visa/
 npm run check:shared                 # fails if the client or backend copy has drifted
-npm run test:shared                  # engine and config tests (166)
-npm run check:tourist-visa-release   # open tbc items and draft lists; exit 1 blocked, 2 drafts only, 0 clear
+npm run test:shared                  # engine and config tests (172)
+npm run check:tourist-visa-release   # open tbc items and draft lists; exit 1 blocked, 2 drafts only (expected today), 0 clear
 ```
 
 Backend (needs no database and no `.env`; it starts an in-memory MongoDB, and the test files set `TOURIST_VISA_ENABLED` themselves, so your own `.env` does not matter):
@@ -183,6 +185,8 @@ npm test                             # runs the test files one at a time
 ```
 
 Two test files cover the server switch: `touristVisaFeatureSwitch.test.js` (every route and every non-`true` value returns the closed answer with no database connected, no model call and no log line; with `true` the routes behave as before) and `touristVisaFeatureSwitchWiring.test.js` (the real `index.js` started with the switch unset and no encryption key: same answer before sign-in and body parsing, readable cross-origin, rest of the API unaffected, nothing logged).
+
+`touristVisaPart78Followups.test.js` covers the Parts 7 and 8 follow-ups (step 7d): the visa reference, leave reference and breach details stored as ciphertext inside group entries (and nothing else in Parts 7 and 8 encrypted), the 8.1a gate, the cap of 20 listed visits through the real routes, old applications (a Yes shows "Needs review", the old values stay stored, reading writes nothing) and answers waiting for a gate that was never answered. `touristVisaParts78.test.js` covers every gate of Parts 7 and 8 pruning hidden answers on the server, the date rules and the count-driven visits.
 
 `touristVisaPart56Followups.test.js` covers the Parts 5 and 6 follow-ups (step 7c): every new gate pruning hidden answers through the real routes, an old "employed" application staying saved and untouched, old Yes answers showing "Needs review", the old placeholder boxes staying stored, answers waiting for a missing status being kept, and rejected saves changing nothing.
 
@@ -200,13 +204,13 @@ npx eslint src/utils src/components/tourist-visa src/app/tourist-visa
 npx next build
 ```
 
-All of these were green at the time of writing. The tests use made-up data only.
+All of these were green at the time of writing (shared 172 tests, backend 180, client 158). The tests use made-up data only.
 
 ## 9. Deploying
 
 ### 9.1 Deploy with the switch OFF (the production default)
 
-From the repository root, check the branch first. The release check is expected to exit **1** at present (sections are still blocked); that is what keeps the client closed too.
+From the repository root, check the branch first. The release check is expected to exit **2** at present (no `tbc` is left, but the drafts are not reviewed); that is what keeps the client closed too.
 
 ```
 git fetch && git checkout feature/tourist-visa-form && git pull
@@ -214,7 +218,7 @@ npm run check:shared
 npm run test:shared
 (cd backend && npm ci && npm test)            # keep 1 GB free on the temp drive
 (cd client  && npm ci && npm run test:unit && npx tsc --noEmit && npx next build)
-npm run check:tourist-visa-release            # expect exit 1
+npm run check:tourist-visa-release            # expect exit 2
 ```
 
 Then:
@@ -232,7 +236,7 @@ Then:
 
 ### 9.2 Turning it ON later
 
-1. Settle the `tbc` items and review every draft (section 10): edit `shared/tourist-visa/questions.json`, run `npm run sync:shared`, update the tests, and remove each reviewed `draft` line. `npm run check:tourist-visa-release` must exit **0**. Exit 1 means something is still blocked and exit 2 means drafts are still unreviewed: either way the client stays closed, and you should not release.
+1. Review every draft (section 10; no `tbc` is left): edit `shared/tourist-visa/questions.json`, run `npm run sync:shared`, update the tests, and remove each reviewed `draft` line. `npm run check:tourist-visa-release` must exit **0**. Exit 1 means something is still blocked and exit 2 means drafts are still unreviewed: either way the client stays closed, and you should not release.
 2. Add the entry-point links (Footer, Navbar, Services) as a separate change.
 3. Generate `FIELD_ENCRYPTION_KEY` if you have not (section 5), store it in the secret store and back it up. **Do not skip the backup.**
 4. In this order:
@@ -308,23 +312,76 @@ Same status as section 10.2: each is a `draft` with a short note in the config, 
 | 6.7 stays | Unchanged: stays may not overlap; a gap between stays, or two stays meeting on one day, is accepted. |
 | 6.8 public funds | Yes opens up to 5 entries: type (housing benefit, universal credit, child benefit, council tax reduction, other) and when it started (month and year, not in the future) are required; when it stopped (month and year, on or after the start, not in the future) and the amount are optional. Replaces the old details box. |
 
-### 10.5 Open items (`tbc`): still undecided (Parts 7 and 8)
+### 10.4 Drafted follow-ups in Parts 7 and 8 (step 7d)
 
-These are the points we have not yet settled. Each has a `tbc` flag, blocks release of its section, and is listed by the release check. The default is what the form does today.
+These resolved the last open items. Same status as sections 10.2 and 10.3: each is a `draft` with a short note in the config, listed by the release check, and never confirmed. Dates are month and year. Follow-ups are required when shown unless marked optional. **Encrypted** fields are marked.
 
-| Question | Default today |
-| --- | --- |
-| 7.3, 7.6 (Yes) | One required plain text box, "Please give details" (7.3a, 7.6a), as a placeholder. |
-| 8.1 (above 0) | Nothing further is asked. A whole number from 0 to 1000; the EEA help list is not built. |
-| 7.2 | One month and year, not one entry per visa. |
-| 7.5 | The count must be from 1 to 20, the group limit. |
+| Item | What the draft asks | Encrypted |
+| --- | --- | --- |
+| 7.1 / 7.2 UK visas | Yes opens up to 10 visas: date applied (month and year, not in the future, within 10 years) and type of visa (visitor, student, work, family or partner, transit, other) are required; the visa reference is optional (up to 50 characters). Replaces the single date. | **reference: yes** |
+| 7.3 leave to remain | Yes opens up to 5 applications (replaces the old details box): date applied (within 10 years), what it was for (work, study, family or partner, protection, long residence, other) and the outcome (granted, refused, withdrawn, waiting) are required; the decision date (not before the application, not in the future) and the application reference (up to 50 characters) are optional. | **reference: yes** |
+| 7.5 visits to the UK | A whole number from 1 to 99 (was 1 to 20). **At most the 20 most recent visits are listed**: above 20, exactly 20 entries are asked for. The help text and a note above the entries say so. | no |
+| 7.6 breaches | Yes opens up to 5 entries (replaces the old details box): which of the five listed items applies (list), when it happened (month and year, not in the future, **no 10-year limit** because the question says "ever") and the details (up to 2,000 characters) are all required. | **details: yes** |
+| 7.7 immigration problems | Unchanged since step 6c; its list of what happened (7.7a) is a draft. | no |
+| 8.1 other places | Still a count from 0 to 1000. New: when it is above 0, an optional tick list (8.1a) of which of the six places (Australia, Canada, New Zealand, USA, Switzerland, European Economic Area). An expandable note under 8.1 lists the 30 EEA countries. | no |
 
-### 10.6 Other choices we made (not flagged `tbc`)
+**Why only the new fields are encrypted.** The three encrypted fields are all new, so no saved answer exists in plain text. No existing question was made encrypted (section 10.7).
+
+### 10.5 Open items (`tbc`)
+
+**None.** Every item that was a `tbc` is now a draft (sections 10.2 to 10.4). The release check exits 2 (drafts only), not 1.
+
+### 10.6 Every draft at a glance
+
+All 38 drafts (34 questions and 4 groups) in 15 sections, with the note stored next to each in `shared/tourist-visa/questions.json`. The notes are the defaults. Deleting a note after review is what lets its section open. Generated from the config at the time of writing; if it differs from the config, the config wins.
+
+| Section | Item | Default |
+| --- | --- | --- |
+| 1 | 1.1 | Draft option list, modelled on the UK online visitor visa application. Needs senior review. The value 'tourism' is the one that opens 1.4. |
+| 1 | 1.2 | Yes asks for the name of the group or organiser (required) and the kind of group (optional list: tour, school or college, religious, sports or cultural, business, other). |
+| 1 | 1.3 | Yes opens up to 10 companions: relationship (list), given names, family name, date of birth (optional) and nationality (optional). No passport numbers are asked. |
+| 1 | 1.4 | Draft option list, modelled on the UK online visitor visa application. Needs senior review. |
+| 2A | group `otherNames` | given names and family name, plus an optional reason (list: maiden name, married name, deed poll, nickname, other). Up to 10 names. |
+| 2A | 2.5 | Draft option list, modelled on the UK online visitor visa application. Needs senior review. |
+| 2A | 2.7 | one additional email address, not several. |
+| 2A | 2.8 | Draft option list, modelled on the UK online visitor visa application. Needs senior review. |
+| 2B | 2.12 | Draft option list, modelled on the UK online visitor visa application. Needs senior review. |
+| 2B | 2.13 | Draft option list, modelled on the UK online visitor visa application. Needs senior review. Draft mapping: married, civil_partnership and unmarried_partner show section 4A; single, separated, divorced and widowed do not. |
+| 2B | 2.23 | Yes opens up to 5 other nationalities: country, how it was acquired (list), whether it is still held, and when it ended (optional). No identity or passport numbers of another country are asked. |
+| 2C | 2.28 | Draft option list, modelled on the UK online visitor visa application. Needs senior review. The value 'other' is the one the printout links to 2.29. |
+| 2C | 2.29 | shown when 2.28 is with_family_or_friends, employer_provided or other (the cases where ownership is unclear), and required when shown. |
+| 2C | 2.30 | Yes asks for the licence number (optional, stored encrypted). |
+| 2C | 2.31 | Yes opens up to 5 treatments: when, what treatment (stored encrypted), where (optional), whether the costs were paid in full, and the amount still owing (optional, up to 100,000). |
+| 2D | 2.33 | Draft option list, modelled on the UK online visitor visa application. Needs senior review. |
+| 2D | 2.35 | Draft option list. The printout shows telephone call and text message (SMS); the messaging app choice is an addition. Needs senior review. |
+| 4A | 4.1 | married, civil_partnership and unmarried_partner show section 4A (4.1 to 4.6); single, separated, divorced and widowed do not. |
+| 4B | 4.7a | Draft option list, modelled on the UK online visitor visa application. Needs senior review. |
+| 4C | group `parents` | a Yes/No first (4.8, can you give your parents' details?). Yes opens up to 4 parents, at least 1; No asks an optional reason (4.8g). |
+| 4C | 4.8a | Draft option list, modelled on the UK online visitor visa application. Needs senior review. |
+| 4C | 4.8f | No asks for the previous nationality (required) and when it changed (optional). |
+| 5 | 5.1 | option list modelled on the UK online application. Only 'employed' shows 5.2 to 5.9. Self-employed asks the business name, start date, address, what it does and monthly income after tax (all required). Student asks the institution (required), its address and the course (optional). Retired asks when you retired and the monthly pension (both optional). Homemaker, not working and other ask who supports you financially (optional list), with a required description when that answer is 'other'. |
+| 5 | 5.9 | an optional text box, so the organisation's name is kept and a blank answer means none. |
+| 6A | 6.1 | option list modelled on the UK online application; one choice, with a combined choice. 'savings' and 'savings_and_income' show 6.2. 'other_income' and 'savings_and_income' show an optional monthly other-income amount (6.1a). |
+| 6A | 6.5 | Yes opens up to 5 payers: who is paying, name, relationship to you and the country they live in (required); the amount (optional, up to 1,000,000) and what it covers (optional tick boxes). |
+| 6B | 6.6 | Yes opens up to 10 relatives: relationship, given names, family name, nationality and immigration status in the UK (required); date of birth (optional). |
+| 6C | group `accommodation` | stays may not overlap, but a gap between two stays, or two stays that meet on the same day, is accepted (the spec proposes that the next stay starts when this one ends). |
+| 6C | 6.7 | a No asks for your accommodation plans (list, required) and the area or city you expect to stay in (optional). |
+| 6D | 6.8 | Yes opens up to 5 entries: type of public funds (list) and when it started (month and year) are required; when it stopped (month and year, on or after the start) and the amount are optional. |
+| 7 | group `ukVisas` | Yes opens up to 10 visas: date applied (month and year, within 10 years) and type of visa (list) are required; the visa reference is optional and stored encrypted. |
+| 7 | 7.3 | Yes opens up to 5 applications: date applied (month and year, within 10 years), purpose (list) and outcome (list) are required; decision date (optional, on or after the date applied) and application reference number (optional, stored encrypted). |
+| 7 | 7.5 | the number can be 1 to 99, but only the 20 most recent visits are listed (when it is more than 20, exactly 20 are asked for). |
+| 7 | 7.5a | Draft option list, modelled on the UK online visitor visa application. Needs senior review. |
+| 7 | 7.6 | Yes opens up to 5 entries: which of the five items (list), when (month and year, no look-back) and details (up to 2,000 characters, stored encrypted), all required. |
+| 7 | 7.7a | Draft option list, modelled on the UK online visitor visa application. Needs senior review. The choices are the eight items listed under 7.7. |
+| 8 | 8.1 | a whole number from 0 to 1000; a count above 0 shows an optional tick list of which places (8.1a); the EEA help list (the 27 EU states plus Iceland, Liechtenstein and Norway) is an expandable note. |
+| 8 | 8.2b | Draft option list, modelled on the UK online visitor visa application. Needs senior review. |
+
+### 10.7 Other choices we made (not flagged `tbc`)
 
 - **Limits:** 200 characters for short text, 5,000 for long text, 20 entries per group (the spec's proposals, marked as unconfirmed in the config). The long questions added in step 7c (5.1d and 5.1l) are limited to 2,000 characters; lowering the older ones would make saved answers invalid, so they were left alone.
-- **Sensitive fields:** four answers are encrypted: the national identity card number (2.19), the passport number (3.1), the UK driving licence number (2.30a) and the medical treatment text (2.31b). Other personal and financial answers (family names, dates of birth, employer, income, savings) are stored as typed. Decide whether any of those should be encrypted too, but read the limitation below first.
-- **Limitation: an existing question cannot simply be made encrypted.** Marking a question `sensitive` only affects answers saved from then on. If any application already holds that answer as plain text, reading it fails ("Your saved answers could not be read", HTTP 500), because the server expects ciphertext for a sensitive field. Making an existing question encrypted therefore needs a one-off migration that encrypts the stored values first (each value is bound to its application and field, so it must be done by the server's own cipher). For this reason step 7b encrypts **only new fields** (2.30a, 2.31b) and changes no existing question. Before any real applicant data exists the change is harmless; after that it needs the migration.
-- **Sanity rules the spec does not state:** dates of birth and past events cannot be in the future; amounts are in GBP, never negative and capped (5.7, 5.1e, 5.1j, 6.1a, 6.3, 6.4, 6.5f and 6.8e at 1,000,000; 6.2 at 100,000,000; the medical amount owing 2.31e at 100,000); the "past 10 years" limit applies to 7.2, 7.5b and 8.2d (the leave date), not to 7.7c ("ever"), and trips abroad in 8.2 may overlap.
+- **Sensitive fields:** 7 answers are encrypted: the national identity card number (2.19), the passport number (3.1), the UK driving licence number (2.30a), the medical treatment text (2.31b), the UK visa reference (7.2c), the leave-to-remain reference (7.3f) and the breach details (7.6d). Other personal and financial answers (family names, dates of birth, employer, income, savings) are stored as typed. Decide whether any of those should be encrypted too, but read the limitation below first.
+- **Limitation: an existing question cannot simply be made encrypted.** Marking a question `sensitive` only affects answers saved from then on. If any application already holds that answer as plain text, reading it fails ("Your saved answers could not be read", HTTP 500), because the server expects ciphertext for a sensitive field. Making an existing question encrypted therefore needs a one-off migration that encrypts the stored values first (each value is bound to its application and field, so it must be done by the server's own cipher). For this reason steps 7b and 7d encrypt **only new fields** (2.30a, 2.31b, 7.2c, 7.3f, 7.6d) and change no existing question. **This is a known limitation, and the immigration-problem text (7.7d), the payer details and the other long free-text answers stay unencrypted for the same reason.** Before any real applicant data exists the change is harmless; after that it needs the migration.
+- **Sanity rules the spec does not state:** dates of birth and past events cannot be in the future; amounts are in GBP, never negative and capped (5.7, 5.1e, 5.1j, 6.1a, 6.3, 6.4, 6.5f and 6.8e at 1,000,000; 6.2 at 100,000,000; the medical amount owing 2.31e at 100,000); the "past 10 years" limit applies to 7.2a, 7.3b, 7.5b and 8.2d (the leave date), not to 7.6c or 7.7c ("ever"), and trips abroad in 8.2 may overlap.
 - **2.1 to 2.35:** email 2.4 is pre-filled from the account email and can be edited; 2.21 and 2.22 are required whenever 2.18 is Yes; 2.27 is two boxes (years, months, months at most 11); an address needs line 1, town and country.
 - **Hidden sections and old answers:** a section that does not apply (4A) cannot be saved, and the server removes its answers when the gate closes.
 

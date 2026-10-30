@@ -109,6 +109,7 @@ test("the form is closed while only drafts remain: a default nobody has signed o
 
 test("the form is closed while only tbc items remain", () => {
   const tbcOnly = stripDrafts(clone(config));
+  tbcOnly.questions.find((q) => q.id === "q8_1").tbc = "Still unknown.";
   assert.equal(engine.getDraftItems(tbcOnly).length, 0);
   assert.ok(countHeldSections(tbcOnly) > 0);
   assert.equal(isFormOpen(countHeldSections(tbcOnly), false), false);

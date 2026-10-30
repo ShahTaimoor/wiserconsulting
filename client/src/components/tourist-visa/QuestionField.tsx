@@ -2,7 +2,7 @@
 
 import { Label } from "@/components/ui/label";
 import type { Question, QuestionOption, TouristVisaConfig } from "@/shared/tourist-visa/engine";
-import { hintFor } from "@/utils/touristVisaForm";
+import { helpCountryNames, hintFor } from "@/utils/touristVisaForm";
 import { FIELD_RENDERERS, GROUPED_TYPES, INLINE_LABEL_TYPES } from "./fields";
 
 interface QuestionFieldProps {
@@ -90,6 +90,18 @@ export function QuestionField({ cfg, question, idBase, value, onChange, options,
       ))}
     </ul>
   );
+  // An expandable note listing countries (for example which ones are in the EEA), kept out of the way until opened.
+  const countryNames = question.helpCountries ? helpCountryNames(question) : [];
+  const countriesNode = question.helpCountries && countryNames.length > 0 && (
+    <details className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
+      <summary className="cursor-pointer font-medium text-foreground">{question.helpCountries.summary}</summary>
+      <ul className="mt-2 ml-5 grid list-disc grid-cols-1 gap-x-6 gap-y-1 text-muted-foreground sm:grid-cols-2">
+        {countryNames.map((name) => (
+          <li key={name}>{name}</li>
+        ))}
+      </ul>
+    </details>
+  );
   const hintNode = hint && (
     <p id={hintId} className="text-xs text-muted-foreground">
       {hint}
@@ -126,6 +138,7 @@ export function QuestionField({ cfg, question, idBase, value, onChange, options,
           </Label>
           {itemsNode}
           {hintNode}
+          {countriesNode}
           {errorNode}
         </div>
       </div>
@@ -138,6 +151,7 @@ export function QuestionField({ cfg, question, idBase, value, onChange, options,
         <legend className="mb-1 p-0 text-sm font-medium leading-snug text-foreground">{labelText}</legend>
         {itemsNode}
         {hintNode}
+        {countriesNode}
         {control}
         {errorNode}
       </fieldset>
@@ -151,6 +165,7 @@ export function QuestionField({ cfg, question, idBase, value, onChange, options,
       </Label>
       {itemsNode}
       {hintNode}
+      {countriesNode}
       {control}
       {errorNode}
     </div>

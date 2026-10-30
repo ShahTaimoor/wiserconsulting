@@ -85,16 +85,19 @@ test('config: covers exactly the questions of Parts 1 to 8 in the spec (plus the
   for (let i = 1; i <= 9; i++) expected.add(`5.${i}`);
   for (let i = 1; i <= 8; i++) expected.add(`6.${i}`);
   for (const l of 'abcd') expected.add(`6.7${l}`);
-  for (const n of ['7.3', '7.6']) expected.add(`${n}a`); // placeholder follow-ups added in step 6c, not in the spec (Part 7 is not drafted yet)
   for (const l of 'abcdefghijkl') expected.add(`5.1${l}`); // other employment statuses (7c)
   expected.add('6.1a');
   for (const l of 'bcdefg') { expected.add(`6.5${l}`); expected.add(`6.6${l}`); } // payers and relatives in the UK (7c)
   expected.add('6.7x'); expected.add('6.7y');
   for (const l of 'bcde') expected.add(`6.8${l}`);
-  for (let i = 1; i <= 7; i++) expected.add(`7.${i}`);
-  for (const l of 'abc') expected.add(`7.5${l}`);
+  // Part 7 (7d): 7.2, 7.3a and 7.6a became groups of follow-ups; 7.2 itself is no longer a question.
+  for (const i of [1, 3, 4, 5, 6, 7]) expected.add(`7.${i}`);
+  for (const l of 'abc') { expected.add(`7.2${l}`); expected.add(`7.5${l}`); }
+  for (const l of 'bcdef') expected.add(`7.3${l}`);
+  for (const l of 'bcd') expected.add(`7.6${l}`);
   for (const l of 'abcd') expected.add(`7.7${l}`);
   for (let i = 1; i <= 2; i++) expected.add(`8.${i}`);
+  expected.add('8.1a');
   for (const l of 'abcd') expected.add(`8.2${l}`);
   const actual = new Set(config.questions.map((q) => q.number));
   assert.deepEqual([...actual].sort(), [...expected].sort());
@@ -124,29 +127,28 @@ test('config: the drafts are exactly the defaults we chose, each with a note', (
   const drafts = config.questions.filter((q) => q.draft);
   assert.deepEqual(
     drafts.map((q) => q.number),
-    ['1.1', '1.2', '1.3', '1.4', '2.5', '2.7', '2.8', '2.12', '2.13', '2.23', '2.28', '2.29', '2.30', '2.31', '2.33', '2.35', '4.1', '4.7a', '4.8a', '4.8f', '5.1', '5.9', '6.1', '6.5', '6.6', '6.7', '6.8', '7.5a', '7.7a', '8.2b']
+    ['1.1', '1.2', '1.3', '1.4', '2.5', '2.7', '2.8', '2.12', '2.13', '2.23', '2.28', '2.29', '2.30', '2.31', '2.33', '2.35', '4.1', '4.7a', '4.8a', '4.8f', '5.1', '5.9', '6.1', '6.5', '6.6', '6.7', '6.8', '7.3', '7.5', '7.5a', '7.6', '7.7a', '8.1', '8.2b']
   );
-  assert.deepEqual(config.groups.filter((g) => g.draft).map((g) => g.id), ['otherNames', 'parents', 'accommodation']);
+  assert.deepEqual(config.groups.filter((g) => g.draft).map((g) => g.id), ['otherNames', 'parents', 'accommodation', 'ukVisas']);
   for (const x of [...drafts, ...config.groups.filter((g) => g.draft)]) assert.ok(x.draft.length > 20, x.id);
 });
 
-test('config: Parts 1 to 6 have no tbc left (only drafts); only Parts 7 and 8 still do', () => {
-  const done = ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D'];
-  assert.deepEqual(config.questions.filter((q) => done.includes(q.section) && q.tbc).map((q) => q.number), []);
-  assert.deepEqual(config.groups.filter((g) => done.includes(g.section) && g.tbc).map((g) => g.id), []);
-  assert.deepEqual(engine.getReleaseBlockers(config).map((b) => b.sectionId), ['7', '8']);
+test('config: no tbc is left anywhere (Parts 1 to 8 hold drafts only)', () => {
+  assert.deepEqual(config.questions.filter((q) => q.tbc).map((q) => q.number), []);
+  assert.deepEqual(config.groups.filter((g) => g.tbc).map((g) => g.id), []);
+  assert.deepEqual(engine.getReleaseBlockers(config), []);
 });
 
 test('draft items: getDraftItems lists them by section, and a draft alone leaves a section releasable but held', () => {
   const items = engine.getDraftItems(config);
-  assert.equal(items.reduce((n, s) => n + s.items.length, 0), 33, '30 questions and 3 groups');
+  assert.equal(items.reduce((n, s) => n + s.items.length, 0), 38, '34 questions and 4 groups');
   assert.deepEqual(items.find((s) => s.sectionId === '2D').items.map((i) => i.number), ['2.33', '2.35']);
   assert.ok(items.every((s) => s.items.every((i) => i.draft && i.id && (i.number === null || typeof i.number === 'string'))));
-  for (const id of ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D']) {
+  for (const id of ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8']) {
     assert.equal(engine.isSectionReleasable(config, id), true, `${id} has only drafts`);
     assert.equal(items.some((s) => s.sectionId === id), true);
   }
-  assert.equal(engine.isSectionReleasable(config, '7'), false, '7 still has real unknowns');
+  assert.deepEqual(items.find((s) => s.sectionId === '7').items.map((i) => i.number ?? i.id), ['ukVisas', '7.3', '7.5', '7.5a', '7.6', '7.7a']);
 });
 
 test('config: placeholder options are rejected', () => {
@@ -196,8 +198,8 @@ test('compatibility: an answer saved with an old placeholder value is refused as
   assert.deepEqual(engine.getVisibleQuestions(config, '5', { q5_1: 'tbc_employed' }).map((x) => x.id), ['q5_1'], 'an old value shows only 5.1');
 });
 
-test('config: sensitive questions are the ID number, passport number, licence number and treatment text only', () => {
-  assert.deepEqual(config.questions.filter((q) => q.sensitive).map((q) => q.number), ['2.19', '2.30a', '2.31b', '3.1']);
+test('config: sensitive questions are the ID number, passport number, licence number, treatment text and the three Part 7 references/details', () => {
+  assert.deepEqual(config.questions.filter((q) => q.sensitive).map((q) => q.number), ['2.19', '2.30a', '2.31b', '3.1', '7.2c', '7.3f', '7.6d']);
 });
 
 test('config: validateConfig reports broken configs', () => {
@@ -231,16 +233,20 @@ test('config: validateConfig reports broken configs', () => {
 // Release gate
 // ---------------------------------------------------------------------------
 
-test('release gate: only sections with open tbc flags (7 and 8) are blocked; all the others are releasable', () => {
-  const blockers = engine.getReleaseBlockers(config);
-  assert.deepEqual(blockers.map((b) => b.sectionId), ['7', '8']);
-  for (const s of config.sections) assert.equal(engine.isSectionReleasable(config, s.id), !['7', '8'].includes(s.id));
-  assert.ok(blockers.every((b) => b.items.every((i) => i.tbc)));
+test('release gate: with no tbc flag left nothing is blocked and every section is releasable', () => {
+  assert.deepEqual(engine.getReleaseBlockers(config), []);
+  for (const s of config.sections) assert.equal(engine.isSectionReleasable(config, s.id), true, s.id);
 });
 
-test('release gate: a section is releasable once its tbc flags are gone', () => {
+test('release gate: a section is blocked while it has a tbc flag and releasable once the flag is gone', () => {
   const c = clone(config);
-  for (const q of c.questions) if (q.section === '8') delete q.tbc;
+  c.questions.find((q) => q.id === 'q8_1').tbc = 'Still unknown.';
+  c.questions.find((q) => q.id === 'q7_4').tbc = 'Still unknown.';
+  const blockers = engine.getReleaseBlockers(c);
+  assert.deepEqual(blockers.map((b) => b.sectionId), ['7', '8']);
+  assert.ok(blockers.every((b) => b.items.every((i) => i.tbc)));
+  assert.equal(engine.isSectionReleasable(c, '8'), false);
+  delete c.questions.find((q) => q.id === 'q8_1').tbc;
   assert.equal(engine.isSectionReleasable(c, '8'), true);
   assert.equal(engine.isSectionReleasable(c, '7'), false);
 });
@@ -1111,8 +1117,11 @@ test('compatibility: answers saved under config 0.2.0 (Parts 1-4) still validate
 
 const VISIT = { q7_5a: 'tourism', q7_5b: '2024-05', q7_5c: { weeks: 2 } };
 const PROBLEM = { q7_7a: 'refused_visa', q7_7b: 'GB', q7_7c: '2015-03', q7_7d: 'Made-up details of what happened.' };
+const VISA = { q7_2a: '2023-06', q7_2b: 'visitor', q7_2c: 'MADE-UP-VISA-REF-1' };
+const LEAVE = { q7_3b: '2022-03', q7_3c: 'work', q7_3d: 'granted', q7_3e: '2022-05', q7_3f: 'MADE-UP-LEAVE-REF-2' };
+const BREACH = { q7_6b: 'overstayed', q7_6c: '2020-02', q7_6d: 'Made-up details of what happened.' };
 const S7 = {
-  q7_1: true, q7_2: '2023-06', q7_3: false, q7_4: true, q7_5: 2,
+  q7_1: true, ukVisas: [VISA], q7_3: false, q7_4: true, q7_5: 2,
   ukVisits: [VISIT, { ...VISIT, q7_5b: '2022-08', q7_5c: { days: 4 } }],
   q7_6: false, q7_7: true, immigrationProblems: [PROBLEM],
 };
@@ -1127,25 +1136,61 @@ test('part 7: a complete section validates; every Yes/No answered No needs nothi
   assert.deepEqual(Object.keys(validate('7', {}).errors).sort(), ['q7_1', 'q7_3', 'q7_4', 'q7_6', 'q7_7']);
 });
 
-test('part 7 gate 7.1: the application date only shows for Yes and is pruned for No', () => {
-  assert.equal(validate('7', { ...NO7, q7_1: true }).errors.q7_2, 'This question is required');
-  const r = validate('7', { ...NO7, q7_2: '2023-06' }, { q7_2: '2023-06' });
+test('part 7 gate 7.1: the visa list only opens for Yes, needs one entry, allows ten and is pruned for No', () => {
+  assert.equal(validate('7', { ...NO7, q7_1: true }).errors.ukVisas, 'Add at least one entry');
+  const ten = validate('7', { ...NO7, q7_1: true, ukVisas: Array.from({ length: 10 }, () => VISA) });
+  assert.equal(ten.success, true, JSON.stringify(ten.errors));
+  assert.equal(validate('7', { ...NO7, q7_1: true, ukVisas: Array.from({ length: 11 }, () => VISA) }).errors.ukVisas, 'You can add up to 10 entries');
+  const blank = validate('7', { ...NO7, q7_1: true, ukVisas: [{}] });
+  assert.deepEqual(Object.keys(blank.errors).sort(), ['ukVisas.0.q7_2a', 'ukVisas.0.q7_2b'], 'the reference is optional');
+  const r = validate('7', { ...NO7, ukVisas: [VISA] }, { ukVisas: [VISA] });
   assert.equal(r.success, true);
-  assert.deepEqual(r.removed, ['q7_2']);
-  assert.equal(r.data.q7_2, undefined);
-  assert.deepEqual(engine.pruneAnswers(config, { q7_1: false, q7_2: '2023-06' }).removed, ['q7_2']);
+  assert.deepEqual(r.removed, ['ukVisas']);
+  assert.equal(r.data.ukVisas, undefined);
+  assert.deepEqual(engine.pruneAnswers(config, { q7_1: false, ukVisas: [VISA] }).removed, ['ukVisas']);
 });
 
-test('part 7 gates 7.3 and 7.6: a Yes needs the details box, a No removes it', () => {
-  for (const [gate, follow] of [['q7_3', 'q7_3a'], ['q7_6', 'q7_6a']]) {
-    assert.equal(validate('7', { ...NO7, [gate]: true }).errors[follow], 'This question is required', gate);
-    const yes = validate('7', { ...NO7, [gate]: true, [follow]: 'Made-up details' });
-    assert.equal(yes.success, true, `${gate}: ${JSON.stringify(yes.errors)}`);
-    const no = validate('7', { ...NO7, [follow]: 'stale details' }, { [follow]: 'stale details' });
-    assert.deepEqual(no.removed, [follow], gate);
-    assert.equal(no.data[follow], undefined);
-    assert.deepEqual(engine.pruneAnswers(config, { [gate]: false, [follow]: 'x' }).removed, [follow]);
-  }
+test('part 7 gate 7.3: the leave-to-remain list only opens for Yes, allows five and is pruned for No', () => {
+  const yes = (list) => validate('7', { ...NO7, q7_3: true, ukLeaveApplications: list });
+  assert.equal(validate('7', { ...NO7, q7_3: true }).errors.ukLeaveApplications, 'Add at least one entry');
+  assert.equal(yes([LEAVE]).success, true);
+  assert.equal(yes(Array.from({ length: 5 }, () => LEAVE)).success, true);
+  assert.equal(yes(Array.from({ length: 6 }, () => LEAVE)).errors.ukLeaveApplications, 'You can add up to 5 entries');
+  const blank = yes([{}]);
+  assert.deepEqual(Object.keys(blank.errors).sort(), ['ukLeaveApplications.0.q7_3b', 'ukLeaveApplications.0.q7_3c', 'ukLeaveApplications.0.q7_3d'], 'decision date and reference are optional');
+  const minimal = yes([{ q7_3b: '2022-03', q7_3c: 'study', q7_3d: 'waiting' }]);
+  assert.equal(minimal.success, true, JSON.stringify(minimal.errors));
+  const no = validate('7', { ...NO7, ukLeaveApplications: [LEAVE] }, { ukLeaveApplications: [LEAVE] });
+  assert.deepEqual(no.removed, ['ukLeaveApplications']);
+  assert.deepEqual(engine.pruneAnswers(config, { q7_3: false, ukLeaveApplications: [LEAVE] }).removed, ['ukLeaveApplications']);
+});
+
+test('part 7 gate 7.6: the breaches list only opens for Yes, allows five and is pruned for No', () => {
+  const yes = (list) => validate('7', { ...NO7, q7_6: true, breaches: list });
+  assert.equal(validate('7', { ...NO7, q7_6: true }).errors.breaches, 'Add at least one entry');
+  assert.equal(yes([BREACH]).success, true);
+  assert.equal(yes(Array.from({ length: 6 }, () => BREACH)).errors.breaches, 'You can add up to 5 entries');
+  assert.deepEqual(Object.keys(yes([{}]).errors).sort(), ['breaches.0.q7_6b', 'breaches.0.q7_6c', 'breaches.0.q7_6d'], 'all three are required');
+  assert.equal(yes([{ ...BREACH, q7_6b: 'made_up' }]).errors['breaches.0.q7_6b'], 'Choose from the listed options');
+  const no = validate('7', { ...NO7, breaches: [BREACH] }, { breaches: [BREACH] });
+  assert.deepEqual(no.removed, ['breaches']);
+  assert.deepEqual(engine.pruneAnswers(config, { q7_6: false, breaches: [BREACH] }).removed, ['breaches']);
+});
+
+test('part 7: the single date (7.2) and the two placeholder boxes (7.3a, 7.6a) are gone, and their old values are left alone', () => {
+  for (const id of ['q7_2', 'q7_3a', 'q7_6a']) assert.equal(config.questions.some((q) => q.id === id), false, id);
+  // Old saved values are unknown keys: never validated, never pruned.
+  const old = { q7_1: true, q7_2: '2023-06', q7_3: true, q7_3a: 'old text', q7_6: true, q7_6a: 'old text' };
+  assert.deepEqual(engine.pruneAnswers(config, old).removed, []);
+  const r = validate('7', { q7_1: true, q7_3: true, q7_4: false, q7_6: true, q7_7: false, ukVisas: [VISA], ukLeaveApplications: [LEAVE], breaches: [BREACH] }, old);
+  assert.equal(r.success, true, JSON.stringify(r.errors));
+  assert.equal(r.removed.length, 0);
+  assert.equal(Object.keys(r.data).some((k) => ['q7_2', 'q7_3a', 'q7_6a'].includes(k)), false, 'the old keys are not part of what is saved');
+  // Sending an old key again is refused as an unknown key.
+  assert.deepEqual(validate('7', { ...NO7, q7_2: '2023-06' }).unknownKeys, ['q7_2']);
+  // A Yes with no list entries yet is not valid: the old text answered nothing the new questions ask.
+  const stale = validate('7', { ...NO7, q7_1: true, q7_3: true, q7_6: true }, old);
+  assert.deepEqual(Object.keys(stale.errors).sort(), ['breaches', 'ukLeaveApplications', 'ukVisas']);
 });
 
 test('part 7 gate 7.4: 7.5 and the visits only show for Yes and are pruned for No', () => {
@@ -1157,7 +1202,7 @@ test('part 7 gate 7.4: 7.5 and the visits only show for Yes and are pruned for N
   assert.deepEqual(engine.pruneAnswers(config, { q7_4: false, q7_5: 2, ukVisits: [VISIT, VISIT] }).removed.sort(), ['q7_5', 'ukVisits']);
 });
 
-test('count-driven group: 7.5 sets exactly how many visits are asked for', () => {
+test('count-driven group: 7.5 sets exactly how many visits are asked for, up to the 20 most recent', () => {
   const base = { ...NO7, q7_4: true };
   const visits = (n, count = n) => validate('7', { ...base, q7_5: count, ukVisits: Array.from({ length: n }, () => VISIT) });
   assert.equal(visits(1).success, true);
@@ -1168,14 +1213,28 @@ test('count-driven group: 7.5 sets exactly how many visits are asked for', () =>
   assert.equal(validate('7', { ...base, q7_5: 2 }).errors.ukVisits, 'Give details for exactly 2 visits', 'no entries sent at all');
 });
 
+test('count-driven group: a count above 20 (up to 99) asks for the 20 most recent visits and no more', () => {
+  const base = { ...NO7, q7_4: true };
+  const visits = (n, count) => validate('7', { ...base, q7_5: count, ukVisits: Array.from({ length: n }, () => VISIT) });
+  assert.equal(visits(20, 21).success, true, 'a count of 21 lists 20');
+  assert.equal(visits(20, 99).success, true, 'a count of 99 lists 20');
+  assert.equal(visits(20, 99).data.q7_5, 99, 'the number the applicant gave is kept as it is');
+  assert.equal(visits(20, 99).data.ukVisits.length, 20);
+  assert.equal(visits(19, 99).errors.ukVisits, 'Give details for your 20 most recent visits');
+  assert.equal(visits(21, 99).errors.ukVisits, 'Give details for your 20 most recent visits');
+  assert.equal(validate('7', { ...base, q7_5: 50 }).errors.ukVisits, 'Give details for your 20 most recent visits', 'no entries sent at all');
+  assert.equal(visits(20, 100).errors.q7_5, 'Number is too large', '99 is the highest count');
+  assert.deepEqual(Object.keys(visits(20, 100).errors), ['q7_5']);
+});
+
 test('count-driven group: each entry is checked like any other; a bad count shows only its own error', () => {
   const blank = validate('7', { ...NO7, q7_4: true, q7_5: 2, ukVisits: [VISIT, {}] });
   assert.deepEqual(Object.keys(blank.errors).sort(), ['ukVisits.1.q7_5a', 'ukVisits.1.q7_5b', 'ukVisits.1.q7_5c']);
   const bad = (count) => validate('7', { ...NO7, q7_4: true, q7_5: count, ukVisits: [VISIT] });
   assert.deepEqual(Object.keys(bad(0).errors), ['q7_5']);
   assert.equal(bad(0).errors.q7_5, 'Number is too small');
-  assert.deepEqual(Object.keys(bad(21).errors), ['q7_5']);
-  assert.equal(bad(21).errors.q7_5, 'Number is too large');
+  assert.deepEqual(Object.keys(bad(100).errors), ['q7_5']);
+  assert.equal(bad(100).errors.q7_5, 'Number is too large');
   assert.equal(bad(1.5).errors.q7_5, 'Enter a whole number');
   assert.equal(bad(-2).errors.q7_5, 'Number is too small');
   assert.deepEqual(Object.keys(bad(undefined).errors), ['q7_5']);
@@ -1189,17 +1248,34 @@ test('count-driven group: changing the count to a smaller number needs the short
   assert.equal(ok.data.ukVisits.length, 1);
 });
 
-test('look-back: 7.2, 7.5b and 8.2d must be within the past 10 years; 7.7c has no look-back', () => {
+test('look-back: 7.2a, 7.3b, 7.5b and 8.2d must be within the past 10 years; 7.6c and 7.7c have no look-back', () => {
   const visitOn = (month) => validate('7', { ...NO7, q7_4: true, q7_5: 1, ukVisits: [{ ...VISIT, q7_5b: month }] }).errors['ukVisits.0.q7_5b'];
   assert.equal(visitOn('2016-10'), undefined, 'the whole month ten years ago counts');
   assert.equal(visitOn('2016-09'), 'Must be within the past 10 years');
   assert.equal(visitOn('2026-10'), undefined, 'this month is fine');
   assert.equal(visitOn('2026-11'), 'Cannot be in the future');
-  assert.equal(validate('7', { ...NO7, q7_1: true, q7_2: '2016-09' }).errors.q7_2, 'Must be within the past 10 years');
-  assert.equal(validate('7', { ...NO7, q7_1: true, q7_2: '2016-10' }).errors.q7_2, undefined);
+  const visaOn = (month) => validate('7', { ...NO7, q7_1: true, ukVisas: [{ ...VISA, q7_2a: month }] }).errors['ukVisas.0.q7_2a'];
+  assert.equal(visaOn('2016-09'), 'Must be within the past 10 years');
+  assert.equal(visaOn('2016-10'), undefined);
+  assert.equal(visaOn('2026-11'), 'Cannot be in the future');
+  const leaveOn = (month) => validate('7', { ...NO7, q7_3: true, ukLeaveApplications: [{ ...LEAVE, q7_3b: month, q7_3e: undefined }] }).errors['ukLeaveApplications.0.q7_3b'];
+  assert.equal(leaveOn('2016-09'), 'Must be within the past 10 years');
+  assert.equal(leaveOn('2016-10'), undefined);
+  const breachOn = (month) => validate('7', { ...NO7, q7_6: true, breaches: [{ ...BREACH, q7_6c: month }] }).errors['breaches.0.q7_6c'];
+  assert.equal(breachOn('1995-01'), undefined, '7.6 says "ever", so there is no 10-year limit');
+  assert.equal(breachOn('2026-11'), 'Cannot be in the future');
   const problemOn = (month) => validate('7', { ...NO7, q7_7: true, immigrationProblems: [{ ...PROBLEM, q7_7c: month }] }).errors['immigrationProblems.0.q7_7c'];
   assert.equal(problemOn('1995-01'), undefined, '7.7 says "ever", so there is no 10-year limit');
   assert.equal(problemOn('2026-11'), 'Cannot be in the future');
+});
+
+test('7.3e: the decision date may not be before the application date and is optional', () => {
+  const decided = (patch) => validate('7', { ...NO7, q7_3: true, ukLeaveApplications: [{ ...LEAVE, ...patch }] }).errors['ukLeaveApplications.0.q7_3e'];
+  assert.equal(decided({}), undefined);
+  assert.equal(decided({ q7_3e: '2022-03' }), undefined, 'the same month is fine');
+  assert.equal(decided({ q7_3e: '2022-02' }), 'Must be on or after the date in question 7.3b');
+  assert.equal(decided({ q7_3e: '2026-11' }), 'Cannot be in the future');
+  assert.equal(decided({ q7_3e: undefined }), undefined);
 });
 
 test('look-back: the day matters for a full date, and 29 February moves to 28 February', () => {
@@ -1272,21 +1348,49 @@ test('part 8: dates of a trip are real past dates, the leave date follows the en
   assert.equal(overlapping.success, true, 'only places of stay in the UK are checked for overlap');
 });
 
-test('the placeholder details boxes that remain (7.3a and 7.6a) are required, go away with a No and carry a tbc flag', () => {
-  const seven = (a) => validate('7', { q7_1: false, q7_3: false, q7_4: false, q7_6: false, q7_7: false, ...a });
-  assert.equal(seven({ q7_3: true }).errors.q7_3a, 'This question is required');
-  assert.equal(seven({ q7_3: true, q7_3a: 'Made-up details' }).success, true);
-  assert.deepEqual(seven({ q7_3a: 'stale' }).removed, ['q7_3a']);
-  assert.deepEqual(engine.pruneAnswers(config, { q7_3: false, q7_3a: 'x', q7_6: false, q7_6a: 'y' }).removed.sort(), ['q7_3a', 'q7_6a']);
-  for (const id of ['q7_3a', 'q7_6a']) {
-    const q = config.questions.find((x) => x.id === id);
-    assert.equal(q.type, 'LNG', id);
-    assert.equal(q.label, 'Please give details', id);
-    assert.ok(q.tbc, `${id} carries a tbc flag`);
-    assert.equal(q.sensitive, undefined, id);
-  }
+test('part 8: 8.1a (which places) only shows when 8.1 is above zero, is optional and is pruned when 8.1 goes back to 0', () => {
+  const places = ['australia', 'canada', 'new_zealand', 'usa', 'switzerland', 'eea'];
+  assert.deepEqual(config.questions.find((q) => q.id === 'q8_1a').options.map((o) => o.value), places);
+  assert.equal(engine.isVisible(config, 'q8_1a', {}), false, 'not before 8.1 is answered');
+  assert.equal(engine.isVisible(config, 'q8_1a', { q8_1: 0 }), false);
+  assert.equal(engine.isVisible(config, 'q8_1a', { q8_1: 1 }), true);
+  assert.equal(engine.isVisible(config, 'q8_1a', { q8_1: 1000 }), true);
+  assert.equal(engine.isVisible(config, 'q8_1a', { q8_1: '3' }), false, 'a text value is not a number');
+  assert.equal(validate('8', { q8_1: 3, q8_2: false }).success, true, 'optional');
+  const ok = validate('8', { q8_1: 3, q8_1a: ['usa', 'eea'], q8_2: false });
+  assert.equal(ok.success, true, JSON.stringify(ok.errors));
+  assert.deepEqual(ok.data.q8_1a, ['usa', 'eea']);
+  assert.ok(validate('8', { q8_1: 3, q8_1a: ['mars'], q8_2: false }).errors.q8_1a);
+  const back = validate('8', { q8_1: 0, q8_1a: ['usa'], q8_2: false }, { q8_1: 3, q8_1a: ['usa'] });
+  assert.deepEqual(back.removed, ['q8_1a']);
+  assert.equal(back.data.q8_1a, undefined);
+  assert.deepEqual(engine.pruneAnswers(config, { q8_1: 0, q8_1a: ['usa'] }).removed, ['q8_1a']);
+  // Keep until answered: an 8.1 never given does not remove an earlier 8.1a.
+  assert.deepEqual(engine.pruneAnswers(config, { q8_1a: ['usa'] }).removed, []);
+});
+
+test('part 8: 8.1 carries the EEA help list of 30 countries (27 EU states, Iceland, Liechtenstein, Norway)', () => {
+  const help = config.questions.find((q) => q.id === 'q8_1').helpCountries;
+  assert.ok(help.summary.length > 10);
+  assert.equal(help.countries.length, 30);
+  assert.equal(new Set(help.countries).size, 30);
+  const known = new Set(engine.getCountries().map((c) => c.code));
+  for (const code of help.countries) assert.ok(known.has(code), code);
+  for (const code of ['IS', 'LI', 'NO']) assert.ok(help.countries.includes(code), code);
+  for (const code of ['GB', 'CH', 'US']) assert.ok(!help.countries.includes(code), `${code} is not in the EEA`);
+});
+
+test('config: sensitive fields of Part 7 sit inside groups and are optional or required as chosen', () => {
+  const q = (id) => config.questions.find((x) => x.id === id);
+  for (const id of ['q7_2c', 'q7_3f', 'q7_6d']) assert.equal(q(id).sensitive, true, id);
+  assert.equal(q('q7_2c').required, false);
+  assert.equal(q('q7_3f').required, false);
+  assert.equal(q('q7_6d').required, true);
+  for (const id of ['q7_2c', 'q7_3f', 'q7_6d']) assert.ok(q(id).group, `${id} lives in a group`);
+  // Nothing already stored in earlier steps was made sensitive in this one.
+  assert.deepEqual(config.questions.filter((x) => x.sensitive && !['7'].includes(x.section)).map((x) => x.number), ['2.19', '2.30a', '2.31b', '3.1']);
   // None of the follow-ups asks about identity or passport numbers.
-  assert.ok(!config.questions.some((q) => q.section === '7' && /passport|identity|national id/i.test(q.label)));
+  assert.ok(!config.questions.some((x) => x.section === '7' && /passport|identity|national id/i.test(x.label)));
 });
 
 test('config: validateConfig checks count-driven groups, items and the look-back rule', () => {
@@ -1298,14 +1402,22 @@ test('config: validateConfig checks count-driven groups, items and the look-back
     ['count question in another section', (c) => { q(c, 'q7_5').section = '8'; }, /same section/],
     ['count question without a minimum', (c) => { delete q(c, 'q7_5').rules.min; }, /rules.min of at least 1/],
     ['count question allowing zero', (c) => { q(c, 'q7_5').rules.min = 0; }, /rules.min of at least 1/],
-    ['count question above the group limit', (c) => { q(c, 'q7_5').rules.max = 21; }, /no larger than the group limit/],
+    ['count question without a maximum', (c) => { delete q(c, 'q7_5').rules.max; }, /rules.max/],
+    ['count maximum below the minimum', (c) => { q(c, 'q7_5').rules.max = 0; }, /rules.max/],
     ['count group without a gate', (c) => { delete g(c).gate; }, /needs a Yes\/No gate/],
     ['count group with a minimum', (c) => { g(c).min = 2; }, /min is not used with count/],
     ['empty items', (c) => { q(c, 'q7_6').items = []; }, /items must be a non-empty list/],
     ['blank item', (c) => { q(c, 'q7_6').items = ['ok', ' ']; }, /items must be a non-empty list/],
     ['withinYears on a text question', (c) => { q(c, 'q8_1').rules.withinYears = 10; }, /needs a DATE or MY/],
-    ['withinYears of zero', (c) => { q(c, 'q7_2').rules.withinYears = 0; }, /whole number from 1 to 100/],
-    ['withinYears that is not whole', (c) => { q(c, 'q7_2').rules.withinYears = 2.5; }, /whole number from 1 to 100/],
+    ['withinYears of zero', (c) => { q(c, 'q7_2a').rules.withinYears = 0; }, /whole number from 1 to 100/],
+    ['withinYears that is not whole', (c) => { q(c, 'q7_2a').rules.withinYears = 2.5; }, /whole number from 1 to 100/],
+    ['gt that is not a number', (c) => { q(c, 'q8_1a').showWhen.gt = 'zero'; }, /"gt" must be a number/],
+    ['gt on a question that is not a number', (c) => { q(c, 'q8_1a').showWhen = { q: 'q7_4', gt: 0 }; }, /"gt" needs a NUM question/],
+    ['gt together with eq', (c) => { q(c, 'q8_1a').showWhen.eq = 1; }, /exactly one of eq, in, gt/],
+    ['helpCountries without a summary', (c) => { q(c, 'q8_1').helpCountries.summary = ' '; }, /helpCountries needs a summary/],
+    ['helpCountries with no countries', (c) => { q(c, 'q8_1').helpCountries.countries = []; }, /helpCountries needs a list of country codes/],
+    ['helpCountries with an unknown code', (c) => { q(c, 'q8_1').helpCountries.countries.push('ZZ'); }, /unknown country code ZZ/],
+    ['helpCountries listing a country twice', (c) => { q(c, 'q8_1').helpCountries.countries.push('FR'); }, /lists a country twice/],
   ];
   for (const [name, mutate, pattern] of cases) {
     const c = clone(config);
@@ -1509,7 +1621,8 @@ test('getHeldSections: a section is held while it has a tbc flag or a draft; not
   assert.deepEqual(held.find((h) => h.sectionId === '2D'), { sectionId: '2D', tbc: 0, draft: 2 });
   assert.deepEqual(held.find((h) => h.sectionId === '6B'), { sectionId: '6B', tbc: 0, draft: 1 });
   assert.deepEqual(held.find((h) => h.sectionId === '5'), { sectionId: '5', tbc: 0, draft: 2 });
-  assert.deepEqual(held.find((h) => h.sectionId === '7'), { sectionId: '7', tbc: 6, draft: 2 });
+  assert.deepEqual(held.find((h) => h.sectionId === '7'), { sectionId: '7', tbc: 0, draft: 6 });
+  assert.deepEqual(held.find((h) => h.sectionId === '8'), { sectionId: '8', tbc: 0, draft: 2 });
 
   const c = clone(config);
   for (const q of c.questions) { delete q.tbc; delete q.draft; }

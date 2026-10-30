@@ -1,9 +1,9 @@
 'use strict';
 
-// Step 6c tests: Parts 7 and 8 on the real config, through the real routes.
-// Covers: every new gate pruning hidden answers on the server (7.1, 7.3, 7.4, 7.6, 7.7, 8.2 and the
-// 6.5, 6.6 and 6.8 details boxes), the count-driven visits group (7.5), the 10-year look-back and
-// "cannot be in the future" checks, and applications saved before this step.
+// Step 6c tests (updated in 7d): Parts 7 and 8 on the real config, through the real routes.
+// Covers: every gate pruning hidden answers on the server (7.1, 7.3, 7.4, 7.6, 7.7, 8.2), the
+// count-driven visits group (7.5, listing at most the 20 most recent), the 10-year look-back and
+// "cannot be in the future" checks, and applications saved before the earlier steps.
 // In-memory MongoDB, made-up users and answers. Dates are worked out from today because the
 // server checks them against the real clock.
 
@@ -124,8 +124,11 @@ const S6D = { q6_8: false };
 const VISIT = { q7_5a: 'tourism', q7_5b: monthsAgo(20), q7_5c: { weeks: 2 } };
 const PROBLEM = { q7_7a: 'refused_visa', q7_7b: 'GB', q7_7c: monthsAgo(200), q7_7d: 'Made-up details of what happened.' };
 const NO7 = { q7_1: false, q7_3: false, q7_4: false, q7_6: false, q7_7: false };
+const VISA = { q7_2a: monthsAgo(30), q7_2b: 'visitor', q7_2c: 'MADE-UP-VISA-REF-1' };
+const LEAVE = { q7_3b: monthsAgo(50), q7_3c: 'work', q7_3d: 'granted', q7_3e: monthsAgo(48), q7_3f: 'MADE-UP-LEAVE-REF-2' };
+const BREACH = { q7_6b: 'overstayed', q7_6c: monthsAgo(60), q7_6d: 'Made-up details of the breach.' };
 const S7 = {
-  q7_1: true, q7_2: monthsAgo(30), q7_3: false, q7_4: true, q7_5: 2,
+  q7_1: true, ukVisas: [VISA], q7_3: false, q7_4: true, q7_5: 2,
   ukVisits: [VISIT, { ...VISIT, q7_5b: monthsAgo(40), q7_5c: { days: 4 } }],
   q7_6: false, q7_7: true, immigrationProblems: [PROBLEM],
 };
@@ -162,50 +165,56 @@ test('a complete application: Parts 7 and 8 save, the visits keep their order, a
   assert.deepEqual(stored.answers.ukVisits.map((v) => v.q7_5c), [{ weeks: 2 }, { days: 4 }]);
   assert.equal(stored.answers.immigrationProblems[0].q7_7b, 'GB');
   assert.equal(stored.answers.q8_1, 3);
+  assert.equal(stored.answers.ukVisas[0].q7_2b, 'visitor');
   assert.equal(stored.answers.otherCountryTrips[0].q8_2a, 'FR');
   assert.match(stored.answers.q3_1, /^enc:v1:/, 'the passport number is still encrypted');
 });
 
-test('GATE 7.1: changing to No prunes the application date', async () => {
+test('GATE 7.1: changing to No prunes the list of visas', async () => {
   const { token, appId } = await fullApplication();
-  assert.equal((await rawDoc(appId)).answers.q7_2, S7.q7_2);
+  assert.equal((await rawDoc(appId)).answers.ukVisas.length, 1);
 
-  const res = await put(token, '7', { ...S7, q7_1: false, q7_2: S7.q7_2 });
+  const res = await put(token, '7', { ...S7, q7_1: false, ukVisas: [VISA] });
   assert.equal(res.status, 200, JSON.stringify(res.json));
-  assert.deepEqual(res.json.data.removed, ['q7_2']);
+  assert.deepEqual(res.json.data.removed, ['ukVisas']);
   assert.deepEqual(res.json.data.needsReview, []);
-  assert.equal('q7_2' in (await rawDoc(appId)).answers, false);
-  assert.equal((await rawDoc(appId)).answers.q7_4, true, 'the rest of the section is untouched');
+  const stored = await rawDoc(appId);
+  assert.equal('ukVisas' in stored.answers, false);
+  assert.equal(stored.answers.q7_4, true, 'the rest of the section is untouched');
 
-  const back = await put(token, '7', { ...S7, q7_1: true, q7_2: undefined });
+  const back = await put(token, '7', { ...S7, q7_1: true, ukVisas: undefined });
   assert.equal(back.status, 422);
-  assert.equal(back.json.errors.q7_2, 'This question is required');
+  assert.deepEqual(back.json.errors, { ukVisas: 'Add at least one entry' });
 });
 
-// Every Yes/No that still opens a plain "Please give details" box (Part 7): Yes keeps the box, No removes it.
-const DETAILS_GATES = [
-  { name: '7.3', section: '7', base: S7, gate: 'q7_3', follow: 'q7_3a' },
-  { name: '7.6', section: '7', base: S7, gate: 'q7_6', follow: 'q7_6a' },
+// Every Yes/No that opens a list of follow-ups in Part 7 (7.3 and 7.6): Yes needs at least one entry
+// and keeps the list, No removes the whole list from the database.
+const LIST_GATES = [
+  { name: '7.3', gate: 'q7_3', group: 'ukLeaveApplications', entry: LEAVE, max: 5, marker: 'MADE-UP-LEAVE-REF-2' },
+  { name: '7.6', gate: 'q7_6', group: 'breaches', entry: BREACH, max: 5, marker: 'Made-up details of the breach.' },
 ];
-for (const { name, section, base, gate, follow } of DETAILS_GATES) {
-  test(`GATE ${name}: Yes asks for the details box and keeps it; changing to No removes it from the database`, async () => {
+for (const { name, gate, group, entry, max, marker } of LIST_GATES) {
+  test(`GATE ${name}: Yes asks for at least one entry (up to ${max}) and keeps the list; changing to No removes it from the database`, async () => {
     const { token, appId } = await fullApplication();
-    const missing = await put(token, section, { ...base, [gate]: true });
+    const missing = await put(token, '7', { ...S7, [gate]: true });
     assert.equal(missing.status, 422, JSON.stringify(missing.json));
-    assert.equal(missing.json.errors[follow], 'This question is required');
+    assert.deepEqual(missing.json.errors, { [group]: 'Add at least one entry' });
 
-    const yes = await put(token, section, { ...base, [gate]: true, [follow]: 'Plain made-up details' });
+    const tooMany = await put(token, '7', { ...S7, [gate]: true, [group]: Array.from({ length: max + 1 }, () => entry) });
+    assert.equal(tooMany.status, 422);
+    assert.deepEqual(tooMany.json.errors, { [group]: `You can add up to ${max} entries` });
+
+    const yes = await put(token, '7', { ...S7, [gate]: true, [group]: [entry, entry] });
     assert.equal(yes.status, 200, JSON.stringify(yes.json));
-    assert.equal((await rawDoc(appId)).answers[follow], 'Plain made-up details');
+    assert.equal((await rawDoc(appId)).answers[group].length, 2);
 
-    const no = await put(token, section, { ...base, [gate]: false, [follow]: 'stale details' });
+    const no = await put(token, '7', { ...S7, [gate]: false, [group]: [entry] });
     assert.equal(no.status, 200, JSON.stringify(no.json));
-    assert.deepEqual(no.json.data.removed, [follow]);
+    assert.deepEqual(no.json.data.removed, [group]);
     const stored = await rawDoc(appId);
-    assert.equal(follow in stored.answers, false);
-    assert.equal(JSON.stringify(stored).includes('Plain made-up details'), false, 'the old text is gone from the whole document');
-    assert.equal(JSON.stringify(stored).includes('stale details'), false);
+    assert.equal(group in stored.answers, false);
     assert.equal(stored.answers[gate], false);
+    assert.equal(JSON.stringify(stored).includes(marker), false, 'the old text is gone from the whole document');
   });
 }
 
@@ -271,9 +280,9 @@ test('count-driven group: 7.5 must match the number of visits, and nothing is wr
   assert.equal((await rawDoc(appId)).answers.q7_5, 1);
 });
 
-test('count-driven group: counts of 0, over the limit and fractions are refused on 7.5 only', async () => {
+test('count-driven group: counts of 0, over 99 and fractions are refused on 7.5 only; 21 to 99 list 20 visits', async () => {
   const { token } = await start();
-  for (const [count, message] of [[0, 'Number is too small'], [21, 'Number is too large'], [1.5, 'Enter a whole number'], [-1, 'Number is too small']]) {
+  for (const [count, message] of [[0, 'Number is too small'], [100, 'Number is too large'], [1.5, 'Enter a whole number'], [-1, 'Number is too small']]) {
     const res = await put(token, '7', { ...S7, q7_5: count });
     assert.equal(res.status, 422, String(count));
     assert.deepEqual(res.json.errors, { q7_5: message }, String(count));
@@ -282,17 +291,48 @@ test('count-driven group: counts of 0, over the limit and fractions are refused 
   assert.equal(limit.status, 200, JSON.stringify(limit.json));
 });
 
+test('count-driven group: a count of 21 to 99 asks for the 20 most recent visits, and the count is kept as given', async () => {
+  const { token, appId } = await start();
+  const snapshot = await rawDoc(appId);
+  const twenty = Array.from({ length: 20 }, () => VISIT);
+
+  const few = await put(token, '7', { ...S7, q7_5: 60, ukVisits: twenty.slice(0, 19) });
+  assert.equal(few.status, 422);
+  assert.deepEqual(few.json.errors, { ukVisits: 'Give details for your 20 most recent visits' });
+  const many = await put(token, '7', { ...S7, q7_5: 60, ukVisits: [...twenty, VISIT] });
+  assert.equal(many.status, 422);
+  assert.deepEqual(many.json.errors, { ukVisits: 'Give details for your 20 most recent visits' });
+  assert.deepEqual(await rawDoc(appId), snapshot, 'rejected saves change nothing');
+
+  const ok = await put(token, '7', { ...S7, q7_5: 60, ukVisits: twenty });
+  assert.equal(ok.status, 200, JSON.stringify(ok.json));
+  const stored = await rawDoc(appId);
+  assert.equal(stored.answers.q7_5, 60, 'the number the applicant gave is stored as it is');
+  assert.equal(stored.answers.ukVisits.length, 20);
+
+  const back = await put(token, '7', { ...S7, q7_5: 2, ukVisits: twenty });
+  assert.equal(back.status, 422, 'going back to a small count needs the short list');
+  assert.deepEqual(back.json.errors, { ukVisits: 'Give details for exactly 2 visits' });
+});
+
 test('dates: events in Parts 7 and 8 cannot be in the future, and "past 10 years" dates cannot be older', async () => {
   const { token, appId } = await start();
   const snapshot = await rawDoc(appId);
 
-  const old = await put(token, '7', { ...S7, q7_2: monthsAgo(130), ukVisits: [{ ...VISIT, q7_5b: monthsAgo(140) }, VISIT] });
+  const old = await put(token, '7', { ...S7, ukVisas: [{ ...VISA, q7_2a: monthsAgo(130) }], ukVisits: [{ ...VISIT, q7_5b: monthsAgo(140) }, VISIT] });
   assert.equal(old.status, 422);
-  assert.deepEqual(old.json.errors, { q7_2: 'Must be within the past 10 years', 'ukVisits.0.q7_5b': 'Must be within the past 10 years' });
+  assert.deepEqual(old.json.errors, { 'ukVisas.0.q7_2a': 'Must be within the past 10 years', 'ukVisits.0.q7_5b': 'Must be within the past 10 years' });
 
-  const future = await put(token, '7', { ...S7, q7_2: monthsAgo(-2), immigrationProblems: [{ ...PROBLEM, q7_7c: monthsAgo(-1) }] });
+  const future = await put(token, '7', { ...S7, ukVisas: [{ ...VISA, q7_2a: monthsAgo(-2) }], immigrationProblems: [{ ...PROBLEM, q7_7c: monthsAgo(-1) }] });
   assert.equal(future.status, 422);
-  assert.deepEqual(future.json.errors, { q7_2: 'Cannot be in the future', 'immigrationProblems.0.q7_7c': 'Cannot be in the future' });
+  assert.deepEqual(future.json.errors, { 'ukVisas.0.q7_2a': 'Cannot be in the future', 'immigrationProblems.0.q7_7c': 'Cannot be in the future' });
+
+  const oldLeave = await put(token, '7', { ...S7, q7_3: true, ukLeaveApplications: [{ ...LEAVE, q7_3b: monthsAgo(130), q7_3e: undefined }] });
+  assert.deepEqual(oldLeave.json.errors, { 'ukLeaveApplications.0.q7_3b': 'Must be within the past 10 years' });
+  const beforeApplied = await put(token, '7', { ...S7, q7_3: true, ukLeaveApplications: [{ ...LEAVE, q7_3e: monthsAgo(60) }] });
+  assert.deepEqual(beforeApplied.json.errors, { 'ukLeaveApplications.0.q7_3e': 'Must be on or after the date in question 7.3b' });
+  const futureBreach = await put(token, '7', { ...S7, q7_6: true, breaches: [{ ...BREACH, q7_6c: monthsAgo(-1) }] });
+  assert.deepEqual(futureBreach.json.errors, { 'breaches.0.q7_6c': 'Cannot be in the future' });
 
   const trips = await put(token, '8', { q8_1: 0, q8_2: true, otherCountryTrips: [{ ...TRIP, q8_2c: daysAhead(5), q8_2d: daysAhead(9) }] });
   assert.deepEqual(trips.json.errors, { 'otherCountryTrips.0.q8_2c': 'Cannot be in the future', 'otherCountryTrips.0.q8_2d': 'Cannot be in the future' });
@@ -303,6 +343,7 @@ test('dates: events in Parts 7 and 8 cannot be in the future, and "past 10 years
 
   assert.deepEqual(await rawDoc(appId), snapshot, 'rejected saves change nothing');
   assert.equal((await put(token, '7', { ...S7, immigrationProblems: [{ ...PROBLEM, q7_7c: monthsAgo(480) }] })).status, 200, '7.7 says ever: a 40-year-old event is fine');
+  assert.equal((await put(token, '7', { ...S7, q7_6: true, breaches: [{ ...BREACH, q7_6c: monthsAgo(480) }] })).status, 200, '7.6 says ever: a 40-year-old event is fine');
 });
 
 test('applications saved under config 0.3.0 (Parts 1-6) keep their answers; a saved Yes without the new details box needs review', async () => {
