@@ -12,6 +12,7 @@ import {
   cleanValue,
   initialValues,
   isGroupOpen,
+  groupEntryCount,
   mergedAnswers,
   buildPayload,
   valuesEqual,
@@ -59,10 +60,21 @@ const STAY = {
   q6_7c: "2027-03-01", q6_7d: "2027-03-08",
 };
 const V6C = { q6_7: true, accommodation: [STAY, { ...STAY, q6_7a: "Second Hotel", q6_7c: "2027-03-08", q6_7d: "2027-03-15" }] };
+// Parts 7 and 8. Dates are worked out from today because the shared rules check them against the clock.
+const ago = (days) => new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+const monthAgo = (days) => ago(days).slice(0, 7);
+const VISIT = { q7_5a: "tbc_visit", q7_5b: monthAgo(600), q7_5c: { weeks: 2 } };
+const PROBLEM = { q7_7a: "tbc_refused_visa", q7_7b: "GB", q7_7c: monthAgo(6000), q7_7d: "Made-up details of what happened." };
+const V7 = {
+  q7_1: true, q7_2: monthAgo(900), q7_3: false, q7_4: true, q7_5: 2, ukVisits: [VISIT, { ...VISIT, q7_5c: { days: 4 } }],
+  q7_6: false, q7_7: true, immigrationProblems: [PROBLEM],
+};
+const TRIP = { q8_2a: "FR", q8_2b: "tbc_tourism", q8_2c: ago(400), q8_2d: ago(390) };
+const V8 = { q8_1: 3, q8_2: true, otherCountryTrips: [TRIP] };
 // 2.13 is married here, so that section 4A applies and is exercised too.
 const ALL = {
   1: V1, "2A": V2A, "2B": { ...V2B, q2_13: "tbc_married" }, "2C": V2C, "2D": V2D, 3: V3, "4A": V4A, "4B": V4B, "4C": V4C,
-  5: V5, "6A": V6A, "6B": { q6_6: false }, "6C": V6C, "6D": { q6_8: false },
+  5: V5, "6A": V6A, "6B": { q6_6: false }, "6C": V6C, "6D": { q6_8: false }, 7: V7, 8: V8,
 };
 
 const payload = (section, values, saved = {}) => buildPayload(cfg, section, values, saved).answers;
@@ -117,7 +129,9 @@ test("next and previous section follow the form order", () => {
   assert.equal(nextSectionId(cfg, "2D"), "3");
   assert.equal(nextSectionId(cfg, "4C"), "5");
   assert.equal(nextSectionId(cfg, "5"), "6A");
-  assert.equal(nextSectionId(cfg, "6D"), null);
+  assert.equal(nextSectionId(cfg, "6D"), "7");
+  assert.equal(nextSectionId(cfg, "7"), "8");
+  assert.equal(nextSectionId(cfg, "8"), null);
   assert.equal(previousSectionId(cfg, "6A"), "5");
   assert.equal(nextSectionId(cfg, "nope"), null);
   assert.equal(previousSectionId(cfg, "1"), null);
@@ -380,7 +394,7 @@ test("next and previous section skip a section that does not apply (4A without a
   }
   assert.equal(nextSectionId(cfg, "3", {}), "4B", "no 2.13 answer yet: no partner section");
   assert.equal(nextSectionId(cfg, "4C", single), "5");
-  assert.equal(nextSectionId(cfg, "6D", single), null);
+  assert.equal(nextSectionId(cfg, "8", single), null);
   assert.equal(previousSectionId(cfg, "1", single), null);
   assert.equal(nextSectionId(cfg, "3"), "4A", "without answers the plain order is used");
 });
@@ -499,7 +513,8 @@ test("payload: places of stay are sent only while 6.7 is Yes", () => {
 });
 
 test("round trip: the optional previous employer can be left out", () => {
-  const { q5_9, ...rest } = V5;
+  const rest = { ...V5 };
+  delete rest.q5_9;
   const result = engine.validateSection(z, cfg, "5", payload("5", rest), {});
   assert.equal(result.success, true, JSON.stringify(result.errors));
 });
@@ -539,4 +554,106 @@ test("round trip: stays that meet on the same day are accepted", () => {
 
 test("every Part 5 and Part 6 section renders: no section is empty", () => {
   for (const id of ["5", "6A", "6B", "6C", "6D"]) assert.ok(sectionItems(cfg, id).length > 0, id);
+});
+
+// ---------------------------------------------------------------------------
+// Step 6c: Parts 7 and 8
+// ---------------------------------------------------------------------------
+
+test("groupEntryCount: only a count-driven group has one, and it follows the count question within its limit", () => {
+  const visits = cfg.groups.find((g) => g.id === "ukVisits");
+  assert.equal(groupEntryCount(cfg, cfg.groups.find((g) => g.id === "dependants"), {}), undefined);
+  assert.equal(groupEntryCount(cfg, visits, { q7_5: 3 }), 3);
+  assert.equal(groupEntryCount(cfg, visits, { q7_5: 20 }), 20);
+  for (const bad of [undefined, 0, -1, 21, 1.5, "3", null, Number.NaN]) assert.equal(groupEntryCount(cfg, visits, { q7_5: bad }), 0, String(bad));
+});
+
+test("initialValues: the visits group starts empty (the count decides), the problems group starts with one entry once opened", () => {
+  assert.equal(initialValues(cfg, "7", {}).ukVisits, undefined);
+  assert.equal(initialValues(cfg, "7", { q7_4: true }).ukVisits, undefined, "no starter entry: 7.5 has not been answered");
+  assert.deepEqual(initialValues(cfg, "7", { q7_7: true }).immigrationProblems, [{}]);
+  assert.deepEqual(initialValues(cfg, "7", { q7_4: true, q7_5: 2, ukVisits: V7.ukVisits }).ukVisits, V7.ukVisits);
+});
+
+test("payload: a count-driven group is sent with exactly as many entries as 7.5 says", () => {
+  const base = { q7_1: false, q7_3: false, q7_4: true, q7_6: false, q7_7: false };
+  const sent = (count, entries) => payload("7", { ...base, q7_5: count, ukVisits: entries }).ukVisits;
+  assert.deepEqual(sent(2, [VISIT]), [VISIT, {}], "a missing entry goes as a blank one, so its errors show");
+  assert.deepEqual(sent(1, [VISIT, { ...VISIT, q7_5b: "2020-01" }]), [VISIT], "entries typed before the count was lowered are left out");
+  assert.deepEqual(sent(3, []).length, 3);
+  const holey = []; holey[1] = VISIT;
+  assert.deepEqual(sent(2, holey), [{}, VISIT]);
+  for (const count of [undefined, 0, 21]) assert.equal("ukVisits" in payload("7", { ...base, q7_5: count, ukVisits: [VISIT] }), false, `count ${count}: no visits are sent`);
+});
+
+test("payload: a No on 7.1, 7.3, 7.4 or 7.7 leaves out what it hides", () => {
+  const out = payload("7", { ...V7, q7_1: false, q7_4: false, q7_7: false, q7_3a: "stale", q7_6a: "stale" });
+  assert.deepEqual(out, { q7_1: false, q7_3: false, q7_4: false, q7_6: false, q7_7: false });
+});
+
+test("payload: the details boxes are sent only while their Yes/No is Yes", () => {
+  assert.deepEqual(payload("7", { ...V7, q7_3: true, q7_3a: "Made-up details", q7_6a: "stale" }).q7_3a, "Made-up details");
+  assert.equal("q7_6a" in payload("7", { ...V7, q7_6a: "stale" }), false);
+  assert.equal("q6_5a" in payload("6A", { ...V6A, q6_5a: "stale" }), false);
+  assert.equal(payload("6A", { ...V6A, q6_5: true, q6_5a: "Made-up details" }).q6_5a, "Made-up details");
+});
+
+test("sectionItems: in section 7 the visits sit after 7.5 and the problems after 7.7", () => {
+  const order = sectionItems(cfg, "7").map((i) => (i.kind === "question" ? i.question.id : `group:${i.group.id}`));
+  assert.deepEqual(order, ["q7_1", "q7_2", "q7_3", "q7_3a", "q7_4", "q7_5", "group:ukVisits", "q7_6", "q7_6a", "q7_7", "group:immigrationProblems"]);
+  assert.deepEqual(sectionItems(cfg, "8").map((i) => (i.kind === "question" ? i.question.id : `group:${i.group.id}`)), ["q8_1", "q8_2", "group:otherCountryTrips"]);
+});
+
+test("hintFor words the look-back window and 7.5's limit", () => {
+  const q = (id) => cfg.questions.find((x) => x.id === id);
+  assert.equal(hintFor(cfg, q("q7_2")), "Cannot be in the future. Must be within the past 10 years.");
+  assert.equal(hintFor(cfg, q("q7_5b")), "Cannot be in the future. Must be within the past 10 years.");
+  assert.equal(hintFor(cfg, q("q8_2d")), "Must be after the date in question 8.2c. Cannot be in the future. Must be within the past 10 years.");
+  assert.equal(hintFor(cfg, q("q7_7c")), "Cannot be in the future.", "7.7 says ever: no look-back");
+  assert.equal(hintFor(cfg, q("q7_5")), "One entry is asked for each visit, up to 20.");
+});
+
+test("round trip: Parts 7 and 8 build a payload the shared rules accept", () => {
+  const saved = {};
+  for (const id of ["7", "8"]) {
+    const result = engine.validateSection(z, cfg, id, payload(id, ALL[id], saved), saved);
+    assert.equal(result.success, true, `${id}: ${JSON.stringify(result.errors)}`);
+    Object.assign(saved, result.data);
+  }
+});
+
+test("round trip: too few visits come back as blank, numbered entries; a wrong count is told apart from them", () => {
+  const values = { ...V7, q7_5: 3, ukVisits: [VISIT, VISIT] };
+  const result = engine.validateSection(z, cfg, "7", payload("7", values), {});
+  assert.equal(result.success, false);
+  const items = collectErrors(cfg, "7", result.errors);
+  assert.deepEqual(items.map((i) => i.targetId), ["field-ukVisits-2-q7_5a", "field-ukVisits-2-q7_5b", "field-ukVisits-2-q7_5c"]);
+  assert.equal(items[0].label, "Visit 3: Select why you were in the UK");
+});
+
+test("round trip: a visit before the 10-year window and a future date point at their own fields", () => {
+  const values = { ...V7, ukVisits: [{ ...VISIT, q7_5b: monthAgo(4500) }, { ...VISIT, q7_5b: monthAgo(-60) }] };
+  const result = engine.validateSection(z, cfg, "7", payload("7", values), {});
+  const items = collectErrors(cfg, "7", result.errors);
+  assert.deepEqual(items.map((i) => [i.targetId, i.message]), [
+    ["field-ukVisits-0-q7_5b", "Must be within the past 10 years"],
+    ["field-ukVisits-1-q7_5b", "Cannot be in the future"],
+  ]);
+});
+
+test("round trip: a trip's leave date must follow its entry date", () => {
+  const values = { ...V8, otherCountryTrips: [{ ...TRIP, q8_2d: TRIP.q8_2c }] };
+  const result = engine.validateSection(z, cfg, "8", payload("8", values), {});
+  const items = collectErrors(cfg, "8", result.errors);
+  assert.deepEqual(items.map((i) => [i.targetId, i.message, i.label]), [
+    ["field-otherCountryTrips-0-q8_2d", "Must be after the date in question 8.2c", "Trip 1: When did you leave this country?"],
+  ]);
+});
+
+test("every Part 7 and Part 8 section renders: no section is empty, and the listed items are in the config", () => {
+  for (const id of ["7", "8"]) assert.ok(sectionItems(cfg, id).length > 0, id);
+  const q = (id) => cfg.questions.find((x) => x.id === id);
+  assert.equal(q("q7_6").items.length, 5);
+  assert.equal(q("q7_7").items.length, 8);
+  assert.equal(q("q8_1").items.length, 6);
 });

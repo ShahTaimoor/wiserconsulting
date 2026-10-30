@@ -34,6 +34,8 @@ export interface QuestionRules {
   onOrBefore?: string | string[];
   /** DATE/MY must not be later than today. */
   notFuture?: boolean;
+  /** DATE/MY must not be earlier than this many years before today ("in the past 10 years"). */
+  withinYears?: number;
   /** DUR: which units are asked, and whether all of them ('parts') or exactly one ('single'). */
   units?: Array<'years' | 'months' | 'weeks' | 'days'>;
   durationMode?: 'single' | 'parts';
@@ -63,6 +65,8 @@ export interface Question {
   /** Id of the repeating group this question belongs to. */
   group?: string;
   rules?: QuestionRules;
+  /** Short items shown as a bulleted list under the question text. */
+  items?: string[];
   /** Encrypt at rest (passport and ID numbers, Part 9, Part 10A). */
   sensitive?: boolean;
   /** Pre-fill hint for the client only. */
@@ -85,6 +89,12 @@ export interface RepeatGroup {
   gate?: string;
   /** Fewest entries when the group is open (default 1). */
   min?: number;
+  /**
+   * NUM question in the same section that says how many entries there are. The group then
+   * has exactly that many entries, and the applicant cannot add or remove any.
+   * Needs a gate; the count question needs rules.min of at least 1 and rules.max within `max`.
+   */
+  count?: string;
   max: number;
   questions: string[];
   /**

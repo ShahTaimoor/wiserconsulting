@@ -14,6 +14,11 @@ interface RepeatGroupFieldProps {
   members: Question[];
   /** The entries entered so far; each is an object of answers keyed by question id. */
   entries: unknown[];
+  /**
+   * Set for a count-driven group: exactly this many entries are shown and the applicant can
+   * neither add nor remove any. Left out for a group the applicant extends with "Add another".
+   */
+  count?: number;
   /** The whole application's answers as they would be saved, for conditions and option lists. */
   merged: Record<string, unknown>;
   errors: Record<string, string>;
@@ -27,9 +32,11 @@ interface RepeatGroupFieldProps {
  * A repeating group: one card per entry with the group's questions, "Add another" and
  * "Remove". Each question shows or hides per entry, using the shared engine.
  */
-export function RepeatGroupField({ cfg, group, members, entries, merged, errors, previewMode, onEntryChange, onAdd, onRemove }: RepeatGroupFieldProps) {
+export function RepeatGroupField({ cfg, group, members, entries: savedEntries, count, merged, errors, previewMode, onEntryChange, onAdd, onRemove }: RepeatGroupFieldProps) {
   const max = Math.min(group.max, cfg.limits.groupMax);
   const groupError = errors[group.id];
+  const counted = count !== undefined;
+  const entries = counted ? Array.from({ length: count }, (_, i) => savedEntries[i] ?? {}) : savedEntries;
 
   return (
     <div id={`field-${group.id}`} tabIndex={-1} className="space-y-4 focus:outline-none" data-group-id={group.id}>
@@ -41,7 +48,7 @@ export function RepeatGroupField({ cfg, group, members, entries, merged, errors,
 
       {entries.map((rawEntry, index) => {
         const entry = asRecord(rawEntry);
-        const removable = entries.length > Math.max(group.min ?? 1, 1);
+        const removable = !counted && entries.length > Math.max(group.min ?? 1, 1);
         return (
           // The Remove button sits in the top corner, so a removable entry starts its questions below it.
           <fieldset key={index} className={`relative min-w-0 space-y-4 rounded-lg border border-border bg-muted/30 p-4 ${removable ? "pt-12" : ""}`}>
@@ -91,13 +98,15 @@ export function RepeatGroupField({ cfg, group, members, entries, merged, errors,
         </p>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" variant="outline" onClick={onAdd} disabled={entries.length >= max}>
-          <Plus className="mr-1.5 h-4 w-4" aria-hidden />
-          Add another
-        </Button>
-        {entries.length >= max && <span className="text-xs text-muted-foreground">You can add up to {max}.</span>}
-      </div>
+      {!counted && (
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="button" variant="outline" onClick={onAdd} disabled={entries.length >= max}>
+            <Plus className="mr-1.5 h-4 w-4" aria-hidden />
+            Add another
+          </Button>
+          {entries.length >= max && <span className="text-xs text-muted-foreground">You can add up to {max}.</span>}
+        </div>
+      )}
     </div>
   );
 }

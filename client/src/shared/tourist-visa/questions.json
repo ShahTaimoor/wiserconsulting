@@ -1,5 +1,5 @@
 {
-  "version": "0.3.0-draft",
+  "version": "0.4.0-draft",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
@@ -12,7 +12,9 @@
     { "id": "3", "title": "Passport details" },
     { "id": "4", "title": "Family" },
     { "id": "5", "title": "Employment" },
-    { "id": "6", "title": "Money, family in the UK and accommodation" }
+    { "id": "6", "title": "Money, family in the UK and accommodation" },
+    { "id": "7", "title": "Travel history (UK)" },
+    { "id": "8", "title": "Travel history (other countries)" }
   ],
   "sections": [
     { "id": "1", "part": "1", "title": "Travel information" },
@@ -28,7 +30,9 @@
     { "id": "6A", "part": "6", "title": "Income and expenditure" },
     { "id": "6B", "part": "6", "title": "Family in the UK" },
     { "id": "6C", "part": "6", "title": "Accommodation details" },
-    { "id": "6D", "part": "6", "title": "Public funds" }
+    { "id": "6D", "part": "6", "title": "Public funds" },
+    { "id": "7", "part": "7", "title": "Travel history (UK)" },
+    { "id": "8", "part": "8", "title": "Travel history (other countries)" }
   ],
   "groups": [
     {
@@ -66,6 +70,31 @@
       "questions": ["q6_7a", "q6_7b", "q6_7c", "q6_7d"],
       "noOverlap": { "start": "q6_7c", "end": "q6_7d" },
       "tbc": "Spec 6.7d proposes that the next stay starts when this one ends. Default: stays may not overlap, but a gap between two stays, or two stays that meet on the same day, is accepted. To confirm."
+    },
+    {
+      "id": "ukVisits",
+      "section": "7",
+      "entryLabel": "Visit",
+      "gate": "q7_4",
+      "count": "q7_5",
+      "max": 20,
+      "questions": ["q7_5a", "q7_5b", "q7_5c"]
+    },
+    {
+      "id": "immigrationProblems",
+      "section": "7",
+      "entryLabel": "Immigration problem",
+      "gate": "q7_7",
+      "max": 20,
+      "questions": ["q7_7a", "q7_7b", "q7_7c", "q7_7d"]
+    },
+    {
+      "id": "otherCountryTrips",
+      "section": "8",
+      "entryLabel": "Trip",
+      "gate": "q8_2",
+      "max": 20,
+      "questions": ["q8_2a", "q8_2b", "q8_2c", "q8_2d"]
     }
   ],
   "questions": [
@@ -895,6 +924,16 @@
       "required": true,
       "tbc": "Follow-up questions for the Yes path (who is paying and how much) are to confirm."
     },
+    {
+      "id": "q6_5a",
+      "number": "6.5a",
+      "section": "6A",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q6_5", "eq": true },
+      "tbc": "Placeholder. The real follow-up for the Yes path of 6.5 (who is paying and how much) is to be confirmed. It is one plain text box on purpose."
+    },
 
     {
       "id": "q6_6",
@@ -904,6 +943,16 @@
       "type": "YN",
       "required": true,
       "tbc": "Follow-up questions for the Yes path (likely one entry per relative) are to confirm."
+    },
+    {
+      "id": "q6_6a",
+      "number": "6.6a",
+      "section": "6B",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q6_6", "eq": true },
+      "tbc": "Placeholder. The real follow-up for the Yes path of 6.6 (likely one entry per relative) is to be confirmed. It is one plain text box on purpose."
     },
 
     {
@@ -962,6 +1011,277 @@
       "type": "YN",
       "required": true,
       "tbc": "Follow-up questions for the Yes path are to confirm."
+    },
+    {
+      "id": "q6_8a",
+      "number": "6.8a",
+      "section": "6D",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q6_8", "eq": true },
+      "tbc": "Placeholder. The real follow-up for the Yes path of 6.8 is to be confirmed. It is one plain text box on purpose."
+    },
+
+    {
+      "id": "q7_1",
+      "number": "7.1",
+      "section": "7",
+      "label": "Have you been issued with a UK visa in the past 10 years?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q7_2",
+      "number": "7.2",
+      "section": "7",
+      "label": "Date of application",
+      "type": "MY",
+      "required": true,
+      "showWhen": { "q": "q7_1", "eq": true },
+      "rules": { "notFuture": true, "withinYears": 10 },
+      "tbc": "The spec leaves open whether this is one date or one entry per visa. Default: one month and year. Someone who held several visas in the past 10 years can only give one date for now."
+    },
+    {
+      "id": "q7_3",
+      "number": "7.3",
+      "section": "7",
+      "label": "Have you applied for leave to remain in the UK in the past 10 years?",
+      "type": "YN",
+      "required": true,
+      "tbc": "Follow-up questions for the Yes path are to confirm."
+    },
+    {
+      "id": "q7_3a",
+      "number": "7.3a",
+      "section": "7",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q7_3", "eq": true },
+      "tbc": "Placeholder. The real follow-up for the Yes path of 7.3 (details of a leave to remain application) is to be confirmed. It is one plain text box on purpose."
+    },
+    {
+      "id": "q7_4",
+      "number": "7.4",
+      "section": "7",
+      "label": "Have you been to the UK in the past 10 years?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q7_5",
+      "number": "7.5",
+      "section": "7",
+      "label": "How many times have you been to the UK in the past 10 years?",
+      "type": "NUM",
+      "required": true,
+      "showWhen": { "q": "q7_4", "eq": true },
+      "rules": { "min": 1, "max": 20 },
+      "help": "One entry is asked for each visit, up to 20.",
+      "note": "Sets how many visit entries 7.5a to 7.5c appear.",
+      "tbc": "The spec proposes up to 20 entries per group and has not confirmed it. Default: the answer must be from 1 to 20, which is the group limit. Someone who has been more than 20 times cannot list every visit yet."
+    },
+    {
+      "id": "q7_5a",
+      "number": "7.5a",
+      "section": "7",
+      "label": "Select why you were in the UK",
+      "type": "SEL",
+      "required": true,
+      "group": "ukVisits",
+      "options": [
+        { "value": "tbc_visit", "label": "[TBC] Visit or tourism" },
+        { "value": "tbc_business", "label": "[TBC] Business" },
+        { "value": "tbc_study", "label": "[TBC] Study" },
+        { "value": "tbc_other", "label": "[TBC] Other" }
+      ],
+      "tbc": "Option list to confirm."
+    },
+    {
+      "id": "q7_5b",
+      "number": "7.5b",
+      "section": "7",
+      "label": "Date you arrived in the UK",
+      "type": "MY",
+      "required": true,
+      "group": "ukVisits",
+      "rules": { "notFuture": true, "withinYears": 10 }
+    },
+    {
+      "id": "q7_5c",
+      "number": "7.5c",
+      "section": "7",
+      "label": "Number of days, weeks, months or years",
+      "type": "DUR",
+      "required": true,
+      "group": "ukVisits",
+      "help": "How long that stay lasted."
+    },
+    {
+      "id": "q7_6",
+      "number": "7.6",
+      "section": "7",
+      "label": "Have you ever:",
+      "type": "YN",
+      "required": true,
+      "items": [
+        "entered the UK illegally",
+        "remained in the UK beyond the validity of your visa or permission to stay",
+        "breached the conditions of your leave, for example worked without permission or received public funds when you did not have permission",
+        "given false information when applying for a visa, leave to enter, or leave to remain",
+        "breached UK immigration law in any other way"
+      ],
+      "tbc": "Follow-up questions for the Yes path (any of the five) are to confirm."
+    },
+    {
+      "id": "q7_6a",
+      "number": "7.6a",
+      "section": "7",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q7_6", "eq": true },
+      "tbc": "Placeholder. The real follow-up for the Yes path of 7.6 is to be confirmed. It is one plain text box on purpose."
+    },
+    {
+      "id": "q7_7",
+      "number": "7.7",
+      "section": "7",
+      "label": "For either the UK or any other country, have you ever been:",
+      "type": "YN",
+      "required": true,
+      "items": [
+        "refused a visa",
+        "refused entry at the border",
+        "refused permission to stay or remain",
+        "refused asylum",
+        "deported",
+        "removed",
+        "required to leave",
+        "excluded or banned from entry"
+      ]
+    },
+    {
+      "id": "q7_7a",
+      "number": "7.7a",
+      "section": "7",
+      "label": "Give details of what happened",
+      "type": "SEL",
+      "required": true,
+      "group": "immigrationProblems",
+      "options": [
+        { "value": "tbc_refused_visa", "label": "[TBC] Refused a visa" },
+        { "value": "tbc_refused_entry", "label": "[TBC] Refused entry at the border" },
+        { "value": "tbc_refused_stay", "label": "[TBC] Refused permission to stay or remain" },
+        { "value": "tbc_refused_asylum", "label": "[TBC] Refused asylum" },
+        { "value": "tbc_deported", "label": "[TBC] Deported" },
+        { "value": "tbc_removed", "label": "[TBC] Removed" },
+        { "value": "tbc_required_to_leave", "label": "[TBC] Required to leave" },
+        { "value": "tbc_banned", "label": "[TBC] Excluded or banned from entry" }
+      ],
+      "tbc": "Option list to confirm. The placeholders are the eight items of 7.7."
+    },
+    {
+      "id": "q7_7b",
+      "number": "7.7b",
+      "section": "7",
+      "label": "Country",
+      "type": "CTRY",
+      "required": true,
+      "group": "immigrationProblems"
+    },
+    {
+      "id": "q7_7c",
+      "number": "7.7c",
+      "section": "7",
+      "label": "When did this immigration problem happen?",
+      "type": "MY",
+      "required": true,
+      "group": "immigrationProblems",
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q7_7d",
+      "number": "7.7d",
+      "section": "7",
+      "label": "Give more details of what happened",
+      "type": "LNG",
+      "required": true,
+      "group": "immigrationProblems"
+    },
+
+    {
+      "id": "q8_1",
+      "number": "8.1",
+      "section": "8",
+      "label": "How many times have you visited the following places in the past 10 years?",
+      "type": "NUM",
+      "required": true,
+      "items": [
+        "Australia",
+        "Canada",
+        "New Zealand",
+        "USA",
+        "Switzerland",
+        "European Economic Area (do not include travel to the UK)"
+      ],
+      "rules": { "min": 0, "max": 1000 },
+      "help": "Give one combined number for all of these places. Enter 0 if you have not been to any.",
+      "tbc": "Whether a count above zero opens follow-up entries is to confirm. Default: no follow-up. Also still to build: the printout's help list 'Which countries are part of the European Economic Area (EEA)?', which needs a maintained country list. The number is limited to 0 to 1000, which is an assumption."
+    },
+    {
+      "id": "q8_2",
+      "number": "8.2",
+      "section": "8",
+      "label": "Have you been to any other countries in the past 10 years?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q8_2a",
+      "number": "8.2a",
+      "section": "8",
+      "label": "Which country did you visit?",
+      "type": "CTRY",
+      "required": true,
+      "group": "otherCountryTrips"
+    },
+    {
+      "id": "q8_2b",
+      "number": "8.2b",
+      "section": "8",
+      "label": "What was the reason for your visit?",
+      "type": "SEL",
+      "required": true,
+      "group": "otherCountryTrips",
+      "options": [
+        { "value": "tbc_tourism", "label": "[TBC] Tourism" },
+        { "value": "tbc_business", "label": "[TBC] Business" },
+        { "value": "tbc_study", "label": "[TBC] Study" },
+        { "value": "tbc_other", "label": "[TBC] Other" }
+      ],
+      "tbc": "Option list to confirm."
+    },
+    {
+      "id": "q8_2c",
+      "number": "8.2c",
+      "section": "8",
+      "label": "When did you enter this country?",
+      "type": "DATE",
+      "required": true,
+      "group": "otherCountryTrips",
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q8_2d",
+      "number": "8.2d",
+      "section": "8",
+      "label": "When did you leave this country?",
+      "type": "DATE",
+      "required": true,
+      "group": "otherCountryTrips",
+      "rules": { "after": "q8_2c", "notFuture": true, "withinYears": 10 }
     }
   ]
 }

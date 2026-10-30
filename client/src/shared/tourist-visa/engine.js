@@ -122,6 +122,14 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** The date `years` before an ISO date, keeping the month and clamping the day (29 Feb -> 28 Feb). */
+function yearsBefore(iso, years) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const year = y - years;
+  const daysInMonth = new Date(Date.UTC(year, m, 0)).getUTCDate();
+  return `${String(year).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(Math.min(d, daysInMonth)).padStart(2, '0')}`;
+}
+
 function scopeGet(flat, entry, id) {
   if (entry && Object.prototype.hasOwnProperty.call(entry, id)) return entry[id];
   return flat[id];
@@ -427,6 +435,15 @@ function relationalIssues(cfg, q, value, flat, entry, today) {
     if (value > limit) issues.push({ path: [], message: 'Cannot be in the future' });
   }
 
+  // A look-back window ("in the past 10 years"), counted from today. A month and year is
+  // accepted from the month `withinYears` ago, so the whole of that month counts.
+  if (rules.withinYears && typeof value === 'string') {
+    const floor = yearsBefore(today, rules.withinYears);
+    if (value < (q.type === 'MY' ? floor.slice(0, 7) : floor)) {
+      issues.push({ path: [], message: `Must be within the past ${rules.withinYears} years` });
+    }
+  }
+
   return issues;
 }
 
@@ -511,7 +528,17 @@ function validateSection(z, cfg, sectionId, incoming, existing, opts) {
     const raw = cleaned[g.id];
     const max = Math.min(g.max || Infinity, (cfg.limits && cfg.limits.groupMax) || Infinity);
     const min = g.min || 1;
-    if (!Array.isArray(raw) || raw.length < min) {
+    if (g.count) {
+      // The number of entries is whatever the count question says. When that question has no
+      // valid answer it shows its own error, so the group stays quiet.
+      const n = data[g.count];
+      if (!Number.isInteger(n)) continue;
+      if (!Array.isArray(raw) || raw.length !== n) {
+        const label = String(g.entryLabel || 'entry').toLowerCase();
+        errors[g.id] = `Give details for exactly ${n} ${n === 1 ? label : `${label}s`}`;
+        continue;
+      }
+    } else if (!Array.isArray(raw) || raw.length < min) {
       errors[g.id] = min === 1 ? 'Add at least one entry' : `Add at least ${min} entries`;
       continue;
     }
@@ -745,6 +772,13 @@ function validateConfig(cfg) {
       else if (q.type === 'AMT' && (r[key] < 0 || r[key] > AMOUNT_MAX)) err(`${w}: rules.max must be from 0 to ${AMOUNT_MAX}`);
     }
     if (typeof r.min === 'number' && typeof r.max === 'number' && r.min > r.max) err(`${w}: rules.min is above rules.max`);
+    if (r.withinYears !== undefined) {
+      if (q.type !== 'DATE' && q.type !== 'MY') err(`${w}: rules.withinYears needs a DATE or MY question`);
+      if (!Number.isInteger(r.withinYears) || r.withinYears < 1 || r.withinYears > 100) err(`${w}: rules.withinYears must be a whole number from 1 to 100`);
+    }
+    if (q.items !== undefined && (!Array.isArray(q.items) || !q.items.length || !q.items.every((s) => typeof s === 'string' && s.trim()))) {
+      err(`${w}: items must be a non-empty list of text`);
+    }
     if (r.notFuture !== undefined && q.type !== 'DATE' && q.type !== 'MY') err(`${w}: rules.notFuture needs a DATE or MY question`);
     if (r.units !== undefined) {
       if (q.type !== 'DUR') err(`${w}: rules.units is only for DUR`);
@@ -780,7 +814,22 @@ function validateConfig(cfg) {
       }
       if (start !== undefined && start === end) err(`${w}: noOverlap.start and noOverlap.end must differ`);
     }
-    // A group without a gate is always open. Count-based groups are not supported yet.
+    if (g.count !== undefined) {
+      // A count-driven group has exactly as many entries as its count question says.
+      const counter = byId.get(g.count);
+      if (!counter) err(`${w}: unknown count question ${g.count}`);
+      else {
+        if (counter.type !== 'NUM') err(`${w}: count question ${g.count} must be a NUM question`);
+        if (counter.section !== g.section || counter.group) err(`${w}: count question must be in the same section and not a group member`);
+        const cr = counter.rules || {};
+        if (!Number.isInteger(cr.min) || cr.min < 1) err(`${w}: count question ${g.count} needs rules.min of at least 1`);
+        if (!Number.isInteger(cr.max) || cr.max > Math.min(g.max, lim.groupMax || 0)) err(`${w}: count question ${g.count} needs rules.max no larger than the group limit`);
+        for (const id of g.questions || []) if (order.get(g.count) >= order.get(id)) err(`${w}: count question must come before member ${id}`);
+      }
+      if (g.gate === undefined) err(`${w}: a count-driven group needs a Yes/No gate`);
+      if (g.min !== undefined) err(`${w}: min is not used with count`);
+    }
+    // A group without a gate is always open.
     const gate = g.gate === undefined ? undefined : byId.get(g.gate);
     if (g.gate !== undefined && !gate) err(`${w}: unknown gate ${g.gate}`);
     else if (gate) {

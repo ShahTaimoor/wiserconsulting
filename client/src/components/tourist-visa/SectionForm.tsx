@@ -18,6 +18,7 @@ import {
   collectErrors,
   initialValues,
   isGroupOpen,
+  groupEntryCount,
   mergedAnswers,
   nextSectionId,
   previousSectionId,
@@ -111,13 +112,13 @@ export function SectionForm({ sectionId, application }: SectionFormProps) {
       // Answering Yes to a question that opens a repeating group gives it one entry to fill in.
       for (const group of config.groups) {
         const entries = next[group.id];
-        if (group.gate === questionId && value === true && !(Array.isArray(entries) && entries.length > 0)) next[group.id] = [{}];
+        if (!group.count && group.gate === questionId && value === true && !(Array.isArray(entries) && entries.length > 0)) next[group.id] = [{}];
       }
       return next;
     });
     setErrors((previous) => {
       let next = withoutErrorsFor(previous, questionId);
-      for (const group of config.groups) if (group.gate === questionId) next = withoutErrorsFor(next, group.id);
+      for (const group of config.groups) if (group.gate === questionId || group.count === questionId) next = withoutErrorsFor(next, group.id);
       return next;
     });
     setBanner(null);
@@ -125,7 +126,9 @@ export function SectionForm({ sectionId, application }: SectionFormProps) {
 
   const setEntryAnswer = useCallback((groupId: string, index: number, questionId: string, value: unknown) => {
     setValues((previous) => {
-      const entries = Array.isArray(previous[groupId]) ? [...(previous[groupId] as unknown[])] : [];
+      // Filled with blanks up to this entry, so a count-driven group never holds gaps.
+      const current = Array.isArray(previous[groupId]) ? (previous[groupId] as unknown[]) : [];
+      const entries = Array.from({ length: Math.max(current.length, index + 1) }, (_, i) => current[i] ?? {});
       entries[index] = { ...asRecord(entries[index]), [questionId]: value };
       return { ...previous, [groupId]: entries };
     });
@@ -250,6 +253,7 @@ export function SectionForm({ sectionId, application }: SectionFormProps) {
                   group={item.group}
                   members={item.members}
                   entries={entries}
+                  count={groupEntryCount(config, item.group, merged)}
                   merged={merged}
                   errors={errors}
                   previewMode={previewMode}

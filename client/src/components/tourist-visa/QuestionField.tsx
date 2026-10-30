@@ -44,7 +44,8 @@ export function QuestionField({ cfg, question, idBase, value, onChange, options,
   const hint = hintFor(cfg, question);
   const hintId = hint ? `${idBase}-hint` : undefined;
   const errorId = error ? `${idBase}-error` : undefined;
-  const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
+  const itemsId = question.items ? `${idBase}-items` : undefined;
+  const describedBy = [itemsId, hintId, errorId].filter(Boolean).join(" ") || undefined;
   const invalid = Boolean(error) || Object.keys(subErrors).length > 0;
   const limit = question.type === "LNG" ? (question.rules?.maxLen ?? cfg.limits.lngMax) : undefined;
 
@@ -64,6 +65,14 @@ export function QuestionField({ cfg, question, idBase, value, onChange, options,
     </>
   );
 
+  // Part of the question text itself (for example the five breaches in 7.6), shown as a list under it.
+  const itemsNode = question.items && (
+    <ul id={itemsId} className="ml-5 list-disc space-y-1 text-sm text-foreground/80">
+      {question.items.map((item) => (
+        <li key={item}>{item}</li>
+      ))}
+    </ul>
+  );
   const hintNode = hint && (
     <p id={hintId} className="text-xs text-muted-foreground">
       {hint}
@@ -98,6 +107,7 @@ export function QuestionField({ cfg, question, idBase, value, onChange, options,
           <Label htmlFor={idBase} className="cursor-pointer items-start text-sm font-medium leading-snug">
             {labelText}
           </Label>
+          {itemsNode}
           {hintNode}
           {errorNode}
         </div>
@@ -109,6 +119,7 @@ export function QuestionField({ cfg, question, idBase, value, onChange, options,
     return (
       <fieldset id={idBase} tabIndex={-1} aria-describedby={describedBy} className="min-w-0 space-y-2 border-0 p-0 focus:outline-none" data-question-id={question.id}>
         <legend className="mb-1 p-0 text-sm font-medium leading-snug text-foreground">{labelText}</legend>
+        {itemsNode}
         {hintNode}
         {control}
         {errorNode}
@@ -121,6 +132,7 @@ export function QuestionField({ cfg, question, idBase, value, onChange, options,
       <Label htmlFor={idBase} className="items-start text-sm font-medium leading-snug">
         <span>{labelText}</span>
       </Label>
+      {itemsNode}
       {hintNode}
       {control}
       {errorNode}

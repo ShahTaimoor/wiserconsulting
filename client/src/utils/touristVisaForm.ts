@@ -152,7 +152,8 @@ export function initialValues(
     if (group.section !== sectionId) continue;
     const entries = values[group.id];
     const open = group.gate === undefined || values[group.gate] === true;
-    if (open && !(Array.isArray(entries) && entries.length > 0)) {
+    // A count-driven group shows as many entries as its count question says, so it needs no starter entry.
+    if (open && !group.count && !(Array.isArray(entries) && entries.length > 0)) {
       values[group.id] = Array.from({ length: group.min ?? 1 }, () => ({}));
     }
   }
@@ -174,6 +175,18 @@ export function mergedAnswers(
     if (cleaned !== undefined) merged[key] = cleaned;
   }
   return merged;
+}
+
+/**
+ * How many entries a count-driven group shows: the whole number its count question holds
+ * (such as 7.5), or 0 while that is empty or outside the allowed range. Returns undefined
+ * for a group that is not count-driven, where the applicant adds and removes entries.
+ */
+export function groupEntryCount(cfg: TouristVisaConfig, group: RepeatGroup, answers: Record<string, unknown>): number | undefined {
+  if (!group.count) return undefined;
+  const n = answers[group.count];
+  const limit = Math.min(group.max, cfg.limits.groupMax);
+  return typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= limit ? n : 0;
 }
 
 /** Whether a repeating group is open: its Yes/No question is shown and answered Yes, or it has no Yes/No question. */
@@ -224,7 +237,14 @@ export function buildPayload(
 
     if (!isGroupOpen(cfg, item.group, merged)) continue;
     const raw = values[item.group.id];
-    const entries = Array.isArray(raw) ? raw : [];
+    let entries = Array.isArray(raw) ? raw : [];
+    const count = groupEntryCount(cfg, item.group, merged);
+    if (count !== undefined) {
+      // Exactly as many entries as the count says: extra ones typed before the count was changed
+      // are left out, and missing ones are sent blank so the errors line up with what is on screen.
+      if (count === 0) continue;
+      entries = Array.from({ length: count }, (_, i) => entries[i]);
+    }
     answers[item.group.id] = entries.map((rawEntry) => {
       const entry = isPlainObject(rawEntry) ? rawEntry : {};
       const cleanedEntry: Record<string, unknown> = {};
@@ -363,6 +383,7 @@ export function hintFor(cfg: TouristVisaConfig, question: Question): string | un
     else if (numbers.length > 1) parts.push(`Must be ${words} the dates in questions ${numbers.slice(0, -1).join(", ")} and ${numbers[numbers.length - 1]}.`);
   }
   if (question.rules?.notFuture) parts.push("Cannot be in the future.");
+  if (question.rules?.withinYears) parts.push(`Must be within the past ${question.rules.withinYears} years.`);
   if (question.type === "TEL") parts.push("Include the country code, for example +44.");
   return parts.length > 0 ? parts.join(" ") : undefined;
 }

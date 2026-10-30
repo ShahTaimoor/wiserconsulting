@@ -142,7 +142,7 @@ test('a complete application: Parts 5 and 6 save, amounts stay numbers, and the 
     1: 'saved', '2A': 'saved', '2B': 'saved', '2C': 'saved', '2D': 'saved', 3: 'saved',
     '4B': 'saved', '4C': 'saved', 5: 'saved', '6A': 'saved', '6B': 'saved', '6C': 'saved', '6D': 'saved',
   });
-  assert.equal(app.currentSection, '6D', 'everything applicable is saved: resume on the last section');
+  assert.equal(app.currentSection, '7', 'Parts 1-6 are saved: resume at the first section of Part 7');
 
   const stored = await rawDoc(appId);
   assert.deepEqual(stored.answers.q5_7, gbp(2500.5));
@@ -300,12 +300,15 @@ test('6C can be saved before section 1; the date check applies once section 1 is
   assert.deepEqual(later.json.data.needsReview, ['6C']);
 });
 
-test('a No on 6.7, 6.6 and 6.8 needs no further answers; a Yes on 6.5, 6.6 or 6.8 asks nothing more yet', async () => {
+test('a No on 6.7 needs no further answers; a Yes on 6.5, 6.6 or 6.8 asks for one details box', async () => {
   const { token } = await start();
   assert.equal((await put(token, '6C', { q6_7: false })).status, 200);
-  assert.equal((await put(token, '6B', { q6_6: true })).status, 200);
-  assert.equal((await put(token, '6D', { q6_8: true })).status, 200);
-  assert.equal((await put(token, '6A', { ...S6A, q6_5: true })).status, 200);
+  const noDetails = await put(token, '6B', { q6_6: true });
+  assert.equal(noDetails.status, 422);
+  assert.equal(noDetails.json.errors.q6_6a, 'This question is required');
+  assert.equal((await put(token, '6B', { q6_6: true, q6_6a: 'Made-up details' })).status, 200);
+  assert.equal((await put(token, '6D', { q6_8: true, q6_8a: 'Made-up details' })).status, 200);
+  assert.equal((await put(token, '6A', { ...S6A, q6_5: true, q6_5a: 'Made-up details' })).status, 200);
   assert.equal((await put(token, '6B', {})).status, 422);
 });
 
@@ -334,5 +337,5 @@ test('applications saved under config 0.2.0 (Parts 1-4 only) keep their answers 
 test('an unknown section is still a 404', async () => {
   const { token } = await start();
   assert.equal((await put(token, '6E', {})).status, 404);
-  assert.equal((await put(token, '7', {})).status, 404);
+  assert.equal((await put(token, '9', {})).status, 404);
 });
