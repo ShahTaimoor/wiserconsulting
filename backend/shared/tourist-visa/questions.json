@@ -1,5 +1,5 @@
 {
-  "version": "0.5.0-draft",
+  "version": "0.6.0-draft",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
@@ -40,9 +40,9 @@
       "section": "2A",
       "entryLabel": "Other name",
       "gate": "q2_3",
-      "max": 20,
-      "questions": ["q2_3a", "q2_3b"],
-      "tbc": "Fields of the other-names group are to confirm (spec 2.3a, 2.3b)."
+      "max": 10,
+      "questions": ["q2_3a", "q2_3b", "q2_3c"],
+      "draft": "Draft: given names and family name, plus an optional reason (list: maiden name, married name, deed poll, nickname, other). Up to 10 names."
     },
     {
       "id": "dependants",
@@ -56,10 +56,11 @@
       "id": "parents",
       "section": "4C",
       "entryLabel": "Parent",
+      "gate": "q4_8",
       "min": 1,
-      "max": 20,
-      "questions": ["q4_8a", "q4_8b", "q4_8c", "q4_8d", "q4_8e", "q4_8f"],
-      "tbc": "Spec 4.8 does not say whether a Yes/No question opens this group or how many parents are required. Default: no Yes/No question, the group is always shown and needs at least 1 entry (up to the group limit). To confirm."
+      "max": 4,
+      "questions": ["q4_8a", "q4_8b", "q4_8c", "q4_8d", "q4_8e", "q4_8f", "q4_8h", "q4_8i"],
+      "draft": "Draft: a Yes/No first (4.8, can you give your parents' details?). Yes opens up to 4 parents, at least 1; No asks an optional reason (4.8g)."
     },
     {
       "id": "accommodation",
@@ -70,6 +71,30 @@
       "questions": ["q6_7a", "q6_7b", "q6_7c", "q6_7d"],
       "noOverlap": { "start": "q6_7c", "end": "q6_7d" },
       "tbc": "Spec 6.7d proposes that the next stay starts when this one ends. Default: stays may not overlap, but a gap between two stays, or two stays that meet on the same day, is accepted. To confirm."
+    },
+    {
+      "id": "companions",
+      "section": "1",
+      "entryLabel": "Travelling companion",
+      "gate": "q1_3",
+      "max": 10,
+      "questions": ["q1_3a", "q1_3b", "q1_3c", "q1_3d", "q1_3e"]
+    },
+    {
+      "id": "otherNationalities",
+      "section": "2B",
+      "entryLabel": "Other nationality",
+      "gate": "q2_23",
+      "max": 5,
+      "questions": ["q2_23b", "q2_23c", "q2_23d", "q2_23e"]
+    },
+    {
+      "id": "medicalTreatments",
+      "section": "2C",
+      "entryLabel": "Treatment",
+      "gate": "q2_31",
+      "max": 5,
+      "questions": ["q2_31a", "q2_31b", "q2_31c", "q2_31d", "q2_31e"]
     },
     {
       "id": "ukVisits",
@@ -123,7 +148,33 @@
       "label": "Will you be travelling to the UK as part of an organised group?",
       "type": "YN",
       "required": true,
-      "tbc": "Follow-up questions for the Yes path are to confirm."
+      "draft": "Draft: Yes asks for the name of the group or organiser (required) and the kind of group (optional list: tour, school or college, religious, sports or cultural, business, other)."
+    },
+    {
+      "id": "q1_2a",
+      "number": "1.2a",
+      "section": "1",
+      "label": "Name of the group or organiser",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q1_2", "eq": true }
+    },
+    {
+      "id": "q1_2b",
+      "number": "1.2b",
+      "section": "1",
+      "label": "What kind of group is it?",
+      "type": "SEL",
+      "required": false,
+      "options": [
+        { "value": "tour", "label": "Tour group" },
+        { "value": "school_college", "label": "School or college" },
+        { "value": "religious", "label": "Religious group" },
+        { "value": "sports_cultural", "label": "Sports or cultural group" },
+        { "value": "business", "label": "Business or professional group" },
+        { "value": "other", "label": "Another kind of group" }
+      ],
+      "showWhen": { "q": "q1_2", "eq": true }
     },
     {
       "id": "q1_3",
@@ -132,7 +183,59 @@
       "label": "Will you be travelling to the UK with someone who is not your partner, spouse or dependant?",
       "type": "YN",
       "required": true,
-      "tbc": "Follow-up questions for the Yes path are to confirm."
+      "draft": "Draft: Yes opens up to 10 companions: relationship (list), given names, family name, date of birth (optional) and nationality (optional). No passport numbers are asked."
+    },
+    {
+      "id": "q1_3a",
+      "number": "1.3a",
+      "section": "1",
+      "label": "What is your relationship to this person?",
+      "type": "SEL",
+      "required": true,
+      "group": "companions",
+      "options": [
+        { "value": "friend", "label": "Friend" },
+        { "value": "family_member", "label": "Family member" },
+        { "value": "colleague", "label": "Colleague or business associate" },
+        { "value": "other", "label": "Other" }
+      ]
+    },
+    {
+      "id": "q1_3b",
+      "number": "1.3b",
+      "section": "1",
+      "label": "Given names",
+      "type": "TXT",
+      "required": true,
+      "group": "companions"
+    },
+    {
+      "id": "q1_3c",
+      "number": "1.3c",
+      "section": "1",
+      "label": "Family name",
+      "type": "TXT",
+      "required": true,
+      "group": "companions"
+    },
+    {
+      "id": "q1_3d",
+      "number": "1.3d",
+      "section": "1",
+      "label": "Date of birth",
+      "type": "DATE",
+      "required": false,
+      "group": "companions",
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q1_3e",
+      "number": "1.3e",
+      "section": "1",
+      "label": "Country of nationality",
+      "type": "CTRY",
+      "required": false,
+      "group": "companions"
     },
     {
       "id": "q1_4",
@@ -221,6 +324,22 @@
       "group": "otherNames"
     },
     {
+      "id": "q2_3c",
+      "number": "2.3c",
+      "section": "2A",
+      "label": "Why did you use this name?",
+      "type": "SEL",
+      "required": false,
+      "group": "otherNames",
+      "options": [
+        { "value": "maiden_name", "label": "Maiden name" },
+        { "value": "married_name", "label": "Married name" },
+        { "value": "deed_poll", "label": "Changed by deed poll" },
+        { "value": "nickname", "label": "Nickname or a name I am known by" },
+        { "value": "other", "label": "Another reason" }
+      ]
+    },
+    {
       "id": "q2_4",
       "number": "2.4",
       "section": "2A",
@@ -261,7 +380,7 @@
       "type": "EML",
       "required": true,
       "showWhen": { "q": "q2_6", "eq": true },
-      "tbc": "One additional address or several is to confirm."
+      "draft": "Draft: one additional email address, not several."
     },
     {
       "id": "q2_8",
@@ -429,17 +548,52 @@
       "label": "Do you currently hold, or have you ever held, any other nationality or citizenship?",
       "type": "YN",
       "required": true,
-      "tbc": "Follow-up questions for the Yes path are to confirm."
+      "draft": "Draft: Yes opens up to 5 other nationalities: country, how it was acquired (list), whether it is still held, and when it ended (optional). No identity or passport numbers of another country are asked."
     },
     {
-      "id": "q2_23a",
-      "number": "2.23a",
+      "id": "q2_23b",
+      "number": "2.23b",
       "section": "2B",
-      "label": "Please give details",
-      "type": "LNG",
+      "label": "Country of nationality or citizenship",
+      "type": "CTRY",
       "required": true,
-      "showWhen": { "q": "q2_23", "eq": true },
-      "tbc": "Placeholder. The real follow-up for the Yes path of 2.23 is to be confirmed. It is one plain text box on purpose: no questions about identity or passport numbers of another country."
+      "group": "otherNationalities"
+    },
+    {
+      "id": "q2_23c",
+      "number": "2.23c",
+      "section": "2B",
+      "label": "How did you acquire it?",
+      "type": "SEL",
+      "required": true,
+      "group": "otherNationalities",
+      "options": [
+        { "value": "birth", "label": "By birth" },
+        { "value": "descent", "label": "Through a parent or grandparent (descent)" },
+        { "value": "marriage_or_partnership", "label": "Through marriage or a partnership" },
+        { "value": "naturalisation", "label": "By naturalisation or registration" },
+        { "value": "other", "label": "Another way" }
+      ]
+    },
+    {
+      "id": "q2_23d",
+      "number": "2.23d",
+      "section": "2B",
+      "label": "Do you currently hold it?",
+      "type": "YN",
+      "required": true,
+      "group": "otherNationalities"
+    },
+    {
+      "id": "q2_23e",
+      "number": "2.23e",
+      "section": "2B",
+      "label": "When did you stop holding it?",
+      "type": "MY",
+      "required": false,
+      "group": "otherNationalities",
+      "showWhen": { "q": "q2_23d", "eq": false },
+      "rules": { "notFuture": true }
     },
 
     {
@@ -501,8 +655,8 @@
       "label": "Give more details about your living situation, such as who you live with and who owns the property",
       "type": "LNG",
       "required": true,
-      "showWhen": { "q": "q2_28", "eq": "other" },
-      "tbc": "The printout shows this for the Other option of 2.28. The full condition is to confirm."
+      "showWhen": { "q": "q2_28", "in": ["with_family_or_friends", "employer_provided", "other"] },
+      "draft": "Draft: shown when 2.28 is with_family_or_friends, employer_provided or other (the cases where ownership is unclear), and required when shown."
     },
     {
       "id": "q2_30",
@@ -511,7 +665,18 @@
       "label": "Do you have a UK driving licence?",
       "type": "YN",
       "required": true,
-      "tbc": "Follow-up questions for the Yes path are to confirm."
+      "draft": "Draft: Yes asks for the licence number (optional, stored encrypted)."
+    },
+    {
+      "id": "q2_30a",
+      "number": "2.30a",
+      "section": "2C",
+      "label": "UK driving licence number",
+      "type": "TXT",
+      "required": false,
+      "showWhen": { "q": "q2_30", "eq": true },
+      "rules": { "maxLen": 30 },
+      "sensitive": true
     },
     {
       "id": "q2_31",
@@ -520,7 +685,57 @@
       "label": "Have you ever been given medical treatment in the UK?",
       "type": "YN",
       "required": true,
-      "tbc": "Follow-up questions for the Yes path are to confirm."
+      "draft": "Draft: Yes opens up to 5 treatments: when, what treatment (stored encrypted), where (optional), whether the costs were paid in full, and the amount still owing (optional, up to 100,000)."
+    },
+    {
+      "id": "q2_31a",
+      "number": "2.31a",
+      "section": "2C",
+      "label": "When did you receive the treatment?",
+      "type": "MY",
+      "required": true,
+      "group": "medicalTreatments",
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q2_31b",
+      "number": "2.31b",
+      "section": "2C",
+      "label": "What treatment did you receive?",
+      "type": "LNG",
+      "required": true,
+      "group": "medicalTreatments",
+      "rules": { "maxLen": 500 },
+      "sensitive": true
+    },
+    {
+      "id": "q2_31c",
+      "number": "2.31c",
+      "section": "2C",
+      "label": "Where did you receive it (hospital or clinic)?",
+      "type": "TXT",
+      "required": false,
+      "group": "medicalTreatments"
+    },
+    {
+      "id": "q2_31d",
+      "number": "2.31d",
+      "section": "2C",
+      "label": "Were the costs paid in full?",
+      "type": "YN",
+      "required": true,
+      "group": "medicalTreatments"
+    },
+    {
+      "id": "q2_31e",
+      "number": "2.31e",
+      "section": "2C",
+      "label": "How much is still owing?",
+      "type": "AMT",
+      "required": false,
+      "group": "medicalTreatments",
+      "showWhen": { "q": "q2_31d", "eq": false },
+      "rules": { "max": 100000 }
     },
 
     {
@@ -619,7 +834,7 @@
       "type": "TXT",
       "required": true,
       "showWhen": { "q": "q2_13", "in": ["married", "civil_partnership", "unmarried_partner"] },
-      "tbc": "Which relationship statuses of 2.13 show the spouse or partner questions is to confirm. Draft mapping: married, civil_partnership and unmarried_partner show them; single, separated, divorced and widowed do not. 4.2 to 4.6 follow the same condition."
+      "draft": "Draft: married, civil_partnership and unmarried_partner show section 4A (4.1 to 4.6); single, separated, divorced and widowed do not."
     },
     {
       "id": "q4_2",
@@ -744,6 +959,23 @@
     },
 
     {
+      "id": "q4_8",
+      "number": "4.8",
+      "section": "4C",
+      "label": "Are you able to give details of your parents?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q4_8g",
+      "number": "4.8g",
+      "section": "4C",
+      "label": "Why can't you give their details?",
+      "type": "TXT",
+      "required": false,
+      "showWhen": { "q": "q4_8", "eq": false }
+    },
+    {
       "id": "q4_8a",
       "number": "4.8a",
       "section": "4C",
@@ -805,7 +1037,28 @@
       "type": "YN",
       "required": true,
       "group": "parents",
-      "tbc": "Follow-up questions for the No path are to confirm."
+      "draft": "Draft: No asks for the previous nationality (required) and when it changed (optional)."
+    },
+    {
+      "id": "q4_8h",
+      "number": "4.8h",
+      "section": "4C",
+      "label": "What was their previous nationality?",
+      "type": "CTRY",
+      "required": true,
+      "group": "parents",
+      "showWhen": { "q": "q4_8f", "eq": false }
+    },
+    {
+      "id": "q4_8i",
+      "number": "4.8i",
+      "section": "4C",
+      "label": "When did it change?",
+      "type": "MY",
+      "required": false,
+      "group": "parents",
+      "showWhen": { "q": "q4_8f", "eq": false },
+      "rules": { "notFuture": true }
     },
 
     {

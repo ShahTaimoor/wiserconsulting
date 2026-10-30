@@ -243,9 +243,30 @@ function resolveOptions(cfg, questionId, answers, entry) {
   return resolveOptionsIn(cfg, q, answers || {}, entry || null);
 }
 
+/** Every question id a condition looks at. */
+function conditionRefs(cond, out = []) {
+  if (!cond || typeof cond !== 'object') return out;
+  if (Array.isArray(cond.all) || Array.isArray(cond.any)) (cond.all || cond.any).forEach((c) => conditionRefs(c, out));
+  else if (cond.not) conditionRefs(cond.not, out);
+  else if (typeof cond.q === 'string') out.push(cond.q);
+  return out;
+}
+
+/**
+ * Is this question hidden only because the answer that controls it has never been given? That
+ * happens to an application saved before a Yes/No was put in front of its questions: the old
+ * answers are still there, but the new gate is unanswered. They are not hidden by a gate that
+ * somebody changed, so they must not be removed; they wait until the gate is answered.
+ */
+function waitingForGate(cfg, q, flat, entry) {
+  return conditionRefs(q.showWhen).some((id) => scopeGet(flat, entry, id) === undefined);
+}
+
 /**
  * Drops answers to hidden or unknown questions across the whole application,
  * including whole repeating groups whose gate is no longer Yes.
+ * Exception: an answer that is hidden only because its gate has not been answered yet is kept
+ * (see waitingForGate), so adding a new Yes/No in front of saved answers never deletes them.
  * Returns { answers, removed } where removed lists question and group ids.
  */
 function pruneAnswers(cfg, answers) {
@@ -259,7 +280,7 @@ function pruneAnswers(cfg, answers) {
     const has = flat[q.id] !== undefined;
     if (isVisibleIn(cfg, q, flat, null)) {
       if (has) out[q.id] = flat[q.id];
-    } else if (has) {
+    } else if (has && !waitingForGate(cfg, q, flat, null)) {
       removed.push(q.id);
     }
   }
@@ -268,7 +289,9 @@ function pruneAnswers(cfg, answers) {
     const has = flat[g.id] !== undefined;
     if (!has) continue;
     if (!groupGateOpen(cfg, g, flat)) {
-      removed.push(g.id);
+      const gate = g.gate ? idx.byId.get(g.gate) : null;
+      const waiting = gate ? waitingForGate(cfg, { showWhen: { q: g.gate } }, flat, null) : false;
+      if (!waiting) removed.push(g.id);
       continue;
     }
     const entries = Array.isArray(flat[g.id]) ? flat[g.id] : [];
@@ -652,21 +675,39 @@ function getReleaseBlockers(cfg) {
 }
 
 /**
- * Questions whose option list is a draft that still needs senior review. Unlike a tbc flag,
- * a draft does not block release: the form works with the draft options, and the senior
- * signs them off or changes them (editing the config only, then removing the `draft` line).
- * Returns [{ sectionId, items: [{ id, number, draft }] }].
+ * Questions and repeating groups whose answer list, follow-up questions or rule is a default
+ * chosen by us that still needs senior review (the `draft` marker, with a short note saying what
+ * the default is). The form works with the draft, and the senior signs it off or changes it by
+ * editing the config only and removing the `draft` line. Nothing is ever confirmed silently.
+ * A draft does not make a section "blocked" in the release check, but it does hold the section
+ * back (see getHeldSections).
+ * Returns [{ sectionId, items: [{ id, number, draft }] }]; number is null for a group.
  */
 function getDraftItems(cfg) {
   const bySection = new Map();
-  for (const q of cfg.questions) {
-    if (!q.draft) continue;
-    if (!bySection.has(q.section)) bySection.set(q.section, []);
-    bySection.get(q.section).push({ id: q.id, number: q.number, draft: q.draft });
-  }
+  const add = (sectionId, item) => {
+    if (!bySection.has(sectionId)) bySection.set(sectionId, []);
+    bySection.get(sectionId).push(item);
+  };
+  for (const g of cfg.groups || []) if (g.draft) add(g.section, { id: g.id, number: null, draft: g.draft });
+  for (const q of cfg.questions) if (q.draft) add(q.section, { id: q.id, number: q.number, draft: q.draft });
   return cfg.sections
     .filter((s) => bySection.has(s.id))
     .map((s) => ({ sectionId: s.id, items: bySection.get(s.id) }));
+}
+
+/**
+ * The sections that are not yet signed off: they still carry a `tbc` flag (a real unknown) or
+ * a `draft` marker (a default awaiting senior review), in form order.
+ * Returns [{ sectionId, tbc, draft }] with the number of items of each kind.
+ * The client opens the form to applicants only when this list is empty (preview mode excepted).
+ */
+function getHeldSections(cfg) {
+  const tbc = new Map(getReleaseBlockers(cfg).map((b) => [b.sectionId, b.items.length]));
+  const draft = new Map(getDraftItems(cfg).map((d) => [d.sectionId, d.items.length]));
+  return cfg.sections
+    .filter((s) => tbc.has(s.id) || draft.has(s.id))
+    .map((s) => ({ sectionId: s.id, tbc: tbc.get(s.id) || 0, draft: draft.get(s.id) || 0 }));
 }
 
 function isSectionReleasable(cfg, sectionId) {
@@ -741,10 +782,7 @@ function validateConfig(cfg) {
     if (typeof q.required !== 'boolean') err(`${w}: required must be true or false`);
     if (q.sensitive !== undefined && typeof q.sensitive !== 'boolean') err(`${w}: sensitive must be a boolean`);
     if (q.tbc !== undefined && (typeof q.tbc !== 'string' || !q.tbc)) err(`${w}: tbc must be a non-empty string`);
-    if (q.draft !== undefined) {
-      if (typeof q.draft !== 'string' || !q.draft) err(`${w}: draft must be a non-empty string`);
-      if ((q.type !== 'SEL' && q.type !== 'CHK') || !Array.isArray(q.options)) err(`${w}: draft is only for a SEL or CHK question with its own option list`);
-    }
+    if (q.draft !== undefined && (typeof q.draft !== 'string' || !q.draft.trim())) err(`${w}: draft must be a non-empty string`);
     if (Array.isArray(q.options)) {
       for (const opt of q.options) {
         if (/^tbc_/.test(opt.value) || /\[TBC\]/i.test(opt.label || '')) err(`${w}: option ${opt.value} is still a placeholder; use a real value and mark the question draft`);
@@ -832,6 +870,7 @@ function validateConfig(cfg) {
     if (!Number.isInteger(g.max) || g.max < 1 || g.max > (lim.groupMax || 0)) err(`${w}: max must be an integer from 1 to limits.groupMax`);
     if (!Array.isArray(g.questions) || !g.questions.length) err(`${w}: needs member questions`);
     if (g.tbc !== undefined && (typeof g.tbc !== 'string' || !g.tbc)) err(`${w}: tbc must be a non-empty string`);
+    if (g.draft !== undefined && (typeof g.draft !== 'string' || !g.draft.trim())) err(`${w}: draft must be a non-empty string`);
     if (g.min !== undefined && (!Number.isInteger(g.min) || g.min < 1 || g.min > g.max)) err(`${w}: min must be an integer from 1 to max`);
     if (g.noOverlap !== undefined) {
       const { start, end } = g.noOverlap || {};
@@ -890,6 +929,7 @@ module.exports = {
   validateSection,
   getReleaseBlockers,
   getDraftItems,
+  getHeldSections,
   isSectionReleasable,
   validateConfig,
 };

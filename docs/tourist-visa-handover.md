@@ -7,7 +7,7 @@ Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-
 ## 1. At a glance
 
 - A signed-in user fills in a UK visitor (tourist) visa application, one section at a time, and can leave and come back. Answers are saved on the server per section ("Save and continue").
-- It is **not ready to open to the public**. 13 of the 16 sections still carry open `tbc` items (real unknowns in the spec, for example what to ask after a Yes), and 16 option lists are drafts that need review. Until the `tbc` items are settled, the live site shows "The application isn't open yet".
+- It is **not ready to open to the public**. 7 of the 16 sections still carry open `tbc` items (real unknowns in the spec, mostly what to ask after a Yes in Parts 5 to 8), and 12 sections carry **drafts**: defaults we chose, each with a short note, that need senior review (every section of Parts 1 to 4 except the passport section, and some of Parts 5 to 8). In all, 15 of the 16 sections are still held by a `tbc` item or a draft. **The client opens the form only when no section has a `tbc` item and none has a draft**, so an unreviewed default cannot reach the public by accident. Until then the live site shows "The application isn't open yet".
 - **Two switches keep it closed** (section 4): the backend variable `TOURIST_VISA_ENABLED`, which is **off unless it is exactly `true`**, and the client's own gate. With the backend switch off, the whole API is inert: every request gets one fixed "closed" answer and nothing is read, stored or logged. **Production must keep both switches consistent.**
 - Nothing links to the form yet. It can only be reached by typing `/tourist-visa`.
 - It adds one new database collection and does not change the data of any existing feature.
@@ -27,23 +27,23 @@ Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-
 | 7 Travel history (UK) | 7 |
 | 8 Travel history (other countries) | 8 |
 
-114 questions and 7 repeating groups in all.
+135 questions and 10 repeating groups in all.
 
 **One config drives both sides.** The questions live in `shared/tourist-visa/questions.json` and the rules in `shared/tourist-visa/engine.js`. The client form and the server validation both run the same engine, so they cannot disagree. Changing a question, an option list or a condition means editing the JSON, not code.
 
 **Save and resume.** Each section is validated and saved on its own. The dashboard (`/tourist-visa`) shows every section as saved, not started or needs review, and "Continue" goes to the first section that is not done. A saved section is flagged "needs review" automatically when something it depends on changes (for example, moving the leave date in section 1 flags the accommodation dates in 6C).
 
-**Gates (a Yes/No or a choice decides what appears).** When an answer changes and hides questions, the server removes the hidden answers from the database. Examples: 2.13 relationship status shows or hides the whole of section 4A; 5.1 employment status shows 5.2 to 5.9 only for "employed"; 6.1 shows 6.2 for savings; a Yes on 6.5, 6.6, 6.8, 7.3 or 7.6 opens one "Please give details" box; 7.1, 7.4, 7.7 and 8.2 open their questions and groups. A section with no visible question is hidden everywhere (dashboard, progress count, Back and Next, direct address) and cannot be saved.
+**Gates (a Yes/No or a choice decides what appears).** When an answer changes and hides questions, the server removes the hidden answers from the database. Examples: 2.13 relationship status shows or hides the whole of section 4A; 5.1 employment status shows 5.2 to 5.9 only for "employed"; 6.1 shows 6.2 for savings; a Yes on 1.2, 1.3, 2.23, 2.30 or 2.31, or on the new 4.8 ("can you give your parents' details?"), opens its follow-up questions (section 10.2); a Yes on 6.5, 6.6, 6.8, 7.3 or 7.6 still opens one placeholder "Please give details" box (Parts 5 to 8 are not drafted yet); 7.1, 7.4, 7.7 and 8.2 open their questions and groups. A section with no visible question is hidden everywhere (dashboard, progress count, Back and Next, direct address) and cannot be saved. **An answer that is hidden only because its gate has never been answered is kept, not removed**: when a new Yes/No is put in front of questions that already hold saved answers (as 4.8 was put in front of the parents), those answers wait, untouched, until the Yes/No is answered.
 
-**Repeating groups.** Add another and Remove for dependants (4B), parents (4C, always open, at least 1), places of stay (6C), immigration problems (7.7) and other-country trips (8.2). The UK visits (7.5a to 7.5c) are count-driven: the number typed at 7.5 decides how many visit entries there are, with no Add or Remove.
+**Repeating groups.** Add another and Remove for companions (1.3, up to 10), other names (2.3, up to 10), other nationalities (2.23, up to 5), medical treatments (2.31, up to 5), dependants (4B), parents (4C, opened by 4.8, 1 to 4), places of stay (6C), immigration problems (7.7) and other-country trips (8.2). The UK visits (7.5a to 7.5c) are count-driven: the number typed at 7.5 decides how many visit entries there are, with no Add or Remove.
 
 **Cross-section and date rules.** Passport expiry (3.4) must be after the issue date and after the planned leave date (1.7). Places of stay must fall inside the travel dates (1.6 to 1.7) and must not overlap. Past-event dates cannot be in the future, and "in the past 10 years" dates cannot be older than 10 years.
 
-**Encryption at rest.** The national identity card number (2.19) and the passport number (3.1) are encrypted before they are stored (AES-256-GCM, stored as `enc:v1:...`). The ciphertext is bound to the application and the field, so it cannot be copied into another field or entry. Everything else is stored as typed. Answers are never written to logs, localStorage, Redux, URLs, the console or analytics.
+**Encryption at rest.** The national identity card number (2.19), the UK driving licence number (2.30a), the medical treatment text (2.31b, inside each treatment entry) and the passport number (3.1) are encrypted before they are stored (AES-256-GCM, stored as `enc:v1:...`). The ciphertext is bound to the application and the field, so it cannot be copied into another field or entry. Everything else is stored as typed. Answers are never written to logs, localStorage, Redux, URLs, the console or analytics.
 
 **Interface.** Accessible labels, errors and focus handling, an error summary, light and dark mode, and a layout that works at 375 px. Leaving a section with unsaved changes opens a dialog in the site's own style ("Stay on this page" / "Leave without saving"); saving shows a "Section saved" toast. The feature uses no native browser alert, confirm or prompt.
 
-**Preview markers.** In preview mode (section 4) a question shows a **TBC** badge when it has a real unknown, and a **Draft options** badge when its option list is a draft.
+**Preview markers.** In preview mode (section 4) a question or repeating group shows a **TBC** badge when it has a real unknown, and a **Draft options** badge when it carries a draft (an option list, follow-up questions or a rule we chose).
 
 **Tests.** See section 8.
 
@@ -54,7 +54,7 @@ Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-
 - **Review page and final submit.** There is no review step and no way to submit; an application stays a draft.
 - **Admin view** of applications and **PDF export** in the printout's layout.
 - **Entry points.** No link to `/tourist-visa` was added to the Footer, the Navbar or the Services pages (the Footer's existing "Tourist Visa" link points at `/services/tourist-visa`, which does not exist). Add links only once the form is ready to open.
-- **Real follow-up questions** for the Yes paths the spec does not define (see section 10). Each has a plain placeholder text box for now.
+- **Follow-up questions for the Yes paths of Parts 5 to 8** that the spec does not define (6.5, 6.6, 6.7 No, 6.8, 7.3, 7.6, 8.1, 5.1 other statuses and 7.2). Each has a plain placeholder text box or nothing for now (steps 7c and 7d). Parts 1 to 4 are drafted (section 10.2).
 - A **help list of EEA countries** for question 8.1 (the printout shows one; it needs a maintained country list).
 - **Tying the server to the client's release gate.** The server switch is one all-or-nothing flag set by a person. It does not look at the open `tbc` items. If someone sets it to `true` while `tbc` items remain, the form still shows "not open yet" but the API accepts calls from a signed-in user. Keep the two consistent (section 4).
 - **Key rotation** for the encryption key (section 5).
@@ -75,7 +75,7 @@ The form opens only when **both** of these say open.
 
 ### 4.2 Client gate (client build)
 
-- The form is **open** when no section has an open `tbc` item, **or** when the build has `NEXT_PUBLIC_TOURIST_VISA_PREVIEW=true` (`client/src/utils/touristVisaChecklist.ts`).
+- The form is **open** when no section is held, **or** when the build has `NEXT_PUBLIC_TOURIST_VISA_PREVIEW=true` (`client/src/utils/touristVisaChecklist.ts`). A section is **held** while it has an open `tbc` item (a real unknown) **or** a `draft` marker (a default awaiting senior review). Preview mode still shows everything for testing.
 - **Off means unset or any value other than the exact text `true`.** Leave it unset in production.
 - It is a `NEXT_PUBLIC_` variable, so it is read **when the client is built**, not at run time. Changing it needs a rebuild and redeploy.
 - Preview mode also shows the TBC and Draft badges. Use it in development and on a private test deployment only.
@@ -89,13 +89,13 @@ Whichever side says closed, a signed-in applicant sees the **same message**, "Th
 | Backend `TOURIST_VISA_ENABLED` | Client build | Result |
 | --- | --- | --- |
 | unset or not `true` | anything | **Closed. The API is inert.** Applicants see "isn't open yet". **This is the production default.** |
-| `true` | no preview, `tbc` items remain | The client says "isn't open yet", but the API is live. **Avoid in production**: a signed-in user could call the API directly and save answers. |
+| `true` | no preview, `tbc` or draft items remain | The client says "isn't open yet", but the API is live. **Avoid in production**: a signed-in user could call the API directly and save answers. |
 | `true` | preview `true` | Open, with TBC and Draft badges. **Test builds only.** |
-| `true` | no preview, no `tbc` items left | **Open. This is the public release.** |
+| `true` | no preview, no `tbc` and no draft left | **Open. This is the public release.** |
 
 **Production needs both switches to be consistent.** Keep the backend switch off until the client is ready to open too, and turn it on as the last step of a release (section 9.2). With the backend switch off, the earlier caveat that the API accepted saves while the client showed "not open yet" no longer applies: the API refuses everything.
 
-Important: **drafts do not close the form, only `tbc` items do.** Once every `tbc` item is resolved, the client gate opens even if a draft option list has not been reviewed. Run the release check before every production deploy (section 8): it exits 1 while anything is blocked, and 2 when nothing is blocked but drafts still need senior review. Treat 2 as "do not release yet".
+Important: **a draft keeps the client gate closed, exactly like a `tbc` item.** Nothing is ever confirmed silently: the form opens to the public only after someone has removed every `draft` line (and settled every `tbc`) in `shared/tourist-visa/questions.json`. The release check says the same thing: it exits 1 while anything is blocked by a `tbc`, 2 when nothing is blocked but drafts still need senior review, and **0 only when the client would open**. Run it before every production deploy (section 8) and treat anything other than 0 as "do not release yet".
 
 ## 5. Environment variables for production
 
@@ -115,7 +115,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 Rules for the key:
 
 - **Store it safely**, in the host's secret store, and keep a copy in your password manager or vault. It is never in the repository and the feature never logs it.
-- **Losing it, or changing it, makes every encrypted answer (2.19 and 3.1) unrecoverable.** There is no recovery and no key rotation yet. Back it up before the first real applicant saves anything.
+- **Losing it, or changing it, makes every encrypted answer (2.19, 2.30a, 2.31b and 3.1) unrecoverable.** There is no recovery and no key rotation yet. Back it up before the first real applicant saves anything.
 - Do not reuse the key from a test environment, and use a different key per environment.
 - If the switch is on and it is missing or malformed, the server **refuses every section save** with a 503 ("Secure storage is not configured") and logs an error at startup. Nothing is stored in plain text as a fallback. Reading an application only needs the key when it holds encrypted answers.
 
@@ -158,6 +158,8 @@ The feature adds **one new collection**, `touristvisaapplications` (model `Touri
 
 Each application records the `configVersion` its answers were collected with. When the config changes, saved answers are never rewritten: the server works out the status of each section when it reads the application, and a section whose answers no longer fit shows as **Needs review**.
 
+**Config `0.6.0-draft` (step 7b) and saved answers.** Nothing is deleted or rewritten. Saved sections where an old Yes now needs a follow-up show **Needs review** until they are saved again: section 1 (1.2 or 1.3 is Yes), 2B (2.23 is Yes), 2C (2.30 or 2.31 is Yes, or 2.28 is `with_family_or_friends` or `employer_provided`) and **4C always**, because the new Yes/No in front of the parents is unanswered. The parents that were saved before 4.8 existed stay stored and are not pruned while 4.8 is unanswered. The old single-box answer to 2.23 (`q2_23a`) no longer has a question: it stays in the database untouched and is not shown. Both behaviours are covered by tests (`touristVisaFollowups.test.js`).
+
 **Option values changed in `0.5.0-draft`.** Earlier versions stored placeholder values such as `tbc_married`. Those applications keep every answer, but the sections that used a placeholder now show as Needs review until the applicant saves them again. Until they do, a gate that depended on an old value (for example 4A on `tbc_married`) reads as closed, and the next save of any section prunes the answers it hides. This only affects test data from before the draft lists.
 
 ## 8. Running the tests and checks
@@ -167,7 +169,7 @@ From the repository root:
 ```
 npm run sync:shared                  # after editing shared/tourist-visa/
 npm run check:shared                 # fails if the client or backend copy has drifted
-npm run test:shared                  # engine and config tests (131)
+npm run test:shared                  # engine and config tests (149)
 npm run check:tourist-visa-release   # open tbc items and draft lists; exit 1 blocked, 2 drafts only, 0 clear
 ```
 
@@ -179,6 +181,8 @@ npm test                             # runs the test files one at a time
 ```
 
 Two test files cover the server switch: `touristVisaFeatureSwitch.test.js` (every route and every non-`true` value returns the closed answer with no database connected, no model call and no log line; with `true` the routes behave as before) and `touristVisaFeatureSwitchWiring.test.js` (the real `index.js` started with the switch unset and no encryption key: same answer before sign-in and body parsing, readable cross-origin, rest of the API unaffected, nothing logged).
+
+`touristVisaFollowups.test.js` covers the Parts 1 to 4 follow-ups (step 7b): every new gate pruning hidden answers through the real routes, the licence number and treatment text stored as ciphertext, old Yes answers showing "Needs review", and old values with no question any more (and the parents saved before 4.8 existed) staying in the database untouched.
 
 The first run downloads a MongoDB binary (about 75 MB, cached in `backend/node_modules/.cache`), so it needs internet. **Keep at least 1 GB free on the drive that holds the temp folder.** MongoDB refuses writes when under 500 MB are free, and the suite was changed to run serially because running six in-memory databases at once used almost 2 GB and failed on a nearly full drive.
 
@@ -224,7 +228,7 @@ Then:
 
 ### 9.2 Turning it ON later
 
-1. Resolve the `tbc` items (section 10) and get the draft lists reviewed: edit `shared/tourist-visa/questions.json`, run `npm run sync:shared`, update the tests, and remove each reviewed `draft` line. `npm run check:tourist-visa-release` must exit **0** (exit 2 means drafts are still unreviewed: do not release).
+1. Settle the `tbc` items and review every draft (section 10): edit `shared/tourist-visa/questions.json`, run `npm run sync:shared`, update the tests, and remove each reviewed `draft` line. `npm run check:tourist-visa-release` must exit **0**. Exit 1 means something is still blocked and exit 2 means drafts are still unreviewed: either way the client stays closed, and you should not release.
 2. Add the entry-point links (Footer, Navbar, Services) as a separate change.
 3. Generate `FIELD_ENCRYPTION_KEY` if you have not (section 5), store it in the secret store and back it up. **Do not skip the backup.**
 4. In this order:
@@ -267,31 +271,45 @@ Values that other questions depend on: `tourism` (1.1) opens 1.4; `other` (2.28)
 
 2.35 is the only list that starts from the printout (telephone call and text message); the messaging-app choice is our addition.
 
-### 10.2 Open items (`tbc`): spec gaps we defaulted
+### 10.2 Drafted follow-ups in Parts 1 to 4 (step 7b)
 
-These are the points in the spec's "Gaps to confirm" that we could not settle. Each has a `tbc` flag, blocks release of its section, and is listed by the release check. The default is what the form does today.
+These replaced the earlier `tbc` items and placeholder boxes. They are modelled on the UK online visitor visa application and on what a visa consultancy intake form asks, but they have not been checked against the official form. Each carries a `draft` marker with a short note in the config, a "Draft options" badge in preview mode, and is listed by the release check under "needs senior review". To sign one off, edit the questions if needed and delete its `draft` line. Follow-ups are required when shown unless marked optional.
 
-| Question | Default we chose |
+| Item | What the draft asks | Encrypted |
+| --- | --- | --- |
+| 1.2 organised group | Yes: name of the group or organiser (required); kind of group (list, optional). | no |
+| 1.3 travelling with someone | Yes: up to 10 companions: relationship (list), given names, family name (required); date of birth and nationality (optional). **No passport numbers.** | no |
+| 2.3 other names | Optional reason for each name (list); up to 10 names (was 20). | no |
+| 2.7 additional email | One additional address, not several. | no |
+| 2.23 other nationality | Yes: up to 5 nationalities: country, how acquired (list), currently held (required); when it ended (optional, only if not held). **No identity or passport numbers of another country.** Replaces the old single details box. | no |
+| 2.29 living situation details | Shown when 2.28 is `with_family_or_friends`, `employer_provided` or `other`; required when shown. | no |
+| 2.30 UK driving licence | Yes: licence number (optional, up to 30 characters). | **yes** |
+| 2.31 medical treatment in the UK | Yes: up to 5 treatments: when, what treatment (required); where (optional); paid in full (required); amount still owing (optional, only if not paid in full, up to 100,000). | **treatment text: yes** |
+| 4.1 to 4.6 spouse or partner | Shown for married, civil partnership and unmarried partner (unchanged, now a draft). | no |
+| 4.8 parents | **New** Yes/No first: "Are you able to give details of your parents?" Yes opens 1 to 4 parents (was up to 20); No asks an optional reason (4.8g). | no |
+| 4.8f parent's nationality | No: previous nationality (required) and when it changed (optional). | no |
+
+### 10.3 Open items (`tbc`): still undecided (Parts 5 to 8)
+
+These are the points we have not yet settled. Each has a `tbc` flag, blocks release of its section, and is listed by the release check. The default is what the form does today.
+
+| Question | Default today |
 | --- | --- |
-| 1.2, 1.3, 2.30, 2.31, 6.7 (No), 4.8f (No), 8.1 (above 0) | Nothing further is asked; the answer is recorded and the follow-up is flagged. |
-| 2.23, 6.5, 6.6, 6.8, 7.3, 7.6 (Yes) | One required plain text box, "Please give details" (2.23a, 6.5a, 6.6a, 6.8a, 7.3a, 7.6a), as a placeholder. We deliberately ask nothing about identity or passport numbers of another country. |
-| 2.3a, 2.3b | The other-names group asks given names and family name; fields to confirm. |
-| 2.7 | One additional email address (not several). |
-| 2.29 | Shown when 2.28 is `other`; the full condition is to confirm. |
-| 4.1 to 4.6 | Show for married, civil partnership and unmarried partner. |
-| 4.8 (parents) | No Yes/No question; the group is always shown and needs at least 1 parent, up to 20. |
+| 6.5, 6.6, 6.8, 7.3, 7.6 (Yes) | One required plain text box, "Please give details" (6.5a, 6.6a, 6.8a, 7.3a, 7.6a), as a placeholder. |
+| 6.7 (No) | Nothing further is asked; the answer is recorded and the follow-up is flagged. |
+| 8.1 (above 0) | Nothing further is asked. A whole number from 0 to 1000; the EEA help list is not built. |
 | 5.1 | Only `employed` shows 5.2 to 5.9; other statuses show nothing more. |
 | 5.9 | An optional text box (blank means none) instead of the printout's pick-list. |
 | 6.1 | One choice from the list (not several); `savings` and `savings_and_income` show 6.2. |
 | 6.7 (stays) | Stays may not overlap; a gap between stays, or two stays meeting on one day, is accepted. |
 | 7.2 | One month and year, not one entry per visa. |
 | 7.5 | The count must be from 1 to 20, the group limit. |
-| 8.1 | A whole number from 0 to 1000; the EEA help list is not built. |
 
-### 10.3 Other choices we made (not flagged `tbc`)
+### 10.4 Other choices we made (not flagged `tbc`)
 
 - **Limits:** 200 characters for short text, 5,000 for long text, 20 entries per group (the spec's proposals, marked as unconfirmed in the config).
-- **Sensitive fields:** only 2.19 and 3.1 are encrypted, because the spec names passport and ID numbers. Other personal and financial answers (family names, dates of birth, employer, income, savings) are stored as typed. Decide whether any of those should be encrypted too.
+- **Sensitive fields:** four answers are encrypted: the national identity card number (2.19), the passport number (3.1), the UK driving licence number (2.30a) and the medical treatment text (2.31b). Other personal and financial answers (family names, dates of birth, employer, income, savings) are stored as typed. Decide whether any of those should be encrypted too, but read the limitation below first.
+- **Limitation: an existing question cannot simply be made encrypted.** Marking a question `sensitive` only affects answers saved from then on. If any application already holds that answer as plain text, reading it fails ("Your saved answers could not be read", HTTP 500), because the server expects ciphertext for a sensitive field. Making an existing question encrypted therefore needs a one-off migration that encrypts the stored values first (each value is bound to its application and field, so it must be done by the server's own cipher). For this reason step 7b encrypts **only new fields** (2.30a, 2.31b) and changes no existing question. Before any real applicant data exists the change is harmless; after that it needs the migration.
 - **Sanity rules the spec does not state:** dates of birth and past events cannot be in the future; amounts are in GBP, never negative and capped (5.7, 6.3 and 6.4 at 1,000,000; 6.2 at 100,000,000); the "past 10 years" limit applies to 7.2, 7.5b and 8.2d (the leave date), not to 7.7c ("ever"), and trips abroad in 8.2 may overlap.
 - **2.1 to 2.35:** email 2.4 is pre-filled from the account email and can be edited; 2.21 and 2.22 are required whenever 2.18 is Yes; 2.27 is two boxes (years, months, months at most 11); an address needs line 1, town and country.
 - **Hidden sections and old answers:** a section that does not apply (4A) cannot be saved, and the server removes its answers when the gate closes.

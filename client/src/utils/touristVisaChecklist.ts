@@ -5,7 +5,7 @@
  * Plain functions with type-only imports, so they can be unit tested with `node --test`.
  */
 
-import { getVisibleSections } from "../shared/tourist-visa/engine.js";
+import { getHeldSections, getVisibleSections } from "../shared/tourist-visa/engine.js";
 import type { Answers, TouristVisaConfig } from "../shared/tourist-visa/engine.js";
 import type { TouristVisaApplication } from "@/services/touristVisaService";
 
@@ -67,8 +67,17 @@ export function buildChecklist(
  * open `tbc` item (unconfirmed questions or option lists), or in preview mode, which
  * is for development and testing with NEXT_PUBLIC_TOURIST_VISA_PREVIEW=true.
  */
-export function isFormOpen(blockedSectionCount: number, previewMode: boolean): boolean {
-  return previewMode || blockedSectionCount === 0;
+export function isFormOpen(heldSectionCount: number, previewMode: boolean): boolean {
+  return previewMode || heldSectionCount === 0;
+}
+
+/**
+ * How many sections are not yet signed off: they still carry a tbc flag (a real unknown) or a
+ * draft marker (a default awaiting senior review). The form opens to applicants only when this is
+ * zero, so an unreviewed default can never reach the public by accident. Preview mode ignores it.
+ */
+export function countHeldSections(cfg: TouristVisaConfig): number {
+  return getHeldSections(cfg).length;
 }
 
 /** Read at build time by Next.js, so it must stay a literal `process.env.NEXT_PUBLIC_...` expression. */

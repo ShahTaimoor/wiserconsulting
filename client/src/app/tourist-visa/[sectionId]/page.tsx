@@ -8,9 +8,9 @@ import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/comp
 import { Skeleton } from "@/components/ui/skeleton";
 import { SectionForm } from "@/components/tourist-visa/SectionForm";
 import { useTouristVisa } from "@/context/TouristVisaContext";
-import { config, getReleaseBlockers, isSectionVisible } from "@/shared/tourist-visa/engine";
+import { config, isSectionVisible } from "@/shared/tourist-visa/engine";
 import type { Answers } from "@/shared/tourist-visa/engine";
-import { isFormOpen, isPreviewMode } from "@/utils/touristVisaChecklist";
+import { countHeldSections, isFormOpen, isPreviewMode } from "@/utils/touristVisaChecklist";
 
 function Message({ title, children, action }: { title: string; children?: React.ReactNode; action?: { href: string; label: string } }) {
   return (
@@ -37,7 +37,7 @@ export default function TouristVisaSectionPage() {
 
   const section = config.sections.find((s) => s.id === params.sectionId);
   // Closed if either side says so: this build's own gate, or the server's TOURIST_VISA_ENABLED switch.
-  const open = isFormOpen(getReleaseBlockers(config).length, isPreviewMode()) && !serverClosed;
+  const open = isFormOpen(countHeldSections(config), isPreviewMode()) && !serverClosed;
   const dashboard = { href: "/tourist-visa", label: "Go to your application" };
 
   let content: React.ReactNode;

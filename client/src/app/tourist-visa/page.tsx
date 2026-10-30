@@ -10,6 +10,7 @@ import { config, getDraftItems, getReleaseBlockers } from "@/shared/tourist-visa
 import type { TouristVisaApplication } from "@/services/touristVisaService";
 import {
   buildChecklist,
+  countHeldSections,
   isFormOpen,
   isPreviewMode,
   STATUS_LABELS,
@@ -95,7 +96,7 @@ export default function TouristVisaDashboardPage() {
   const blocked = getReleaseBlockers(config).length;
   const drafted = getDraftItems(config).length;
   // Closed if either side says so: this build's own gate, or the server's TOURIST_VISA_ENABLED switch.
-  const open = isFormOpen(blocked, preview) && !serverClosed;
+  const open = isFormOpen(countHeldSections(config), preview) && !serverClosed;
 
   const application = state.status === "ready" ? state.application : null;
   const checklist = buildChecklist(config, application);
@@ -122,8 +123,9 @@ export default function TouristVisaDashboardPage() {
             )}
             {drafted > 0 && (
               <>
-                {drafted} section{drafted === 1 ? "" : "s"} use draft answer lists that still need review (marked Draft
-                options).{" "}
+                {drafted} section{drafted === 1 ? "" : "s"} use drafts (answer lists, follow-up questions or rules) that
+                still need senior review (marked Draft options). The form stays closed to applicants until they are signed
+                off.{" "}
               </>
             )}
             Do not use real applicant details.

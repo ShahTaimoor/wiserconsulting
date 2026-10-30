@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { isVisible, resolveOptions } from "@/shared/tourist-visa/engine";
 import type { Answers, GroupEntry, Question, RepeatGroup, TouristVisaConfig } from "@/shared/tourist-visa/engine";
 import { subErrors as subErrorsFor } from "@/utils/touristVisaForm";
-import { QuestionField, TbcBadge } from "./QuestionField";
+import { DraftBadge, QuestionField, TbcBadge } from "./QuestionField";
 import { asRecord } from "./fields/types";
 
 interface RepeatGroupFieldProps {
@@ -40,9 +40,10 @@ export function RepeatGroupField({ cfg, group, members, entries: savedEntries, c
 
   return (
     <div id={`field-${group.id}`} tabIndex={-1} className="space-y-4 focus:outline-none" data-group-id={group.id}>
-      {previewMode && group.tbc && (
+      {previewMode && (group.draft || group.tbc) && (
         <p className="text-xs text-muted-foreground">
-          <TbcBadge note={group.tbc} />
+          {group.draft && <DraftBadge note={group.draft} />}
+          {group.tbc && <TbcBadge note={group.tbc} />}
         </p>
       )}
 

@@ -4,14 +4,17 @@
  *
  *  - tbc: a real unknown in the spec (for example the follow-up of a Yes answer). The section
  *    is BLOCKED until it is settled.
- *  - draft: a drafted option list that needs senior review. The form works with the draft
- *    options, so the section is not blocked, but it NEEDS SENIOR REVIEW before release.
+ *  - draft: a default we chose (an option list, follow-up questions or a rule), with a note saying
+ *    what it is. The form works with it, so the section is not BLOCKED, but it NEEDS SENIOR
+ *    REVIEW before release. Nothing is ever confirmed silently: a draft stays listed until
+ *    someone removes its `draft` line.
  *
  * Output: the config version, each part with its sections and their state, a count, then the
- * open tbc items and the draft option lists of every section that has them.
+ * open tbc items and the drafts of every section that has them.
  *
  * Exit code: 1 while any section is blocked, 2 when nothing is blocked but drafts still need
- * review, 0 when everything is clear.
+ * review, 0 when everything is clear. The client form opens to applicants only at exit code 0
+ * (a build with NEXT_PUBLIC_TOURIST_VISA_PREVIEW=true excepted).
  *
  * A section that only applies to some applicants (such as 4A) is listed like any other:
  * it still has to be confirmed before release.
@@ -39,7 +42,7 @@ for (const part of config.parts) {
     const draft = openDrafts.get(section.id) || 0;
     const notes = [];
     if (tbc) notes.push(`${plural(tbc, 'open tbc item')}`);
-    if (draft) notes.push(`${plural(draft, 'draft option list')}`);
+    if (draft) notes.push(`${plural(draft, 'draft')}`);
     let state = 'releasable';
     if (tbc) state = `BLOCKED (${notes.join(', ')})`;
     else if (draft) state = `NEEDS SENIOR REVIEW (${notes.join(', ')})`;
@@ -61,16 +64,16 @@ if (blockers.length) {
 }
 
 if (drafts.length) {
-  console.error('\nNeeds senior review: draft option lists (the form works with them; they are not final):');
+  console.error('\nNeeds senior review: drafts (defaults we chose; the form works with them, but they are not final):');
   for (const d of drafts) {
     console.error(`\n  Section ${d.sectionId}`);
-    for (const item of d.items) console.error(`    ${item.number}: ${item.draft}`);
+    for (const item of d.items) console.error(`    ${item.number || item.id}: ${item.draft}`);
   }
 }
 
 if (blockers.length) process.exit(1);
 if (drafts.length) {
-  console.log('\nNothing is blocked, but draft option lists still need senior review.');
+  console.log('\nNothing is blocked, but drafts still need senior review. The client form stays closed until they are signed off.');
   process.exit(2);
 }
 console.log('\nAll sections are releasable.');

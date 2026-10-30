@@ -3,7 +3,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import engine from "../shared/tourist-visa/engine.js";
-import { buildChecklist, isFormOpen } from "./touristVisaChecklist.ts";
+import { buildChecklist, countHeldSections, isFormOpen } from "./touristVisaChecklist.ts";
 
 const { config } = engine;
 
@@ -50,12 +50,11 @@ test("the form is open only with no blocked sections, or in preview mode", () =>
 });
 
 test("with the current config the form is closed unless preview mode is on", () => {
-  const blocked = engine.getReleaseBlockers(config).length;
-  assert.ok(blocked > 0, "the config still has open tbc items");
-  assert.equal(isFormOpen(blocked, false), false);
-  assert.equal(isFormOpen(blocked, true), true);
+  const held = countHeldSections(config);
+  assert.ok(held > 0, "the config still has open tbc items and drafts");
+  assert.equal(isFormOpen(held, false), false);
+  assert.equal(isFormOpen(held, true), true);
 });
-
 const rows = (checklist) => checklist.parts.flatMap((p) => p.sections.map((s) => s.id));
 
 test("changing 2.13 adds or removes the 4A row, and the counts follow", () => {
@@ -83,4 +82,64 @@ test("every part keeps at least one section; a part whose sections all drop out 
   const onlyPartner = { ...config, sections: config.sections.filter((s) => s.id === "4A" || s.id === "1"), parts: config.parts };
   const trimmed = buildChecklist(onlyPartner, null);
   assert.deepEqual(trimmed.parts.map((p) => p.id), ["1"], "part 4 has only 4A, which does not apply, so the part is dropped");
+});
+
+// ---------------------------------------------------------------------------
+// Step 7b: the client opens the form only when no section is held by a tbc flag or a draft
+// ---------------------------------------------------------------------------
+
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const stripTbc = (c) => {
+  for (const q of c.questions) delete q.tbc;
+  for (const g of c.groups) delete g.tbc;
+  return c;
+};
+const stripDrafts = (c) => {
+  for (const q of c.questions) delete q.draft;
+  for (const g of c.groups) delete g.draft;
+  return c;
+};
+
+test("the form is closed while only drafts remain: a default nobody has signed off never reaches applicants", () => {
+  const draftsOnly = stripTbc(clone(config));
+  assert.equal(engine.getReleaseBlockers(draftsOnly).length, 0, "no tbc left, so nothing is 'blocked'");
+  assert.ok(countHeldSections(draftsOnly) > 0, "but the drafts still hold the sections");
+  assert.equal(isFormOpen(countHeldSections(draftsOnly), false), false);
+});
+
+test("the form is closed while only tbc items remain", () => {
+  const tbcOnly = stripDrafts(clone(config));
+  assert.equal(engine.getDraftItems(tbcOnly).length, 0);
+  assert.ok(countHeldSections(tbcOnly) > 0);
+  assert.equal(isFormOpen(countHeldSections(tbcOnly), false), false);
+});
+
+test("the form opens only when no tbc and no draft is left", () => {
+  const clean = stripDrafts(stripTbc(clone(config)));
+  assert.equal(countHeldSections(clean), 0);
+  assert.equal(isFormOpen(countHeldSections(clean), false), true);
+});
+
+test("a single draft on one question, or on one group, holds the form closed", () => {
+  const clean = stripDrafts(stripTbc(clone(config)));
+  clean.questions.find((q) => q.id === "q3_1").draft = "Draft: test";
+  assert.equal(countHeldSections(clean), 1);
+  assert.equal(isFormOpen(countHeldSections(clean), false), false);
+  delete clean.questions.find((q) => q.id === "q3_1").draft;
+  clean.groups.find((g) => g.id === "parents").draft = "Draft: test";
+  assert.equal(countHeldSections(clean), 1);
+  assert.equal(isFormOpen(countHeldSections(clean), false), false);
+});
+
+test("preview mode shows everything for testing, held or not", () => {
+  assert.equal(isFormOpen(countHeldSections(config), true), true);
+  assert.equal(isFormOpen(0, true), true);
+});
+
+test("countHeldSections counts sections, not items", () => {
+  const c = stripDrafts(stripTbc(clone(config)));
+  c.questions.find((q) => q.id === "q2_1").draft = "Draft: one";
+  c.questions.find((q) => q.id === "q2_2").draft = "Draft: two";
+  c.questions.find((q) => q.id === "q3_1").tbc = "x";
+  assert.equal(countHeldSections(c), 2, "section 2A (two drafts) and section 3 (one tbc)");
 });

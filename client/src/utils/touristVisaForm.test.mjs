@@ -46,7 +46,7 @@ const V4A = { q4_1: "Testpartner", q4_2: "Testsurname", q4_3: "1991-02-03", q4_4
 const DEPENDANT = { q4_7a: "son", q4_7b: "Testchild", q4_7c: "Testsurname", q4_7d: "2015-06-07", q4_7e: true, q4_7f: false };
 const V4B = { q4_7: true, dependants: [DEPENDANT] };
 const PARENT = { q4_8a: "mother", q4_8b: "Testmother", q4_8c: "Testsurname", q4_8d: "1962-01-02", q4_8e: "GB", q4_8f: true };
-const V4C = { parents: [PARENT, { ...PARENT, q4_8a: "father", q4_8b: "Testfather", q4_8f: false }] };
+const V4C = { q4_8: true, parents: [PARENT, { ...PARENT, q4_8a: "father", q4_8b: "Testfather", q4_8f: false, q4_8h: "FR" }] };
 const gbp = (amount) => ({ amount, currency: "GBP" });
 const V5 = {
   q5_1: "employed", q5_2: "2019-04", q5_3: "Test Employer Ltd",
@@ -96,11 +96,10 @@ function mk(questions, groups = []) {
 // ---------------------------------------------------------------------------
 
 test("sectionKeys lists a section's questions and its repeating groups", () => {
-  assert.deepEqual(sectionKeys(cfg, "1"), ["q1_1", "q1_2", "q1_3", "q1_4", "q1_5", "q1_6", "q1_7"]);
+  assert.deepEqual(sectionKeys(cfg, "1"), ["q1_1", "q1_2", "q1_2a", "q1_2b", "q1_3", "q1_4", "q1_5", "q1_6", "q1_7", "companions"]);
   const keys2A = sectionKeys(cfg, "2A");
   assert.ok(keys2A.includes("otherNames") && !keys2A.includes("q2_3a") && keys2A.includes("q2_3"));
 });
-
 test("sectionItems puts the repeating group once, right after its Yes/No question", () => {
   const items = sectionItems(cfg, "2A");
   const ids = items.map((i) => (i.kind === "question" ? i.question.id : `group:${i.group.id}`));
@@ -109,9 +108,8 @@ test("sectionItems puts the repeating group once, right after its Yes/No questio
   assert.equal(ids[gate + 2], "q2_4");
   assert.equal(ids.filter((i) => i.startsWith("group:")).length, 1);
   const group = items.find((i) => i.kind === "group");
-  assert.deepEqual(group.members.map((m) => m.id), ["q2_3a", "q2_3b"]);
+  assert.deepEqual(group.members.map((m) => m.id), ["q2_3a", "q2_3b", "q2_3c"]);
 });
-
 test("every question of every part is rendered exactly once across the sections", () => {
   const seen = [];
   for (const section of cfg.sections) {
@@ -399,32 +397,37 @@ test("next and previous section skip a section that does not apply (4A without a
   assert.equal(nextSectionId(cfg, "3"), "4A", "without answers the plain order is used");
 });
 
-test("a group without a Yes/No question is always open", () => {
-  const parents = cfg.groups.find((g) => g.id === "parents");
-  assert.equal(isGroupOpen(cfg, parents, {}), true);
+test("a group without a Yes/No question is always open; a gated one opens on Yes", () => {
+  const c = mk([{ id: "q1_1", number: "1.1", type: "TXT", group: "people" }], [{ id: "people", questions: ["q1_1"] }]);
+  assert.equal(isGroupOpen(c, c.groups[0], {}), true);
   const dependants = cfg.groups.find((g) => g.id === "dependants");
   assert.equal(isGroupOpen(cfg, dependants, {}), false);
   assert.equal(isGroupOpen(cfg, dependants, { q4_7: true }), true);
   assert.equal(isGroupOpen(cfg, dependants, { q4_7: false }), false);
+  const parents = cfg.groups.find((g) => g.id === "parents");
+  assert.equal(isGroupOpen(cfg, parents, {}), false, "the parents wait for 4.8");
+  assert.equal(isGroupOpen(cfg, parents, { q4_8: true }), true);
+  assert.equal(isGroupOpen(cfg, parents, { q4_8: false }), false);
 });
-
-test("initialValues gives the always-open parents group an entry to fill in, and keeps saved ones", () => {
-  assert.deepEqual(initialValues(cfg, "4C", {}).parents, [{}]);
-  assert.deepEqual(initialValues(cfg, "4C", { parents: [PARENT] }).parents, [PARENT]);
+test("initialValues: the parents group stays closed until 4.8 is Yes, then has an entry to fill in, and keeps saved ones", () => {
+  assert.equal(initialValues(cfg, "4C", {}).parents, undefined);
+  assert.deepEqual(initialValues(cfg, "4C", { q4_8: true }).parents, [{}]);
+  assert.deepEqual(initialValues(cfg, "4C", { q4_8: true, parents: [PARENT] }).parents, [PARENT]);
+  assert.deepEqual(initialValues(cfg, "4C", { parents: [PARENT] }).parents, [PARENT], "old parents saved before 4.8 existed are kept in the form, waiting for the Yes");
   assert.equal(initialValues(cfg, "4B", {}).dependants, undefined, "a gated group stays closed until its Yes/No is Yes");
   assert.deepEqual(initialValues(cfg, "4B", { q4_7: true }).dependants, [{}]);
 });
-
 test("initialValues gives a group with a larger minimum that many blank entries", () => {
   const c = mk([{ id: "q1_1", number: "1.1", type: "TXT", group: "people" }], [{ id: "people", questions: ["q1_1"], min: 2 }]);
   assert.deepEqual(initialValues(c, "A", {}).people, [{}, {}]);
 });
 
 test("payload: the parents group is sent with its entries, blank ones included, so errors line up", () => {
-  assert.deepEqual(payload("4C", { parents: [{}] }), { parents: [{}] });
-  assert.deepEqual(payload("4C", { parents: [PARENT, { q4_8b: "  " }] }), { parents: [PARENT, {}] });
+  assert.deepEqual(payload("4C", { q4_8: true, parents: [{}] }), { q4_8: true, parents: [{}] });
+  assert.deepEqual(payload("4C", { q4_8: true, parents: [PARENT, { q4_8b: "  " }] }), { q4_8: true, parents: [PARENT, {}] });
+  assert.deepEqual(payload("4C", { q4_8: false, q4_8g: "I was adopted", parents: [PARENT] }), { q4_8: false, q4_8g: "I was adopted" }, "a No sends the reason and no parents");
+  assert.deepEqual(payload("4C", { q4_8: true, q4_8g: "stale", parents: [PARENT] }), { q4_8: true, parents: [PARENT] }, "a Yes sends no reason");
 });
-
 test("payload: section 4A is empty while 2.13 does not indicate a partner, and full once it does", () => {
   assert.deepEqual(payload("4A", V4A, { q2_13: "single" }), {});
   assert.deepEqual(payload("4A", V4A, {}), {});
@@ -656,4 +659,88 @@ test("every Part 7 and Part 8 section renders: no section is empty, and the list
   assert.equal(q("q7_6").items.length, 5);
   assert.equal(q("q7_7").items.length, 8);
   assert.equal(q("q8_1").items.length, 6);
+});
+
+// ---------------------------------------------------------------------------
+// Step 7b: Parts 1 to 4 follow-ups in the form logic
+// ---------------------------------------------------------------------------
+
+const COMPANION = { q1_3a: "friend", q1_3b: "Testcompanion", q1_3c: "Testsurname" };
+const NATIONALITY = { q2_23b: "FR", q2_23c: "birth", q2_23d: true };
+const TREATMENT = { q2_31a: "2023-04", q2_31b: "Made-up treatment description", q2_31d: true };
+
+test("payload: 1.2 and 1.3 send their follow-ups only on Yes", () => {
+  const yes = payload("1", { ...V1, q1_2: true, q1_2a: "Test Tours Ltd", q1_2b: "tour", q1_3: true, companions: [COMPANION] });
+  assert.equal(yes.q1_2a, "Test Tours Ltd");
+  assert.deepEqual(yes.companions, [COMPANION]);
+  const no = payload("1", { ...V1, q1_2: false, q1_2a: "stale", q1_3: false, companions: [COMPANION] });
+  assert.equal("q1_2a" in no || "companions" in no, false);
+});
+
+test("initialValues: the companions, nationalities and treatments groups start closed and open with one entry on Yes", () => {
+  assert.equal(initialValues(cfg, "1", {}).companions, undefined);
+  assert.deepEqual(initialValues(cfg, "1", { q1_3: true }).companions, [{}]);
+  assert.deepEqual(initialValues(cfg, "2B", { q2_23: true }).otherNationalities, [{}]);
+  assert.deepEqual(initialValues(cfg, "2C", { q2_31: true }).medicalTreatments, [{}]);
+});
+
+test("payload: the end date of another nationality is sent only while it is not held; an amount owing only while not paid in full", () => {
+  const out = (patch) => payload("2B", { ...V2B, q2_23: true, otherNationalities: [{ ...NATIONALITY, ...patch }] }).otherNationalities[0];
+  assert.equal("q2_23e" in out({ q2_23d: true, q2_23e: "2015-06" }), false);
+  assert.equal(out({ q2_23d: false, q2_23e: "2015-06" }).q2_23e, "2015-06");
+  const treat = (patch) => payload("2C", { ...V2C, q2_31: true, medicalTreatments: [{ ...TREATMENT, ...patch }] }).medicalTreatments[0];
+  assert.equal("q2_31e" in treat({ q2_31d: true, q2_31e: { amount: 5, currency: "GBP" } }), false);
+  assert.deepEqual(treat({ q2_31d: false, q2_31e: { amount: 0, currency: "GBP" } }).q2_31e, { amount: 0, currency: "GBP" }, "an amount of zero is a real answer");
+});
+
+test("payload: 2.29 is sent for the three living situations that show it and left out otherwise", () => {
+  for (const [value, sent] of Object.entries({ owned: false, rented: false, with_family_or_friends: true, employer_provided: true, other: true })) {
+    const out = payload("2C", { ...V2C, q2_28: value, q2_29: "Made-up details" });
+    assert.equal("q2_29" in out, sent, value);
+  }
+});
+
+test("payload: 2.30a is sent only on Yes; 4.8h and 4.8i only when the parent's nationality changed", () => {
+  assert.equal("q2_30a" in payload("2C", { ...V2C, q2_30: false, q2_30a: "TESTL1" }), false);
+  assert.equal(payload("2C", { ...V2C, q2_30: true, q2_30a: "TESTL1" }).q2_30a, "TESTL1");
+  const parent = (patch) => payload("4C", { q4_8: true, parents: [{ ...PARENT, ...patch }] }).parents[0];
+  assert.equal("q4_8h" in parent({ q4_8f: true, q4_8h: "FR" }), false);
+  assert.equal(parent({ q4_8f: false, q4_8h: "FR", q4_8i: "2001-05" }).q4_8i, "2001-05");
+});
+
+test("round trip: every changed section with all its Yes answers builds a payload the shared rules accept", () => {
+  const values = {
+    1: { ...V1, q1_2: true, q1_2a: "Test Tours Ltd", q1_2b: "school_college", q1_3: true, companions: [COMPANION, { ...COMPANION, q1_3b: "Second", q1_3d: "1991-05-06", q1_3e: "GB" }] },
+    "2A": { ...V2A, q2_3: true, otherNames: [{ q2_3a: "Alias", q2_3b: "One", q2_3c: "nickname" }] },
+    "2B": { ...V2B, q2_23: true, otherNationalities: [NATIONALITY, { q2_23b: "DE", q2_23c: "descent", q2_23d: false, q2_23e: "2012-09" }] },
+    "2C": { ...V2C, q2_28: "other", q2_29: "Made-up details", q2_30: true, q2_30a: "TESTL1", q2_31: true, medicalTreatments: [TREATMENT, { ...TREATMENT, q2_31d: false, q2_31e: { amount: 80, currency: "GBP" } }] },
+    "4C": { q4_8: true, parents: [PARENT, { ...PARENT, q4_8a: "father", q4_8f: false, q4_8h: "FR", q4_8i: "2001-05" }] },
+  };
+  const saved = {};
+  for (const [section, v] of Object.entries(values)) {
+    const result = engine.validateSection(z, cfg, section, payload(section, v, saved), saved);
+    assert.equal(result.success, true, `${section}: ${JSON.stringify(result.errors)}`);
+    Object.assign(saved, result.data);
+  }
+});
+
+test("round trip: a Yes without its follow-up comes back as errors on the right fields", () => {
+  const result = engine.validateSection(z, cfg, "1", payload("1", { ...V1, q1_2: true, q1_3: true, companions: [{}] }), {});
+  const items = collectErrors(cfg, "1", result.errors);
+  assert.deepEqual(items.map((i) => i.targetId), ["field-q1_2a", "field-companions-0-q1_3a", "field-companions-0-q1_3b", "field-companions-0-q1_3c"]);
+  assert.equal(items[0].label, "1.2a Name of the group or organiser");
+  assert.equal(items[1].label, "Travelling companion 1: What is your relationship to this person?");
+});
+
+test("hintFor: the new date questions say they cannot be in the future", () => {
+  const q = (id) => cfg.questions.find((x) => x.id === id);
+  for (const id of ["q1_3d", "q2_23e", "q2_31a", "q4_8i"]) assert.equal(hintFor(cfg, q(id)), "Cannot be in the future.", id);
+});
+
+test("every section of Parts 1 to 4 still renders, the new groups appear once and in order", () => {
+  const ids = (section) => sectionItems(cfg, section).map((i) => (i.kind === "question" ? i.question.id : `group:${i.group.id}`));
+  assert.deepEqual(ids("1").slice(0, 7), ["q1_1", "q1_2", "q1_2a", "q1_2b", "q1_3", "group:companions", "q1_4"]);
+  assert.deepEqual(ids("2B").slice(-2), ["q2_23", "group:otherNationalities"]);
+  assert.deepEqual(ids("2C").slice(-4), ["q2_30", "q2_30a", "q2_31", "group:medicalTreatments"]);
+  assert.deepEqual(ids("4C"), ["q4_8", "q4_8g", "group:parents"]);
 });

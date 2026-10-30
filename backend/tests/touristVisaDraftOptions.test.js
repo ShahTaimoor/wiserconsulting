@@ -180,7 +180,11 @@ test('every new option list saves: each value of 2.13, 2.12, 2.5, 2.28, 2.33 and
   }
   for (const v of ['female', 'male', 'other']) assert.equal((await put(token, '2B', { ...S2B, q2_12: v })).status, 200, v);
   for (const v of ['me', 'family_or_friend', 'representative', 'other']) assert.equal((await put(token, '2A', { ...S2A, q2_5: v })).status, 200, v);
-  for (const v of ['owned', 'rented', 'with_family_or_friends', 'employer_provided']) assert.equal((await put(token, '2C', { ...S2C, q2_28: v })).status, 200, v);
+  for (const v of ['owned', 'rented']) assert.equal((await put(token, '2C', { ...S2C, q2_28: v })).status, 200, v);
+  for (const v of ['with_family_or_friends', 'employer_provided']) {
+    assert.equal((await put(token, '2C', { ...S2C, q2_28: v })).status, 422, `${v} now asks 2.29`);
+    assert.equal((await put(token, '2C', { ...S2C, q2_28: v, q2_29: 'Made-up details' })).status, 200, v);
+  }
   assert.equal((await put(token, '2C', { ...S2C, q2_28: 'other', q2_29: 'Made-up details' })).status, 200, "'other' opens 2.29");
   for (const v of ['in_home_country', 'in_uk', 'in_other_country']) assert.equal((await put(token, '2D', { ...S2D, q2_33: v })).status, 200, v);
   assert.equal((await put(token, '2D', { ...S2D, q2_35: ['call', 'sms'] })).status, 200, 'the two printout choices still work');

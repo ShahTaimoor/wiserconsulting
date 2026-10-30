@@ -77,8 +77,9 @@ export interface Question {
   /** Open gap from the spec. Any tbc blocks release of the section. */
   tbc?: string;
   /**
-   * The option list of this SEL or CHK question is a draft that needs senior review.
-   * It does not block release; it is listed separately from tbc items.
+   * A default we chose (an option list, follow-up questions or a rule) that needs senior review.
+   * The note says what the default is. It is listed separately from tbc items, and it keeps the
+   * client's own gate closed until it is removed.
    */
   draft?: string;
 }
@@ -102,6 +103,8 @@ export interface RepeatGroup {
   count?: string;
   max: number;
   questions: string[];
+  /** A default we chose for this group (gate, fields or limits) that needs senior review. */
+  draft?: string;
   /**
    * Two DATE members that give each entry a date range. Ranges of different
    * entries may touch but not overlap.
@@ -153,7 +156,16 @@ export interface ReleaseBlocker {
 
 export interface DraftItems {
   sectionId: string;
-  items: Array<{ id: string; number: string; draft: string }>;
+  /** number is null for a repeating group. */
+  items: Array<{ id: string; number: string | null; draft: string }>;
+}
+
+export interface HeldSection {
+  sectionId: string;
+  /** Open tbc items (real unknowns). */
+  tbc: number;
+  /** Draft items awaiting senior review. */
+  draft: number;
 }
 
 export const config: TouristVisaConfig;
@@ -204,5 +216,7 @@ export function validateSection(
 export function getReleaseBlockers(cfg: TouristVisaConfig): ReleaseBlocker[];
 /** Questions with a draft option list, by section, for the release check. */
 export function getDraftItems(cfg: TouristVisaConfig): DraftItems[];
+/** Sections still carrying a tbc flag or a draft marker. The client opens the form only when this is empty. */
+export function getHeldSections(cfg: TouristVisaConfig): HeldSection[];
 export function isSectionReleasable(cfg: TouristVisaConfig, sectionId: string): boolean;
 export function validateConfig(cfg: unknown): string[];

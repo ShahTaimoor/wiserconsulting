@@ -100,7 +100,7 @@ const S4A = { q4_1: 'Testpartner', q4_2: 'Testsurname', q4_3: '1991-02-03', q4_4
 const DEPENDANT = { q4_7a: 'son', q4_7b: 'Testchild', q4_7c: 'Testsurname', q4_7d: '2015-06-07', q4_7e: true, q4_7f: false };
 const S4B = { q4_7: true, dependants: [DEPENDANT] };
 const PARENT = { q4_8a: 'mother', q4_8b: 'Testmother', q4_8c: 'Testsurname', q4_8d: '1962-01-02', q4_8e: 'GB', q4_8f: true };
-const S4C = { parents: [PARENT, { ...PARENT, q4_8a: 'father', q4_8b: 'Testfather', q4_8f: false }] };
+const S4C = { q4_8: true, parents: [PARENT, { ...PARENT, q4_8a: 'father', q4_8b: 'Testfather', q4_8f: false, q4_8h: 'FR' }] };
 
 const ALL = [['1', S1], ['2A', S2A], ['2B', S2B], ['2C', S2C], ['2D', S2D], ['3', S3], ['4A', S4A], ['4B', S4B], ['4C', S4C]];
 
@@ -202,20 +202,21 @@ test('a section that does not apply cannot be saved, and nothing is written', as
   assert.deepEqual(await rawDoc(appId), snapshot);
 });
 
-test('the 2.23 follow-up is pruned when 2.23 changes to No', async () => {
+test('the other nationalities are pruned when 2.23 changes to No', async () => {
   const { token, appId } = await start();
-  const yes = await put(token, '2B', { ...S2B, q2_23: true, q2_23a: 'Plain made-up details' });
+  const group = [{ q2_23b: 'FR', q2_23c: 'birth', q2_23d: true }];
+  const yes = await put(token, '2B', { ...S2B, q2_23: true, otherNationalities: group });
   assert.equal(yes.status, 200, JSON.stringify(yes.json));
-  assert.equal((await rawDoc(appId)).answers.q2_23a, 'Plain made-up details');
+  assert.equal((await rawDoc(appId)).answers.otherNationalities[0].q2_23b, 'FR');
 
   const missing = await put(token, '2B', { ...S2B, q2_23: true });
   assert.equal(missing.status, 422);
-  assert.equal(missing.json.errors.q2_23a, 'This question is required');
+  assert.equal(missing.json.errors.otherNationalities, 'Add at least one entry');
 
-  const no = await put(token, '2B', { ...S2B, q2_23: false, q2_23a: 'stale details' });
+  const no = await put(token, '2B', { ...S2B, q2_23: false, otherNationalities: group });
   assert.equal(no.status, 200);
-  assert.deepEqual(no.json.data.removed, ['q2_23a']);
-  assert.equal('q2_23a' in (await rawDoc(appId)).answers, false);
+  assert.deepEqual(no.json.data.removed, ['otherNationalities']);
+  assert.equal('otherNationalities' in (await rawDoc(appId)).answers, false);
 });
 
 test('3.4 must be after the planned leave date saved in section 1 (a rule across sections)', async () => {
@@ -271,16 +272,20 @@ test('4B: a Yes needs at least one dependant; a No removes them', async () => {
   assert.equal('dependants' in (await rawDoc(appId)).answers, false);
 });
 
-test('4C: the parents group is always open and needs at least one parent, entries keep their order', async () => {
+test('4C: a Yes on 4.8 opens one to four parents, and entries keep their order', async () => {
   const { token, appId } = await start();
 
-  for (const answers of [{}, { parents: [] }]) {
+  const unanswered = await put(token, '4C', {});
+  assert.equal(unanswered.status, 422);
+  assert.equal(unanswered.json.errors.q4_8, 'This question is required');
+
+  for (const answers of [{ q4_8: true }, { q4_8: true, parents: [] }]) {
     const res = await put(token, '4C', answers);
     assert.equal(res.status, 422);
     assert.equal(res.json.errors.parents, 'Add at least one entry');
   }
 
-  const blank = await put(token, '4C', { parents: [{}] });
+  const blank = await put(token, '4C', { q4_8: true, parents: [{}] });
   assert.equal(blank.status, 422);
   assert.deepEqual(Object.keys(blank.json.errors).sort(), ['parents.0.q4_8a', 'parents.0.q4_8b', 'parents.0.q4_8c', 'parents.0.q4_8d', 'parents.0.q4_8e', 'parents.0.q4_8f']);
 
@@ -314,7 +319,7 @@ test('applications saved before step 6a (config 0.1.0) keep their answers and re
   assert.equal(resave.status, 200, JSON.stringify(resave.json));
 });
 
-test('an old saved 2B with 2.23 = Yes is shown as needing review, because the follow-up 2.23a is new', async () => {
+test('an old saved 2B with 2.23 = Yes is shown as needing review, because it now asks for the nationalities', async () => {
   const { token, appId } = await start();
   const answers = { ...S1, ...S2A, ...S2B, q2_13: 'single', q2_23: true, ...S2C, ...S2D };
   await TouristVisaApplication.collection.updateOne(
@@ -332,7 +337,7 @@ test('an old saved 2B with 2.23 = Yes is shown as needing review, because the fo
   assert.equal(app.currentSection, '2B');
   assert.equal(app.answers.q2_23, true, 'the saved answer is not touched');
 
-  const fix = await put(token, '2B', { ...S2B, q2_13: 'single', q2_23: true, q2_23a: 'Plain made-up details' });
+  const fix = await put(token, '2B', { ...S2B, q2_13: 'single', q2_23: true, otherNationalities: [{ q2_23b: 'FR', q2_23c: 'birth', q2_23d: true }] });
   assert.equal(fix.status, 200, JSON.stringify(fix.json));
   assert.equal(fix.json.data.application.sectionStatus['2B'], 'saved');
   assert.equal(fix.json.data.application.currentSection, '3');
