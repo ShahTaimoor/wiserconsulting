@@ -7,7 +7,8 @@ Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-
 ## 1. At a glance
 
 - A signed-in user fills in a UK visitor (tourist) visa application, one section at a time, and can leave and come back. Answers are saved on the server per section ("Save and continue").
-- It is **not ready to open to the public**. 13 of the 16 sections still carry open `tbc` items (real unknowns in the spec, for example what to ask after a Yes), and 16 option lists are drafts that need review. Until the `tbc` items are settled, the live site shows "The application isn't open yet" (see section 4).
+- It is **not ready to open to the public**. 13 of the 16 sections still carry open `tbc` items (real unknowns in the spec, for example what to ask after a Yes), and 16 option lists are drafts that need review. Until the `tbc` items are settled, the live site shows "The application isn't open yet".
+- **Two switches keep it closed** (section 4): the backend variable `TOURIST_VISA_ENABLED`, which is **off unless it is exactly `true`**, and the client's own gate. With the backend switch off, the whole API is inert: every request gets one fixed "closed" answer and nothing is read, stored or logged. **Production must keep both switches consistent.**
 - Nothing links to the form yet. It can only be reached by typing `/tourist-visa`.
 - It adds one new database collection and does not change the data of any existing feature.
 
@@ -55,21 +56,46 @@ Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-
 - **Entry points.** No link to `/tourist-visa` was added to the Footer, the Navbar or the Services pages (the Footer's existing "Tourist Visa" link points at `/services/tourist-visa`, which does not exist). Add links only once the form is ready to open.
 - **Real follow-up questions** for the Yes paths the spec does not define (see section 10). Each has a plain placeholder text box for now.
 - A **help list of EEA countries** for question 8.1 (the printout shows one; it needs a maintained country list).
-- **Enforcing the release gate on the server.** The "not open yet" check is in the client only. The API accepts saves from a signed-in user regardless.
+- **Tying the server to the client's release gate.** The server switch is one all-or-nothing flag set by a person. It does not look at the open `tbc` items. If someone sets it to `true` while `tbc` items remain, the form still shows "not open yet" but the API accepts calls from a signed-in user. Keep the two consistent (section 4).
 - **Key rotation** for the encryption key (section 5).
 - **Deleting or exporting** an applicant's data.
 
-## 4. The feature switch
+## 4. The feature switches
 
-The client decides whether the form is open (`client/src/utils/touristVisaChecklist.ts`):
+The form opens only when **both** of these say open.
 
-- The form is **open** when no section has an open `tbc` item, **or** when the build has `NEXT_PUBLIC_TOURIST_VISA_PREVIEW=true`.
-- Otherwise a visitor who opens a section sees **"The application isn't open yet. We're still finalising the questions. Please check back soon."** The dashboard still shows, so a signed-in user can see the sections.
+### 4.1 Server switch: `TOURIST_VISA_ENABLED` (backend)
+
+- The API is **open only when the variable is exactly the text `true`**. Unset, empty, `false`, `TRUE`, ` true`, `1` and anything else keep it closed. The default is closed, so a deployment that forgot to set it is inert.
+- While closed, **every request under `/api/tourist-visa`** (any method, any path, with or without a token) gets the same answer: HTTP 404 with `{"success": false, "code": "FEATURE_CLOSED", "message": "The Tourist Visa application is not open."}`. Nothing the caller sent is echoed back.
+- It answers **before** sign-in checks, body parsing, rate limiting, sessions and any database access. The gate (`backend/middleware/touristVisaFeatureGate.js`) is mounted in `backend/index.js` straight after the CORS check, and is repeated at the top of the Tourist Visa router. It reads no header, body or token, touches no database and **writes nothing to the log**. A closed deployment does not even complain about a missing `FIELD_ENCRYPTION_KEY`.
+- The CORS check still runs first, so a browser on an allowed origin can read the closed answer, and a request from an origin that is not allowed is rejected exactly as it is on every other route.
+- The code `FEATURE_CLOSED` is how clients tell it from the API's own 404 "you have not started an application yet", which has no code.
+- The value is read on each request, but the host only changes it when the backend is restarted or redeployed. Treat a change as needing a restart.
+
+### 4.2 Client gate (client build)
+
+- The form is **open** when no section has an open `tbc` item, **or** when the build has `NEXT_PUBLIC_TOURIST_VISA_PREVIEW=true` (`client/src/utils/touristVisaChecklist.ts`).
 - **Off means unset or any value other than the exact text `true`.** Leave it unset in production.
 - It is a `NEXT_PUBLIC_` variable, so it is read **when the client is built**, not at run time. Changing it needs a rebuild and redeploy.
 - Preview mode also shows the TBC and Draft badges. Use it in development and on a private test deployment only.
 
-Important: **drafts do not close the form, only `tbc` items do.** Once every `tbc` item is resolved, the form opens to the public even if a draft option list has not been reviewed. Run the release check before every production deploy (section 8): it exits 1 while anything is blocked, and 2 when nothing is blocked but drafts still need senior review. Treat 2 as "do not release yet".
+### 4.3 What an applicant sees
+
+Whichever side says closed, a signed-in applicant sees the **same message**, "The application isn't open yet. We're still finalising the questions. Please check back soon.", with Start and Continue disabled and no error box. The client recognises the server's answer by its code (a 404 with `FEATURE_CLOSED`), and never mistakes it for "not started". If the server is switched off while someone has a section open, their next save replaces the form with the same message.
+
+### 4.4 Combinations
+
+| Backend `TOURIST_VISA_ENABLED` | Client build | Result |
+| --- | --- | --- |
+| unset or not `true` | anything | **Closed. The API is inert.** Applicants see "isn't open yet". **This is the production default.** |
+| `true` | no preview, `tbc` items remain | The client says "isn't open yet", but the API is live. **Avoid in production**: a signed-in user could call the API directly and save answers. |
+| `true` | preview `true` | Open, with TBC and Draft badges. **Test builds only.** |
+| `true` | no preview, no `tbc` items left | **Open. This is the public release.** |
+
+**Production needs both switches to be consistent.** Keep the backend switch off until the client is ready to open too, and turn it on as the last step of a release (section 9.2). With the backend switch off, the earlier caveat that the API accepted saves while the client showed "not open yet" no longer applies: the API refuses everything.
+
+Important: **drafts do not close the form, only `tbc` items do.** Once every `tbc` item is resolved, the client gate opens even if a draft option list has not been reviewed. Run the release check before every production deploy (section 8): it exits 1 while anything is blocked, and 2 when nothing is blocked but drafts still need senior review. Treat 2 as "do not release yet".
 
 ## 5. Environment variables for production
 
@@ -77,7 +103,8 @@ Important: **drafts do not close the form, only `tbc` items do.** Once every `tb
 
 | Variable | Required | Notes |
 | --- | --- | --- |
-| `FIELD_ENCRYPTION_KEY` | Yes | 32 random bytes, as base64 (44 characters) or hex (64 characters). |
+| `TOURIST_VISA_ENABLED` | No | **Production default: leave it unset** (closed). Set to exactly `true` to open the API, on test deployments and at release (section 9). Listed in `backend/.env.example`. |
+| `FIELD_ENCRYPTION_KEY` | Yes, once `TOURIST_VISA_ENABLED=true` | 32 random bytes, as base64 (44 characters) or hex (64 characters). Not needed, and not warned about, while the switch is off. |
 
 Generate one with:
 
@@ -90,13 +117,13 @@ Rules for the key:
 - **Store it safely**, in the host's secret store, and keep a copy in your password manager or vault. It is never in the repository and the feature never logs it.
 - **Losing it, or changing it, makes every encrypted answer (2.19 and 3.1) unrecoverable.** There is no recovery and no key rotation yet. Back it up before the first real applicant saves anything.
 - Do not reuse the key from a test environment, and use a different key per environment.
-- If it is missing or malformed, the server **refuses every section save** with a 503 ("Secure storage is not configured") and logs an error at startup. Nothing is stored in plain text as a fallback. Reading an application only needs the key when it holds encrypted answers.
+- If the switch is on and it is missing or malformed, the server **refuses every section save** with a 503 ("Secure storage is not configured") and logs an error at startup. Nothing is stored in plain text as a fallback. Reading an application only needs the key when it holds encrypted answers.
 
 **Client (new, optional):**
 
 | Variable | Notes |
 | --- | --- |
-| `NEXT_PUBLIC_TOURIST_VISA_PREVIEW` | Leave unset in production (section 4). Listed in `client/.env.example`. |
+| `NEXT_PUBLIC_TOURIST_VISA_PREVIEW` | Leave unset in production (section 4.2). Listed in `client/.env.example`. |
 
 Existing variables the feature relies on and does not change: `JWT_SECRET` (sign-in), `MONGODB_URI`, `NEXT_PUBLIC_API_URL`. Do not leave `SESSION_SECRET` unset (see section 11).
 
@@ -106,7 +133,7 @@ Only six existing files were modified. Everything else is new, including `backen
 
 | File | Change |
 | --- | --- |
-| `backend/index.js` | Requires the new routes and two small middlewares; mounts `app.use("/api/tourist-visa", touristVisaRoutes)`; parses Tourist Visa bodies first with log-safe errors (`touristVisaBodyParser`); and wraps the global input sanitizer as `skipPaths(["/api/tourist-visa"], sanitize)`. The sanitizer strips `<` and `>` from every string, which would alter free-text answers, so it is skipped for this one path only. Every other route is sanitized exactly as before. |
+| `backend/index.js` | Requires the new routes and three small middlewares; mounts the feature switch (`touristVisaFeatureGate`) straight after CORS, before every other middleware; mounts `app.use("/api/tourist-visa", touristVisaRoutes)`; parses Tourist Visa bodies first with log-safe errors (`touristVisaBodyParser`); and wraps the global input sanitizer as `skipPaths(["/api/tourist-visa"], sanitize)`. The sanitizer strips `<` and `>` from every string, which would alter free-text answers, so it is skipped for this one path only. Every other route is sanitized exactly as before. |
 | `client/src/components/login-form.tsx` | After sign-in, goes back to the page the visitor came from (`?next=`) when it is a safe same-site path (`client/src/utils/safeRedirect.ts`); otherwise the old defaults (admins to `/admin/users`, others to `/`). |
 | `backend/package.json` (and lock file) | `npm test` now runs the backend tests (it was a placeholder), one file at a time (`--test-concurrency=1`); adds the dev dependency `mongodb-memory-server`. |
 | `client/package.json` | Adds the `test:unit` script. |
@@ -117,7 +144,7 @@ New at the repository root: `package.json` (scripts only, no dependencies) and `
 
 New code lives under: `backend/{config,controllers,middleware,models,repositories,routes,services,shared,tests}`, `client/src/app/tourist-visa`, `client/src/components/tourist-visa`, `client/src/components/ui/alert-dialog.tsx`, `client/src/{context,hooks,services,shared,utils}`, and `docs/`. The backend follows the existing layering (routes, controller, service, repository, model).
 
-**API.** Three routes, all behind the existing `isAuthorized` middleware, and each only ever touches the signed-in user's own application:
+**API.** Three routes. While `TOURIST_VISA_ENABLED` is not `true` every one of them (and any other path under the prefix) returns the fixed closed answer (section 4.1). When it is, they are all behind the existing `isAuthorized` middleware, and each only ever touches the signed-in user's own application:
 
 - `POST /api/tourist-visa/applications` creates the draft, or returns the existing one.
 - `GET /api/tourist-visa/applications/me` returns it, with sensitive answers decrypted for the owner.
@@ -144,12 +171,14 @@ npm run test:shared                  # engine and config tests (131)
 npm run check:tourist-visa-release   # open tbc items and draft lists; exit 1 blocked, 2 drafts only, 0 clear
 ```
 
-Backend (needs no database and no `.env`; it starts an in-memory MongoDB):
+Backend (needs no database and no `.env`; it starts an in-memory MongoDB, and the test files set `TOURIST_VISA_ENABLED` themselves, so your own `.env` does not matter):
 
 ```
 cd backend
 npm test                             # runs the test files one at a time
 ```
+
+Two test files cover the server switch: `touristVisaFeatureSwitch.test.js` (every route and every non-`true` value returns the closed answer with no database connected, no model call and no log line; with `true` the routes behave as before) and `touristVisaFeatureSwitchWiring.test.js` (the real `index.js` started with the switch unset and no encryption key: same answer before sign-in and body parsing, readable cross-origin, rest of the API unaffected, nothing logged).
 
 The first run downloads a MongoDB binary (about 75 MB, cached in `backend/node_modules/.cache`), so it needs internet. **Keep at least 1 GB free on the drive that holds the temp folder.** MongoDB refuses writes when under 500 MB are free, and the suite was changed to run serially because running six in-memory databases at once used almost 2 GB and failed on a nearly full drive.
 
@@ -167,10 +196,47 @@ All of these were green at the time of writing. The tests use made-up data only.
 
 ## 9. Deploying
 
-1. Back up and store `FIELD_ENCRYPTION_KEY`, set it on the backend, and deploy the backend. Check the startup log shows no "FIELD_ENCRYPTION_KEY" error.
-2. Build and deploy the client with `NEXT_PUBLIC_TOURIST_VISA_PREVIEW` unset.
-3. The form stays closed to visitors while any `tbc` item remains. To test on a private environment, build that environment with the variable set to `true`.
-4. Before opening it for real: resolve the `tbc` items (section 10), get the draft lists reviewed, run `npm run check:tourist-visa-release` and expect exit 0, then add the entry-point links.
+### 9.1 Deploy with the switch OFF (the production default)
+
+From the repository root, check the branch first. The release check is expected to exit **1** at present (sections are still blocked); that is what keeps the client closed too.
+
+```
+git fetch && git checkout feature/tourist-visa-form && git pull
+npm run check:shared
+npm run test:shared
+(cd backend && npm ci && npm test)            # keep 1 GB free on the temp drive
+(cd client  && npm ci && npm run test:unit && npx tsc --noEmit && npx next build)
+npm run check:tourist-visa-release            # expect exit 1
+```
+
+Then:
+
+1. Merge through your normal pull request. Check `backend/package-lock.json` (section 6).
+2. **Backend environment: do not set `TOURIST_VISA_ENABLED`** (or leave it empty). Confirm `JWT_SECRET` and `SESSION_SECRET` are set. You may already generate and store `FIELD_ENCRYPTION_KEY` (section 5) so that opening it later is a single change; it is not used while the switch is off.
+3. Deploy the backend.
+4. **Client build: leave `NEXT_PUBLIC_TOURIST_VISA_PREVIEW` unset**, then build and deploy.
+5. Check it is inert:
+   - `curl -i https://<your-api>/api/tourist-visa/applications/me` returns **404** with `"code":"FEATURE_CLOSED"`, with or without a token, and `POST` and `PUT` to the same prefix answer the same.
+   - Other routes still work, for example `GET /api/approved-visas` returns 200.
+   - The backend log shows nothing about `/api/tourist-visa` requests and no `FIELD_ENCRYPTION_KEY` error.
+   - Signed in, `/tourist-visa` shows "The application isn't open yet" with Start disabled.
+   - Nothing links to the form.
+
+### 9.2 Turning it ON later
+
+1. Resolve the `tbc` items (section 10) and get the draft lists reviewed: edit `shared/tourist-visa/questions.json`, run `npm run sync:shared`, update the tests, and remove each reviewed `draft` line. `npm run check:tourist-visa-release` must exit **0** (exit 2 means drafts are still unreviewed: do not release).
+2. Add the entry-point links (Footer, Navbar, Services) as a separate change.
+3. Generate `FIELD_ENCRYPTION_KEY` if you have not (section 5), store it in the secret store and back it up. **Do not skip the backup.**
+4. In this order:
+   1. Deploy the backend with the new config and the key set, **still without `TOURIST_VISA_ENABLED`**. The API is still closed.
+   2. Build and deploy the client **without** `NEXT_PUBLIC_TOURIST_VISA_PREVIEW`. Its own gate now opens (no `tbc` left), but while the server answers "closed" applicants still see "isn't open yet", so nothing is exposed.
+   3. **Set `TOURIST_VISA_ENABLED=true` on the backend and restart or redeploy it. This is the moment the form opens.**
+5. Smoke test with a throwaway account: start an application, save a section, and confirm in the database that the passport and ID numbers are stored as `enc:v1:...`. Look at the backend log for errors.
+6. **To close it again, instantly and for everyone:** unset `TOURIST_VISA_ENABLED` and restart or redeploy the backend. No client rebuild is needed. Saved data stays in the database.
+
+**Test deployments** (private, never public): backend `TOURIST_VISA_ENABLED=true` and a client build with `NEXT_PUBLIC_TOURIST_VISA_PREVIEW=true`.
+
+**Your own machine:** add the line `TOURIST_VISA_ENABLED=true` to `backend/.env`, and restart the backend. Without it your local backend answers "closed" to every Tourist Visa request.
 
 ## 10. Draft options and defaults that need review
 

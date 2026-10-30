@@ -22,6 +22,11 @@ export type SaveResult =
 
 interface TouristVisaContextValue {
   state: LoadState;
+  /**
+   * True once the server has answered that the Tourist Visa API is switched off (FEATURE_CLOSED).
+   * The pages treat it like their own "not open yet" gate: same message, Start disabled.
+   */
+  serverClosed: boolean;
   /** Fetch the application again (used by the Retry button). */
   reload: () => Promise<void>;
   /** Start an application, or pick up the existing one. Resolves true on success. */
@@ -58,6 +63,7 @@ export function TouristVisaProvider({ children }: { children: React.ReactNode })
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  const [serverClosed, setServerClosed] = useState(false);
   const alive = useRef(true);
 
   useEffect(() => {
@@ -80,10 +86,21 @@ export function TouristVisaProvider({ children }: { children: React.ReactNode })
     }
     try {
       const application = await touristVisaService.getMyApplication(token);
-      if (alive.current) setState({ status: "ready", application });
+      if (alive.current) {
+        setServerClosed(false);
+        setState({ status: "ready", application });
+      }
     } catch (error) {
       if (error instanceof TouristVisaApiError && error.status === 401) {
         handleUnauthorized();
+        return;
+      }
+      if (error instanceof TouristVisaApiError && error.closed) {
+        // Switched off on the server: nothing to load, and not an error to show.
+        if (alive.current) {
+          setServerClosed(true);
+          setState({ status: "ready", application: null });
+        }
         return;
       }
       if (alive.current) setState({ status: "error", message: describeError(error) });
@@ -116,6 +133,10 @@ export function TouristVisaProvider({ children }: { children: React.ReactNode })
         handleUnauthorized();
         return false;
       }
+      if (error instanceof TouristVisaApiError && error.closed) {
+        if (alive.current) setServerClosed(true);
+        return false;
+      }
       if (alive.current) setStartError(describeError(error));
       return false;
     } finally {
@@ -139,6 +160,11 @@ export function TouristVisaProvider({ children }: { children: React.ReactNode })
           handleUnauthorized();
           return { ok: false, status: 401, message: "Please sign in again." };
         }
+        if (error instanceof TouristVisaApiError && error.closed) {
+          // The server was switched off while the form was open: the pages now show "not open yet".
+          if (alive.current) setServerClosed(true);
+          return { ok: false, status: 404, message: describeError(error) };
+        }
         const status = error instanceof TouristVisaApiError ? error.status : 0;
         const fieldErrors = error instanceof TouristVisaApiError ? error.fieldErrors : undefined;
         return { ok: false, status, message: describeError(error), fieldErrors };
@@ -148,8 +174,8 @@ export function TouristVisaProvider({ children }: { children: React.ReactNode })
   );
 
   const value = useMemo(
-    () => ({ state, reload, start, starting, startError, saveSection }),
-    [state, reload, start, starting, startError, saveSection]
+    () => ({ state, serverClosed, reload, start, starting, startError, saveSection }),
+    [state, serverClosed, reload, start, starting, startError, saveSection]
   );
 
   return <TouristVisaContext.Provider value={value}>{children}</TouristVisaContext.Provider>;

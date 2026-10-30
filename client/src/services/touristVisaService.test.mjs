@@ -2,7 +2,14 @@
 
 import test, { afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { touristVisaService, TouristVisaApiError, describeError } from "./touristVisaService.ts";
+import {
+  touristVisaService,
+  TouristVisaApiError,
+  describeError,
+  FEATURE_CLOSED_CODE,
+  isFeatureClosed,
+  NOT_OPEN_MESSAGE,
+} from "./touristVisaService.ts";
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -174,4 +181,80 @@ test("the service never writes answers to the console or to storage", async () =
   }
   assert.equal(JSON.stringify(seen).includes("SECRET-ANSWER-TEXT"), false);
   assert.equal(seen.length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// The server-side feature switch: a closed server answers 404 with code FEATURE_CLOSED.
+// ---------------------------------------------------------------------------
+
+const CLOSED = { success: false, code: "FEATURE_CLOSED", message: "The Tourist Visa application is not open." };
+const NOT_STARTED = { success: false, message: "You have not started a Tourist Visa application yet." };
+
+test("isFeatureClosed: exactly a 404 whose code is FEATURE_CLOSED", () => {
+  assert.equal(FEATURE_CLOSED_CODE, "FEATURE_CLOSED");
+  assert.equal(isFeatureClosed(404, CLOSED), true);
+  for (const [status, json] of [
+    [404, NOT_STARTED], [404, null], [404, {}], [404, { code: "OTHER" }], [404, { code: "feature_closed" }],
+    [200, CLOSED], [403, CLOSED], [500, CLOSED], [401, CLOSED], [503, CLOSED],
+  ]) {
+    assert.equal(isFeatureClosed(status, json), false, `${status} ${JSON.stringify(json)}`);
+  }
+});
+
+test("getMyApplication: the closed answer is an error flagged closed, never 'not started'", async () => {
+  stubFetch(404, CLOSED);
+  await assert.rejects(
+    () => touristVisaService.getMyApplication("t"),
+    (error) => error instanceof TouristVisaApiError && error.closed === true && error.status === 404 && error.message === NOT_OPEN_MESSAGE
+  );
+});
+
+test("getMyApplication: a JSON 404 without the closed code, or with another code, still means not started", async () => {
+  stubFetch(404, NOT_STARTED);
+  assert.equal(await touristVisaService.getMyApplication("t"), null);
+  stubFetch(404, { success: false, code: "SOMETHING_ELSE", message: "x" });
+  assert.equal(await touristVisaService.getMyApplication("t"), null);
+});
+
+test("a bare 404 is neither 'not started' nor 'closed'", async () => {
+  stubFetch(404, undefined);
+  await assert.rejects(
+    () => touristVisaService.getMyApplication("t"),
+    (error) => error instanceof TouristVisaApiError && error.closed === false && error.status === 404
+  );
+});
+
+test("the closed code on any status other than 404 is an ordinary failure", async () => {
+  for (const status of [200, 403, 500, 503]) {
+    stubFetch(status, CLOSED);
+    await assert.rejects(
+      () => touristVisaService.startApplication("t"),
+      (error) => error instanceof TouristVisaApiError && error.closed === false,
+      `status ${status}`
+    );
+  }
+});
+
+test("startApplication and saveSection: the closed answer is flagged closed", async () => {
+  stubFetch(404, CLOSED);
+  await assert.rejects(() => touristVisaService.startApplication("t"), (e) => e.closed === true);
+  await assert.rejects(() => touristVisaService.saveSection("t", "1", { q1_5: "x" }), (e) => e.closed === true);
+});
+
+test("ordinary failures are not flagged closed", async () => {
+  stubFetch(422, { message: "bad", errors: { q1_5: "This question is required" } });
+  await assert.rejects(
+    () => touristVisaService.saveSection("t", "1", {}),
+    (e) => e.status === 422 && e.closed === false && e.fieldErrors.q1_5 === "This question is required"
+  );
+});
+
+test("describeError: the closed error reads as 'not open yet'; other errors are unchanged", () => {
+  const closed = new TouristVisaApiError(404, "anything");
+  closed.closed = true;
+  assert.equal(describeError(closed), NOT_OPEN_MESSAGE);
+  assert.match(NOT_OPEN_MESSAGE, /isn't open yet/);
+  assert.match(describeError(new TouristVisaApiError(503, "x")), /temporarily unavailable/);
+  assert.match(describeError(new TouristVisaApiError(0, "x")), /couldn't reach the server/);
+  assert.equal(describeError(new TouristVisaApiError(404, "Some message")), "Some message");
 });

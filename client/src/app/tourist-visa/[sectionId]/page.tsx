@@ -33,10 +33,11 @@ function Message({ title, children, action }: { title: string; children?: React.
 /** One section of the application. The form itself is SectionForm; this page decides whether to show it. */
 export default function TouristVisaSectionPage() {
   const params = useParams<{ sectionId: string }>();
-  const { state, reload } = useTouristVisa();
+  const { state, serverClosed, reload } = useTouristVisa();
 
   const section = config.sections.find((s) => s.id === params.sectionId);
-  const open = isFormOpen(getReleaseBlockers(config).length, isPreviewMode());
+  // Closed if either side says so: this build's own gate, or the server's TOURIST_VISA_ENABLED switch.
+  const open = isFormOpen(getReleaseBlockers(config).length, isPreviewMode()) && !serverClosed;
   const dashboard = { href: "/tourist-visa", label: "Go to your application" };
 
   let content: React.ReactNode;
@@ -56,6 +57,8 @@ export default function TouristVisaSectionPage() {
         </CardFooter>
       </Card>
     );
+  } else if (!open) {
+    content = <Message title="The application isn't open yet" action={dashboard}>We&apos;re still finalising the questions. Please check back soon.</Message>;
   } else if (!state.application) {
     content = <Message title="Start your application first" action={dashboard}>You need to start an application before you can fill in a section.</Message>;
   } else if (state.application.status !== "draft") {
@@ -66,8 +69,6 @@ export default function TouristVisaSectionPage() {
         It only appears when an earlier answer needs it. If you change that answer, it will show up on your application page.
       </Message>
     );
-  } else if (!open) {
-    content = <Message title="The application isn't open yet" action={dashboard}>We&apos;re still finalising the questions. Please check back soon.</Message>;
   } else {
     // key: switching sections starts a fresh form from that section's saved answers.
     content = <SectionForm key={section!.id} sectionId={section!.id} application={state.application} />;

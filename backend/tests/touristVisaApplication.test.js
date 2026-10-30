@@ -5,6 +5,7 @@
 
 process.env.JWT_SECRET = 'test-only-jwt-secret';
 process.env.NODE_ENV = 'test';
+process.env.TOURIST_VISA_ENABLED = 'true'; // the API is closed unless the switch is exactly true
 
 const { test, before, after, mock } = require('node:test');
 const assert = require('node:assert/strict');

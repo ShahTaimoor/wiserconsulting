@@ -28,9 +28,18 @@ export interface TouristVisaApplication {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
+/** The code the server puts on its fixed answer while the Tourist Visa API is switched off. */
+export const FEATURE_CLOSED_CODE = "FEATURE_CLOSED";
+
+/** What the applicant is told when the application is not open, whichever side says so. */
+export const NOT_OPEN_MESSAGE =
+  "The Tourist Visa application isn't open yet. We're still finalising the questions. Please check back soon.";
+
 /** An API failure with its HTTP status. Status 0 means the server could not be reached. */
 export class TouristVisaApiError extends Error {
   status: number;
+  /** True when the server answered with its closed-switch response (404 + FEATURE_CLOSED). */
+  closed = false;
   /** For a 422: error message per question, keyed "q1_7", "q2_24.line1" or "otherNames.1.q2_3b". */
   fieldErrors?: Record<string, string>;
 
@@ -52,6 +61,7 @@ export interface SaveSectionResult {
 
 /** The parts of the API's JSON envelope this service reads. */
 interface ApiBody {
+  code?: unknown;
   message?: unknown;
   errors?: unknown;
   data?: { application?: TouristVisaApplication; needsReview?: string[]; removed?: string[] };
@@ -87,7 +97,21 @@ async function request(
   return { status: response.status, json };
 }
 
+/**
+ * The server's closed-switch answer: exactly a 404 whose JSON code is FEATURE_CLOSED. It is a 404
+ * like the API's own "you have not started an application yet", so it has to be told apart by
+ * its code, and it has to be checked first.
+ */
+export function isFeatureClosed(status: number, json: { code?: unknown } | null): boolean {
+  return status === 404 && json !== null && typeof json === "object" && json.code === FEATURE_CLOSED_CODE;
+}
+
 function failure(status: number, json: ApiBody | null): TouristVisaApiError {
+  if (isFeatureClosed(status, json)) {
+    const closed = new TouristVisaApiError(404, NOT_OPEN_MESSAGE);
+    closed.closed = true;
+    return closed;
+  }
   const message = typeof json?.message === "string" && json.message ? json.message : `Request failed with status ${status}`;
   return new TouristVisaApiError(status, message, toFieldErrors(json?.errors));
 }
@@ -111,6 +135,7 @@ function requireApplication(json: ApiBody | null): TouristVisaApplication {
 /** A message that is safe and clear to show to the applicant. */
 export function describeError(error: unknown): string {
   if (error instanceof TouristVisaApiError) {
+    if (error.closed) return NOT_OPEN_MESSAGE;
     if (error.status === 0) return "We couldn't reach the server. Check your internet connection and try again.";
     if (error.status === 503) {
       return "The Tourist Visa application is temporarily unavailable. This is a problem on our side, not with your details. Please try again later or contact us.";
@@ -126,6 +151,8 @@ export const touristVisaService = {
   /** The signed-in user's application, or null if they have not started one (the server answers 404). */
   async getMyApplication(token: string): Promise<TouristVisaApplication | null> {
     const { status, json } = await request("/applications/me", "GET", token);
+    // The closed-switch 404 is not "not started": check it first.
+    if (isFeatureClosed(status, json)) throw failure(status, json);
     // Only the API's own JSON 404 means "not started". A bare 404 (wrong API address,
     // backend without this route) is a real error and must not look like a fresh start.
     if (status === 404 && json) return null;

@@ -89,12 +89,13 @@ function resumeTarget(application: TouristVisaApplication): string {
 }
 
 export default function TouristVisaDashboardPage() {
-  const { state, reload, start, starting, startError } = useTouristVisa();
+  const { state, serverClosed, reload, start, starting, startError } = useTouristVisa();
 
   const preview = isPreviewMode();
   const blocked = getReleaseBlockers(config).length;
   const drafted = getDraftItems(config).length;
-  const open = isFormOpen(blocked, preview);
+  // Closed if either side says so: this build's own gate, or the server's TOURIST_VISA_ENABLED switch.
+  const open = isFormOpen(blocked, preview) && !serverClosed;
 
   const application = state.status === "ready" ? state.application : null;
   const checklist = buildChecklist(config, application);

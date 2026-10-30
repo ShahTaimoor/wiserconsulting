@@ -5,6 +5,7 @@
 
 process.env.JWT_SECRET = 'test-only-jwt-secret';
 process.env.NODE_ENV = 'test';
+process.env.TOURIST_VISA_ENABLED = 'true'; // the API is closed unless the switch is exactly true
 const crypto = require('node:crypto');
 const KEY_A = crypto.randomBytes(32).toString('base64');
 const KEY_B = crypto.randomBytes(32).toString('base64');

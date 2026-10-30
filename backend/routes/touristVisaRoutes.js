@@ -9,10 +9,16 @@ const router = express.Router();
 const touristVisaApplicationController = require('../controllers/touristVisaApplicationController');
 const { isAuthorized } = require('../middleware/authMiddleware');
 const touristVisaErrorHandler = require('../middleware/touristVisaErrorHandler');
+const touristVisaFeatureGate = require('../middleware/touristVisaFeatureGate');
+const { isTouristVisaEnabled } = touristVisaFeatureGate;
 const { warnIfFieldEncryptionNotConfigured } = require('../config/fieldEncryption');
 
-warnIfFieldEncryptionNotConfigured();
+// A closed deployment is inert, so a missing key is only worth a startup warning when the feature is on.
+if (isTouristVisaEnabled()) warnIfFieldEncryptionNotConfigured();
 
+// Closed unless TOURIST_VISA_ENABLED is "true". index.js already mounts the same gate first; it is
+// repeated here so the router can never be reached through another mount while the switch is off.
+router.use(touristVisaFeatureGate);
 router.use(isAuthorized);
 
 // Create a draft application (or return the existing one)

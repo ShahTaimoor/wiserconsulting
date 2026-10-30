@@ -29,6 +29,7 @@ const {
 const sanitize = require("./middleware/sanitize");
 const skipPaths = require("./middleware/skipPaths");
 const touristVisaBodyParser = require("./middleware/touristVisaBodyParser");
+const touristVisaFeatureGate = require("./middleware/touristVisaFeatureGate");
 const logger = require("./utils/logger");
 
 connectDB();
@@ -61,6 +62,11 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization"]
 };
 app.use(cors(corsOptions));
+
+// Tourist Visa feature switch (TOURIST_VISA_ENABLED, off unless exactly "true"). It comes right after
+// CORS, so a browser can read the answer, and before everything else: while it is closed no
+// header, body or token is read, nothing is logged and the database is never touched.
+app.use("/api/tourist-visa", touristVisaFeatureGate);
 
 // Security headers
 app.use(helmet());
