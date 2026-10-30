@@ -8,7 +8,8 @@ import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/comp
 import { Skeleton } from "@/components/ui/skeleton";
 import { SectionForm } from "@/components/tourist-visa/SectionForm";
 import { useTouristVisa } from "@/context/TouristVisaContext";
-import { config, getReleaseBlockers } from "@/shared/tourist-visa/engine";
+import { config, getReleaseBlockers, isSectionVisible } from "@/shared/tourist-visa/engine";
+import type { Answers } from "@/shared/tourist-visa/engine";
 import { isFormOpen, isPreviewMode } from "@/utils/touristVisaChecklist";
 
 function Message({ title, children, action }: { title: string; children?: React.ReactNode; action?: { href: string; label: string } }) {
@@ -59,6 +60,12 @@ export default function TouristVisaSectionPage() {
     content = <Message title="Start your application first" action={dashboard}>You need to start an application before you can fill in a section.</Message>;
   } else if (state.application.status !== "draft") {
     content = <Message title="This application has been submitted" action={dashboard}>It can no longer be edited.</Message>;
+  } else if (!isSectionVisible(config, section.id, state.application.answers as Answers)) {
+    content = (
+      <Message title="This section doesn't apply to you" action={dashboard}>
+        It only appears when an earlier answer needs it. If you change that answer, it will show up on your application page.
+      </Message>
+    );
   } else if (!open) {
     content = <Message title="The application isn't open yet" action={dashboard}>We&apos;re still finalising the questions. Please check back soon.</Message>;
   } else {

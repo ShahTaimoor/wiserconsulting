@@ -11,7 +11,7 @@
  * file for the unit tests; Next.js and TypeScript resolve it the same way.
  */
 
-import { isVisible, resolveOptions } from "../shared/tourist-visa/engine.js";
+import { isSectionVisible, isVisible, resolveOptions } from "../shared/tourist-visa/engine.js";
 import type { Answers, GroupEntry, Question, RepeatGroup, TouristVisaConfig } from "../shared/tourist-visa/engine.js";
 
 export type FormValues = Record<string, unknown>;
@@ -76,14 +76,26 @@ export function sectionItems(cfg: TouristVisaConfig, sectionId: string): RenderI
   return items;
 }
 
-export function nextSectionId(cfg: TouristVisaConfig, sectionId: string): string | null {
+/**
+ * The section after this one. When `answers` are given, sections that do not apply
+ * (none of their questions is visible, such as 4A without a partner) are skipped.
+ */
+export function nextSectionId(cfg: TouristVisaConfig, sectionId: string, answers?: Record<string, unknown>): string | null {
   const index = cfg.sections.findIndex((s) => s.id === sectionId);
-  return index >= 0 && index < cfg.sections.length - 1 ? cfg.sections[index + 1].id : null;
+  if (index < 0) return null;
+  for (let i = index + 1; i < cfg.sections.length; i += 1) {
+    if (!answers || isSectionVisible(cfg, cfg.sections[i].id, asAnswers(answers))) return cfg.sections[i].id;
+  }
+  return null;
 }
 
-export function previousSectionId(cfg: TouristVisaConfig, sectionId: string): string | null {
+/** The section before this one, skipping sections that do not apply when `answers` are given. */
+export function previousSectionId(cfg: TouristVisaConfig, sectionId: string, answers?: Record<string, unknown>): string | null {
   const index = cfg.sections.findIndex((s) => s.id === sectionId);
-  return index > 0 ? cfg.sections[index - 1].id : null;
+  for (let i = index - 1; i >= 0; i -= 1) {
+    if (!answers || isSectionVisible(cfg, cfg.sections[i].id, asAnswers(answers))) return cfg.sections[i].id;
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -117,7 +129,8 @@ const clone = <T>(value: T): T => (value === undefined ? value : JSON.parse(JSON
 /**
  * Starting values for a section: the saved answers, a copy so editing never touches
  * the context's copy. A question with a prefill hint takes the account value only
- * when nothing is saved for it. A group whose Yes/No is Yes always has one entry to fill in.
+ * when nothing is saved for it. A group that is open (its Yes/No is Yes, or it has no Yes/No
+ * question) always has at least its minimum number of entries to fill in.
  */
 export function initialValues(
   cfg: TouristVisaConfig,
@@ -138,7 +151,10 @@ export function initialValues(
   for (const group of cfg.groups) {
     if (group.section !== sectionId) continue;
     const entries = values[group.id];
-    if (values[group.gate] === true && !(Array.isArray(entries) && entries.length > 0)) values[group.id] = [{}];
+    const open = group.gate === undefined || values[group.gate] === true;
+    if (open && !(Array.isArray(entries) && entries.length > 0)) {
+      values[group.id] = Array.from({ length: group.min ?? 1 }, () => ({}));
+    }
   }
   return values;
 }
@@ -160,8 +176,9 @@ export function mergedAnswers(
   return merged;
 }
 
-/** Whether a repeating group's Yes/No question is shown and answered Yes. */
+/** Whether a repeating group is open: its Yes/No question is shown and answered Yes, or it has no Yes/No question. */
 export function isGroupOpen(cfg: TouristVisaConfig, group: RepeatGroup, merged: Record<string, unknown>): boolean {
+  if (group.gate === undefined) return true;
   return merged[group.gate] === true && isVisible(cfg, group.gate, asAnswers(merged));
 }
 
@@ -336,7 +353,8 @@ export function hintFor(cfg: TouristVisaConfig, question: Question): string | un
     const numbers = (Array.isArray(after) ? after : [after])
       .map((id) => cfg.questions.find((q) => q.id === id)?.number)
       .filter((n): n is string => Boolean(n));
-    if (numbers.length > 0) parts.push(`Must be after the date in question ${numbers.join(" and ")}.`);
+    if (numbers.length === 1) parts.push(`Must be after the date in question ${numbers[0]}.`);
+    else if (numbers.length > 1) parts.push(`Must be after the dates in questions ${numbers.slice(0, -1).join(", ")} and ${numbers[numbers.length - 1]}.`);
   }
   if (question.rules?.notFuture) parts.push("Cannot be in the future.");
   if (question.type === "TEL") parts.push("Include the country code, for example +44.");

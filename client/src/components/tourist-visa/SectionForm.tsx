@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useTouristVisa } from "@/context/TouristVisaContext";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useAppSelector } from "@/redux/hooks";
-import { config, isVisible, resolveOptions } from "@/shared/tourist-visa/engine";
+import { config, getVisibleSections, isVisible, resolveOptions } from "@/shared/tourist-visa/engine";
 import type { Answers } from "@/shared/tourist-visa/engine";
 import type { TouristVisaApplication } from "@/services/touristVisaService";
 import { isPreviewMode } from "@/utils/touristVisaChecklist";
@@ -68,9 +68,6 @@ export function SectionForm({ sectionId, application }: SectionFormProps) {
 
   const section = config.sections.find((s) => s.id === sectionId);
   const part = config.parts.find((p) => p.id === section?.part);
-  const sectionNumber = config.sections.findIndex((s) => s.id === sectionId) + 1;
-  const previousId = previousSectionId(config, sectionId);
-  const nextId = nextSectionId(config, sectionId);
   const items = useMemo(() => sectionItems(config, sectionId), [sectionId]);
 
   // Answers saved in the other sections, which conditions and option lists can depend on.
@@ -89,6 +86,12 @@ export function SectionForm({ sectionId, application }: SectionFormProps) {
   const dirty = !valuesEqual(values, snapshot);
   const { allowNavigation, leaveDialog } = useUnsavedChangesGuard(dirty);
   const merged = useMemo(() => mergedAnswers(config, sectionId, saved, values), [sectionId, saved, values]);
+  // Sections that do not apply (for example 4A without a partner) are skipped, going either way.
+  // Numbered among the sections that apply, so it matches the count on the dashboard.
+  const applicable = useMemo(() => getVisibleSections(config, merged as Answers), [merged]);
+  const sectionNumber = applicable.findIndex((s) => s.id === sectionId) + 1;
+  const previousId = previousSectionId(config, sectionId, merged);
+  const nextId = nextSectionId(config, sectionId, merged);
   const errorItems = useMemo(() => collectErrors(config, sectionId, errors), [sectionId, errors]);
 
   useEffect(() => {
@@ -189,7 +192,7 @@ export function SectionForm({ sectionId, application }: SectionFormProps) {
       <Card>
         <CardHeader>
           <p className="text-sm font-medium text-muted-foreground">
-            Part {section.part}: {part?.title} · Section {sectionNumber} of {config.sections.length}
+            Part {section.part}: {part?.title} · Section {sectionNumber} of {applicable.length}
           </p>
           <CardTitle className="text-2xl">
             <span className="mr-2 text-muted-foreground">{section.id}</span>

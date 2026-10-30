@@ -73,8 +73,13 @@ export interface RepeatGroup {
   id: string;
   section: string;
   entryLabel: string;
-  /** Yes/No question that opens the group. Yes means at least one entry. */
-  gate: string;
+  /**
+   * Yes/No question that opens the group. Yes means at least `min` entries.
+   * Leave it out for a group that is always shown.
+   */
+  gate?: string;
+  /** Fewest entries when the group is open (default 1). */
+  min?: number;
   max: number;
   questions: string[];
   tbc?: string;
@@ -133,6 +138,16 @@ export function isVisible(
 export function getVisibleQuestions(
   cfg: TouristVisaConfig, sectionId: string, answers: Answers
 ): Question[];
+
+/** A section is shown when at least one of its questions is visible. */
+export function isSectionVisible(
+  cfg: TouristVisaConfig, sectionId: string, answers: Answers
+): boolean;
+
+/** The sections the applicant has to complete, in form order. */
+export function getVisibleSections(
+  cfg: TouristVisaConfig, answers: Answers
+): TouristVisaConfig['sections'];
 
 export function resolveOptions(
   cfg: TouristVisaConfig, questionId: string, answers: Answers, entry?: GroupEntry | null

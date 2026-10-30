@@ -54,14 +54,14 @@ class TouristVisaApplicationRepository {
   /**
    * Write one section. Each answer is set on its own path (answers.<id>), so
    * saving one section never overwrites another, and answers that became hidden
-   * are unset. Only a draft belonging to the applicant matches, so a submitted
+   * are unset, and the status of sections that no longer apply (clearStatus) is removed. Only a draft belonging to the applicant matches, so a submitted
    * application cannot be changed even if a caller forgets to check.
    *
    * `answers` holds plaintext values; sensitive ones are encrypted here.
    * Returns the updated application (decrypted), or null if no editable
    * application matched.
    */
-  async saveSection(applicationId, applicantId, { answers, unset, sectionStatus, currentSection }) {
+  async saveSection(applicationId, applicantId, { answers, unset, sectionStatus, clearStatus = [], currentSection }) {
     const key = getFieldEncryptionKey(); // fails closed before anything is written
     const stored = this.encryptAnswers(String(applicationId), answers, key);
 
@@ -70,9 +70,10 @@ class TouristVisaApplicationRepository {
     for (const [sectionId, state] of Object.entries(sectionStatus)) $set[`sectionStatus.${sectionId}`] = state;
 
     const update = { $set };
-    if (unset.length) {
-      update.$unset = Object.fromEntries(unset.map((id) => [`answers.${id}`, ""]));
-    }
+    const $unset = {};
+    for (const id of unset) $unset[`answers.${id}`] = "";
+    for (const id of clearStatus) $unset[`sectionStatus.${id}`] = "";
+    if (Object.keys($unset).length) update.$unset = $unset;
 
     const application = await TouristVisaApplication.findOneAndUpdate(
       { _id: applicationId, applicant: applicantId, status: "draft", isDeleted: false },

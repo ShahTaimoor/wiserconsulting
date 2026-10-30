@@ -41,12 +41,14 @@ export function RepeatGroupField({ cfg, group, members, entries, merged, errors,
 
       {entries.map((rawEntry, index) => {
         const entry = asRecord(rawEntry);
+        const removable = entries.length > Math.max(group.min ?? 1, 1);
         return (
-          <fieldset key={index} className="relative min-w-0 space-y-4 rounded-lg border border-border bg-muted/30 p-4">
+          // The Remove button sits in the top corner, so a removable entry starts its questions below it.
+          <fieldset key={index} className={`relative min-w-0 space-y-4 rounded-lg border border-border bg-muted/30 p-4 ${removable ? "pt-12" : ""}`}>
             <legend className="mb-1 p-0 pr-24 text-sm font-semibold text-foreground">
               {group.entryLabel} {index + 1}
             </legend>
-            {entries.length > 1 && (
+            {removable && (
               <Button
                 type="button"
                 variant="ghost"

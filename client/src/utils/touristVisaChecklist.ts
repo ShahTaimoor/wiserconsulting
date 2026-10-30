@@ -5,7 +5,8 @@
  * Plain functions with type-only imports, so they can be unit tested with `node --test`.
  */
 
-import type { TouristVisaConfig } from "@/shared/tourist-visa/engine";
+import { getVisibleSections } from "../shared/tourist-visa/engine.js";
+import type { Answers, TouristVisaConfig } from "../shared/tourist-visa/engine.js";
 import type { TouristVisaApplication } from "@/services/touristVisaService";
 
 export type ChecklistState = "saved" | "needs_review" | "not_started";
@@ -29,21 +30,28 @@ export interface Checklist {
   needsReview: number;
 }
 
-/** Saved / needs review / not started for every section, grouped by part, in form order. */
+/**
+ * Saved / needs review / not started for every section that applies to this applicant,
+ * grouped by part, in form order. A section none of whose questions is visible (such as
+ * 4A without a partner) is left out, and so is a part with no sections left.
+ */
 export function buildChecklist(
-  config: Pick<TouristVisaConfig, "parts" | "sections">,
-  application: Pick<TouristVisaApplication, "sectionStatus"> | null
+  config: TouristVisaConfig,
+  application: (Pick<TouristVisaApplication, "sectionStatus"> & { answers?: Record<string, unknown> }) | null
 ): Checklist {
   const status = application?.sectionStatus ?? {};
+  const applicable = new Set(getVisibleSections(config, (application?.answers ?? {}) as Answers).map((s) => s.id));
   const stateOf = (id: string): ChecklistState => (status[id] === "saved" || status[id] === "needs_review" ? status[id] : "not_started");
 
-  const parts: ChecklistPart[] = config.parts.map((part) => ({
-    id: part.id,
-    title: part.title,
-    sections: config.sections
-      .filter((section) => section.part === part.id)
-      .map((section) => ({ id: section.id, title: section.title, state: stateOf(section.id) })),
-  }));
+  const parts: ChecklistPart[] = config.parts
+    .map((part) => ({
+      id: part.id,
+      title: part.title,
+      sections: config.sections
+        .filter((section) => section.part === part.id && applicable.has(section.id))
+        .map((section) => ({ id: section.id, title: section.title, state: stateOf(section.id) })),
+    }))
+    .filter((part) => part.sections.length > 0);
 
   const all = parts.flatMap((part) => part.sections);
   return {

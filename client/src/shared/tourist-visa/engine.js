@@ -129,8 +129,13 @@ function scopeGet(flat, entry, id) {
 // Visibility
 // ---------------------------------------------------------------------------
 
+/**
+ * Is the repeating group open? A group with a gate is open when its Yes/No
+ * question is shown and answered Yes. A group without a gate is always open.
+ */
 function groupGateOpen(cfg, group, flat) {
-  if (!group || !group.gate) return false;
+  if (!group) return false;
+  if (!group.gate) return true;
   const gate = indexOf(cfg).byId.get(group.gate);
   return !!gate && isVisibleIn(cfg, gate, flat, null) && flat[group.gate] === true;
 }
@@ -180,6 +185,21 @@ function getVisibleQuestions(cfg, sectionId, answers) {
     if (q.group) return groupGateOpen(cfg, idx.groups.get(q.group), flat);
     return isVisibleIn(cfg, q, flat, null);
   });
+}
+
+/**
+ * Is the section shown at all? A section is hidden when none of its questions
+ * is visible (for example 4A when 2.13 does not indicate a spouse or partner).
+ * Its answers are pruned by pruneAnswers like any other hidden answer.
+ */
+function isSectionVisible(cfg, sectionId, answers) {
+  if (!indexOf(cfg).sections.has(sectionId)) throw new Error(`Unknown section: ${sectionId}`);
+  return getVisibleQuestions(cfg, sectionId, answers).length > 0;
+}
+
+/** The sections the applicant has to complete, in form order. */
+function getVisibleSections(cfg, answers) {
+  return cfg.sections.filter((s) => isSectionVisible(cfg, s.id, answers));
 }
 
 function resolveOptionsIn(cfg, q, flat, entry) {
@@ -481,8 +501,9 @@ function validateSection(z, cfg, sectionId, incoming, existing, opts) {
     }
     const raw = cleaned[g.id];
     const max = Math.min(g.max || Infinity, (cfg.limits && cfg.limits.groupMax) || Infinity);
-    if (!Array.isArray(raw) || raw.length === 0) {
-      errors[g.id] = 'Add at least one entry';
+    const min = g.min || 1;
+    if (!Array.isArray(raw) || raw.length < min) {
+      errors[g.id] = min === 1 ? 'Add at least one entry' : `Add at least ${min} entries`;
       continue;
     }
     if (raw.length > max) {
@@ -711,10 +732,11 @@ function validateConfig(cfg) {
     if (!Number.isInteger(g.max) || g.max < 1 || g.max > (lim.groupMax || 0)) err(`${w}: max must be an integer from 1 to limits.groupMax`);
     if (!Array.isArray(g.questions) || !g.questions.length) err(`${w}: needs member questions`);
     if (g.tbc !== undefined && (typeof g.tbc !== 'string' || !g.tbc)) err(`${w}: tbc must be a non-empty string`);
-    const gate = byId.get(g.gate);
-    if (!g.gate) err(`${w}: gate is required (count-based groups are not supported yet)`);
-    else if (!gate) err(`${w}: unknown gate ${g.gate}`);
-    else {
+    if (g.min !== undefined && (!Number.isInteger(g.min) || g.min < 1 || g.min > g.max)) err(`${w}: min must be an integer from 1 to max`);
+    // A group without a gate is always open. Count-based groups are not supported yet.
+    const gate = g.gate === undefined ? undefined : byId.get(g.gate);
+    if (g.gate !== undefined && !gate) err(`${w}: unknown gate ${g.gate}`);
+    else if (gate) {
       if (gate.type !== 'YN') err(`${w}: gate ${g.gate} must be a YN question`);
       if (gate.section !== g.section) err(`${w}: gate must be in the same section`);
       if (gate.group) err(`${w}: gate cannot be a group member`);
@@ -738,6 +760,8 @@ module.exports = {
   getQuestion,
   isVisible,
   getVisibleQuestions,
+  isSectionVisible,
+  getVisibleSections,
   resolveOptions,
   pruneAnswers,
   validateSection,

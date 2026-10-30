@@ -37,6 +37,8 @@ const cfg = {
     { id: 'q2_5', number: '2.5', section: 'B', label: 'Item note', type: 'TXT', required: true, group: 'items' },
     { id: 'q3_1', number: '3.1', section: 'C', label: 'Expiry', type: 'DATE', required: true, rules: { after: 'q1_2' } },
     { id: 'q4_1', number: '4.1', section: 'D', label: 'Why not?', type: 'TXT', required: true, showWhen: { q: 'q1_1', eq: false } },
+    // Always shown, so section D applies whatever 1.1 is. A section with nothing visible cannot be saved.
+    { id: 'q4_2', number: '4.2', section: 'D', label: 'Note', type: 'TXT', required: false },
   ],
 };
 

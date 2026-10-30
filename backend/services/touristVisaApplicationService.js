@@ -50,18 +50,18 @@ class TouristVisaApplicationService {
   async createOrGetDraft(userId) {
     const existing = await this.repository.findLatestByApplicant(userId);
     if (existing) {
-      return { application: toClient(existing), created: false };
+      return { application: this.present(existing), created: false };
     }
 
     try {
       const created = await this.repository.createDraft(userId);
-      return { application: toClient(created), created: true };
+      return { application: this.present(created), created: true };
     } catch (error) {
       // A concurrent request created the draft first (unique index); return that one.
       if (error && error.code === 11000) {
         const winner = await this.repository.findLatestByApplicant(userId);
         if (winner) {
-          return { application: toClient(winner), created: false };
+          return { application: this.present(winner), created: false };
         }
       }
       throw error;
@@ -76,7 +76,30 @@ class TouristVisaApplicationService {
     if (!application) {
       throw new AppError("You have not started a Tourist Visa application yet.", 404);
     }
-    return toClient(application);
+    return this.present(application);
+  }
+
+  /**
+   * What the applicant is shown. The stored state with two things worked out from the
+   * current config and answers, so an application saved under an older version of the
+   * config is never shown as more complete than it is:
+   *  - a section stored as saved that no longer validates (a question was added, a rule
+   *    changed) is shown as needs_review;
+   *  - sections that do not apply (none of their questions is visible) carry no status,
+   *    and the resume point skips them.
+   * Nothing is written; the stored values are corrected the next time a section is saved.
+   */
+  present(application) {
+    const view = toClient(application);
+    const statuses = {};
+    for (const section of engine.getVisibleSections(this.config, view.answers)) {
+      const state = view.sectionStatus[section.id];
+      if (state === "saved" && !this.sectionStillValid(section.id, view.answers)) statuses[section.id] = "needs_review";
+      else if (state) statuses[section.id] = state;
+    }
+    view.sectionStatus = statuses;
+    view.currentSection = this.resumeSection(statuses, view.answers);
+    return view;
   }
 
   /**
@@ -111,6 +134,9 @@ class TouristVisaApplicationService {
     }
 
     const existing = application.answers || {};
+    if (!engine.isSectionVisible(cfg, sectionId, existing)) {
+      return { saved: false, status: 400, message: "This section does not apply to your application." };
+    }
     const result = engine.validateSection(z, cfg, sectionId, body.answers, existing);
     if (result.unknownKeys.length) {
       return { saved: false, status: 400, message: "Some fields do not belong to this section." };
@@ -137,11 +163,18 @@ class TouristVisaApplicationService {
     for (const id of needsReview) sectionStatus[id] = "needs_review";
     const statuses = { ...previous, ...sectionStatus };
 
+    // A section that no longer applies (for example 4A once 2.13 stops indicating a partner)
+    // has no status at all, neither saved nor needing review. If it applies again it starts fresh.
+    const visibleIds = new Set(engine.getVisibleSections(cfg, pruned).map((s) => s.id));
+    const clearStatus = cfg.sections.map((s) => s.id).filter((id) => !visibleIds.has(id) && previous[id] !== undefined);
+    for (const id of clearStatus) delete statuses[id];
+
     const updated = await this.repository.saveSection(application._id, userId, {
       answers: result.data,
       unset: [...toUnset],
       sectionStatus,
-      currentSection: this.resumeSection(statuses),
+      clearStatus,
+      currentSection: this.resumeSection(statuses, pruned),
     });
 
     if (!updated) {
@@ -153,7 +186,7 @@ class TouristVisaApplicationService {
       throw new AppError("You have not started a Tourist Visa application yet.", 404);
     }
 
-    return { saved: true, application: toClient(updated), needsReview, removed: [...toUnset] };
+    return { saved: true, application: this.present(updated), needsReview, removed: [...toUnset] };
   }
 
   /** Answer keys that belong to a section: its questions and its repeating groups. */
@@ -176,26 +209,35 @@ class TouristVisaApplicationService {
 
     for (const section of cfg.sections) {
       if (section.id === savedSectionId || previousStatus[section.id] !== "saved") continue;
+      if (!engine.isSectionVisible(cfg, section.id, after)) continue; // it no longer applies; its status is cleared instead
 
       const keys = new Set(this.sectionKeys(section.id));
       const hadRemovals = removedIds.some((id) => keys.has(id));
       const shownBefore = engine.getVisibleQuestions(cfg, section.id, before).map((q) => q.id).join();
       const shownAfter = engine.getVisibleQuestions(cfg, section.id, after).map((q) => q.id).join();
 
-      const stored = {};
-      for (const id of keys) if (after[id] !== undefined) stored[id] = after[id];
-      const stillValid = engine.validateSection(z, cfg, section.id, stored, after).success;
+      const stillValid = this.sectionStillValid(section.id, after);
 
       if (hadRemovals || shownBefore !== shownAfter || !stillValid) affected.push(section.id);
     }
     return affected;
   }
 
-  /** Where the applicant resumes: the first section not saved, or the last one when all are. */
-  resumeSection(statuses) {
-    const sections = this.config.sections;
+  /** Does the section's stored answers still pass validation against the given application answers? */
+  sectionStillValid(sectionId, answers) {
+    const stored = {};
+    for (const id of this.sectionKeys(sectionId)) if (answers[id] !== undefined) stored[id] = answers[id];
+    return engine.validateSection(z, this.config, sectionId, stored, answers).success;
+  }
+
+  /**
+   * Where the applicant resumes: the first section that applies and is not saved, or the
+   * last one that applies when all are. Sections that do not apply are skipped.
+   */
+  resumeSection(statuses, answers) {
+    const sections = engine.getVisibleSections(this.config, answers || {});
     const next = sections.find((s) => statuses[s.id] !== "saved");
-    return (next || sections[sections.length - 1]).id;
+    return (next || sections[sections.length - 1] || this.config.sections[0]).id;
   }
 }
 

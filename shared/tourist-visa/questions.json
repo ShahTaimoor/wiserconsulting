@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0-draft",
+  "version": "0.2.0-draft",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
@@ -8,14 +8,20 @@
   },
   "parts": [
     { "id": "1", "title": "Travel information" },
-    { "id": "2", "title": "Personal information" }
+    { "id": "2", "title": "Personal information" },
+    { "id": "3", "title": "Passport details" },
+    { "id": "4", "title": "Family" }
   ],
   "sections": [
     { "id": "1", "part": "1", "title": "Travel information" },
     { "id": "2A", "part": "2", "title": "Name, email and contact preferences" },
     { "id": "2B", "part": "2", "title": "Identity and background" },
     { "id": "2C", "part": "2", "title": "Address and living situation" },
-    { "id": "2D", "part": "2", "title": "Telephone" }
+    { "id": "2D", "part": "2", "title": "Telephone" },
+    { "id": "3", "part": "3", "title": "Passport details" },
+    { "id": "4A", "part": "4", "title": "Spouse or partner details" },
+    { "id": "4B", "part": "4", "title": "Dependants" },
+    { "id": "4C", "part": "4", "title": "Parent details" }
   ],
   "groups": [
     {
@@ -26,6 +32,23 @@
       "max": 20,
       "questions": ["q2_3a", "q2_3b"],
       "tbc": "Fields of the other-names group are to confirm (spec 2.3a, 2.3b)."
+    },
+    {
+      "id": "dependants",
+      "section": "4B",
+      "entryLabel": "Dependant",
+      "gate": "q4_7",
+      "max": 20,
+      "questions": ["q4_7a", "q4_7b", "q4_7c", "q4_7d", "q4_7e", "q4_7f"]
+    },
+    {
+      "id": "parents",
+      "section": "4C",
+      "entryLabel": "Parent",
+      "min": 1,
+      "max": 20,
+      "questions": ["q4_8a", "q4_8b", "q4_8c", "q4_8d", "q4_8e", "q4_8f"],
+      "tbc": "Spec 4.8 does not say whether a Yes/No question opens this group or how many parents are required. Default: no Yes/No question, the group is always shown and needs at least 1 entry (up to the group limit). To confirm."
     }
   ],
   "questions": [
@@ -248,9 +271,10 @@
       "required": true,
       "options": [
         { "value": "tbc_single", "label": "[TBC] Single" },
-        { "value": "tbc_married", "label": "[TBC] Married" }
+        { "value": "tbc_married", "label": "[TBC] Married" },
+        { "value": "tbc_partner", "label": "[TBC] Unmarried partner" }
       ],
-      "tbc": "Option list to confirm, and which statuses show the spouse or partner questions in Part 4.",
+      "tbc": "Option list to confirm, and which statuses show the spouse or partner questions in Part 4. Placeholder mapping: tbc_married and tbc_partner show section 4A; tbc_single does not.",
       "note": "The answer decides whether the spouse or partner questions in Part 4 appear."
     },
     {
@@ -343,6 +367,16 @@
       "type": "YN",
       "required": true,
       "tbc": "Follow-up questions for the Yes path are to confirm."
+    },
+    {
+      "id": "q2_23a",
+      "number": "2.23a",
+      "section": "2B",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q2_23", "eq": true },
+      "tbc": "Placeholder. The real follow-up for the Yes path of 2.23 is to be confirmed. It is one plain text box on purpose: no questions about identity or passport numbers of another country."
     },
 
     {
@@ -470,6 +504,232 @@
         { "value": "sms", "label": "Text message (SMS)" }
       ],
       "tbc": "The printout shows these two choices. The full option list is to confirm."
+    },
+
+    {
+      "id": "q3_1",
+      "number": "3.1",
+      "section": "3",
+      "label": "Passport number or travel document reference number",
+      "type": "TXT",
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "id": "q3_2",
+      "number": "3.2",
+      "section": "3",
+      "label": "Issuing authority",
+      "type": "TXT",
+      "required": true
+    },
+    {
+      "id": "q3_3",
+      "number": "3.3",
+      "section": "3",
+      "label": "Issue date",
+      "type": "DATE",
+      "required": true,
+      "rules": { "notFuture": true },
+      "note": "notFuture is a sanity rule added by us, in line with the other issue dates (2.21). The spec does not list it."
+    },
+    {
+      "id": "q3_4",
+      "number": "3.4",
+      "section": "3",
+      "label": "Expiry date",
+      "type": "DATE",
+      "required": true,
+      "rules": { "after": ["q3_3", "q1_7"] },
+      "note": "After the issue date (3.3) and after the planned leave date in section 1 (1.7). The leave-date check is skipped until section 1 has an answer."
+    },
+
+    {
+      "id": "q4_1",
+      "number": "4.1",
+      "section": "4A",
+      "label": "Given names",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q2_13", "in": ["tbc_married", "tbc_partner"] },
+      "tbc": "Which relationship statuses of 2.13 show the spouse or partner questions is to confirm. Placeholder mapping: tbc_married and tbc_partner show them, tbc_single does not. 4.2 to 4.6 follow the same condition."
+    },
+    {
+      "id": "q4_2",
+      "number": "4.2",
+      "section": "4A",
+      "label": "Family name",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q2_13", "in": ["tbc_married", "tbc_partner"] }
+    },
+    {
+      "id": "q4_3",
+      "number": "4.3",
+      "section": "4A",
+      "label": "Date of birth",
+      "type": "DATE",
+      "required": true,
+      "showWhen": { "q": "q2_13", "in": ["tbc_married", "tbc_partner"] },
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q4_4",
+      "number": "4.4",
+      "section": "4A",
+      "label": "Country of nationality",
+      "type": "CTRY",
+      "required": true,
+      "showWhen": { "q": "q2_13", "in": ["tbc_married", "tbc_partner"] }
+    },
+    {
+      "id": "q4_5",
+      "number": "4.5",
+      "section": "4A",
+      "label": "Do they currently live with you?",
+      "type": "YN",
+      "required": true,
+      "showWhen": { "q": "q2_13", "in": ["tbc_married", "tbc_partner"] }
+    },
+    {
+      "id": "q4_6",
+      "number": "4.6",
+      "section": "4A",
+      "label": "Will they be travelling with you to the UK?",
+      "type": "YN",
+      "required": true,
+      "showWhen": { "q": "q2_13", "in": ["tbc_married", "tbc_partner"] }
+    },
+
+    {
+      "id": "q4_7",
+      "number": "4.7",
+      "section": "4B",
+      "label": "Does anyone rely on you for financial support? Include both those travelling with you and those who are not.",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q4_7a",
+      "number": "4.7a",
+      "section": "4B",
+      "label": "What is this person's relationship to you?",
+      "type": "SEL",
+      "required": true,
+      "group": "dependants",
+      "options": [
+        { "value": "tbc_child", "label": "[TBC] Child" },
+        { "value": "tbc_other", "label": "[TBC] Other relative" }
+      ],
+      "tbc": "Option list to confirm."
+    },
+    {
+      "id": "q4_7b",
+      "number": "4.7b",
+      "section": "4B",
+      "label": "Given names",
+      "type": "TXT",
+      "required": true,
+      "group": "dependants"
+    },
+    {
+      "id": "q4_7c",
+      "number": "4.7c",
+      "section": "4B",
+      "label": "Family name",
+      "type": "TXT",
+      "required": true,
+      "group": "dependants"
+    },
+    {
+      "id": "q4_7d",
+      "number": "4.7d",
+      "section": "4B",
+      "label": "Date of birth",
+      "type": "DATE",
+      "required": true,
+      "group": "dependants",
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q4_7e",
+      "number": "4.7e",
+      "section": "4B",
+      "label": "Does this person currently live with you?",
+      "type": "YN",
+      "required": true,
+      "group": "dependants"
+    },
+    {
+      "id": "q4_7f",
+      "number": "4.7f",
+      "section": "4B",
+      "label": "Is this person travelling with you to the UK?",
+      "type": "YN",
+      "required": true,
+      "group": "dependants"
+    },
+
+    {
+      "id": "q4_8a",
+      "number": "4.8a",
+      "section": "4C",
+      "label": "What is this person's relationship to you?",
+      "type": "SEL",
+      "required": true,
+      "group": "parents",
+      "options": [
+        { "value": "tbc_mother", "label": "[TBC] Mother" },
+        { "value": "tbc_father", "label": "[TBC] Father" }
+      ],
+      "tbc": "Option list to confirm."
+    },
+    {
+      "id": "q4_8b",
+      "number": "4.8b",
+      "section": "4C",
+      "label": "Given names",
+      "type": "TXT",
+      "required": true,
+      "group": "parents"
+    },
+    {
+      "id": "q4_8c",
+      "number": "4.8c",
+      "section": "4C",
+      "label": "Family name",
+      "type": "TXT",
+      "required": true,
+      "group": "parents"
+    },
+    {
+      "id": "q4_8d",
+      "number": "4.8d",
+      "section": "4C",
+      "label": "Date of birth",
+      "type": "DATE",
+      "required": true,
+      "group": "parents",
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q4_8e",
+      "number": "4.8e",
+      "section": "4C",
+      "label": "Country of nationality",
+      "type": "CTRY",
+      "required": true,
+      "group": "parents"
+    },
+    {
+      "id": "q4_8f",
+      "number": "4.8f",
+      "section": "4C",
+      "label": "Have they always had the same nationality?",
+      "type": "YN",
+      "required": true,
+      "group": "parents",
+      "tbc": "Follow-up questions for the No path are to confirm."
     }
   ]
 }
