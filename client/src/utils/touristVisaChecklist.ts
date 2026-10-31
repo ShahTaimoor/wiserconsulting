@@ -5,7 +5,7 @@
  * Plain functions with type-only imports, so they can be unit tested with `node --test`.
  */
 
-import { documentsStatus, getHeldSections, getVisibleSections, isFilesOnlySection } from "../shared/tourist-visa/engine.js";
+import { documentsStatus, getHeldSections, getQuestion, getVisibleSections, isFilesOnlySection } from "../shared/tourist-visa/engine.js";
 import type { Answers, TouristVisaConfig } from "../shared/tourist-visa/engine.js";
 import type { TouristVisaApplication } from "@/services/touristVisaService";
 
@@ -84,6 +84,48 @@ export function buildChecklist(
     saved: all.filter((s) => s.state === "saved").length,
     needsReview: all.filter((s) => s.state === "needs_review").length,
   };
+}
+
+/** One thing still missing before an application can be submitted: a section, why, and where to fix it. */
+export interface MissingItem {
+  id: string;
+  title: string;
+  state: ChecklistState;
+  reason: string;
+  href: string;
+}
+
+export interface Readiness {
+  /** True for a draft in which every section that applies is complete and both documents are uploaded. */
+  ready: boolean;
+  /** What is still missing, in form order. Empty when ready, and for an application that is not a draft. */
+  missing: MissingItem[];
+}
+
+/**
+ * Is the draft ready to review and submit? Every section that applies has to be saved (the documents section only
+ * counts once both slots have a file). Otherwise it says what is still missing, section by section, with where to
+ * go. The server checks all of this again at submit and has the last word.
+ */
+export function getReadiness(
+  config: TouristVisaConfig,
+  application: (Pick<TouristVisaApplication, "status" | "sectionStatus"> & { answers?: Record<string, unknown>; documents?: Array<{ slot: string }> }) | null
+): Readiness {
+  if (!application || application.status !== "draft") return { ready: false, missing: [] };
+  const sections = buildChecklist(config, application).parts.flatMap((part) => part.sections);
+  const missing = sections
+    .filter((section) => section.state !== "saved")
+    .map((section): MissingItem => {
+      let reason = section.state === "needs_review" ? "Needs another look" : section.state === "in_progress" ? "Not finished" : "Not started yet";
+      if (isFilesOnlySection(config, section.id)) {
+        const labels = documentsStatus(config, application.documents ?? [], section.id)
+          .slots.filter((slot) => slot.count === 0)
+          .map((slot) => getQuestion(config, slot.questionId)?.label ?? slot.slot);
+        if (labels.length > 0) reason = "Upload a file for: " + labels.join(" and ");
+      }
+      return { id: section.id, title: section.title, state: section.state, reason, href: "/tourist-visa/" + section.id };
+    });
+  return { ready: missing.length === 0, missing };
 }
 
 /**

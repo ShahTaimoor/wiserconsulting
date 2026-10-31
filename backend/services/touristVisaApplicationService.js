@@ -9,6 +9,22 @@ const defaultRepository = require("../repositories/touristVisaApplicationReposit
 const engine = require("../shared/tourist-visa/engine");
 const { AppError } = require("../middleware/errorHandler");
 const { toDocumentView } = require("../utils/touristVisaDocumentView");
+const { buildReview } = require("../shared/tourist-visa/view");
+const logger = require("../utils/logger");
+
+// A reference is "TV-" and eight characters from an alphabet without look-alikes (no 0, O, 1, I or L), so it can be
+// read out over the phone. 31 characters, eight places: about 850 billion references.
+const REFERENCE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const REFERENCE_LENGTH = 8;
+const REFERENCE_ATTEMPTS = 5; // tries before giving up when a reference is already taken
+const SUBMIT_ATTEMPTS = 3; // times the application is read and checked again when it changes while being submitted
+
+/** A new reference such as TV-K7M2QX9P. `pick(n)` returns a whole number from 0 to n - 1 (crypto.randomInt by default). */
+function generateReference(pick = (n) => crypto.randomInt(n)) {
+  let text = "";
+  for (let i = 0; i < REFERENCE_LENGTH; i += 1) text += REFERENCE_ALPHABET[pick(REFERENCE_ALPHABET.length)];
+  return `TV-${text}`;
+}
 
 /**
  * What the client is allowed to see. An allowlist, so a field added to the
@@ -27,6 +43,8 @@ const toClient = (application) => ({
   // Metadata only (id, slot, name, size, type, time): no link and no storage id. The names arrive decrypted.
   documents: (application.documents || []).map(toDocumentView),
   submittedAt: application.submittedAt || null,
+  // Given when the application is submitted; null before.
+  reference: application.reference || null,
   createdAt: application.createdAt,
   updatedAt: application.updatedAt,
 });
@@ -34,9 +52,12 @@ const toClient = (application) => ({
 const isPlainObject = (v) => Object.prototype.toString.call(v) === "[object Object]";
 
 class TouristVisaApplicationService {
-  constructor({ repository = defaultRepository, config = engine.config } = {}) {
+  constructor({ repository = defaultRepository, config = engine.config, now = () => new Date(), newReference = generateReference } = {}) {
     this.repository = repository;
     this.config = config;
+    this.now = now;
+    this.newReference = newReference;
+    this.snapshots = new Map(); // sha256 -> parsed config of a submitted application, so each is read once
   }
 
   /**
@@ -89,7 +110,8 @@ class TouristVisaApplicationService {
     const view = toClient(application);
     // A declaration tick whose wording has changed since it was given (or that has no record) is shown
     // unticked, so the applicant ticks the words they are now shown. Stored answers are not touched.
-    const stale = this.staleDeclarations(application);
+    // Only a draft is checked: a submitted application keeps the ticks it was submitted with, whatever the wording says now.
+    const stale = application.status === "draft" ? this.staleDeclarations(application) : [];
     if (stale.length) {
       view.answers = { ...view.answers };
       for (const id of stale) delete view.answers[id];
@@ -133,10 +155,6 @@ class TouristVisaApplicationService {
     if (!cfg.sections.some((s) => s.id === sectionId)) {
       throw new AppError("Section not found.", 404);
     }
-    if (engine.isFilesOnlySection(cfg, sectionId)) {
-      // 10D has no answers: its files are saved as they are uploaded, and its status follows them.
-      return { saved: false, status: 400, message: "This section has no answers to save. Files are saved as soon as they are uploaded." };
-    }
     this.repository.assertEncryptionReady(); // refuse to save at all without the key
 
     const application = await this.repository.findLatestByApplicant(userId);
@@ -145,6 +163,12 @@ class TouristVisaApplicationService {
     }
     if (application.status !== "draft") {
       throw new AppError("This application has been submitted and can no longer be edited.", 409);
+    }
+
+    // (checked after the lock, so a submitted application answers the locked error for every section)
+    if (engine.isFilesOnlySection(cfg, sectionId)) {
+      // 10D has no answers: its files are saved as they are uploaded, and its status follows them.
+      return { saved: false, status: 400, message: "This section has no answers to save. Files are saved as soon as they are uploaded." };
     }
 
     if (!isPlainObject(body) || Object.keys(body).some((k) => k !== "answers") || !isPlainObject(body.answers)) {
@@ -206,6 +230,159 @@ class TouristVisaApplicationService {
     }
 
     return { saved: true, application: this.present(updated), needsReview, removed: [...toUnset] };
+  }
+
+  // -------------------------------------------------------------------------
+  // Submitting
+  // -------------------------------------------------------------------------
+
+  /** The config as text and its SHA-256: what a submitted application is stored with. Worked out once. */
+  configSnapshot() {
+    if (!this.snapshot) {
+      const json = JSON.stringify(this.config);
+      this.snapshot = { json, sha256: crypto.createHash("sha256").update(json, "utf8").digest("hex") };
+    }
+    return this.snapshot;
+  }
+
+  /**
+   * What stops this draft from being submitted: for each section that applies, how many problems it has
+   * ({ id, problems }, in form order). Only ids and counts, never an answer. A section counts when it has not been
+   * saved or needs another look, when its stored answers do not pass the current rules, when a Part 9 tick no
+   * longer matches the current wording, or (the documents section) when a file question has no file yet.
+   */
+  submitProblems(application) {
+    const cfg = this.config;
+    const view = this.present(application); // for a draft: stale ticks already removed, statuses already worked out
+    const found = [];
+    for (const section of engine.getVisibleSections(cfg, view.answers)) {
+      let problems = 0;
+      if (engine.isFilesOnlySection(cfg, section.id)) {
+        problems = engine.documentsStatus(cfg, view.documents, section.id).slots.filter((slot) => slot.count === 0).length;
+      } else {
+        const stored = {};
+        for (const id of this.sectionKeys(section.id)) if (view.answers[id] !== undefined) stored[id] = view.answers[id];
+        const result = engine.validateSection(z, cfg, section.id, stored, view.answers);
+        problems = Object.keys(result.errors).length + result.unknownKeys.length;
+        if (view.sectionStatus[section.id] !== "saved") problems = Math.max(problems, 1);
+      }
+      if (problems > 0) found.push({ id: section.id, problems });
+    }
+    return found;
+  }
+
+  /**
+   * Submit the applicant's own draft: draft -> submitted.
+   *
+   * Everything is checked again against the current config first (every section, the documents, every Part 9 tick and
+   * the final declaration). Nothing is submitted unless all of it passes, and the answer to a failure names sections and counts only.
+   * The change itself is one conditional write that matches only if the application is still a draft AND has not
+   * changed since it was checked, so of two submits at the same moment exactly one wins and the other is told it is
+   * already submitted. The config it is submitted under is kept (once per distinct config), a reference is given, and
+   * the final declaration is recorded like the Part 9 ticks: hash of the exact wording, time, user, config version, no IP.
+   * Returns { application, reference }.
+   */
+  async submit(userId, body) {
+    if (!isPlainObject(body) || Object.keys(body).some((key) => key !== "declarationAccepted")) {
+      throw new AppError('Send the request as { "declarationAccepted": true }.', 400, "INVALID_REQUEST");
+    }
+    this.repository.assertEncryptionReady(); // the answers cannot be read back without the key
+
+    for (let attempt = 0; attempt < SUBMIT_ATTEMPTS; attempt += 1) {
+      const application = await this.repository.findLatestByApplicant(userId);
+      if (!application) throw new AppError("You have not started a Tourist Visa application yet.", 404, "APPLICATION_NOT_FOUND");
+      if (application.status !== "draft") throw new AppError("This application has already been submitted.", 409, "ALREADY_SUBMITTED");
+
+      const sections = this.submitProblems(application);
+      const declarationMissing = body.declarationAccepted !== true;
+      if (sections.length > 0 || declarationMissing) {
+        throw new AppError("Your application is not ready to submit yet.", 422, "NOT_READY", { sections, declarationMissing });
+      }
+
+      const { sha256, json } = this.configSnapshot();
+      await this.repository.saveConfigSnapshot({ sha256, version: this.config.version, json });
+
+      const submittedAt = this.now();
+      const declarationRecord = {
+        wordingSha256: this.wordingHash("declarations.submit"),
+        configVersion: this.config.version,
+        acceptedAt: submittedAt,
+        acceptedBy: userId,
+      };
+      const submitted = await this.writeSubmission(application, userId, { sha256, submittedAt, declarationRecord });
+      if (submitted) {
+        logger.info("Tourist Visa application submitted", { applicationId: String(submitted._id) }); // ids only
+        return { application: this.present(submitted), reference: submitted.reference };
+      }
+
+      // It did not match: someone else submitted it, or it changed while it was being checked.
+      const current = await this.repository.findLatestByApplicant(userId);
+      if (current && current.status !== "draft") throw new AppError("This application has already been submitted.", 409, "ALREADY_SUBMITTED");
+    }
+    throw new AppError("Your application changed while it was being submitted. Please check it and try again.", 409, "APPLICATION_CHANGED");
+  }
+
+  /** The conditional write, with another reference when one is already taken. Returns the application, or null if it did not match. */
+  async writeSubmission(application, userId, { sha256, submittedAt, declarationRecord }) {
+    for (let attempt = 0; attempt < REFERENCE_ATTEMPTS; attempt += 1) {
+      try {
+        return await this.repository.submitApplication(application._id, userId, {
+          expectedUpdatedAt: application.updatedAt,
+          reference: this.newReference(),
+          configSha256: sha256,
+          configVersion: this.config.version,
+          declarationRecord,
+          submittedAt,
+        });
+      } catch (error) {
+        if (!this.repository.isReferenceCollision(error)) throw error;
+      }
+    }
+    logger.error("Tourist Visa reference could not be made unique", { attempts: REFERENCE_ATTEMPTS });
+    throw new AppError("Your application could not be submitted just now. Please try again.", 503, "REFERENCE_UNAVAILABLE");
+  }
+
+  /** The config a submitted application was submitted under (the live one for a draft). */
+  async configOf(application) {
+    if (application.status === "draft" || !application.configSha256) return this.config;
+    const known = this.snapshots.get(application.configSha256);
+    if (known) return known;
+    const snapshot = await this.repository.findConfigSnapshot(application.configSha256);
+    let parsed;
+    try {
+      parsed = JSON.parse(snapshot.json);
+    } catch {
+      parsed = null;
+    }
+    if (!parsed) {
+      logger.error("Tourist Visa config snapshot is missing or unreadable", { applicationId: String(application._id) });
+      throw new AppError("Your application could not be shown. Please contact support.", 500, "SNAPSHOT_UNAVAILABLE");
+    }
+    this.snapshots.set(application.configSha256, parsed);
+    return parsed;
+  }
+
+  /**
+   * The applicant's own application as a readable review: the shared view builder over the decrypted answers, the
+   * files (names and sizes only) and the declaration records, using the config the application was submitted under.
+   * Only the owner gets it. No link and no storage id is in it.
+   */
+  async getReview(userId) {
+    const application = await this.repository.findLatestByApplicant(userId);
+    if (!application) throw new AppError("You have not started a Tourist Visa application yet.", 404, "APPLICATION_NOT_FOUND");
+    const view = this.present(application);
+    const cfg = await this.configOf(application);
+    const documents = view.documents.map((doc) => ({ slot: doc.slot, name: doc.name, size: doc.size }));
+    const record = application.declarations && application.declarations.submit;
+    return {
+      review: buildReview(cfg, view.answers, documents, application.declarations || {}),
+      status: application.status,
+      reference: application.reference || null,
+      submittedAt: application.submittedAt || null,
+      configVersion: application.configVersion,
+      documentsComplete: view.documentsComplete,
+      declaration: { text: cfg.declarations.submit.text, acceptedAt: record ? record.acceptedAt : null },
+    };
   }
 
   /** SHA-256 of the exact words of a declaration question (its tick text and guidance). */
@@ -293,4 +470,6 @@ class TouristVisaApplicationService {
 }
 
 module.exports = new TouristVisaApplicationService();
+module.exports.generateReference = generateReference;
+module.exports.REFERENCE_ALPHABET = REFERENCE_ALPHABET;
 module.exports.TouristVisaApplicationService = TouristVisaApplicationService;

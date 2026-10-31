@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,7 +35,14 @@ function Message({ title, children, action }: { title: string; children?: React.
 /** One section of the application. The form itself is SectionForm; this page decides whether to show it. */
 export default function TouristVisaSectionPage() {
   const params = useParams<{ sectionId: string }>();
+  const router = useRouter();
   const { state, serverClosed, reload } = useTouristVisa();
+
+  // A submitted application is read only: any section address goes to the review page, never to an editable form.
+  const submitted = state.status === "ready" && state.application !== null && state.application.status !== "draft";
+  useEffect(() => {
+    if (submitted) router.replace("/tourist-visa/review");
+  }, [submitted, router]);
 
   const section = config.sections.find((s) => s.id === params.sectionId);
   // Closed if either side says so: this build's own gate, or the server's TOURIST_VISA_ENABLED switch.
@@ -63,7 +71,7 @@ export default function TouristVisaSectionPage() {
   } else if (!state.application) {
     content = <Message title="Start your application first" action={dashboard}>You need to start an application before you can fill in a section.</Message>;
   } else if (state.application.status !== "draft") {
-    content = <Message title="This application has been submitted" action={dashboard}>It can no longer be edited.</Message>;
+    content = <Message title="This application has been submitted" action={{ href: "/tourist-visa/review", label: "View your application" }}>Taking you to your submitted application. It can no longer be edited.</Message>;
   } else if (!isSectionVisible(config, section.id, state.application.answers as Answers)) {
     content = (
       <Message title="This section doesn't apply to you" action={dashboard}>

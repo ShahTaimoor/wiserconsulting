@@ -12,8 +12,11 @@
  * Output: the config version, each part with its sections and their state, a count, then the
  * open tbc items and the drafts of every section that has them.
  *
- * Declaration wording that is not a question (the final submit declaration) is listed on its own and counts as a
- * draft too.
+ * Wording that is not a question is listed on its own and counts as a draft too: the final submit declaration
+ * (`declarations.submit`, ticked on the review page) and the text shown after submitting (`afterSubmit`).
+ *
+ * It also proves that the review page can be built from the config (the shared view builder runs over it), because
+ * submitting is only possible through that page, and prints what the applicant flow needs from the config.
  *
  * Exit code: 1 while any section is blocked, 2 when nothing is blocked but drafts or wording still need
  * review, 0 when everything is clear. The client form opens to applicants only at exit code 0
@@ -27,12 +30,21 @@ const fs = require('fs');
 const engine = require('../shared/tourist-visa/engine');
 
 const { getReleaseBlockers, getDraftItems, getWordingDrafts, validateConfig } = engine;
+const { buildReview } = require('../shared/tourist-visa/view');
 // Checks the real config, or the questions.json file given as the first argument (used by the tests).
 const config = process.argv[2] ? JSON.parse(fs.readFileSync(process.argv[2], 'utf8')) : engine.config;
 
 const configProblems = validateConfig(config);
 if (configProblems.length) {
   console.error('Invalid config:\n  ' + configProblems.join('\n  '));
+  process.exit(1);
+}
+
+// The review page and the submit step read the whole config through the view builder. If it cannot, nothing can be released.
+try {
+  buildReview(config, {}, [], {});
+} catch (error) {
+  console.error('The review page cannot be built from this config: ' + error.message);
   process.exit(1);
 }
 
@@ -80,8 +92,12 @@ if (drafts.length) {
   }
 }
 
+const submitState = config.declarations && config.declarations.submit && config.declarations.submit.draft ? 'draft wording' : 'approved wording';
+const afterState = config.afterSubmit && config.afterSubmit.draft ? 'draft wording' : 'approved wording';
+console.log(`Submit: final declaration ${submitState}; text shown after submitting ${afterState}.`);
+
 if (wording.length) {
-  console.error('\nNeeds senior approval: declaration wording (not a question; kept in the config under "declarations"):');
+  console.error('\nNeeds senior approval: wording that is not a question (the final declaration under "declarations", and the text shown after submitting under "afterSubmit"):');
   for (const w of wording) console.error(`\n    ${w.id}: ${w.draft}`);
 }
 

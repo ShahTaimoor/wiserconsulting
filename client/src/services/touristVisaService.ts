@@ -1,4 +1,6 @@
 /** in_progress is worked out by the server for the documents section (10D) from the uploaded files. */
+import type { Review } from "../shared/tourist-visa/view.js";
+
 export type SectionState = "saved" | "needs_review" | "in_progress";
 export type ApplicationStatus = "draft" | "submitted" | "in_review" | "completed";
 
@@ -14,6 +16,24 @@ export interface TouristVisaDocument {
   /** "application/pdf", "image/jpeg" or "image/png", worked out from the file's content. */
   type: string;
   uploadedAt: string;
+}
+
+/** One section that stops a submit, and how many things in it need attention. Never an answer. */
+export interface SubmitProblem {
+  id: string;
+  problems: number;
+}
+
+/** The applicant's application as a readable review (built on the server by the shared view builder). */
+export interface ReviewData {
+  review: Review;
+  status: ApplicationStatus;
+  reference: string | null;
+  submittedAt: string | null;
+  configVersion: string;
+  documentsComplete: boolean;
+  /** The final declaration: the wording as the server holds it, and when it was accepted (null for a draft). */
+  declaration: { text: string; acceptedAt: string | null };
 }
 
 /** What the server allows, sent with the list of files so nothing is hard-coded here. */
@@ -38,6 +58,8 @@ export interface TouristVisaApplication {
   /** True when every file question has at least one file (the rule for submitting). */
   documentsComplete: boolean;
   submittedAt: string | null;
+  /** Given when the application is submitted (such as TV-K7M2QX9P); null before. */
+  reference: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -56,6 +78,10 @@ export class TouristVisaApiError extends Error {
   status: number;
   /** The server's machine-readable error name (for example "DOCUMENTS_LOCKED"), when it sent one. */
   code?: string;
+  /** For a 422 NOT_READY from a submit: the sections that need attention and how many things each has. */
+  sections?: SubmitProblem[];
+  /** For a 422 NOT_READY from a submit: the final declaration was not accepted. */
+  declarationMissing?: boolean;
   /** True when the server answered with its closed-switch response (404 + FEATURE_CLOSED). */
   closed = false;
   /** For a 422: error message per question, keyed "q1_7", "q2_24.line1" or "otherNames.1.q2_3b". */
@@ -83,7 +109,10 @@ interface ApiBody {
   code?: unknown;
   message?: unknown;
   errors?: unknown;
-  data?: {
+  sections?: unknown;
+  declarationMissing?: unknown;
+  data?: Partial<ReviewData> & {
+    reference?: string;
     application?: TouristVisaApplication;
     needsReview?: string[];
     removed?: string[];
@@ -143,7 +172,23 @@ function failure(status: number, json: ApiBody | null): TouristVisaApiError {
     return closed;
   }
   const message = typeof json?.message === "string" && json.message ? json.message : `Request failed with status ${status}`;
-  return new TouristVisaApiError(status, message, toFieldErrors(json?.errors), typeof json?.code === "string" ? json.code : undefined);
+  const error = new TouristVisaApiError(status, message, toFieldErrors(json?.errors), typeof json?.code === "string" ? json.code : undefined);
+  const sections = toSubmitProblems(json?.sections);
+  if (sections) error.sections = sections;
+  if (typeof json?.declarationMissing === "boolean") error.declarationMissing = json.declarationMissing;
+  return error;
+}
+
+/** Keeps only { id, problems } pairs of the right kind, so nothing unexpected from the server reaches the page. */
+function toSubmitProblems(value: unknown): SubmitProblem[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const kept: SubmitProblem[] = [];
+  for (const item of value) {
+    if (typeof item === "object" && item !== null && typeof (item as SubmitProblem).id === "string" && Number.isInteger((item as SubmitProblem).problems)) {
+      kept.push({ id: (item as SubmitProblem).id, problems: (item as SubmitProblem).problems });
+    }
+  }
+  return kept;
 }
 
 /** Keeps only string messages, so nothing unexpected from the server reaches the form. */
@@ -236,6 +281,27 @@ export const touristVisaService = {
     const document = json?.data?.document;
     if (!document) throw new TouristVisaApiError(502, "The server sent an unexpected response.");
     return document;
+  },
+
+  /** The applicant's application as a readable review (the live config for a draft, the submitted-under config once submitted). */
+  async getReview(token: string): Promise<ReviewData> {
+    const { status, json } = await request("/applications/me/review", "GET", token);
+    if (status < 200 || status >= 300) throw failure(status, json);
+    const data = json?.data;
+    if (!data?.review || !data.declaration || typeof data.status !== "string") throw new TouristVisaApiError(502, "The server sent an unexpected response.");
+    return data as ReviewData;
+  },
+
+  /**
+   * Submit the draft. The server checks everything again and answers 422 (a TouristVisaApiError with
+   * `sections` and `declarationMissing`) when something is not ready, or 409 with the code ALREADY_SUBMITTED.
+   */
+  async submitApplication(token: string, declarationAccepted: boolean): Promise<{ application: TouristVisaApplication; reference: string }> {
+    const { status, json } = await request("/applications/me/submit", "POST", token, { declarationAccepted });
+    if (status < 200 || status >= 300) throw failure(status, json);
+    const reference = json?.data?.reference;
+    if (typeof reference !== "string") throw new TouristVisaApiError(502, "The server sent an unexpected response.");
+    return { application: requireApplication(json), reference };
   },
 
   /** Delete one uploaded file (only while the application is a draft). */

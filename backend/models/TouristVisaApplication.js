@@ -71,6 +71,10 @@ const touristVisaApplicationSchema = new mongoose.Schema(
         },
         documents: [documentSchema],
         submittedAt: { type: Date },
+        // Given at submit: "TV-" and eight characters from an alphabet without look-alikes. Unique.
+        reference: { type: String },
+        // SHA-256 of the config the application was submitted under; its snapshot is in TouristVisaConfigSnapshot.
+        configSha256: { type: String },
         isDeleted: { type: Boolean, default: false },
     },
     {
@@ -85,6 +89,8 @@ touristVisaApplicationSchema.index(
     { unique: true, partialFilterExpression: { status: 'draft', isDeleted: false } }
 );
 touristVisaApplicationSchema.index({ applicant: 1, createdAt: -1 });
+// A reference belongs to one application. Applications that have none yet are not in the index.
+touristVisaApplicationSchema.index({ reference: 1 }, { unique: true, partialFilterExpression: { reference: { $type: 'string' } } });
 touristVisaApplicationSchema.index({ status: 1, createdAt: -1 });
 
 module.exports = mongoose.model('TouristVisaApplication', touristVisaApplicationSchema);

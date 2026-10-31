@@ -45,6 +45,24 @@ class TouristVisaApplicationController {
   })
 
   /**
+   * Submit my draft application ("Review and submit")
+   */
+  submitApplication = asyncHandler(async (req, res) => {
+    const { application, reference } = await touristVisaApplicationService.submit(req.user._id, req.body);
+
+    return ApiResponse.success(res, { application, reference }, 'Application submitted');
+  })
+
+  /**
+   * My application as a readable review (the shared view builder; the config it was submitted under once submitted)
+   */
+  getMyReview = asyncHandler(async (req, res) => {
+    const review = await touristVisaApplicationService.getReview(req.user._id);
+
+    return ApiResponse.success(res, review, 'Review retrieved successfully');
+  })
+
+  /**
    * Get my application
    */
   getMyApplication = asyncHandler(async (req, res) => {

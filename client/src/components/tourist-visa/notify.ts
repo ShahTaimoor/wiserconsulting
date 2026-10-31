@@ -38,6 +38,18 @@ export function notifyDocumentRemoved() {
   toast.success("File removed", { id: DOCUMENT_TOAST_ID, duration: 3000, style: THEMED });
 }
 
+// Submitting: fixed wording only, and one id so a retry replaces the toast.
+const SUBMIT_TOAST_ID = "tourist-visa-submit";
+
+export function notifySubmitted() {
+  toast.success("Application submitted", { id: SUBMIT_TOAST_ID, duration: 5000, style: THEMED });
+}
+
+/** `message` is one of the fixed texts of describeSubmitFailure. */
+export function notifySubmitFailed(message: string) {
+  toast.error(message, { id: SUBMIT_TOAST_ID, duration: 7000, style: THEMED });
+}
+
 /** `message` is one of the fixed texts of documentErrorMessage. */
 export function notifyDocumentFailed(message: string) {
   toast.error(message, { id: DOCUMENT_TOAST_ID, duration: 6000, style: THEMED });

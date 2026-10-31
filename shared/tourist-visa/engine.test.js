@@ -1646,12 +1646,13 @@ test('getHeldSections: a section is held while it has a tbc flag or a draft; not
   assert.deepEqual(held.find((h) => h.sectionId === '10B'), { sectionId: '10B', tbc: 0, draft: 2 });
   assert.deepEqual(held.find((h) => h.sectionId === '10C'), { sectionId: '10C', tbc: 0, draft: 4 });
   assert.deepEqual(held.find((h) => h.sectionId === '10D'), { sectionId: '10D', tbc: 0, draft: 2 });
-  assert.deepEqual(held.find((h) => h.sectionId === 'declarations'), { sectionId: 'declarations', tbc: 0, draft: 1 }, 'the submit declaration wording is still a draft');
+  assert.deepEqual(held.find((h) => h.sectionId === 'declarations'), { sectionId: 'declarations', tbc: 0, draft: 2 }, 'the submit declaration and the text after submitting are still drafts');
 
   const c = clone(config);
   for (const q of c.questions) { delete q.tbc; delete q.draft; }
   for (const g of c.groups) { delete g.tbc; delete g.draft; }
   for (const d of Object.values(c.declarations)) delete d.draft;
+  delete c.afterSubmit.draft;
   assert.deepEqual(engine.getHeldSections(c), []);
 
   // A single draft on a group is enough to hold its section.
@@ -2191,9 +2192,12 @@ test('wordingOf: the tick text and its guidance, whitespace-normalised; it chang
 
 test('declarations: the submit wording is kept in the config, is a draft and holds the form back until approved', () => {
   assert.ok(config.declarations.submit.text.length > 100);
-  assert.deepEqual(engine.getWordingDrafts(config).map((w) => w.id), ['declarations.submit']);
+  assert.deepEqual(engine.getWordingDrafts(config).map((w) => w.id), ['declarations.submit', 'afterSubmit']);
   const c = clone(config);
   delete c.declarations.submit.draft;
+  assert.deepEqual(engine.getWordingDrafts(c).map((w) => w.id), ['afterSubmit'], 'the text after submitting holds it back on its own');
+  assert.equal(engine.getHeldSections(c).some((h) => h.sectionId === 'declarations'), true);
+  delete c.afterSubmit.draft;
   assert.deepEqual(engine.getWordingDrafts(c), []);
   assert.equal(engine.getHeldSections(c).some((h) => h.sectionId === 'declarations'), false);
   assert.equal(engine.getHeldSections(config).some((h) => h.sectionId === 'declarations'), true);
@@ -2205,6 +2209,11 @@ test('declarations: validateConfig checks the wording block and that every tick 
     ['declaration without text', (c) => { c.declarations.submit.text = ' '; }, /declarations.submit: text is required/],
     ['empty draft note', (c) => { c.declarations.submit.draft = ''; }, /declarations.submit: draft must be a non-empty string/],
     ['optional tick', (c) => { c.questions.find((q) => q.id === 'q9_11').required = false; }, /an ACK question must be required/],
+    ['no final declaration', (c) => { delete c.declarations.submit; }, /declarations.submit is required/],
+    ['after-submit text that is not an object', (c) => { c.afterSubmit = 'text'; }, /afterSubmit must be an object/],
+    ['after-submit text with no steps', (c) => { c.afterSubmit.steps = []; }, /afterSubmit.steps must be a list of non-empty texts/],
+    ['after-submit text with a blank step', (c) => { c.afterSubmit.steps = ['One', ' ']; }, /afterSubmit.steps must be a list of non-empty texts/],
+    ['after-submit text with an empty draft note', (c) => { c.afterSubmit.draft = ''; }, /afterSubmit.draft must be a non-empty string/],
   ];
   for (const [name, mutate, pattern] of cases) {
     const c = clone(config);
@@ -2226,8 +2235,10 @@ test('release check: exits 2 (drafts only), lists the Part 9 sections and the de
   assert.match(run.stdout, new RegExp(`Tourist Visa config ${config.version.replace(/\./g, '\.')}`));
   for (const id of ['9A', '9B', '9C', '10A', '10B', '10C', '10D']) assert.match(run.stdout, new RegExp(`section ${id}: .*NEEDS SENIOR REVIEW`), id);
   assert.match(run.stdout, /23 sections: 0 blocked, 22 need senior review only, 1 clean\./);
-  assert.match(run.stderr, /Needs senior approval: declaration wording/);
+  assert.match(run.stderr, /Needs senior approval: wording that is not a question/);
   assert.match(run.stderr, /declarations\.submit/);
+  assert.match(run.stderr, /afterSubmit/);
+  assert.match(run.stdout, /Submit: final declaration draft wording; text shown after submitting draft wording\./);
   assert.match(run.stderr, /9\.11: Draft: the tick and its guidance are our own plain wording/);
 });
 
@@ -2243,6 +2254,7 @@ test('release check: on a config file it exits 1 for a tbc, 2 for a draft or for
       for (const q of c.questions) { delete q.tbc; delete q.draft; }
       for (const g of c.groups) { delete g.tbc; delete g.draft; }
       for (const d of Object.values(c.declarations)) delete d.draft;
+      delete c.afterSubmit.draft;
       mutate(c);
       const file = path.join(dir, 'questions.json');
       fs.writeFileSync(file, JSON.stringify(c));
@@ -2250,6 +2262,7 @@ test('release check: on a config file it exits 1 for a tbc, 2 for a draft or for
     };
     assert.equal(exitFor(() => {}), 0, 'nothing open');
     assert.equal(exitFor((c) => { c.declarations.submit.draft = 'Draft: wording'; }), 2, 'the declaration wording alone');
+    assert.equal(exitFor((c) => { c.afterSubmit.draft = 'Draft: wording'; }), 2, 'the text after submitting alone');
     assert.equal(exitFor((c) => { c.questions.find((q) => q.id === 'q9_1').draft = 'Draft: x'; }), 2, 'a question draft');
     assert.equal(exitFor((c) => { c.questions.find((q) => q.id === 'q9_1').tbc = 'x'; c.declarations.submit.draft = 'Draft: wording'; }), 1, 'a tbc beats everything');
     assert.equal(exitFor((c) => { c.questions[0].type = 'XYZ'; }), 1, 'an invalid config');

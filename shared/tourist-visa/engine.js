@@ -746,9 +746,14 @@ function getHeldSections(cfg) {
  * change of wording is detectable. Returns '' for a question that is not found.
  */
 function wordingOf(cfg, questionId) {
+  const clean = (t) => String(t || '').replace(/\s+/g, ' ').trim();
+  // A declaration of the config's top-level `declarations` (the final submit declaration) is its text alone.
+  if (typeof questionId === 'string' && questionId.startsWith('declarations.')) {
+    const d = (cfg.declarations || {})[questionId.slice('declarations.'.length)];
+    return d ? clean(d.text) : '';
+  }
   const q = getQuestion(cfg, questionId);
   if (!q) return '';
-  const clean = (t) => String(t || '').replace(/\s+/g, ' ').trim();
   return [clean(q.label), clean(q.help)].filter(Boolean).join('\n');
 }
 
@@ -758,9 +763,12 @@ function wordingOf(cfg, questionId) {
  * Returns [{ id, draft }].
  */
 function getWordingDrafts(cfg) {
-  return Object.entries(cfg.declarations || {})
+  const drafts = Object.entries(cfg.declarations || {})
     .filter(([, d]) => d && d.draft)
     .map(([id, d]) => ({ id: `declarations.${id}`, draft: d.draft }));
+  // The text shown after submitting is wording too, and waits for approval the same way.
+  if (cfg.afterSubmit && cfg.afterSubmit.draft) drafts.push({ id: 'afterSubmit', draft: cfg.afterSubmit.draft });
+  return drafts;
 }
 
 function isSectionReleasable(cfg, sectionId) {
@@ -782,9 +790,19 @@ function validateConfig(cfg) {
     return errs.concat('parts, sections and questions must be arrays');
   }
 
+  if (cfg.afterSubmit !== undefined) {
+    const a = cfg.afterSubmit;
+    if (!a || typeof a !== 'object' || Array.isArray(a)) err('afterSubmit must be an object');
+    else {
+      if (!Array.isArray(a.steps) || a.steps.length === 0 || !a.steps.every((t) => typeof t === 'string' && t.trim())) err('afterSubmit.steps must be a list of non-empty texts');
+      if (a.draft !== undefined && (typeof a.draft !== 'string' || !a.draft.trim())) err('afterSubmit.draft must be a non-empty string');
+    }
+  }
   if (cfg.declarations !== undefined) {
     if (!cfg.declarations || typeof cfg.declarations !== 'object' || Array.isArray(cfg.declarations)) err('declarations must be an object');
     else {
+      // The review page (step 8d) cannot submit without the final declaration.
+      if (!cfg.declarations.submit) err('declarations.submit is required');
       for (const [id, d] of Object.entries(cfg.declarations)) {
         if (!d || typeof d.text !== 'string' || !d.text.trim()) err(`declarations.${id}: text is required`);
         if (d && d.draft !== undefined && (typeof d.draft !== 'string' || !d.draft.trim())) err(`declarations.${id}: draft must be a non-empty string`);

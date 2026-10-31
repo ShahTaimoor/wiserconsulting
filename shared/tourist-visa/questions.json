@@ -1,5 +1,5 @@
 {
-  "version": "0.11.0-draft",
+  "version": "0.12.0-draft",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
@@ -48,6 +48,15 @@
       "text": "I declare that the information I have given in this application is complete and true to the best of my knowledge. I understand that giving false or incomplete information may lead to my application being refused. I agree that Wiser Consulting may call me on the telephone number I gave, to check my answers.",
       "draft": "Draft wording in our own plain words for the final declaration on the review page (step 8d). The senior approves or replaces it here."
     }
+  },
+  "afterSubmit": {
+    "steps": [
+      "Our team will review your application.",
+      "We may call you on the telephone number you gave, to check your answers with you.",
+      "Keep your reference number. You can quote it if you contact us.",
+      "Your application can no longer be changed. If something needs correcting, tell us when we call or contact us."
+    ],
+    "draft": "Draft wording in our own plain words for what the applicant is told after submitting (step 8d). The senior approves or replaces it here."
   },
   "groups": [
     {

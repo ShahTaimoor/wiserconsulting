@@ -3,7 +3,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import engine from "../shared/tourist-visa/engine.js";
-import { buildChecklist, countHeldSections, documentSummary, isFormOpen } from "./touristVisaChecklist.ts";
+import { buildChecklist, countHeldSections, documentSummary, getReadiness, isFormOpen } from "./touristVisaChecklist.ts";
 
 const { config } = engine;
 
@@ -99,6 +99,7 @@ const stripDrafts = (c) => {
   for (const q of c.questions) delete q.draft;
   for (const g of c.groups) delete g.draft;
   for (const d of Object.values(c.declarations || {})) delete d.draft;
+  if (c.afterSubmit) delete c.afterSubmit.draft;
   return c;
 };
 
@@ -207,4 +208,56 @@ test("only the documents row has a detail line", () => {
   const checklist = buildChecklist(config, { sectionStatus: {}, answers: {}, documents: [doc("passport")] });
   const withDetail = checklist.parts.flatMap((p) => p.sections).filter((s) => s.detail !== undefined).map((s) => s.id);
   assert.deepEqual(withDetail, ["10D"]);
+});
+
+// ---------------------------------------------------------------------------
+// Step 8d: is the draft ready to review and submit?
+// ---------------------------------------------------------------------------
+
+const EVERY_SECTION = ["1", "2A", "2B", "2C", "2D", "3", "4B", "4C", "5", "6A", "6B", "6C", "6D", "7", "8", "9A", "9B", "9C", "10A", "10B", "10C"];
+const allSaved = (extra = {}) => ({ ...Object.fromEntries(EVERY_SECTION.map((id) => [id, "saved"])), ...extra });
+const draft = (sectionStatus, documents, answers = { q2_13: "single" }) => ({ status: "draft", sectionStatus, answers, documents });
+
+test("ready: every section that applies is saved and both documents are uploaded", () => {
+  const readiness = getReadiness(config, draft(allSaved(), [doc("passport"), doc("funds")]));
+  assert.deepEqual(readiness, { ready: true, missing: [] });
+});
+
+test("not ready: each section that is not saved is listed with why and a link, in form order", () => {
+  const readiness = getReadiness(config, draft(allSaved({ "2C": undefined, "6A": "needs_review", 8: undefined }), [doc("passport"), doc("funds")]));
+  assert.equal(readiness.ready, false);
+  assert.deepEqual(readiness.missing.map((m) => [m.id, m.title, m.state, m.reason, m.href]), [
+    ["2C", "Address and living situation", "not_started", "Not started yet", "/tourist-visa/2C"],
+    ["6A", "Income and expenditure", "needs_review", "Needs another look", "/tourist-visa/6A"],
+    ["8", "Travel history (other countries)", "not_started", "Not started yet", "/tourist-visa/8"],
+  ]);
+});
+
+test("not ready: missing documents say which ones, by the name of the question", () => {
+  const none = getReadiness(config, draft(allSaved(), []));
+  assert.deepEqual(none.missing.map((m) => m.id), ["10D"]);
+  assert.equal(none.missing[0].reason, "Upload a file for: Your passport or travel document and Evidence of funds");
+  const onlyPassport = getReadiness(config, draft(allSaved(), [doc("passport")]));
+  assert.equal(onlyPassport.ready, false);
+  assert.equal(onlyPassport.missing[0].state, "in_progress");
+  assert.equal(onlyPassport.missing[0].reason, "Upload a file for: Evidence of funds");
+  const onlyFunds = getReadiness(config, draft(allSaved(), [doc("funds"), doc("funds", 2)]));
+  assert.equal(onlyFunds.missing[0].reason, "Upload a file for: Your passport or travel document");
+  assert.equal(getReadiness(config, draft(allSaved(), [doc("passport"), doc("funds")])).ready, true);
+});
+
+test("a section that does not apply is not asked for: 4A is only needed with a partner", () => {
+  const withPartner = getReadiness(config, draft(allSaved(), [doc("passport"), doc("funds")], { q2_13: "married" }));
+  assert.deepEqual(withPartner.missing.map((m) => m.id), ["4A"]);
+  assert.equal(getReadiness(config, draft(allSaved({ "4A": "saved" }), [doc("passport"), doc("funds")], { q2_13: "married" })).ready, true);
+});
+
+test("a fresh application is not ready and lists every section; nothing at all, or a submitted one, lists nothing", () => {
+  const fresh = getReadiness(config, draft({}, []));
+  assert.equal(fresh.ready, false);
+  assert.equal(fresh.missing.length, 22);
+  assert.equal(getReadiness(config, null).ready, false);
+  assert.deepEqual(getReadiness(config, null).missing, []);
+  const submitted = getReadiness(config, { status: "submitted", sectionStatus: allSaved(), answers: {}, documents: [] });
+  assert.deepEqual(submitted, { ready: false, missing: [] }, "a submitted application has nothing left to do");
 });

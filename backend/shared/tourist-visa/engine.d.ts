@@ -143,6 +143,8 @@ export interface TouristVisaConfig {
    * config so it can be approved or replaced in one place. `draft` holds the form back until removed.
    */
   declarations?: Record<string, { text: string; draft?: string }>;
+  /** What the applicant is told after submitting, a list of short sentences. `draft` holds the form back until removed. */
+  afterSubmit?: { steps: string[]; draft?: string };
 }
 
 /** Value shapes by answer type. */
@@ -241,9 +243,12 @@ export function getReleaseBlockers(cfg: TouristVisaConfig): ReleaseBlocker[];
 export function getDraftItems(cfg: TouristVisaConfig): DraftItems[];
 /** Sections still carrying a tbc flag or a draft marker. The client opens the form only when this is empty. */
 export function getHeldSections(cfg: TouristVisaConfig): HeldSection[];
-/** Declaration wording that is still a draft (top-level `declarations`), for the release check. */
+/** Wording that is not a question and is still a draft (top-level `declarations` and `afterSubmit`), for the release check. */
 export function getWordingDrafts(cfg: TouristVisaConfig): Array<{ id: string; draft: string }>;
-/** The exact words of a declaration question (label and guidance), whitespace-normalised, for hashing. */
+/**
+ * The exact words a person accepts, whitespace-normalised, for hashing: a question's text and guidance, or (for
+ * "declarations.submit") the declaration's text.
+ */
 export function wordingOf(cfg: TouristVisaConfig, questionId: string): string;
 
 export interface DocumentsStatus {

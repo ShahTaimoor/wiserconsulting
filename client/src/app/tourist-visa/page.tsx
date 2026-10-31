@@ -11,6 +11,7 @@ import type { TouristVisaApplication } from "@/services/touristVisaService";
 import {
   buildChecklist,
   countHeldSections,
+  getReadiness,
   isFormOpen,
   isPreviewMode,
   STATUS_LABELS,
@@ -105,6 +106,8 @@ export default function TouristVisaDashboardPage() {
   const application = state.status === "ready" ? state.application : null;
   const checklist = buildChecklist(config, application);
   const editable = application?.status === "draft" && open;
+  // Review and submit opens only when every section that applies is complete and both documents are uploaded.
+  const readiness = getReadiness(config, application);
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-14">
@@ -215,6 +218,65 @@ export default function TouristVisaDashboardPage() {
                 ))}
             </CardFooter>
           </Card>
+
+          {application?.status === "draft" && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Review and submit</CardTitle>
+                <CardDescription>
+                  {readiness.ready
+                    ? "Everything is complete. Read through your answers, then submit your application."
+                    : "Finish the items below. Then you can read through your answers and submit."}
+                </CardDescription>
+              </CardHeader>
+              {!readiness.ready && readiness.missing.length > 0 && (
+                <CardContent>
+                  <ul className="space-y-1.5 text-sm" aria-label="Still to do">
+                    {readiness.missing.map((item) => (
+                      <li key={item.id}>
+                        {open ? (
+                          <Link href={item.href} className="font-medium text-foreground underline underline-offset-2">
+                            {item.id} {item.title}
+                          </Link>
+                        ) : (
+                          <span className="font-medium text-foreground">
+                            {item.id} {item.title}
+                          </span>
+                        )}
+                        <span className="text-muted-foreground">: {item.reason}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              )}
+              <CardFooter>
+                {readiness.ready && open ? (
+                  <Button asChild>
+                    <Link href="/tourist-visa/review">Review and submit</Link>
+                  </Button>
+                ) : (
+                  <Button disabled>Review and submit</Button>
+                )}
+              </CardFooter>
+            </Card>
+          )}
+
+          {application && application.status !== "draft" && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Your application has been submitted</CardTitle>
+                <CardDescription>
+                  Your reference is <span className="select-all font-mono font-semibold text-foreground">{application.reference}</span>. You can read what you
+                  submitted, but it can no longer be changed.
+                </CardDescription>
+              </CardHeader>
+              <CardFooter>
+                <Button asChild>
+                  <Link href="/tourist-visa/review">View your application</Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>

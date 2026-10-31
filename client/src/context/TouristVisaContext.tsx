@@ -8,6 +8,8 @@ import {
   touristVisaService,
   TouristVisaApiError,
   type DocumentLimits,
+  type ReviewData,
+  type SubmitProblem,
   type TouristVisaApplication,
   type TouristVisaDocument,
 } from "@/services/touristVisaService";
@@ -24,6 +26,11 @@ export type SaveResult =
 
 /** What the documents page needs to know about a call: its result, or why it failed (the server's code and a safe message). */
 export type DocumentResult<T> = ({ ok: true } & T) | { ok: false; status: number; code?: string; message: string };
+
+/** What the review page needs to know about a submit. */
+export type SubmitResult =
+  | { ok: true; reference: string }
+  | { ok: false; status: number; code?: string; message: string; sections: SubmitProblem[]; declarationMissing: boolean };
 
 interface TouristVisaContextValue {
   state: LoadState;
@@ -50,6 +57,10 @@ interface TouristVisaContextValue {
   listDocuments: () => Promise<DocumentResult<{ documents: TouristVisaDocument[]; limits: DocumentLimits }>>;
   /** Upload one file into a slot. Pass a signal to cancel it. The file goes to the server and nowhere else. */
   uploadDocument: (slot: string, file: File, signal?: AbortSignal) => Promise<DocumentResult<{ document: TouristVisaDocument }>>;
+  /** The application as a readable review. */
+  getReview: () => Promise<DocumentResult<{ data: ReviewData }>>;
+  /** Submit the draft. On success the shared application becomes the submitted one. */
+  submitApplication: (declarationAccepted: boolean) => Promise<SubmitResult>;
   /** Delete one uploaded file. */
   deleteDocument: (docId: string) => Promise<DocumentResult<unknown>>;
 }
@@ -241,9 +252,59 @@ export function TouristVisaProvider({ children }: { children: React.ReactNode })
     [documentFailure]
   );
 
+  const getReview = useCallback(async () => {
+    const token = readToken();
+    if (!token) return documentFailure(new TouristVisaApiError(401, "Please sign in again."));
+    try {
+      return { ok: true as const, data: await touristVisaService.getReview(token) };
+    } catch (error) {
+      return documentFailure(error);
+    }
+  }, [documentFailure]);
+
+  const submitApplication = useCallback(
+    async (declarationAccepted: boolean): Promise<SubmitResult> => {
+      const failed = (status: number, message: string, code?: string, sections: SubmitProblem[] = [], declarationMissing = false): SubmitResult => ({
+        ok: false,
+        status,
+        code,
+        message,
+        sections,
+        declarationMissing,
+      });
+      const token = readToken();
+      if (!token) {
+        handleUnauthorized();
+        return failed(401, "Please sign in again.");
+      }
+      try {
+        const { application, reference } = await touristVisaService.submitApplication(token, declarationAccepted);
+        if (alive.current) setState({ status: "ready", application });
+        return { ok: true, reference };
+      } catch (error) {
+        if (error instanceof TouristVisaApiError && error.status === 401) {
+          handleUnauthorized();
+          return failed(401, "Please sign in again.");
+        }
+        if (error instanceof TouristVisaApiError && error.closed) {
+          if (alive.current) setServerClosed(true);
+          return failed(404, describeError(error));
+        }
+        if (error instanceof TouristVisaApiError) {
+          return failed(error.status, describeError(error), error.code, error.sections ?? [], error.declarationMissing ?? false);
+        }
+        return failed(0, describeError(error));
+      }
+    },
+    [handleUnauthorized]
+  );
+
   const value = useMemo(
-    () => ({ state, serverClosed, reload, start, starting, startError, saveSection, refresh: fetchApplication, listDocuments, uploadDocument, deleteDocument }),
-    [state, serverClosed, reload, start, starting, startError, saveSection, fetchApplication, listDocuments, uploadDocument, deleteDocument]
+    () => ({
+      state, serverClosed, reload, start, starting, startError, saveSection, refresh: fetchApplication,
+      listDocuments, uploadDocument, deleteDocument, getReview, submitApplication,
+    }),
+    [state, serverClosed, reload, start, starting, startError, saveSection, fetchApplication, listDocuments, uploadDocument, deleteDocument, getReview, submitApplication]
   );
 
   return <TouristVisaContext.Provider value={value}>{children}</TouristVisaContext.Provider>;

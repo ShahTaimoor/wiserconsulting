@@ -9,6 +9,7 @@
  */
 
 const TouristVisaApplication = require("../models/TouristVisaApplication");
+const TouristVisaConfigSnapshot = require("../models/TouristVisaConfigSnapshot");
 const { config: defaultConfig } = require("../shared/tourist-visa/engine");
 const { getFieldEncryptionKey } = require("../config/fieldEncryption");
 const { AppError } = require("../middleware/errorHandler");
@@ -83,6 +84,57 @@ class TouristVisaApplicationRepository {
       { new: true, runValidators: true }
     ).lean({ flattenMaps: true });
     return this.withDecryptedAnswers(application);
+  }
+
+  // -------------------------------------------------------------------------
+  // Submitting
+  // -------------------------------------------------------------------------
+
+  /**
+   * Keeps the config an application is submitted under, once per distinct config. The id is the SHA-256 of its text, so
+   * submitting a second application under the same config adds nothing, and two submits at the same moment cannot
+   * make two. A snapshot is never changed after it is written.
+   */
+  async saveConfigSnapshot({ sha256, version, json }) {
+    try {
+      await TouristVisaConfigSnapshot.updateOne({ _id: sha256 }, { $setOnInsert: { version, json, createdAt: new Date() } }, { upsert: true });
+    } catch (error) {
+      if (!(error && error.code === 11000)) throw error; // another submit wrote the same snapshot first: it is there
+    }
+  }
+
+  async findConfigSnapshot(sha256) {
+    return TouristVisaConfigSnapshot.findOne({ _id: sha256 }).lean();
+  }
+
+  /**
+   * draft -> submitted, in one conditional write. It matches only if the application is still the applicant's draft
+   * AND has not changed since it was read for checking (`expectedUpdatedAt`), so what was checked is what is
+   * submitted, and of two submits at the same moment exactly one matches. Returns the submitted application
+   * (decrypted), or null when it did not match. A reference that is already taken throws a duplicate-key error
+   * naming the reference (see isReferenceCollision), so the caller can try another.
+   */
+  async submitApplication(applicationId, applicantId, { expectedUpdatedAt, reference, configSha256, configVersion, declarationRecord, submittedAt }) {
+    const application = await TouristVisaApplication.findOneAndUpdate(
+      { _id: applicationId, applicant: applicantId, status: "draft", isDeleted: false, updatedAt: expectedUpdatedAt },
+      {
+        $set: {
+          status: "submitted",
+          submittedAt,
+          reference,
+          configSha256,
+          configVersion,
+          "declarations.submit": declarationRecord,
+        },
+      },
+      { new: true }
+    ).lean({ flattenMaps: true });
+    return this.withDecryptedAnswers(application);
+  }
+
+  /** Did this duplicate-key error come from the reference index? */
+  isReferenceCollision(error) {
+    return Boolean(error && (error.code === 11000 || error.code === 11001) && (error.keyPattern ? "reference" in error.keyPattern : /reference/.test(String(error.message))));
   }
 
   // -------------------------------------------------------------------------
