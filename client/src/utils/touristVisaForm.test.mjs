@@ -85,10 +85,12 @@ const V9C = { q9_8: false, q9_9: false, q9_10: false };
 const V10A = { q10_1: ["none"] };
 const V10B = {};
 const V10C = { q10_4: "english", q10_5: false };
+// Documents: nothing to answer; the files are the application's documents.
+const V10D = {};
 const ALL = {
   1: V1, "2A": V2A, "2B": { ...V2B, q2_13: "married" }, "2C": V2C, "2D": V2D, 3: V3, "4A": V4A, "4B": V4B, "4C": V4C,
   5: V5, "6A": V6A, "6B": { q6_6: false }, "6C": V6C, "6D": { q6_8: false }, 7: V7, 8: V8,
-  "9A": V9A, "9B": V9B, "9C": V9C, "10A": V10A, "10B": V10B, "10C": V10C,
+  "9A": V9A, "9B": V9B, "9C": V9C, "10A": V10A, "10B": V10B, "10C": V10C, "10D": V10D,
 };
 
 const payload = (section, values, saved = {}) => buildPayload(cfg, section, values, saved).answers;
@@ -149,7 +151,9 @@ test("next and previous section follow the form order", () => {
   assert.equal(nextSectionId(cfg, "9C"), "10A");
   assert.equal(nextSectionId(cfg, "10A"), "10B");
   assert.equal(nextSectionId(cfg, "10B"), "10C");
-  assert.equal(nextSectionId(cfg, "10C"), null);
+  assert.equal(nextSectionId(cfg, "10C"), "10D");
+  assert.equal(nextSectionId(cfg, "10D"), null);
+  assert.equal(previousSectionId(cfg, "10D"), "10C");
   assert.equal(previousSectionId(cfg, "10A"), "9C");
   assert.equal(previousSectionId(cfg, "9A"), "8");
   assert.equal(previousSectionId(cfg, "6A"), "5");
@@ -272,7 +276,7 @@ test("payload: file questions are skipped, entry-level conditions are honoured",
       { id: "q1_1", number: "1.1", type: "YN" },
       { id: "q1_2", number: "1.2", type: "SEL", group: "trips", options: [{ value: "a", label: "A" }, { value: "b", label: "B" }] },
       { id: "q1_3", number: "1.3", type: "TXT", group: "trips", showWhen: { q: "q1_2", eq: "b" } },
-      { id: "q1_4", number: "1.4", type: "FILE" },
+      { id: "q1_4", number: "1.4", type: "FILE", slot: "doc" },
     ],
     [{ id: "trips", gate: "q1_1", questions: ["q1_2", "q1_3"] }]
   );
@@ -478,7 +482,8 @@ test("next and previous section skip a section that does not apply (4A without a
   assert.equal(nextSectionId(cfg, "4C", single), "5");
   assert.equal(nextSectionId(cfg, "8", single), "9A");
   assert.equal(nextSectionId(cfg, "9C", single), "10A");
-  assert.equal(nextSectionId(cfg, "10C", single), null);
+  assert.equal(nextSectionId(cfg, "10C", single), "10D");
+  assert.equal(nextSectionId(cfg, "10D", single), null);
   assert.equal(previousSectionId(cfg, "1", single), null);
   assert.equal(nextSectionId(cfg, "3"), "4A", "without answers the plain order is used");
 });

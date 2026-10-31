@@ -1,13 +1,27 @@
-export type SectionState = "saved" | "needs_review";
+/** in_progress is worked out by the server for the documents section (10D) from the uploaded files. */
+export type SectionState = "saved" | "needs_review" | "in_progress";
 export type ApplicationStatus = "draft" | "submitted" | "in_review" | "completed";
 
+/** An uploaded file, as the server describes it to its owner: no link, no storage id. */
 export interface TouristVisaDocument {
   id: string;
-  kind: "passport" | "funds";
-  originalName?: string;
-  mimetype?: string;
-  size?: number;
-  uploadedAt?: string;
+  /** Which file question it belongs to: "passport" (10.6) or "funds" (10.7). */
+  slot: string;
+  /** The name of the file as it was uploaded (cleaned by the server). */
+  name: string;
+  /** Size in bytes. */
+  size: number;
+  /** "application/pdf", "image/jpeg" or "image/png", worked out from the file's content. */
+  type: string;
+  uploadedAt: string;
+}
+
+/** What the server allows, sent with the list of files so nothing is hard-coded here. */
+export interface DocumentLimits {
+  maxFileBytes: number;
+  maxTotalBytes: number;
+  allowedTypes: string[];
+  slots: Record<string, { max: number }>;
 }
 
 export interface TouristVisaApplication {
@@ -21,6 +35,8 @@ export interface TouristVisaApplication {
   /** Answers by question id, already decrypted by the server for their owner. */
   answers: Record<string, unknown>;
   documents: TouristVisaDocument[];
+  /** True when every file question has at least one file (the rule for submitting). */
+  documentsComplete: boolean;
   submittedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -38,16 +54,19 @@ export const NOT_OPEN_MESSAGE =
 /** An API failure with its HTTP status. Status 0 means the server could not be reached. */
 export class TouristVisaApiError extends Error {
   status: number;
+  /** The server's machine-readable error name (for example "DOCUMENTS_LOCKED"), when it sent one. */
+  code?: string;
   /** True when the server answered with its closed-switch response (404 + FEATURE_CLOSED). */
   closed = false;
   /** For a 422: error message per question, keyed "q1_7", "q2_24.line1" or "otherNames.1.q2_3b". */
   fieldErrors?: Record<string, string>;
 
-  constructor(status: number, message: string, fieldErrors?: Record<string, string>) {
+  constructor(status: number, message: string, fieldErrors?: Record<string, string>, code?: string) {
     super(message);
     this.name = "TouristVisaApiError";
     this.status = status;
     this.fieldErrors = fieldErrors;
+    this.code = code;
   }
 }
 
@@ -64,25 +83,36 @@ interface ApiBody {
   code?: unknown;
   message?: unknown;
   errors?: unknown;
-  data?: { application?: TouristVisaApplication; needsReview?: string[]; removed?: string[] };
+  data?: {
+    application?: TouristVisaApplication;
+    needsReview?: string[];
+    removed?: string[];
+    documents?: TouristVisaDocument[];
+    document?: TouristVisaDocument;
+    limits?: DocumentLimits;
+  };
 }
 
 async function request(
   path: string,
-  method: "GET" | "POST" | "PUT",
+  method: "GET" | "POST" | "PUT" | "DELETE",
   token: string,
-  body?: unknown
+  body?: unknown,
+  signal?: AbortSignal
 ): Promise<{ status: number; json: ApiBody | null }> {
   let response: Response;
+  // A FormData body (a file upload) is sent as it is: the browser adds the multipart header with its boundary.
+  const isForm = typeof FormData !== "undefined" && body instanceof FormData;
   try {
     response = await fetch(`${API_URL}/tourist-visa${path}`, {
       method,
       headers: {
         Authorization: `Bearer ${token}`,
-        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+        ...(body !== undefined && !isForm ? { "Content-Type": "application/json" } : {}),
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
       cache: "no-store",
+      signal,
     });
   } catch {
     throw new TouristVisaApiError(0, "Unable to reach the server.");
@@ -113,7 +143,7 @@ function failure(status: number, json: ApiBody | null): TouristVisaApiError {
     return closed;
   }
   const message = typeof json?.message === "string" && json.message ? json.message : `Request failed with status ${status}`;
-  return new TouristVisaApiError(status, message, toFieldErrors(json?.errors));
+  return new TouristVisaApiError(status, message, toFieldErrors(json?.errors), typeof json?.code === "string" ? json.code : undefined);
 }
 
 /** Keeps only string messages, so nothing unexpected from the server reaches the form. */
@@ -180,5 +210,37 @@ export const touristVisaService = {
       needsReview: Array.isArray(json?.data?.needsReview) ? json.data.needsReview : [],
       removed: Array.isArray(json?.data?.removed) ? json.data.removed : [],
     };
+  },
+
+  /** The applicant's uploaded files (metadata only) and the limits the server enforces. */
+  async listDocuments(token: string): Promise<{ documents: TouristVisaDocument[]; limits: DocumentLimits }> {
+    const { status, json } = await request("/applications/me/documents", "GET", token);
+    if (status < 200 || status >= 300) throw failure(status, json);
+    const documents = json?.data?.documents;
+    const limits = json?.data?.limits;
+    if (!Array.isArray(documents) || !limits) throw new TouristVisaApiError(502, "The server sent an unexpected response.");
+    return { documents, limits };
+  },
+
+  /**
+   * Upload one file into a slot ("passport" or "funds"). One file per request. The server checks the
+   * file's content, size and the limits and is the authority; a refusal throws a TouristVisaApiError
+   * whose `code` says why. Pass a signal to cancel an upload that is still going.
+   */
+  async uploadDocument(token: string, slot: string, file: File, signal?: AbortSignal): Promise<TouristVisaDocument> {
+    const form = new FormData();
+    form.append("slot", slot);
+    form.append("file", file, file.name);
+    const { status, json } = await request("/applications/me/documents", "POST", token, form, signal);
+    if (status < 200 || status >= 300) throw failure(status, json);
+    const document = json?.data?.document;
+    if (!document) throw new TouristVisaApiError(502, "The server sent an unexpected response.");
+    return document;
+  },
+
+  /** Delete one uploaded file (only while the application is a draft). */
+  async deleteDocument(token: string, docId: string): Promise<void> {
+    const { status, json } = await request(`/applications/me/documents/${encodeURIComponent(docId)}`, "DELETE", token);
+    if (status < 200 || status >= 300) throw failure(status, json);
   },
 };

@@ -106,15 +106,17 @@ test('config: covers exactly the questions of Parts 1 to 8 in the spec (plus the
   for (let i = 1; i <= 5; i++) expected.add(`10.${i}`);
   for (const l of 'abcdef') expected.add(`10.1${l}`);
   expected.add('10.4a'); expected.add('10.5a');
+  // Part 10D (8c-2): the two document questions.
+  expected.add('10.6'); expected.add('10.7');
   const actual = new Set(config.questions.map((q) => q.number));
   assert.deepEqual([...actual].sort(), [...expected].sort());
   assert.equal(config.questions.length, expected.size);
 });
 
-test('config: sections are 1, 2A-2D, 3, 4A-4C, 5, 6A-6D, 7, 8, 9A-9C, 10A-10C and every question belongs to one', () => {
+test('config: sections are 1, 2A-2D, 3, 4A-4C, 5, 6A-6D, 7, 8, 9A-9C, 10A-10D and every question belongs to one', () => {
   assert.deepEqual(
     config.sections.map((s) => s.id),
-    ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C']
+    ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C', '10D']
   );
   assert.deepEqual(config.parts.map((p) => p.id), ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']);
   const ids = new Set(config.sections.map((s) => s.id));
@@ -136,7 +138,7 @@ test('config: the drafts are exactly the defaults we chose, each with a note', (
     drafts.map((q) => q.number),
     ['1.1', '1.2', '1.3', '1.4', '2.5', '2.7', '2.8', '2.12', '2.13', '2.23', '2.28', '2.29', '2.30', '2.31', '2.33', '2.35', '4.1', '4.7a', '4.8a', '4.8f', '5.1', '5.9', '6.1', '6.5', '6.6', '6.7', '6.8', '7.3', '7.5', '7.5a', '7.6', '7.7a', '8.1', '8.2b',
       '9.11', '9.1', '9.1a', '9.12', '9.2', '9.2a', '9.13', '9.3', '9.3a', '9.4', '9.4a', '9.5', '9.5a', '9.14', '9.6', '9.6a', '9.7', '9.7a', '9.8', '9.8a', '9.9', '9.9a', '9.10', '9.10a',
-      '10.1', '10.1a', '10.1b', '10.1c', '10.1d', '10.1e', '10.1f', '10.2', '10.3', '10.4', '10.4a', '10.5', '10.5a']
+      '10.1', '10.1a', '10.1b', '10.1c', '10.1d', '10.1e', '10.1f', '10.2', '10.3', '10.4', '10.4a', '10.5', '10.5a', '10.6', '10.7']
   );
   assert.deepEqual(config.groups.filter((g) => g.draft).map((g) => g.id), ['otherNames', 'parents', 'accommodation', 'ukVisas']);
   for (const x of [...drafts, ...config.groups.filter((g) => g.draft)]) assert.ok(x.draft.length > 20, x.id);
@@ -150,10 +152,10 @@ test('config: no tbc is left anywhere (Parts 1 to 8 hold drafts only)', () => {
 
 test('draft items: getDraftItems lists them by section, and a draft alone leaves a section releasable but held', () => {
   const items = engine.getDraftItems(config);
-  assert.equal(items.reduce((n, s) => n + s.items.length, 0), 75, '71 questions and 4 groups');
+  assert.equal(items.reduce((n, s) => n + s.items.length, 0), 77, '73 questions and 4 groups');
   assert.deepEqual(items.find((s) => s.sectionId === '2D').items.map((i) => i.number), ['2.33', '2.35']);
   assert.ok(items.every((s) => s.items.every((i) => i.draft && i.id && (i.number === null || typeof i.number === 'string'))));
-  for (const id of ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C']) {
+  for (const id of ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C', '10D']) {
     assert.equal(engine.isSectionReleasable(config, id), true, `${id} has only drafts`);
     assert.equal(items.some((s) => s.sectionId === id), true);
   }
@@ -866,7 +868,7 @@ test('sections: a section is hidden exactly when none of its questions is visibl
 
 test('sections: on the real config only 4A can be hidden, and only by 2.13', () => {
   const visible = (answers) => engine.getVisibleSections(config, answers).map((s) => s.id);
-  const rest = ['5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C'];
+  const rest = ['5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C', '10D'];
   assert.deepEqual(visible({}), ['1', '2A', '2B', '2C', '2D', '3', '4B', '4C', ...rest]);
   assert.deepEqual(visible({ q2_13: 'single' }), ['1', '2A', '2B', '2C', '2D', '3', '4B', '4C', ...rest]);
   assert.deepEqual(visible({ q2_13: 'married' }), ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', ...rest]);
@@ -1630,7 +1632,7 @@ test('drafts can sit on any question or group; getDraftItems lists groups too, w
 
 test('getHeldSections: a section is held while it has a tbc flag or a draft; nothing held means ready', () => {
   const held = engine.getHeldSections(config);
-  assert.deepEqual(held.map((h) => h.sectionId), ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C', 'declarations']);
+  assert.deepEqual(held.map((h) => h.sectionId), ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C', '10D', 'declarations']);
   assert.deepEqual(held.find((h) => h.sectionId === '3'), undefined, 'section 3 has neither');
   assert.deepEqual(held.find((h) => h.sectionId === '2D'), { sectionId: '2D', tbc: 0, draft: 2 });
   assert.deepEqual(held.find((h) => h.sectionId === '6B'), { sectionId: '6B', tbc: 0, draft: 1 });
@@ -1643,6 +1645,7 @@ test('getHeldSections: a section is held while it has a tbc flag or a draft; not
   assert.deepEqual(held.find((h) => h.sectionId === '10A'), { sectionId: '10A', tbc: 0, draft: 7 });
   assert.deepEqual(held.find((h) => h.sectionId === '10B'), { sectionId: '10B', tbc: 0, draft: 2 });
   assert.deepEqual(held.find((h) => h.sectionId === '10C'), { sectionId: '10C', tbc: 0, draft: 4 });
+  assert.deepEqual(held.find((h) => h.sectionId === '10D'), { sectionId: '10D', tbc: 0, draft: 2 });
   assert.deepEqual(held.find((h) => h.sectionId === 'declarations'), { sectionId: 'declarations', tbc: 0, draft: 1 }, 'the submit declaration wording is still a draft');
 
   const c = clone(config);
@@ -2221,8 +2224,8 @@ test('release check: exits 2 (drafts only), lists the Part 9 sections and the de
   const run = spawnSync(process.execPath, [script], { encoding: 'utf8' });
   assert.equal(run.status, 2, run.stderr);
   assert.match(run.stdout, new RegExp(`Tourist Visa config ${config.version.replace(/\./g, '\.')}`));
-  for (const id of ['9A', '9B', '9C', '10A', '10B', '10C']) assert.match(run.stdout, new RegExp(`section ${id}: .*NEEDS SENIOR REVIEW`), id);
-  assert.match(run.stdout, /22 sections: 0 blocked, 21 need senior review only, 1 clean\./);
+  for (const id of ['9A', '9B', '9C', '10A', '10B', '10C', '10D']) assert.match(run.stdout, new RegExp(`section ${id}: .*NEEDS SENIOR REVIEW`), id);
+  assert.match(run.stdout, /23 sections: 0 blocked, 22 need senior review only, 1 clean\./);
   assert.match(run.stderr, /Needs senior approval: declaration wording/);
   assert.match(run.stderr, /declarations\.submit/);
   assert.match(run.stderr, /9\.11: Draft: the tick and its guidance are our own plain wording/);
@@ -2485,13 +2488,129 @@ test('part 10: the encrypted fields are exactly 10.1, its six boxes, 10.5 and th
   for (const q of part10) assert.ok(q.draft && q.draft.length > 20, `${q.number} is a draft with a note`);
   for (const q of part10.filter((x) => x.type === 'LNG')) assert.equal(q.rules.maxLen, 2000, q.number);
   assert.equal(config.questions.filter((q) => q.sensitive).length, 36, '27 earlier fields and 9 new ones');
-  // Part 10 has no document question yet (10D is step 8c).
-  assert.ok(!config.sections.some((s) => s.id === '10D'));
-  assert.ok(!config.questions.some((q) => q.type === 'FILE'));
+  // The only FILE questions are 10.6 and 10.7 (section 10D), and they store nothing.
+  assert.deepEqual(config.questions.filter((q) => q.type === 'FILE').map((q) => q.number), ['10.6', '10.7']);
 });
 
 test('part 10: the new sections do not change the earlier ones', () => {
   assert.equal(validate('8', S8).success, true);
   assert.equal(validate('9A', S9A).success, true);
-  assert.deepEqual(engine.getVisibleSections(config, {}).map((s) => s.id).slice(-4), ['9C', '10A', '10B', '10C']);
+  assert.deepEqual(engine.getVisibleSections(config, {}).map((s) => s.id).slice(-5), ['9C', '10A', '10B', '10C', '10D']);
+});
+
+// ---------------------------------------------------------------------------
+// Step 8c-2: the FILE question type, the document status rules and section 10D
+// ---------------------------------------------------------------------------
+
+const fileCfg = () => mk([
+  { id: 'q1_1', number: '1.1', type: 'FILE', slot: 'passport' },
+  { id: 'q1_2', number: '1.2', type: 'FILE', slot: 'funds' },
+]);
+const doc = (slot) => ({ id: `d-${slot}`, slot });
+
+test('FILE question: a valid config, always shown, stores nothing and is not an answer key', () => {
+  const cfg = fileCfg();
+  assert.deepEqual(engine.validateConfig(cfg), []);
+  assert.deepEqual(engine.getVisibleQuestions(cfg, 'S', {}).map((q) => q.id), ['q1_1', 'q1_2']);
+  const empty = vs(cfg, {});
+  assert.equal(empty.success, true, 'a draft can be saved without files: required means required at submit');
+  assert.deepEqual(empty.data, {});
+  assert.deepEqual(empty.errors, {});
+  // A file question has no answer to send: its id is refused like any other key that does not belong.
+  const sent = vs(cfg, { q1_1: 'passport.pdf' });
+  assert.deepEqual(sent.unknownKeys, ['q1_1']);
+  assert.deepEqual(sent.data, {});
+  // And nothing is ever pruned or kept for it.
+  assert.deepEqual(engine.pruneAnswers(cfg, { q1_1: 'x' }).removed, []);
+});
+
+test('FILE question: validateConfig checks it', () => {
+  const cases = [
+    ['without a slot', (c) => { delete c.questions[0].slot; }, /needs a slot/],
+    ['with an odd slot name', (c) => { c.questions[0].slot = 'Pass port'; }, /needs a slot/],
+    ['two questions on one slot', (c) => { c.questions[1].slot = 'passport'; }, /slot passport is already used by q1_1/],
+    ['with options', (c) => { c.questions[0].options = [{ value: 'a', label: 'A' }]; }, /a FILE question has no options/],
+    ['with rules', (c) => { c.questions[0].rules = { maxLen: 5 }; }, /a FILE question has no rules/],
+    ['with a condition', (c) => { c.questions[0].showWhen = { q: 'q1_2', eq: true }; }, /a FILE question has no showWhen/],
+    ['sensitive', (c) => { c.questions[0].sensitive = true; }, /cannot be sensitive/],
+    ['a slot on another type', (c) => { c.questions[0].type = 'TXT'; }, /slot is only for FILE questions/],
+  ];
+  for (const [name, mutate, pattern] of cases) {
+    const c = clone(fileCfg());
+    mutate(c);
+    const problems = engine.validateConfig(c);
+    assert.ok(problems.some((p) => pattern.test(p)), `${name}: got ${JSON.stringify(problems)}`);
+  }
+});
+
+test('documentsStatus: not started with no files, in progress with one slot, complete with every slot', () => {
+  const cfg = fileCfg();
+  const status = (documents) => engine.documentsStatus(cfg, documents);
+  assert.deepEqual(status([]).state, 'not_started');
+  assert.deepEqual(status(undefined).state, 'not_started');
+  assert.deepEqual(status([doc('passport')]).state, 'in_progress');
+  assert.deepEqual(status([doc('funds'), doc('funds')]).state, 'in_progress');
+  assert.deepEqual(status([doc('passport'), doc('funds')]).state, 'complete');
+  assert.deepEqual(status([doc('passport'), doc('passport'), doc('passport'), doc('funds')]).state, 'complete');
+  assert.deepEqual(status([doc('visa'), null, {}]).state, 'not_started', 'a file in an unknown slot counts for nothing');
+  assert.deepEqual(status([doc('passport'), doc('passport'), doc('funds')]).slots, [
+    { questionId: 'q1_1', number: '1.1', slot: 'passport', count: 2 },
+    { questionId: 'q1_2', number: '1.2', slot: 'funds', count: 1 },
+  ]);
+  assert.equal(status([doc('passport')]).complete, false);
+  assert.equal(status([doc('passport'), doc('funds')]).complete, true);
+});
+
+test('documentsComplete is the rule step 8d uses: every slot needs at least one file', () => {
+  const cfg = fileCfg();
+  assert.equal(engine.documentsComplete(cfg, []), false);
+  assert.equal(engine.documentsComplete(cfg, [doc('passport')]), false);
+  assert.equal(engine.documentsComplete(cfg, [doc('funds')]), false);
+  assert.equal(engine.documentsComplete(cfg, [doc('passport'), doc('funds')]), true);
+  assert.equal(engine.documentsComplete(config, [doc('passport'), doc('funds')]), true, 'on the real config');
+  assert.equal(engine.documentsComplete(config, [doc('passport')]), false);
+});
+
+test('isFilesOnlySection: only a section made of file questions has nothing to save', () => {
+  assert.equal(engine.isFilesOnlySection(fileCfg(), 'S'), true);
+  assert.equal(engine.isFilesOnlySection(config, '10D'), true);
+  for (const id of ['1', '3', '10A', '10B', '10C']) assert.equal(engine.isFilesOnlySection(config, id), false, id);
+  const mixed = mk([{ id: 'q1_1', number: '1.1', type: 'FILE', slot: 'passport' }, { id: 'q1_2', number: '1.2', type: 'TXT' }]);
+  assert.equal(engine.isFilesOnlySection(mixed, 'S'), false);
+  assert.equal(engine.isFilesOnlySection(config, 'nope'), false);
+});
+
+test('section 10D: Part 10, always shown, two file questions in the passport and funds slots, both required to submit', () => {
+  assert.deepEqual(config.sections.find((s) => s.id === '10D'), { id: '10D', part: '10', title: 'Documents' });
+  assert.equal(engine.isSectionVisible(config, '10D', {}), true);
+  const files = engine.getFileQuestions(config);
+  assert.deepEqual(files.map((q) => [q.number, q.section, q.slot, q.required]), [['10.6', '10D', 'passport', true], ['10.7', '10D', 'funds', true]]);
+  assert.deepEqual(engine.getFileQuestions(config, '10D').length, 2);
+  assert.deepEqual(engine.getFileQuestions(config, '10C'), []);
+  assert.deepEqual(engine.getVisibleQuestions(config, '10D', {}).map((q) => q.number), ['10.6', '10.7']);
+  assert.equal(config.questions.find((q) => q.id === 'q10_6').label, 'Your passport or travel document');
+  assert.equal(config.questions.find((q) => q.id === 'q10_7').label, 'Evidence of funds');
+  for (const q of files) {
+    assert.ok(q.draft && q.draft.length > 20, `${q.number} is a draft with a note`);
+    assert.equal(q.sensitive, undefined, `${q.number} stores no answer`);
+  }
+});
+
+test('section 10D: nothing to validate or save, and its question ids are not answer keys', () => {
+  const r = validate('10D', {});
+  assert.equal(r.success, true);
+  assert.deepEqual(r.errors, {});
+  assert.deepEqual(r.data, {});
+  assert.deepEqual(validate('10D', { q10_6: 'x' }).unknownKeys, ['q10_6']);
+  assert.deepEqual(validate('10D', { q10_7: true }).unknownKeys, ['q10_7']);
+  const status = engine.documentsStatus(config, [doc('passport')], '10D');
+  assert.equal(status.state, 'in_progress');
+  assert.deepEqual(status.slots.map((s) => [s.slot, s.count]), [['passport', 1], ['funds', 0]]);
+});
+
+test('section 10D: the guidance states the limits the backend enforces (3 passport files, 10 funds files)', () => {
+  const { SLOTS } = require('../../backend/config/touristVisaDocuments');
+  const files = engine.getFileQuestions(config);
+  assert.deepEqual(files.map((q) => q.slot).sort(), Object.keys(SLOTS).sort(), 'the config and the backend know the same slots');
+  for (const q of files) assert.ok(q.help.includes(`up to ${SLOTS[q.slot].max} files`), `${q.number}: ${q.help}`);
 });

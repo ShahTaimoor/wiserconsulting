@@ -7,7 +7,9 @@ import {
   describeError,
   touristVisaService,
   TouristVisaApiError,
+  type DocumentLimits,
   type TouristVisaApplication,
+  type TouristVisaDocument,
 } from "@/services/touristVisaService";
 
 type LoadState =
@@ -19,6 +21,9 @@ type LoadState =
 export type SaveResult =
   | { ok: true; needsReview: string[] }
   | { ok: false; status: number; message: string; fieldErrors?: Record<string, string> };
+
+/** What the documents page needs to know about a call: its result, or why it failed (the server's code and a safe message). */
+export type DocumentResult<T> = ({ ok: true } & T) | { ok: false; status: number; code?: string; message: string };
 
 interface TouristVisaContextValue {
   state: LoadState;
@@ -39,6 +44,14 @@ interface TouristVisaContextValue {
    * The answers go to the server and nowhere else: they are not logged or stored.
    */
   saveSection: (sectionId: string, answers: Record<string, unknown>) => Promise<SaveResult>;
+  /** Fetch the application again without showing the loading state (after files were added or removed). */
+  refresh: () => Promise<void>;
+  /** The applicant's files (metadata only) and the limits the server enforces. */
+  listDocuments: () => Promise<DocumentResult<{ documents: TouristVisaDocument[]; limits: DocumentLimits }>>;
+  /** Upload one file into a slot. Pass a signal to cancel it. The file goes to the server and nowhere else. */
+  uploadDocument: (slot: string, file: File, signal?: AbortSignal) => Promise<DocumentResult<{ document: TouristVisaDocument }>>;
+  /** Delete one uploaded file. */
+  deleteDocument: (docId: string) => Promise<DocumentResult<unknown>>;
 }
 
 const TouristVisaContext = createContext<TouristVisaContextValue | null>(null);
@@ -173,9 +186,64 @@ export function TouristVisaProvider({ children }: { children: React.ReactNode })
     [handleUnauthorized]
   );
 
+  /** Turns a failed document call into the result the page shows; a rejected sign-in or a closed switch is handled here. */
+  const documentFailure = useCallback(
+    (error: unknown) => {
+      if (error instanceof TouristVisaApiError && error.status === 401) {
+        handleUnauthorized();
+        return { ok: false as const, status: 401, message: "Please sign in again." };
+      }
+      if (error instanceof TouristVisaApiError && error.closed) {
+        if (alive.current) setServerClosed(true);
+        return { ok: false as const, status: 404, message: describeError(error) };
+      }
+      const status = error instanceof TouristVisaApiError ? error.status : 0;
+      const code = error instanceof TouristVisaApiError ? error.code : undefined;
+      return { ok: false as const, status, code, message: describeError(error) };
+    },
+    [handleUnauthorized]
+  );
+
+  const listDocuments = useCallback(async () => {
+    const token = readToken();
+    if (!token) return documentFailure(new TouristVisaApiError(401, "Please sign in again."));
+    try {
+      return { ok: true as const, ...(await touristVisaService.listDocuments(token)) };
+    } catch (error) {
+      return documentFailure(error);
+    }
+  }, [documentFailure]);
+
+  const uploadDocument = useCallback(
+    async (slot: string, file: File, signal?: AbortSignal) => {
+      const token = readToken();
+      if (!token) return documentFailure(new TouristVisaApiError(401, "Please sign in again."));
+      try {
+        return { ok: true as const, document: await touristVisaService.uploadDocument(token, slot, file, signal) };
+      } catch (error) {
+        return documentFailure(error);
+      }
+    },
+    [documentFailure]
+  );
+
+  const deleteDocument = useCallback(
+    async (docId: string) => {
+      const token = readToken();
+      if (!token) return documentFailure(new TouristVisaApiError(401, "Please sign in again."));
+      try {
+        await touristVisaService.deleteDocument(token, docId);
+        return { ok: true as const };
+      } catch (error) {
+        return documentFailure(error);
+      }
+    },
+    [documentFailure]
+  );
+
   const value = useMemo(
-    () => ({ state, serverClosed, reload, start, starting, startError, saveSection }),
-    [state, serverClosed, reload, start, starting, startError, saveSection]
+    () => ({ state, serverClosed, reload, start, starting, startError, saveSection, refresh: fetchApplication, listDocuments, uploadDocument, deleteDocument }),
+    [state, serverClosed, reload, start, starting, startError, saveSection, fetchApplication, listDocuments, uploadDocument, deleteDocument]
   );
 
   return <TouristVisaContext.Provider value={value}>{children}</TouristVisaContext.Provider>;

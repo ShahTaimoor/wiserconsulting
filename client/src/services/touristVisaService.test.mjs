@@ -258,3 +258,81 @@ test("describeError: the closed error reads as 'not open yet'; other errors are 
   assert.match(describeError(new TouristVisaApiError(0, "x")), /couldn't reach the server/);
   assert.equal(describeError(new TouristVisaApiError(404, "Some message")), "Some message");
 });
+
+// ---------------------------------------------------------------------------
+// Step 8c-2: document calls
+// ---------------------------------------------------------------------------
+
+const LIMITS = { maxFileBytes: 4194304, maxTotalBytes: 41943040, allowedTypes: ["application/pdf", "image/jpeg", "image/png"], slots: { passport: { max: 3 }, funds: { max: 10 } } };
+const DOC = { id: "3f2c1a9e-5b7d-4c1e-9a30-1d2e3f4a5b6c", slot: "passport", name: "scan.pdf", size: 64, type: "application/pdf", uploadedAt: "2026-11-01T10:00:00.000Z" };
+
+test("listDocuments: GET /applications/me/documents with the Bearer token, returns the files and the limits", async () => {
+  const calls = stubFetch(200, { success: true, data: { documents: [DOC], limits: LIMITS } });
+  const result = await touristVisaService.listDocuments("test-token");
+  assert.match(calls[0].url, /\/tourist-visa\/applications\/me\/documents$/);
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.headers.Authorization, "Bearer test-token");
+  assert.deepEqual(result, { documents: [DOC], limits: LIMITS });
+});
+
+test("listDocuments: an answer without the files or limits is an error, and a failure keeps the code", async () => {
+  stubFetch(200, { success: true, data: {} });
+  await assert.rejects(() => touristVisaService.listDocuments("t"), (e) => e.status === 502);
+  stubFetch(409, { success: false, code: "DOCUMENTS_LOCKED", message: "locked" });
+  await assert.rejects(() => touristVisaService.listDocuments("t"), (e) => e.status === 409 && e.code === "DOCUMENTS_LOCKED");
+});
+
+test("uploadDocument: POSTs one file as multipart form data, with no JSON content type, and returns its metadata", async () => {
+  const calls = stubFetch(201, { success: true, data: { document: DOC } });
+  const controller = new AbortController();
+  const file = new File([Buffer.from("%PDF-1.7 made-up")], "scan.pdf", { type: "application/pdf" });
+  const result = await touristVisaService.uploadDocument("test-token", "passport", file, controller.signal);
+
+  assert.deepEqual(result, DOC);
+  const { url, init } = calls[0];
+  assert.match(url, /\/tourist-visa\/applications\/me\/documents$/);
+  assert.equal(init.method, "POST");
+  assert.equal(init.headers.Authorization, "Bearer test-token");
+  assert.equal("Content-Type" in init.headers, false, "the browser adds the multipart header with its boundary");
+  assert.ok(init.body instanceof FormData);
+  assert.equal(init.body.get("slot"), "passport");
+  assert.equal(init.body.get("file").name, "scan.pdf");
+  assert.equal(init.signal, controller.signal, "the upload can be cancelled");
+});
+
+test("uploadDocument: a refusal throws an error with the server's code and status", async () => {
+  const file = new File(["x"], "a.txt", { type: "text/plain" });
+  for (const [status, code] of [[415, "WRONG_TYPE"], [413, "FILE_TOO_LARGE"], [409, "TOO_MANY_FILES"], [409, "DOCUMENTS_LOCKED"], [429, "TOO_MANY_UPLOADS"], [503, "STORAGE_UNAVAILABLE"]]) {
+    stubFetch(status, { success: false, code, message: "server text" });
+    await assert.rejects(() => touristVisaService.uploadDocument("t", "passport", file), (e) => e instanceof TouristVisaApiError && e.status === status && e.code === code && e.closed === false, code);
+  }
+  stubFetch(201, { success: true, data: {} });
+  await assert.rejects(() => touristVisaService.uploadDocument("t", "passport", file), (e) => e.status === 502);
+});
+
+test("uploadDocument: the closed answer is flagged closed, and an unreachable server is status 0", async () => {
+  const file = new File(["x"], "a.pdf", { type: "application/pdf" });
+  stubFetch(404, CLOSED);
+  await assert.rejects(() => touristVisaService.uploadDocument("t", "passport", file), (e) => e.closed === true);
+  globalThis.fetch = async () => { throw new TypeError("network"); };
+  await assert.rejects(() => touristVisaService.uploadDocument("t", "passport", file), (e) => e.status === 0);
+});
+
+test("deleteDocument: DELETE with the file id in the path, and a failure keeps the code", async () => {
+  const calls = stubFetch(200, { success: true, message: "File deleted" });
+  await touristVisaService.deleteDocument("test-token", DOC.id);
+  assert.match(calls[0].url, new RegExp(`/tourist-visa/applications/me/documents/${DOC.id}$`));
+  assert.equal(calls[0].init.method, "DELETE");
+  assert.equal(calls[0].init.body, undefined);
+
+  stubFetch(404, { success: false, code: "DOCUMENT_NOT_FOUND", message: "File not found." });
+  await assert.rejects(() => touristVisaService.deleteDocument("t", DOC.id), (e) => e.status === 404 && e.code === "DOCUMENT_NOT_FOUND");
+  const odd = stubFetch(200, { success: true });
+  await touristVisaService.deleteDocument("t", "a/b?c");
+  assert.match(odd[0].url, /documents\/a%2Fb%3Fc$/, "an id is encoded, never pasted into the path");
+});
+
+test("errors from the other calls carry no code unless the server sent one", async () => {
+  stubFetch(422, { message: "bad", errors: {} });
+  await assert.rejects(() => touristVisaService.saveSection("t", "1", {}), (e) => e.code === undefined);
+});

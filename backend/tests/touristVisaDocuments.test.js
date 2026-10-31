@@ -953,3 +953,121 @@ test('constants: the limits are the agreed ones, in one place', () => {
   assert.equal(limits.STORAGE.deliveryType, 'authenticated');
   assert.equal(limits.STORAGE.resourceType, 'raw');
 });
+
+// ---------------------------------------------------------------------------
+// Step 8c-2: section 10D follows the files
+// ---------------------------------------------------------------------------
+
+const appOf = async (token) => (await api('GET', '/applications/me', { token })).json.data.application;
+
+test('section 10D: not started with no files, in progress with one slot, saved with both, and back again when a file goes', async () => {
+  freshStorage();
+  const { token, appId } = await start();
+  let app = await appOf(token);
+  assert.equal(app.sectionStatus['10D'], undefined, 'not started: no status at all');
+  assert.equal(app.documentsComplete, false);
+
+  const passport = (await upload(token, { slot: 'passport' })).json.data.document;
+  app = await appOf(token);
+  assert.equal(app.sectionStatus['10D'], 'in_progress');
+  assert.equal(app.documentsComplete, false);
+
+  await upload(token, { slot: 'passport' });
+  assert.equal((await appOf(token)).sectionStatus['10D'], 'in_progress', 'a second passport file does not complete it');
+
+  const funds = (await upload(token, { slot: 'funds', file: PNG() })).json.data.document;
+  app = await appOf(token);
+  assert.equal(app.sectionStatus['10D'], 'saved');
+  assert.equal(app.documentsComplete, true);
+
+  assert.equal((await remove(token, funds.id)).status, 200);
+  app = await appOf(token);
+  assert.equal(app.sectionStatus['10D'], 'in_progress');
+  assert.equal(app.documentsComplete, false);
+
+  assert.equal((await remove(token, passport.id)).status, 200);
+  await remove(token, (await list(token)).json.data.documents[0].id);
+  app = await appOf(token);
+  assert.equal(app.sectionStatus['10D'], undefined, 'no files left: not started again');
+
+  const stored = await rawDoc(appId);
+  assert.equal(Object.keys(stored.sectionStatus || {}).includes('10D'), false, 'the status is worked out, never stored');
+});
+
+test('section 10D: the files-only section cannot be saved, and it is the last place to resume', async () => {
+  freshStorage();
+  const { token, appId } = await start();
+  const before = await rawDoc(appId);
+  const res = await api('PUT', '/applications/me/sections/10D', {
+    token, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers: {} }),
+  });
+  assert.equal(res.status, 400);
+  assert.equal(res.json.message, 'This section has no answers to save. Files are saved as soon as they are uploaded.');
+  const withKey = await api('PUT', '/applications/me/sections/10D', {
+    token, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers: { q10_6: 'x' } }),
+  });
+  assert.equal(withKey.status, 400);
+  assert.deepEqual(await rawDoc(appId), before, 'nothing was written');
+
+  // With Parts 1 to 10C saved the applicant resumes on 10D, whatever its state, because it is the last section.
+  const { TouristVisaApplicationService } = require('../services/touristVisaApplicationService');
+  const service = new TouristVisaApplicationService();
+  const saved = Object.fromEntries(['1', '2A', '2B', '2C', '2D', '3', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C'].map((id) => [id, 'saved']));
+  assert.equal(service.resumeSection(saved, {}), '10D', 'no files yet');
+  assert.equal(service.resumeSection({ ...saved, '10D': 'in_progress' }, {}), '10D', 'one slot is not enough');
+  assert.equal(service.resumeSection({ ...saved, '10D': 'saved' }, {}), '10D', 'complete: the last section stays the resume point');
+  assert.equal(service.resumeSection({ ...saved, '10C': undefined }, {}), '10C', 'an earlier section that is not saved comes first');
+});
+
+test('section 10D: a locked application keeps its files and their status', async () => {
+  freshStorage();
+  const { token, appId } = await start();
+  await upload(token, { slot: 'passport' });
+  await upload(token, { slot: 'funds' });
+  await setStatus(appId, 'submitted');
+  const app = await appOf(token);
+  assert.equal(app.sectionStatus['10D'], 'saved');
+  assert.equal(app.documentsComplete, true);
+  assert.equal(app.documents.length, 2);
+});
+
+test('the dashboard data for 10D never carries a link or storage id either', async () => {
+  const fake = freshStorage();
+  const { token } = await start();
+  await upload(token, { slot: 'passport' });
+  const text = JSON.stringify(await appOf(token));
+  assert.equal(text.includes(fake.uploads[0].publicId), false);
+  assert.equal(text.includes('tourist-visa/'), false);
+  assert.equal(text.includes('http'), false);
+});
+
+// ---------------------------------------------------------------------------
+// The storage cannot be swapped by anything in production
+// ---------------------------------------------------------------------------
+
+test('production code cannot swap the storage: the default is the Cloudinary adapter, and no production file assigns or reads a swap', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const { TouristVisaDocumentService } = require('../services/touristVisaDocumentService');
+  assert.equal(new TouristVisaDocumentService().storage, require('../config/touristVisaStorage'), 'a new service uses the real adapter');
+
+  // Only the tests (which assign a fake on purpose) may touch it. A wrapper outside the repository is the one other way in.
+  const root = path.join(__dirname, '..');
+  const files = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (['node_modules', 'tests', 'uploads', '.git'].includes(entry.name)) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith('.js')) files.push(full);
+    }
+  };
+  walk(root);
+  assert.ok(files.length > 30, 'the scan found the backend sources');
+  const offenders = [];
+  for (const file of files) {
+    const text = fs.readFileSync(file, 'utf8');
+    if (/(?<!this)\.storage\s*=(?!=)/.test(text) || /fake[-_ ]?storage/i.test(text) || /process\.env\.[A-Z_]*(FAKE|MOCK|STUB)[A-Z_]*/.test(text)) offenders.push(path.relative(root, file));
+  }
+  assert.deepEqual(offenders, [], 'no production file swaps or fakes the storage');
+});

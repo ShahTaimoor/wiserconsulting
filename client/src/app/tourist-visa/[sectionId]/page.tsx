@@ -6,9 +6,10 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DocumentsSection } from "@/components/tourist-visa/DocumentsSection";
 import { SectionForm } from "@/components/tourist-visa/SectionForm";
 import { useTouristVisa } from "@/context/TouristVisaContext";
-import { config, isSectionVisible } from "@/shared/tourist-visa/engine";
+import { config, isFilesOnlySection, isSectionVisible } from "@/shared/tourist-visa/engine";
 import type { Answers } from "@/shared/tourist-visa/engine";
 import { countHeldSections, isFormOpen, isPreviewMode } from "@/utils/touristVisaChecklist";
 
@@ -69,6 +70,9 @@ export default function TouristVisaSectionPage() {
         It only appears when an earlier answer needs it. If you change that answer, it will show up on your application page.
       </Message>
     );
+  } else if (isFilesOnlySection(config, section.id)) {
+    // Documents (10D): nothing to fill in or save, the files are saved as they are uploaded.
+    content = <DocumentsSection key={section.id} sectionId={section.id} application={state.application} />;
   } else {
     // key: switching sections starts a fresh form from that section's saved answers.
     content = <SectionForm key={section!.id} sectionId={section!.id} application={state.application} />;

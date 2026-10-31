@@ -374,14 +374,16 @@ test('an application saved before Part 10: its answers, ticks and statuses are u
   const finished = await get(token);
   for (const section of ['10A', '10B', '10C']) assert.equal(finished.sectionStatus[section], 'saved', section);
   assert.equal(Object.values(finished.sectionStatus).filter((s) => s !== 'saved').length, 0);
-  assert.equal(finished.currentSection, '10C', 'everything applicable is saved: resume on the last section');
+  assert.equal(finished.sectionStatus['10D'], undefined, 'no files yet: the documents section has not started');
+  assert.equal(finished.currentSection, '10D', 'Parts 1 to 10C are saved: resume on the documents section');
   assert.match(after.answers.q3_1, /^enc:v1:/, 'the passport number is still ciphertext');
 });
 
 test('Part 10 sections can be saved in any order, an unknown section is still a 404 and an unknown key still a 400', async () => {
   const { token } = await start();
   for (const [section, answers] of [...SECTIONS10].reverse()) assert.equal((await put(token, section, answers)).status, 200, section);
-  assert.equal((await put(token, '10D', {})).status, 404, 'the documents section is not built yet');
+  assert.equal((await put(token, '10E', {})).status, 404);
+  assert.equal((await put(token, '10D', {})).status, 400, 'the documents section has no answers to save');
   assert.equal((await put(token, '10A', { ...S10A, q10_99: true })).status, 400);
   assert.equal((await put(token, '10A', { ...S10A, q10_4: 'english' })).status, 400, 'a question of another section is not accepted here');
   assert.equal((await put(token, '10B', { q10_1: ['none'] })).status, 400);

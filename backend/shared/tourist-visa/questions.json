@@ -1,5 +1,5 @@
 {
-  "version": "0.10.0-draft",
+  "version": "0.11.0-draft",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
@@ -40,7 +40,8 @@
     { "id": "9C", "part": "9", "title": "Other conduct and character" },
     { "id": "10A", "part": "10", "title": "Convictions and other penalties" },
     { "id": "10B", "part": "10", "title": "Extra information" },
-    { "id": "10C", "part": "10", "title": "Language and National Insurance number" }
+    { "id": "10C", "part": "10", "title": "Language and National Insurance number" },
+    { "id": "10D", "part": "10", "title": "Documents" }
   ],
   "declarations": {
     "submit": {
@@ -2543,6 +2544,28 @@
       "sensitive": true,
       "help": "Two letters, six numbers and a last letter A, B, C or D, for example AB 12 34 56 C. You can type it with or without spaces, in capitals or small letters.",
       "draft": "Draft: required when 10.5 is Yes. Spaces and small letters are accepted; the number is stored in capitals with no spaces. The standard UK format is checked (including the letters never used at the start and the prefixes BG, GB, KN, NK, NT, TN and ZZ). Stored encrypted."
+    },
+    {
+      "id": "q10_6",
+      "number": "10.6",
+      "section": "10D",
+      "label": "Your passport or travel document",
+      "type": "FILE",
+      "slot": "passport",
+      "required": true,
+      "help": "A clear scan or photo of the page with your photo and personal details. You can upload up to 3 files, for example if the page does not fit in one picture.",
+      "draft": "Draft: the guidance is our own wording. At least one file is needed before the application can be submitted (checked at submit, step 8d); a draft can be saved without it. Files are stored privately, up to 3, as PDF, JPG or PNG."
+    },
+    {
+      "id": "q10_7",
+      "number": "10.7",
+      "section": "10D",
+      "label": "Evidence of funds",
+      "type": "FILE",
+      "slot": "funds",
+      "required": true,
+      "help": "Documents that show money available to you which you can clearly access, for example recent bank statements. You can upload up to 10 files.",
+      "draft": "Draft: the guidance is our own wording. At least one file is needed before the application can be submitted (checked at submit, step 8d); a draft can be saved without it. Files are stored privately, up to 10, as PDF, JPG or PNG."
     }
   ]
 }

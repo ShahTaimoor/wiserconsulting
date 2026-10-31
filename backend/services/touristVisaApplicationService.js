@@ -100,6 +100,17 @@ class TouristVisaApplicationService {
       if (state === "saved" && !this.sectionStillValid(section.id, view.answers)) statuses[section.id] = "needs_review";
       else if (state) statuses[section.id] = state;
     }
+    // A section made only of file questions (10D) has no stored status: it follows the uploaded files.
+    // Not started with no files, in progress with some, saved once every slot has one. Saving a draft never needs
+    // them; `documentsComplete` is what the submit step (8d) must check.
+    for (const section of engine.getVisibleSections(this.config, view.answers)) {
+      if (!engine.isFilesOnlySection(this.config, section.id)) continue;
+      const { state } = engine.documentsStatus(this.config, view.documents, section.id);
+      if (state === "complete") statuses[section.id] = "saved";
+      else if (state === "in_progress") statuses[section.id] = "in_progress";
+      else delete statuses[section.id];
+    }
+    view.documentsComplete = engine.documentsComplete(this.config, view.documents);
     view.sectionStatus = statuses;
     view.currentSection = this.resumeSection(statuses, view.answers);
     return view;
@@ -121,6 +132,10 @@ class TouristVisaApplicationService {
 
     if (!cfg.sections.some((s) => s.id === sectionId)) {
       throw new AppError("Section not found.", 404);
+    }
+    if (engine.isFilesOnlySection(cfg, sectionId)) {
+      // 10D has no answers: its files are saved as they are uploaded, and its status follows them.
+      return { saved: false, status: 400, message: "This section has no answers to save. Files are saved as soon as they are uploaded." };
     }
     this.repository.assertEncryptionReady(); // refuse to save at all without the key
 
@@ -229,7 +244,7 @@ class TouristVisaApplicationService {
   sectionKeys(sectionId) {
     const cfg = this.config;
     return [
-      ...cfg.questions.filter((q) => q.section === sectionId && !q.group).map((q) => q.id),
+      ...cfg.questions.filter((q) => q.section === sectionId && !q.group && q.type !== "FILE").map((q) => q.id),
       ...(cfg.groups || []).filter((g) => g.section === sectionId).map((g) => g.id),
     ];
   }

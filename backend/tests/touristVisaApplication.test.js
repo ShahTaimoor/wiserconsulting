@@ -138,9 +138,10 @@ test('POST creates a draft with the model defaults and a safe response shape', a
   assert.deepEqual(app.answers, {});
   assert.deepEqual(app.sectionStatus, {});
   assert.deepEqual(app.documents, []);
+  assert.equal(app.documentsComplete, false);
   assert.equal(app.submittedAt, null);
   assert.deepEqual(Object.keys(app).sort(), [
-    'answers', 'configVersion', 'createdAt', 'currentSection', 'documents', 'id',
+    'answers', 'configVersion', 'createdAt', 'currentSection', 'documents', 'documentsComplete', 'id',
     'sectionStatus', 'status', 'submittedAt', 'updatedAt', 'visaType',
   ]);
 

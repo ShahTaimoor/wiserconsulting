@@ -26,3 +26,19 @@ export function notifySaved(sectionTitle: string) {
 export function notifySaveFailed(message: string) {
   toast.error(message, { id: SAVE_TOAST_ID, duration: 6000, style: THEMED });
 }
+
+// Files: the toasts carry fixed wording only (never a file name), and the same id keeps them from stacking.
+const DOCUMENT_TOAST_ID = "tourist-visa-document";
+
+export function notifyDocumentUploaded() {
+  toast.success("File uploaded", { id: DOCUMENT_TOAST_ID, duration: 3000, style: THEMED });
+}
+
+export function notifyDocumentRemoved() {
+  toast.success("File removed", { id: DOCUMENT_TOAST_ID, duration: 3000, style: THEMED });
+}
+
+/** `message` is one of the fixed texts of documentErrorMessage. */
+export function notifyDocumentFailed(message: string) {
+  toast.error(message, { id: DOCUMENT_TOAST_ID, duration: 6000, style: THEMED });
+}

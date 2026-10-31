@@ -525,7 +525,9 @@ function validateSection(z, cfg, sectionId, incoming, existing, opts) {
 
   const topQs = cfg.questions.filter((q) => q.section === sectionId && !q.group);
   const groupsHere = (cfg.groups || []).filter((g) => g.section === sectionId);
-  const sectionKeys = new Set([...topQs.map((q) => q.id), ...groupsHere.map((g) => g.id)]);
+  // A FILE question stores nothing in the answers (its files are the application's documents), so its id is not
+  // an answer key: a request that sends one is refused like any other key that does not belong here.
+  const sectionKeys = new Set([...topQs.filter((q) => q.type !== 'FILE').map((q) => q.id), ...groupsHere.map((g) => g.id)]);
 
   const unknownKeys = Object.keys(body).filter((k) => !sectionKeys.has(k));
 
@@ -841,6 +843,7 @@ function validateConfig(cfg) {
     if (order.get(c.q) >= order.get(q.id)) err(`${where}: must refer to an earlier question than itself (${c.q})`);
   };
 
+  const fileSlots = new Map();
   for (const q of cfg.questions) {
     const w = q.id;
     if (!/^q\d+_\d+[a-z]?$/.test(q.id)) err(`${w}: id must look like q2_3 or q2_3a`);
@@ -925,6 +928,19 @@ function validateConfig(cfg) {
       else if (!Object.prototype.hasOwnProperty.call(NORMALIZERS, r.normalize)) err(`${w}: rules.normalize must be one of ${Object.keys(NORMALIZERS).join(', ')}`);
     }
     if (q.type === 'ACK' && q.required !== true) err(`${w}: an ACK question must be required`);
+    if (q.type === 'FILE') {
+      // A FILE question is answered by uploading files into its slot. It stores no answer, is always shown,
+      // and "required" means "needs at least one file before the application can be submitted".
+      if (typeof q.slot !== 'string' || !/^[a-z]+$/.test(q.slot)) err(`${w}: a FILE question needs a slot (lower-case letters)`);
+      else if (fileSlots.has(q.slot)) err(`${w}: slot ${q.slot} is already used by ${fileSlots.get(q.slot)}`);
+      else fileSlots.set(q.slot, q.id);
+      for (const key of ['options', 'rules', 'showWhen', 'group', 'items', 'helpCountries']) {
+        if (q[key] !== undefined) err(`${w}: a FILE question has no ${key}`);
+      }
+      if (q.sensitive) err(`${w}: a FILE question stores no answer, so it cannot be sensitive`);
+    } else if (q.slot !== undefined) {
+      err(`${w}: slot is only for FILE questions`);
+    }
     if (r.withinYears !== undefined) {
       if (q.type !== 'DATE' && q.type !== 'MY') err(`${w}: rules.withinYears needs a DATE or MY question`);
       if (!Number.isInteger(r.withinYears) || r.withinYears < 1 || r.withinYears > 100) err(`${w}: rules.withinYears must be a whole number from 1 to 100`);
@@ -1015,6 +1031,43 @@ function validateConfig(cfg) {
   return errs;
 }
 
+/** The FILE questions of the config, or of one section. */
+function getFileQuestions(cfg, sectionId) {
+  return cfg.questions.filter((q) => q.type === 'FILE' && (sectionId === undefined || q.section === sectionId));
+}
+
+/** A section made only of FILE questions (such as 10D): it has no answers to save; its files are saved as they are uploaded. */
+function isFilesOnlySection(cfg, sectionId) {
+  const questions = cfg.questions.filter((q) => q.section === sectionId);
+  return questions.length > 0 && questions.every((q) => q.type === 'FILE') && !(cfg.groups || []).some((g) => g.section === sectionId);
+}
+
+/**
+ * Where the files stand. `documents` is the application's list (each with a `slot`); only the slot is read.
+ * Per FILE question (of one section when sectionId is given): how many files it has. state is
+ *  - 'not_started': no slot has a file;
+ *  - 'in_progress': some slot has a file, not all;
+ *  - 'complete': every slot has at least one file.
+ * A draft can be saved in any state; `complete` is the rule for submitting (step 8d).
+ */
+function documentsStatus(cfg, documents, sectionId) {
+  const list = Array.isArray(documents) ? documents : [];
+  const slots = getFileQuestions(cfg, sectionId).map((q) => ({
+    questionId: q.id,
+    number: q.number,
+    slot: q.slot,
+    count: list.filter((d) => d && d.slot === q.slot).length,
+  }));
+  const filled = slots.filter((s) => s.count > 0).length;
+  const complete = filled === slots.length;
+  return { slots, state: complete ? 'complete' : filled > 0 ? 'in_progress' : 'not_started', complete };
+}
+
+/** True when every FILE question has at least one file. Step 8d refuses to submit until it is. */
+function documentsComplete(cfg, documents) {
+  return documentsStatus(cfg, documents).complete;
+}
+
 module.exports = {
   config,
   getCountries,
@@ -1031,6 +1084,10 @@ module.exports = {
   getHeldSections,
   getWordingDrafts,
   wordingOf,
+  getFileQuestions,
+  isFilesOnlySection,
+  documentsStatus,
+  documentsComplete,
   isSectionReleasable,
   validateConfig,
 };

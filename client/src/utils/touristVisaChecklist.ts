@@ -5,16 +5,29 @@
  * Plain functions with type-only imports, so they can be unit tested with `node --test`.
  */
 
-import { getHeldSections, getVisibleSections } from "../shared/tourist-visa/engine.js";
+import { documentsStatus, getHeldSections, getVisibleSections, isFilesOnlySection } from "../shared/tourist-visa/engine.js";
 import type { Answers, TouristVisaConfig } from "../shared/tourist-visa/engine.js";
 import type { TouristVisaApplication } from "@/services/touristVisaService";
 
-export type ChecklistState = "saved" | "needs_review" | "not_started";
+export type ChecklistState = "saved" | "needs_review" | "in_progress" | "not_started";
 
 export interface ChecklistSection {
   id: string;
   title: string;
   state: ChecklistState;
+  /** A line under the title, for example "1 passport file, 2 funds files" on the documents section. */
+  detail?: string;
+}
+
+/**
+ * The line under the documents row on the dashboard: "1 passport file, 2 funds files", or
+ * "No files uploaded yet". Slots are in the order of the file questions.
+ */
+export function documentSummary(config: TouristVisaConfig, documents: Array<{ slot: string }> | undefined, sectionId?: string): string {
+  const parts = documentsStatus(config, documents, sectionId)
+    .slots.filter((slot) => slot.count > 0)
+    .map((slot) => slot.count + " " + slot.slot + " file" + (slot.count === 1 ? "" : "s"));
+  return parts.length ? parts.join(", ") : "No files uploaded yet";
 }
 
 export interface ChecklistPart {
@@ -37,11 +50,22 @@ export interface Checklist {
  */
 export function buildChecklist(
   config: TouristVisaConfig,
-  application: (Pick<TouristVisaApplication, "sectionStatus"> & { answers?: Record<string, unknown> }) | null
+  application: (Pick<TouristVisaApplication, "sectionStatus"> & { answers?: Record<string, unknown>; documents?: Array<{ slot: string }> }) | null
 ): Checklist {
   const status = application?.sectionStatus ?? {};
   const applicable = new Set(getVisibleSections(config, (application?.answers ?? {}) as Answers).map((s) => s.id));
-  const stateOf = (id: string): ChecklistState => (status[id] === "saved" || status[id] === "needs_review" ? status[id] : "not_started");
+  const documents = application?.documents;
+  const stateOf = (id: string): ChecklistState => {
+    // A section made only of file questions (10D) follows the uploaded files, not a saved status.
+    if (application && documents && isFilesOnlySection(config, id)) {
+      const { state } = documentsStatus(config, documents, id);
+      return state === "complete" ? "saved" : state === "in_progress" ? "in_progress" : "not_started";
+    }
+    const stored = status[id];
+    return stored === "saved" || stored === "needs_review" || stored === "in_progress" ? stored : "not_started";
+  };
+  const detailOf = (id: string): string | undefined =>
+    application && documents && isFilesOnlySection(config, id) ? documentSummary(config, documents, id) : undefined;
 
   const parts: ChecklistPart[] = config.parts
     .map((part) => ({
@@ -49,7 +73,7 @@ export function buildChecklist(
       title: part.title,
       sections: config.sections
         .filter((section) => section.part === part.id && applicable.has(section.id))
-        .map((section) => ({ id: section.id, title: section.title, state: stateOf(section.id) })),
+        .map((section) => ({ id: section.id, title: section.title, state: stateOf(section.id), detail: detailOf(section.id) })),
     }))
     .filter((part) => part.sections.length > 0);
 

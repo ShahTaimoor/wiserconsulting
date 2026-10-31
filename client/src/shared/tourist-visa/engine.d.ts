@@ -75,6 +75,8 @@ export interface Question {
   /** Id of the repeating group this question belongs to. */
   group?: string;
   rules?: QuestionRules;
+  /** FILE only: the document slot its files go into (the backend's document routes use the same names). */
+  slot?: string;
   /** Short items shown as a bulleted list under the question text. */
   items?: string[];
   /**
@@ -243,5 +245,20 @@ export function getHeldSections(cfg: TouristVisaConfig): HeldSection[];
 export function getWordingDrafts(cfg: TouristVisaConfig): Array<{ id: string; draft: string }>;
 /** The exact words of a declaration question (label and guidance), whitespace-normalised, for hashing. */
 export function wordingOf(cfg: TouristVisaConfig, questionId: string): string;
+
+export interface DocumentsStatus {
+  slots: Array<{ questionId: string; number: string; slot: string; count: number }>;
+  /** not_started: no slot has a file; in_progress: some do; complete: every slot has at least one. */
+  state: 'not_started' | 'in_progress' | 'complete';
+  complete: boolean;
+}
+/** The FILE questions of the config, or of one section. */
+export function getFileQuestions(cfg: TouristVisaConfig, sectionId?: string): Question[];
+/** A section made only of FILE questions: nothing to save, its files are saved as they are uploaded. */
+export function isFilesOnlySection(cfg: TouristVisaConfig, sectionId: string): boolean;
+/** How many files each FILE question has, and the overall state. `documents` need only a `slot`. */
+export function documentsStatus(cfg: TouristVisaConfig, documents: Array<{ slot: string }> | undefined, sectionId?: string): DocumentsStatus;
+/** True when every FILE question has at least one file (the rule for submitting). */
+export function documentsComplete(cfg: TouristVisaConfig, documents: Array<{ slot: string }> | undefined): boolean;
 export function isSectionReleasable(cfg: TouristVisaConfig, sectionId: string): boolean;
 export function validateConfig(cfg: unknown): string[];

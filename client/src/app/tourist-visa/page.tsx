@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, Circle, Loader2, Lock } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Circle, CircleDot, Loader2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,6 +20,7 @@ import {
 const STATE_LABEL: Record<ChecklistState, string> = {
   saved: "Saved",
   needs_review: "Needs review",
+  in_progress: "In progress",
   not_started: "Not started",
 };
 
@@ -28,12 +29,15 @@ const STATE_PILL: Record<ChecklistState, string> = {
     "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/30",
   needs_review:
     "bg-amber-50 text-amber-800 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-400/30",
+  in_progress:
+    "bg-sky-50 text-sky-800 ring-sky-600/20 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-400/30",
   not_started: "bg-muted text-muted-foreground ring-border",
 };
 
 function StateIcon({ state }: { state: ChecklistState }) {
   if (state === "saved") return <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />;
   if (state === "needs_review") return <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />;
+  if (state === "in_progress") return <CircleDot className="h-5 w-5 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden />;
   return <Circle className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />;
 }
 
@@ -233,6 +237,7 @@ export default function TouristVisaDashboardPage() {
                           <span className="min-w-0 flex-1 text-sm font-medium text-foreground">
                             <span className="mr-2 text-muted-foreground">{section.id}</span>
                             {section.title}
+                            {section.detail && <span className="mt-0.5 block text-xs font-normal text-muted-foreground">{section.detail}</span>}
                           </span>
                           <span
                             className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${STATE_PILL[section.state]}`}
