@@ -21,6 +21,14 @@ const documentSchema = new mongoose.Schema({
     originalName: { type: String, required: true },
 }, { _id: false });
 
+// A small copy of who the applicant is, kept at submit time so the admin list never has to decrypt or scan answers.
+// Made once and left alone (older submitted applications get it the first time they are listed or opened).
+const summarySchema = new mongoose.Schema({
+    name: { type: String, default: '' },
+    email: { type: String, default: '' },
+    phone: { type: String, default: '' },
+}, { _id: false });
+
 const touristVisaApplicationSchema = new mongoose.Schema(
     {
         // Owner. Always taken from the authenticated user, never from a request body.
@@ -75,6 +83,8 @@ const touristVisaApplicationSchema = new mongoose.Schema(
         reference: { type: String },
         // SHA-256 of the config the application was submitted under; its snapshot is in TouristVisaConfigSnapshot.
         configSha256: { type: String },
+        // { name, email, phone } for the admin list (not present on a draft).
+        summary: { type: summarySchema, default: undefined },
         isDeleted: { type: Boolean, default: false },
     },
     {
@@ -89,6 +99,8 @@ touristVisaApplicationSchema.index(
     { unique: true, partialFilterExpression: { status: 'draft', isDeleted: false } }
 );
 touristVisaApplicationSchema.index({ applicant: 1, createdAt: -1 });
+// The admin list: submitted and later applications, newest first, by status.
+touristVisaApplicationSchema.index({ status: 1, submittedAt: -1 });
 // A reference belongs to one application. Applications that have none yet are not in the index.
 touristVisaApplicationSchema.index({ reference: 1 }, { unique: true, partialFilterExpression: { reference: { $type: 'string' } } });
 touristVisaApplicationSchema.index({ status: 1, createdAt: -1 });

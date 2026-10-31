@@ -3,7 +3,9 @@
 import { Sidebar, SidebarContent } from "@/components/ui/sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { NavItem, NavMain } from "@/components/shadcn-space/blocks/sidebar-06/nav-main";
-import { PieChart, CircleUserRound, ClipboardList, Notebook, ExternalLink, Mail, Settings, BadgeCheck, MessageSquareQuote } from "lucide-react";
+import { PieChart, CircleUserRound, ClipboardList, Notebook, ExternalLink, Mail, Settings, BadgeCheck, MessageSquareQuote, Plane } from "lucide-react";
+import { config } from "@/shared/tourist-visa/engine";
+import { countHeldSections, isFormOpen, isPreviewMode } from "@/utils/touristVisaChecklist";
 
 export const navData: NavItem[] = [
   // Admin Section
@@ -25,7 +27,17 @@ export const navData: NavItem[] = [
   { title: "Switch to Website", icon: ExternalLink, href: "/" },
 ];
 
+// The Tourist Visa entry is only there while the Tourist Visa feature is open (or in preview), like the applicant's own pages.
+const touristVisaItem: NavItem = { title: "Tourist Visa", icon: Plane, href: "/admin/tourist-visa" };
+
+function itemsForSidebar(): NavItem[] {
+  if (!isFormOpen(countHeldSections(config), isPreviewMode())) return navData;
+  const at = navData.findIndex((item) => item.href === "/admin/contacts");
+  return [...navData.slice(0, at + 1), touristVisaItem, ...navData.slice(at + 1)];
+}
+
 export function AppSidebar() {
+  const items = itemsForSidebar();
   return (
     <Sidebar variant="floating" className="p-4 h-full [&_[data-slot=sidebar-inner]]:h-full">
       <div className="flex flex-col gap-6 overflow-hidden">
@@ -33,7 +45,7 @@ export function AppSidebar() {
         <SidebarContent className="overflow-hidden">
           <ScrollArea className="h-full">
             <div className="px-4 pt-4">
-              <NavMain items={navData} />
+              <NavMain items={items} />
             </div>
           </ScrollArea>
         </SidebarContent>

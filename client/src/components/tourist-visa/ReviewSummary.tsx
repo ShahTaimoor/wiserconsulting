@@ -8,13 +8,17 @@ interface ReviewSummaryProps {
   review: Review;
   /** Show an Edit link on each section. Off once the application is submitted. */
   editable: boolean;
+  /** Draw the files of a file question in another way (the admin Overview adds an Open button to each). */
+  renderFiles?: (row: ReviewRow) => React.ReactNode;
 }
 
 /** One answer: its number and question, and its value in words. A group shows its entries as numbered items. */
-function RowView({ row, nested = false }: { row: ReviewRow; nested?: boolean }) {
+function RowView({ row, nested = false, renderFiles }: { row: ReviewRow; nested?: boolean; renderFiles?: (row: ReviewRow) => React.ReactNode }) {
   const value = (
     <>
-      {row.kind === "files" ? (
+      {row.kind === "files" && renderFiles ? (
+        renderFiles(row)
+      ) : row.kind === "files" ? (
         row.files && row.files.length > 0 ? (
           <ul className="space-y-1">
             {row.files.map((file, index) => (
@@ -72,7 +76,7 @@ function RowView({ row, nested = false }: { row: ReviewRow; nested?: boolean }) 
  * answer in words, the files by name and size, and the Part 9 ticks as given. Read only. It never receives or shows a
  * link or a storage id, because the builder is never given one.
  */
-export function ReviewSummary({ review, editable }: ReviewSummaryProps) {
+export function ReviewSummary({ review, editable, renderFiles }: ReviewSummaryProps) {
   return (
     <div className="space-y-8">
       {review.parts.map((part) => (
@@ -82,7 +86,7 @@ export function ReviewSummary({ review, editable }: ReviewSummaryProps) {
           </h2>
           <div className="space-y-4">
             {part.sections.map((section) => (
-              <article key={section.id} aria-labelledby={`review-section-${section.id}`} data-section-id={section.id} className="overflow-hidden rounded-lg border border-border">
+              <article key={section.id} id={`section-${section.id}`} aria-labelledby={`review-section-${section.id}`} data-section-id={section.id} className="scroll-mt-20 overflow-hidden rounded-lg border border-border">
                 <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/30 px-4 py-3">
                   <h3 id={`review-section-${section.id}`} className="text-base font-semibold text-foreground">
                     <span className="mr-2 text-muted-foreground">{section.id}</span>
@@ -101,7 +105,7 @@ export function ReviewSummary({ review, editable }: ReviewSummaryProps) {
                 </header>
                 <dl className="divide-y divide-border">
                   {section.rows.map((row) => (
-                    <RowView key={row.id} row={row} />
+                    <RowView key={row.id} row={row} renderFiles={renderFiles} />
                   ))}
                 </dl>
               </article>

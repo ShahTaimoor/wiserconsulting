@@ -16,6 +16,12 @@ const { AppError } = require("../middleware/errorHandler");
 const logger = require("../utils/logger");
 const fieldCipher = require("./fieldCipher");
 
+// What an administrator may see: submitted and later. Never "draft".
+const ADMIN_STATUSES = ["submitted", "in_review", "completed"];
+const REFERENCE_SHAPE = /^TV-[A-Z0-9]{8}$/;
+/** Every character of a search text is taken literally. */
+const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 class TouristVisaApplicationRepository {
   constructor({ config = defaultConfig } = {}) {
     this.sensitiveIds = new Set(config.questions.filter((q) => q.sensitive).map((q) => q.id));
@@ -114,7 +120,7 @@ class TouristVisaApplicationRepository {
    * (decrypted), or null when it did not match. A reference that is already taken throws a duplicate-key error
    * naming the reference (see isReferenceCollision), so the caller can try another.
    */
-  async submitApplication(applicationId, applicantId, { expectedUpdatedAt, reference, configSha256, configVersion, declarationRecord, submittedAt }) {
+  async submitApplication(applicationId, applicantId, { expectedUpdatedAt, reference, configSha256, configVersion, declarationRecord, submittedAt, summary }) {
     const application = await TouristVisaApplication.findOneAndUpdate(
       { _id: applicationId, applicant: applicantId, status: "draft", isDeleted: false, updatedAt: expectedUpdatedAt },
       {
@@ -125,11 +131,84 @@ class TouristVisaApplicationRepository {
           configSha256,
           configVersion,
           "declarations.submit": declarationRecord,
+          ...(summary ? { summary } : {}),
         },
       },
       { new: true }
     ).lean({ flattenMaps: true });
     return this.withDecryptedAnswers(application);
+  }
+
+  // -------------------------------------------------------------------------
+  // The admin side (read only, plus status). Drafts are never returned by any of these.
+  // -------------------------------------------------------------------------
+
+  /** The statuses an administrator can see. A draft is never one of them. */
+  adminStatuses() {
+    return ADMIN_STATUSES;
+  }
+
+  /**
+   * Submitted and later applications, newest first, with just what the list shows (no answers):
+   * { rows: [{ _id, reference, summary, submittedAt, status, documentCount }], total }.
+   * `q` is matched as an exact reference when it looks like one, otherwise as text inside the name or the email,
+   * ignoring case, with every character of it taken literally (it is escaped, never run as an expression).
+   */
+  async listForAdmin({ status, q, page, pageSize }) {
+    const match = { isDeleted: false, status: status ? status : { $in: ADMIN_STATUSES } };
+    const search = typeof q === "string" ? q.trim() : "";
+    if (search) {
+      if (REFERENCE_SHAPE.test(search.toUpperCase())) match.reference = search.toUpperCase();
+      else {
+        const pattern = new RegExp(escapeRegex(search), "i");
+        match.$or = [{ "summary.name": pattern }, { "summary.email": pattern }];
+      }
+    }
+    const [result] = await TouristVisaApplication.aggregate([
+      { $match: match },
+      {
+        $facet: {
+          rows: [
+            { $sort: { submittedAt: -1, _id: -1 } },
+            { $skip: (page - 1) * pageSize },
+            { $limit: pageSize },
+            { $project: { reference: 1, summary: 1, submittedAt: 1, status: 1, documentCount: { $size: { $ifNull: ["$documents", []] } } } },
+          ],
+          total: [{ $count: "n" }],
+        },
+      },
+    ]);
+    return { rows: result.rows, total: result.total.length ? result.total[0].n : 0 };
+  }
+
+  /** One submitted or later application with its answers and file names decrypted, or null (also for a draft). */
+  async findForAdmin(applicationId) {
+    const application = await TouristVisaApplication.findOne({ _id: applicationId, isDeleted: false, status: { $in: ADMIN_STATUSES } }).lean({ flattenMaps: true });
+    return this.withDecryptedAnswers(application);
+  }
+
+  /** Ids of submitted or later applications that have no summary yet (older ones), at most `limit`. */
+  async findIdsWithoutSummary(limit) {
+    const rows = await TouristVisaApplication.find({ isDeleted: false, status: { $in: ADMIN_STATUSES }, summary: { $exists: false } }).select("_id").limit(limit).lean();
+    return rows.map((row) => row._id);
+  }
+
+  /** Stores a summary only if the application has none: it is made once and then left alone. */
+  async setSummaryOnce(applicationId, summary) {
+    await TouristVisaApplication.updateOne({ _id: applicationId, summary: { $exists: false } }, { $set: { summary } }, { timestamps: false });
+  }
+
+  /**
+   * submitted -> in_review -> completed -> in_review, one conditional write: it matches only while the application
+   * still has the status the caller read. Returns the new status, or null when it did not match.
+   */
+  async changeStatus(applicationId, from, to) {
+    const updated = await TouristVisaApplication.findOneAndUpdate(
+      { _id: applicationId, isDeleted: false, status: from },
+      { $set: { status: to } },
+      { new: true, projection: { status: 1 } }
+    ).lean();
+    return updated ? updated.status : null;
   }
 
   /** Did this duplicate-key error come from the reference index? */

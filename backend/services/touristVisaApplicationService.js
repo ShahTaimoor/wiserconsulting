@@ -10,6 +10,7 @@ const engine = require("../shared/tourist-visa/engine");
 const { AppError } = require("../middleware/errorHandler");
 const { toDocumentView } = require("../utils/touristVisaDocumentView");
 const { buildReview } = require("../shared/tourist-visa/view");
+const { summaryOf } = require("../utils/touristVisaSummary");
 const logger = require("../utils/logger");
 
 // A reference is "TV-" and eight characters from an alphabet without look-alikes (no 0, O, 1, I or L), so it can be
@@ -333,6 +334,7 @@ class TouristVisaApplicationService {
           configVersion: this.config.version,
           declarationRecord,
           submittedAt,
+          summary: summaryOf(application.answers), // for the admin list, made once, from answers stored as plain text anyway
         });
       } catch (error) {
         if (!this.repository.isReferenceCollision(error)) throw error;

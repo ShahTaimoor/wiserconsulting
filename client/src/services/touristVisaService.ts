@@ -1,5 +1,6 @@
 /** in_progress is worked out by the server for the documents section (10D) from the uploaded files. */
 import type { Review } from "../shared/tourist-visa/view.js";
+import type { ActivityRow, AdminList, AdminListQuery, AdminOverview, AdminStatus } from "./touristVisaAdminTypes";
 
 export type SectionState = "saved" | "needs_review" | "in_progress";
 export type ApplicationStatus = "draft" | "submitted" | "in_review" | "completed";
@@ -105,7 +106,7 @@ export interface SaveSectionResult {
 }
 
 /** The parts of the API's JSON envelope this service reads. */
-interface ApiBody {
+export interface ApiBody {
   code?: unknown;
   message?: unknown;
   errors?: unknown;
@@ -122,9 +123,9 @@ interface ApiBody {
   };
 }
 
-async function request(
+export async function request(
   path: string,
-  method: "GET" | "POST" | "PUT" | "DELETE",
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
   token: string,
   body?: unknown,
   signal?: AbortSignal
@@ -165,7 +166,7 @@ export function isFeatureClosed(status: number, json: { code?: unknown } | null)
   return status === 404 && json !== null && typeof json === "object" && json.code === FEATURE_CLOSED_CODE;
 }
 
-function failure(status: number, json: ApiBody | null): TouristVisaApiError {
+export function failure(status: number, json: ApiBody | null): TouristVisaApiError {
   if (isFeatureClosed(status, json)) {
     const closed = new TouristVisaApiError(404, NOT_OPEN_MESSAGE);
     closed.closed = true;
@@ -220,6 +221,18 @@ export function describeError(error: unknown): string {
     return error.message;
   }
   return "Something went wrong. Please try again.";
+}
+
+/** Plain query text for the list: only what is set, the search text trimmed. */
+export function listQueryString(query: AdminListQuery): string {
+  const params = new URLSearchParams();
+  const q = (query.q ?? "").trim();
+  if (q) params.set("q", q);
+  if (query.status) params.set("status", query.status);
+  if (query.page && query.page > 1) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  const text = params.toString();
+  return text ? `?${text}` : "";
 }
 
 export const touristVisaService = {
@@ -308,5 +321,50 @@ export const touristVisaService = {
   async deleteDocument(token: string, docId: string): Promise<void> {
     const { status, json } = await request(`/applications/me/documents/${encodeURIComponent(docId)}`, "DELETE", token);
     if (status < 200 || status >= 300) throw failure(status, json);
+  },
+
+  // -------------------------------------------------------------------------
+  // The administrator's side (read only, plus the status). The server checks the role on every call.
+  // -------------------------------------------------------------------------
+
+  async adminList(token: string, query: AdminListQuery = {}): Promise<AdminList> {
+    const { status, json } = await request(`/admin/applications${listQueryString(query)}`, "GET", token);
+    if (status < 200 || status >= 300) throw failure(status, json);
+    const data = json?.data as unknown as AdminList | undefined;
+    if (!data || !Array.isArray(data.applications)) throw new TouristVisaApiError(502, "The server sent an unexpected response.");
+    return data;
+  },
+
+  async adminOverview(token: string, id: string): Promise<AdminOverview> {
+    const { status, json } = await request(`/admin/applications/${encodeURIComponent(id)}`, "GET", token);
+    if (status < 200 || status >= 300) throw failure(status, json);
+    const data = json?.data as unknown as AdminOverview | undefined;
+    if (!data || !data.review || !data.call || !data.application) throw new TouristVisaApiError(502, "The server sent an unexpected response.");
+    return data;
+  },
+
+  /** A signed link to one file, valid for 2 minutes. The only place a link reaches the browser. */
+  async adminDocumentLink(token: string, id: string, docId: string): Promise<{ url: string; expiresAt: string }> {
+    const { status, json } = await request(`/admin/applications/${encodeURIComponent(id)}/documents/${encodeURIComponent(docId)}/link`, "GET", token);
+    if (status < 200 || status >= 300) throw failure(status, json);
+    const data = json?.data as unknown as { url?: unknown; expiresAt?: unknown } | undefined;
+    if (!data || typeof data.url !== "string" || typeof data.expiresAt !== "string") throw new TouristVisaApiError(502, "The server sent an unexpected response.");
+    return { url: data.url, expiresAt: data.expiresAt };
+  },
+
+  async adminSetStatus(token: string, id: string, to: AdminStatus): Promise<{ status: AdminStatus; allowedMoves: AdminStatus[] }> {
+    const { status, json } = await request(`/admin/applications/${encodeURIComponent(id)}/status`, "PATCH", token, { status: to });
+    if (status < 200 || status >= 300) throw failure(status, json);
+    const data = json?.data as unknown as { status?: AdminStatus; allowedMoves?: AdminStatus[] } | undefined;
+    if (!data || typeof data.status !== "string" || !Array.isArray(data.allowedMoves)) throw new TouristVisaApiError(502, "The server sent an unexpected response.");
+    return { status: data.status, allowedMoves: data.allowedMoves };
+  },
+
+  async adminActivity(token: string, id: string): Promise<ActivityRow[]> {
+    const { status, json } = await request(`/admin/applications/${encodeURIComponent(id)}/activity`, "GET", token);
+    if (status < 200 || status >= 300) throw failure(status, json);
+    const data = json?.data as unknown as { activity?: ActivityRow[] } | undefined;
+    if (!data || !Array.isArray(data.activity)) throw new TouristVisaApiError(502, "The server sent an unexpected response.");
+    return data.activity;
   },
 };

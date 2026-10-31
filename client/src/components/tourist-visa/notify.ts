@@ -50,6 +50,18 @@ export function notifySubmitFailed(message: string) {
   toast.error(message, { id: SUBMIT_TOAST_ID, duration: 7000, style: THEMED });
 }
 
+// The admin side: fixed wording only, one id so a repeat replaces the toast.
+const ADMIN_TOAST_ID = "tourist-visa-admin";
+
+export function notifyAdminDone(message: string) {
+  toast.success(message, { id: ADMIN_TOAST_ID, duration: 3500, style: THEMED });
+}
+
+/** `message` is one of the fixed texts of describeAdminError. */
+export function notifyAdminFailed(message: string) {
+  toast.error(message, { id: ADMIN_TOAST_ID, duration: 6000, style: THEMED });
+}
+
 /** `message` is one of the fixed texts of documentErrorMessage. */
 export function notifyDocumentFailed(message: string) {
   toast.error(message, { id: DOCUMENT_TOAST_ID, duration: 6000, style: THEMED });

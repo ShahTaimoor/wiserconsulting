@@ -8,7 +8,9 @@ const express = require('express');
 const router = express.Router();
 const touristVisaApplicationController = require('../controllers/touristVisaApplicationController');
 const touristVisaDocumentController = require('../controllers/touristVisaDocumentController');
-const { isAuthorized } = require('../middleware/authMiddleware');
+const { isAuthorized, isAdmin } = require('../middleware/authMiddleware');
+const noStore = require('../middleware/noStore');
+const touristVisaAdminRoutes = require('./touristVisaAdminRoutes');
 const touristVisaErrorHandler = require('../middleware/touristVisaErrorHandler');
 const touristVisaFeatureGate = require('../middleware/touristVisaFeatureGate');
 const { isTouristVisaEnabled } = touristVisaFeatureGate;
@@ -25,7 +27,13 @@ if (isTouristVisaEnabled()) {
 // Closed unless TOURIST_VISA_ENABLED is "true". index.js already mounts the same gate first; it is
 // repeated here so the router can never be reached through another mount while the switch is off.
 router.use(touristVisaFeatureGate);
+// Everything under /admin (even a refusal to sign in) is marked not to be kept in a cache.
+router.use('/admin', noStore);
 router.use(isAuthorized);
+
+// The administrator's side: read only, plus the status. Anonymous is 401 (above), a signed-in user who is not an
+// administrator is 403 (the role is read from the database on every request).
+router.use('/admin', isAdmin, touristVisaAdminRoutes);
 
 // Create a draft application (or return the existing one)
 router.post(
