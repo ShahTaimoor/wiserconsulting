@@ -86,6 +86,91 @@ class TouristVisaApplicationRepository {
   }
 
   // -------------------------------------------------------------------------
+  // Documents (the uploaded files; the file itself lives in private storage)
+  // -------------------------------------------------------------------------
+
+  /** The applicant's latest application with only what the document routes need: status and document references. */
+  async findDocumentContext(applicantId) {
+    return TouristVisaApplication.findOne({ applicant: applicantId, isDeleted: false })
+      .sort({ createdAt: -1 })
+      .select("status documents")
+      .lean();
+  }
+
+  /** One application's status and document references, by id (not limited to an owner: for internal callers). */
+  async findDocumentContextById(applicationId) {
+    return TouristVisaApplication.findOne({ _id: applicationId, isDeleted: false }).select("status documents").lean();
+  }
+
+  /**
+   * Adds one document reference, but only if the application is still a draft, the slot is below its file
+   * limit and the total stays within the size limit. The three checks and the write are one database
+   * operation, so two uploads running at the same moment cannot both pass a check that only one of them
+   * should. Returns true when added, false when the guard (or the owner or status) did not match.
+   */
+  async addDocument(applicationId, applicantId, document, { slotMax, totalMax }) {
+    const added = await TouristVisaApplication.findOneAndUpdate(
+      {
+        _id: applicationId,
+        applicant: applicantId,
+        status: "draft",
+        isDeleted: false,
+        $expr: {
+          $and: [
+            {
+              $lt: [
+                { $size: { $filter: { input: { $ifNull: ["$documents", []] }, as: "d", cond: { $eq: ["$$d.slot", document.slot] } } } },
+                slotMax,
+              ],
+            },
+            { $lte: [{ $add: [{ $sum: "$documents.bytes" }, document.bytes] }, totalMax] },
+          ],
+        },
+      },
+      { $push: { documents: document } },
+      { new: true, runValidators: true, projection: { _id: 1 } }
+    ).lean();
+    return Boolean(added);
+  }
+
+  /**
+   * Removes one document reference of a draft the applicant owns. Returns the removed reference (so its
+   * stored file can be deleted), or null when there is no such document or the application is not a draft.
+   */
+  async removeDocument(applicationId, applicantId, docId) {
+    const before = await TouristVisaApplication.findOneAndUpdate(
+      { _id: applicationId, applicant: applicantId, status: "draft", isDeleted: false, "documents.id": docId },
+      { $pull: { documents: { id: docId } } },
+      { new: false, projection: { documents: 1 } }
+    ).lean();
+    if (!before) return null;
+    return (before.documents || []).find((d) => d.id === docId) || null;
+  }
+
+  encryptDocumentName(applicationId, docId, name) {
+    return fieldCipher.encrypt(getFieldEncryptionKey(), name, this.aad(String(applicationId), this.documentField(docId)));
+  }
+
+  /** Document references with the original name decrypted (other fields as stored). */
+  decryptDocuments(applicationId, documents) {
+    let key = null;
+    return (documents || []).map((doc) => {
+      try {
+        key = key || getFieldEncryptionKey();
+        return { ...doc, originalName: fieldCipher.decrypt(key, doc.originalName, this.aad(String(applicationId), this.documentField(doc.id))) };
+      } catch (error) {
+        if (error instanceof AppError) throw error; // key missing or malformed
+        logger.error("Tourist Visa file name could not be decrypted", { applicationId: String(applicationId), documentId: doc.id });
+        throw new AppError("Your uploaded files could not be read. Please contact support.", 500);
+      }
+    });
+  }
+
+  documentField(docId) {
+    return `documents.${docId}.originalName`;
+  }
+
+  // -------------------------------------------------------------------------
   // Encryption of answers
   // -------------------------------------------------------------------------
 
@@ -150,7 +235,11 @@ class TouristVisaApplicationRepository {
 
   withDecryptedAnswers(application) {
     if (!application) return application;
-    return { ...application, answers: this.decryptAnswers(String(application._id), application.answers) };
+    return {
+      ...application,
+      answers: this.decryptAnswers(String(application._id), application.answers),
+      documents: this.decryptDocuments(application._id, application.documents),
+    };
   }
 
   aad(applicationId, field) {

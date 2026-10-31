@@ -9,7 +9,9 @@
  *
  * Once this parser has consumed the request, the global body parsers see a
  * finished stream and skip it. Bodies that are not JSON are refused, so the
- * global urlencoded parser never handles a Tourist Visa request.
+ * global urlencoded parser never handles a Tourist Visa request. The one exception is the
+ * multipart file upload (POST /applications/me/documents), which is passed on untouched to its own
+ * size-limited reader; the global parsers ignore multipart bodies, and the sanitizer is skipped here.
  */
 
 const express = require('express');
@@ -32,7 +34,14 @@ const FALLBACK = [400, 'The request body could not be read.'];
 const hasBody = (req) =>
   req.headers['transfer-encoding'] !== undefined || Number(req.headers['content-length']) > 0;
 
+// The one route that takes a multipart body: the file upload. Its own middleware (multer) reads it, with
+// size limits, so this parser must not refuse it. req.path is relative to the /api/tourist-visa mount.
+const isDocumentUpload = (req) =>
+  req.method === 'POST' && /^\/applications\/me\/documents\/?$/i.test(req.path) && Boolean(req.is('multipart/form-data'));
+
 const touristVisaBodyParser = (req, res, next) => {
+  if (isDocumentUpload(req)) return next();
+
   if (hasBody(req) && !req.is('application/json')) {
     return next(new AppError('Send the request as application/json.', 415));
   }

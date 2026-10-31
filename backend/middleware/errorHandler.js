@@ -6,10 +6,12 @@
 const logger = require('../utils/logger');
 
 class AppError extends Error {
-  constructor(message, statusCode) {
+  // `code` is an optional machine-readable name (such as DOCUMENTS_LOCKED) that is sent with the message.
+  constructor(message, statusCode, code) {
     super(message);
     this.statusCode = statusCode;
     this.isOperational = true;
+    if (code) this.code = code;
     Error.captureStackTrace(this, this.constructor);
   }
 }
@@ -65,6 +67,7 @@ const errorHandler = (err, req, res, next) => {
   res.status(error.statusCode || 500).json({
     success: false,
     message: error.message || 'Server Error',
+    ...(error.isOperational && error.code && { code: error.code }),
     ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
   });
 };

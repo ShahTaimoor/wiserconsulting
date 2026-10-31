@@ -1,20 +1,25 @@
 const mongoose = require('mongoose');
 const { config: formConfig } = require('../shared/tourist-visa/engine');
+const { SLOTS } = require('../config/touristVisaDocuments');
 
 const APPLICATION_STATUSES = ['draft', 'submitted', 'in_review', 'completed'];
 const SECTION_STATES = ['saved', 'needs_review'];
-const DOCUMENT_KINDS = ['passport', 'funds'];
+const DOCUMENT_SLOTS = Object.keys(SLOTS);
 
-// Uploaded files are private; only references are stored here.
+// Uploaded files are private; only references are stored here. `id` is our own random id (the only
+// identifier an applicant ever sees); `publicId` is the storage id and is never sent to a browser.
+// `originalName` is encrypted with the field cipher (bound to the application and the document id).
 const documentSchema = new mongoose.Schema({
-    kind: { type: String, enum: DOCUMENT_KINDS, required: true },
-    originalName: { type: String, trim: true },
-    mimetype: { type: String },
-    size: { type: Number },
-    publicId: { type: String },
-    resourceType: { type: String },
+    id: { type: String, required: true },
+    slot: { type: String, enum: DOCUMENT_SLOTS, required: true },
+    publicId: { type: String, required: true },
+    resourceType: { type: String, required: true },
+    format: { type: String, required: true },
+    bytes: { type: Number, required: true },
+    mime: { type: String, required: true },
     uploadedAt: { type: Date, default: Date.now },
-});
+    originalName: { type: String, required: true },
+}, { _id: false });
 
 const touristVisaApplicationSchema = new mongoose.Schema(
     {
@@ -85,4 +90,4 @@ touristVisaApplicationSchema.index({ status: 1, createdAt: -1 });
 module.exports = mongoose.model('TouristVisaApplication', touristVisaApplicationSchema);
 module.exports.APPLICATION_STATUSES = APPLICATION_STATUSES;
 module.exports.SECTION_STATES = SECTION_STATES;
-module.exports.DOCUMENT_KINDS = DOCUMENT_KINDS;
+module.exports.DOCUMENT_SLOTS = DOCUMENT_SLOTS;

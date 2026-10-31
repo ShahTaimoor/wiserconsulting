@@ -8,6 +8,7 @@ const z = require("zod");
 const defaultRepository = require("../repositories/touristVisaApplicationRepository");
 const engine = require("../shared/tourist-visa/engine");
 const { AppError } = require("../middleware/errorHandler");
+const { toDocumentView } = require("../utils/touristVisaDocumentView");
 
 /**
  * What the client is allowed to see. An allowlist, so a field added to the
@@ -23,14 +24,8 @@ const toClient = (application) => ({
   configVersion: application.configVersion,
   sectionStatus: application.sectionStatus || {},
   answers: application.answers || {},
-  documents: (application.documents || []).map((doc) => ({
-    id: String(doc._id),
-    kind: doc.kind,
-    originalName: doc.originalName,
-    mimetype: doc.mimetype,
-    size: doc.size,
-    uploadedAt: doc.uploadedAt,
-  })),
+  // Metadata only (id, slot, name, size, type, time): no link and no storage id. The names arrive decrypted.
+  documents: (application.documents || []).map(toDocumentView),
   submittedAt: application.submittedAt || null,
   createdAt: application.createdAt,
   updatedAt: application.updatedAt,

@@ -101,6 +101,7 @@ const call = async (method, p, { headers = {}, body } = {}) => {
 
 test('a closed deployment starts quietly: no complaint about the missing encryption key', () => {
   assert.equal(/FIELD_ENCRYPTION_KEY/.test(outputAfterStart), false, outputAfterStart);
+  assert.equal(/File storage is not configured|CLOUDINARY/.test(outputAfterStart), false, 'nor about the missing file storage settings');
 });
 
 test('real index.js, switch unset: every kind of request gets the fixed closed answer, and a signed-in user is not even looked up', async () => {
@@ -121,6 +122,14 @@ test('real index.js, switch unset: every kind of request gets the fixed closed a
     ['other method', 'DELETE', '/applications/me', { headers: auth }],
     ['unknown path', 'GET', `/nothing/here?probe=${MARKER}`, {}],
   ];
+  const upload = new FormData();
+  upload.append('slot', 'passport');
+  upload.append('file', new Blob([Buffer.from(`%PDF-1.7 ${MARKER}`)], { type: 'application/pdf' }), `${MARKER}.pdf`);
+  cases.push(
+    ['upload a file, signed in (multipart)', 'POST', '/applications/me/documents', { headers: auth, body: upload }],
+    ['list files, signed in', 'GET', '/applications/me/documents', { headers: auth }],
+    ['delete a file, signed in', 'DELETE', '/applications/me/documents/3f2c1a9e-5b7d-4c1e-9a30-1d2e3f4a5b6c', { headers: auth }]
+  );
   for (const [name, method, p, options] of cases) {
     const res = await call(method, p, options);
     assert.equal(res.status, 404, name);

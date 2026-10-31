@@ -259,17 +259,33 @@ test('soft-deleted applications are not returned', async () => {
   assert.equal((await api('GET', '/applications/me', { token })).status, 404);
 });
 
-test('documents are returned without storage identifiers', async () => {
+test('documents are returned as metadata only, with the name decrypted and without storage identifiers', async () => {
   const { user, token } = await makeUser();
-  await TouristVisaApplication.create({
-    applicant: user._id,
-    documents: [{ kind: 'passport', originalName: 'test-passport.pdf', mimetype: 'application/pdf', size: 1234, publicId: 'private/SECRET-STORAGE-ID', resourceType: 'raw' }],
-  });
-  const res = await api('GET', '/applications/me', { token });
-  assert.equal(res.status, 200);
-  const [doc] = res.json.data.application.documents;
-  assert.deepEqual(Object.keys(doc).sort(), ['id', 'kind', 'mimetype', 'originalName', 'size', 'uploadedAt']);
-  assert.equal(JSON.stringify(res.json).includes('SECRET-STORAGE-ID'), false);
+  const key = require('node:crypto').randomBytes(32).toString('base64');
+  const previous = process.env.FIELD_ENCRYPTION_KEY;
+  process.env.FIELD_ENCRYPTION_KEY = key;
+  try {
+    const application = await TouristVisaApplication.create({ applicant: user._id });
+    const id = '3f2c1a9e-5b7d-4c1e-9a30-1d2e3f4a5b6c';
+    await TouristVisaApplication.collection.updateOne({ _id: application._id }, {
+      $set: {
+        documents: [{
+          id, slot: 'passport', publicId: 'tourist-visa/private/SECRET-STORAGE-ID.pdf', resourceType: 'raw', format: 'pdf',
+          bytes: 1234, mime: 'application/pdf', uploadedAt: new Date(), originalName: repository.encryptDocumentName(application._id, id, 'test-passport.pdf'),
+        }],
+      },
+    });
+    const res = await api('GET', '/applications/me', { token });
+    assert.equal(res.status, 200);
+    const [doc] = res.json.data.application.documents;
+    assert.deepEqual(Object.keys(doc).sort(), ['id', 'name', 'size', 'slot', 'type', 'uploadedAt']);
+    assert.equal(doc.name, 'test-passport.pdf');
+    assert.equal(JSON.stringify(res.json).includes('SECRET-STORAGE-ID'), false);
+    assert.equal(JSON.stringify(res.json).includes('enc:v1:'), false);
+  } finally {
+    if (previous === undefined) delete process.env.FIELD_ENCRYPTION_KEY;
+    else process.env.FIELD_ENCRYPTION_KEY = previous;
+  }
 });
 
 // ---------------------------------------------------------------------------
