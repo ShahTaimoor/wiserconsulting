@@ -300,7 +300,7 @@ test('an application saved before Part 9: its answers and statuses are untouched
   const finished = await get(token);
   for (const section of ['9A', '9B', '9C']) assert.equal(finished.sectionStatus[section], 'saved', section);
   assert.equal(Object.values(finished.sectionStatus).filter((s) => s !== 'saved').length, 0);
-  assert.equal(finished.currentSection, '9C', 'everything applicable is saved: resume on the last section');
+  assert.equal(finished.currentSection, '10A', 'Parts 1 to 9 are saved: resume on the first Part 10 section');
   assert.match(after.answers.q3_1, /^enc:v1:/, 'the passport number is still ciphertext');
 });
 

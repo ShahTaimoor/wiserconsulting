@@ -27,6 +27,10 @@ const AMOUNT_MAX = 1e9;
 const REQUIRED_MSG = 'This question is required';
 const COUNTRY_CODES = new Set(countries.map((c) => c.code));
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+// rules.normalize: how a TXT answer is tidied before its pattern is checked and before it is stored.
+const NORMALIZERS = {
+  uppercase_no_spaces: (s) => s.replace(/\s+/g, '').toUpperCase(),
+};
 
 // ---------------------------------------------------------------------------
 // Indexing
@@ -325,8 +329,12 @@ function typeSchema(z, cfg, q) {
   switch (q.type) {
     case 'TXT': {
       const base = str(rules.maxLen || lim.txtMax || 200);
-      // rules.pattern: { regex, message } must match the whole answer (for example a National Insurance number).
-      return rules.pattern ? base.regex(new RegExp(rules.pattern.regex), rules.pattern.message) : base;
+      // rules.normalize tidies the answer first (the tidied value is what is stored). rules.pattern:
+      // { regex, message } must then match the whole answer (for example a National Insurance number).
+      const tidy = rules.normalize ? base.transform(NORMALIZERS[rules.normalize]) : base;
+      if (!rules.pattern) return tidy;
+      const matches = z.string().regex(new RegExp(rules.pattern.regex), rules.pattern.message);
+      return rules.normalize ? tidy.pipe(matches) : base.regex(new RegExp(rules.pattern.regex), rules.pattern.message);
     }
     case 'LNG':
       return str(rules.maxLen || lim.lngMax || 5000);
@@ -911,6 +919,10 @@ function validateConfig(cfg) {
         if (!p.regex.startsWith('^') || !p.regex.endsWith('$')) err(`${w}: rules.pattern.regex must match the whole answer (start with ^ and end with $)`);
         try { new RegExp(p.regex); } catch { err(`${w}: rules.pattern.regex is not a valid expression`); }
       }
+    }
+    if (r.normalize !== undefined) {
+      if (q.type !== 'TXT') err(`${w}: rules.normalize is only for TXT`);
+      else if (!Object.prototype.hasOwnProperty.call(NORMALIZERS, r.normalize)) err(`${w}: rules.normalize must be one of ${Object.keys(NORMALIZERS).join(', ')}`);
     }
     if (q.type === 'ACK' && q.required !== true) err(`${w}: an ACK question must be required`);
     if (r.withinYears !== undefined) {

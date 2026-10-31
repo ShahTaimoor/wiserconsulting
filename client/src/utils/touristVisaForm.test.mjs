@@ -81,10 +81,14 @@ const V8 = { q8_1: 3, q8_2: true, otherCountryTrips: [TRIP] };
 const V9A = { q9_11: true, q9_1: false, q9_12: true, q9_2: false };
 const V9B = { q9_13: true, q9_3: false, q9_4: false, q9_5: false, q9_14: true, q9_6: false, q9_7: false };
 const V9C = { q9_8: false, q9_9: false, q9_10: false };
+// Part 10: no penalty, no extra information, English and no National Insurance number.
+const V10A = { q10_1: ["none"] };
+const V10B = {};
+const V10C = { q10_4: "english", q10_5: false };
 const ALL = {
   1: V1, "2A": V2A, "2B": { ...V2B, q2_13: "married" }, "2C": V2C, "2D": V2D, 3: V3, "4A": V4A, "4B": V4B, "4C": V4C,
   5: V5, "6A": V6A, "6B": { q6_6: false }, "6C": V6C, "6D": { q6_8: false }, 7: V7, 8: V8,
-  "9A": V9A, "9B": V9B, "9C": V9C,
+  "9A": V9A, "9B": V9B, "9C": V9C, "10A": V10A, "10B": V10B, "10C": V10C,
 };
 
 const payload = (section, values, saved = {}) => buildPayload(cfg, section, values, saved).answers;
@@ -142,7 +146,11 @@ test("next and previous section follow the form order", () => {
   assert.equal(nextSectionId(cfg, "8"), "9A");
   assert.equal(nextSectionId(cfg, "9A"), "9B");
   assert.equal(nextSectionId(cfg, "9B"), "9C");
-  assert.equal(nextSectionId(cfg, "9C"), null);
+  assert.equal(nextSectionId(cfg, "9C"), "10A");
+  assert.equal(nextSectionId(cfg, "10A"), "10B");
+  assert.equal(nextSectionId(cfg, "10B"), "10C");
+  assert.equal(nextSectionId(cfg, "10C"), null);
+  assert.equal(previousSectionId(cfg, "10A"), "9C");
   assert.equal(previousSectionId(cfg, "9A"), "8");
   assert.equal(previousSectionId(cfg, "6A"), "5");
   assert.equal(nextSectionId(cfg, "nope"), null);
@@ -291,6 +299,38 @@ test("payload: a declaration tick is sent only when ticked, and a Part 9 Yes sen
   }
 });
 
+const CHOICES10 = [
+  ["conviction", "q10_1a"], ["driving", "q10_1b"], ["arrest_charge", "q10_1c"],
+  ["out_of_court", "q10_1d"], ["civil_judgment", "q10_1e"], ["immigration_penalty", "q10_1f"],
+];
+
+test("payload: Part 10 sends the details only for the ticked choices, and the National Insurance number as typed", () => {
+  for (const [choice, follow] of CHOICES10) {
+    const sent = payload("10A", { q10_1: [choice], [follow]: "Made-up details" });
+    assert.deepEqual(sent, { q10_1: [choice], [follow]: "Made-up details" }, choice);
+    assert.equal(follow in payload("10A", { q10_1: ["none"], [follow]: "stale details" }), false, `${choice}: unticked, so the box is left out`);
+    assert.equal(follow in payload("10A", { q10_1: [choice] }), false, `${choice}: ticked with no details yet sends nothing for them`);
+    // another choice's box is not sent for this one
+    const other = CHOICES10.find((c) => c[0] !== choice);
+    assert.equal(other[1] in payload("10A", { q10_1: [choice], [follow]: "d", [other[1]]: "stale" }), false);
+  }
+  assert.deepEqual(payload("10A", { q10_1: ["driving", "conviction"], q10_1a: "One", q10_1b: "Two" }), { q10_1: ["driving", "conviction"], q10_1a: "One", q10_1b: "Two" });
+  assert.deepEqual(payload("10B", { q10_2: "First", q10_3: "" }), { q10_2: "First" }, "an empty box is left out");
+  assert.deepEqual(payload("10C", { q10_4: "other", q10_4a: "Sindhi", q10_5: true, q10_5a: "ab 12 34 56 c" }), { q10_4: "other", q10_4a: "Sindhi", q10_5: true, q10_5a: "ab 12 34 56 c" });
+  assert.equal("q10_4a" in payload("10C", { q10_4: "urdu", q10_4a: "Sindhi", q10_5: false }), false);
+  assert.equal("q10_5a" in payload("10C", { q10_4: "urdu", q10_5: false, q10_5a: "AB123456C" }), false, "a No leaves the number out");
+});
+
+test("toggleChoice on 10.1: \"None of these\" clears the six choices and any of them clears \"None of these\"", () => {
+  const options = cfg.questions.find((q) => q.id === "q10_1").options;
+  const all = CHOICES10.map((c) => c[0]);
+  assert.deepEqual(toggleChoice(options, ["conviction", "driving"], "none", true), ["none"]);
+  assert.deepEqual(toggleChoice(options, all, "none", true), ["none"]);
+  assert.deepEqual(toggleChoice(options, ["none"], "driving", true), ["driving"]);
+  assert.deepEqual(toggleChoice(options, ["driving"], "conviction", true), ["conviction", "driving"], "form order is kept");
+  assert.deepEqual(toggleChoice(options, ["driving"], "driving", false), []);
+});
+
 test("hintFor: a declaration tick shows its guidance", () => {
   const q = cfg.questions.find((x) => x.id === "q9_13");
   assert.equal(hintFor(cfg, q), q.help);
@@ -437,7 +477,8 @@ test("next and previous section skip a section that does not apply (4A without a
   assert.equal(nextSectionId(cfg, "3", {}), "4B", "no 2.13 answer yet: no partner section");
   assert.equal(nextSectionId(cfg, "4C", single), "5");
   assert.equal(nextSectionId(cfg, "8", single), "9A");
-  assert.equal(nextSectionId(cfg, "9C", single), null);
+  assert.equal(nextSectionId(cfg, "9C", single), "10A");
+  assert.equal(nextSectionId(cfg, "10C", single), null);
   assert.equal(previousSectionId(cfg, "1", single), null);
   assert.equal(nextSectionId(cfg, "3"), "4A", "without answers the plain order is used");
 });

@@ -1,5 +1,5 @@
 {
-  "version": "0.9.0-draft",
+  "version": "0.10.0-draft",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
@@ -15,7 +15,8 @@
     { "id": "6", "title": "Money, family in the UK and accommodation" },
     { "id": "7", "title": "Travel history (UK)" },
     { "id": "8", "title": "Travel history (other countries)" },
-    { "id": "9", "title": "Other history" }
+    { "id": "9", "title": "Other history" },
+    { "id": "10", "title": "Penalties and closing questions" }
   ],
   "sections": [
     { "id": "1", "part": "1", "title": "Travel information" },
@@ -36,7 +37,10 @@
     { "id": "8", "part": "8", "title": "Travel history (other countries)" },
     { "id": "9A", "part": "9", "title": "Espionage, sabotage and war crimes" },
     { "id": "9B", "part": "9", "title": "Terrorism and extremism" },
-    { "id": "9C", "part": "9", "title": "Other conduct and character" }
+    { "id": "9C", "part": "9", "title": "Other conduct and character" },
+    { "id": "10A", "part": "10", "title": "Convictions and other penalties" },
+    { "id": "10B", "part": "10", "title": "Extra information" },
+    { "id": "10C", "part": "10", "title": "Language and National Insurance number" }
   ],
   "declarations": {
     "submit": {
@@ -2358,6 +2362,187 @@
       "sensitive": true,
       "help": "Say what happened, when and where, as clearly as you can.",
       "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
+    },
+    {
+      "id": "q10_1",
+      "number": "10.1",
+      "section": "10A",
+      "label": "At any time have you ever had any of the following, in the UK or in another country?",
+      "type": "CHK",
+      "required": true,
+      "options": [
+        { "value": "conviction", "label": "A criminal conviction" },
+        { "value": "driving", "label": "A penalty for a driving offence, for example disqualification for speeding or no motor insurance" },
+        { "value": "arrest_charge", "label": "An arrest or charge for which you are currently on bail or awaiting trial" },
+        { "value": "out_of_court", "label": "A caution, warning, reprimand or other out-of-court penalty" },
+        { "value": "civil_judgment", "label": "A civil court judgment against you, for example for non-payment of debt, bankruptcy proceedings or anti-social behaviour" },
+        { "value": "immigration_penalty", "label": "A civil penalty issued under UK immigration law" },
+        { "value": "none", "label": "None of these", "exclusive": true }
+      ],
+      "sensitive": true,
+      "help": "Tick every one that applies. If none of them applies to you, tick \"None of these\".",
+      "draft": "Draft: the six choices are from the printout; 'on bail' in the third choice was partly hidden on the printout and is our guess. 'None of these' cannot be ticked with the others. Each ticked choice opens its own required details box. The answer is stored encrypted."
+    },
+    {
+      "id": "q10_1a",
+      "number": "10.1a",
+      "section": "10A",
+      "label": "Please give details of your criminal conviction",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q10_1", "includes": "conviction" },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can.",
+      "draft": "Draft: required details (up to 2,000 characters) for this ticked choice, stored encrypted. Removed if the choice is unticked."
+    },
+    {
+      "id": "q10_1b",
+      "number": "10.1b",
+      "section": "10A",
+      "label": "Please give details of your penalty for a driving offence",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q10_1", "includes": "driving" },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can.",
+      "draft": "Draft: required details (up to 2,000 characters) for this ticked choice, stored encrypted. Removed if the choice is unticked."
+    },
+    {
+      "id": "q10_1c",
+      "number": "10.1c",
+      "section": "10A",
+      "label": "Please give details of your arrest or charge",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q10_1", "includes": "arrest_charge" },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can.",
+      "draft": "Draft: required details (up to 2,000 characters) for this ticked choice, stored encrypted. Removed if the choice is unticked."
+    },
+    {
+      "id": "q10_1d",
+      "number": "10.1d",
+      "section": "10A",
+      "label": "Please give details of your caution, warning, reprimand or other out-of-court penalty",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q10_1", "includes": "out_of_court" },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can.",
+      "draft": "Draft: required details (up to 2,000 characters) for this ticked choice, stored encrypted. Removed if the choice is unticked."
+    },
+    {
+      "id": "q10_1e",
+      "number": "10.1e",
+      "section": "10A",
+      "label": "Please give details of the civil court judgment against you",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q10_1", "includes": "civil_judgment" },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can.",
+      "draft": "Draft: required details (up to 2,000 characters) for this ticked choice, stored encrypted. Removed if the choice is unticked."
+    },
+    {
+      "id": "q10_1f",
+      "number": "10.1f",
+      "section": "10A",
+      "label": "Please give details of your civil penalty under UK immigration law",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q10_1", "includes": "immigration_penalty" },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can.",
+      "draft": "Draft: required details (up to 2,000 characters) for this ticked choice, stored encrypted. Removed if the choice is unticked."
+    },
+    {
+      "id": "q10_2",
+      "number": "10.2",
+      "section": "10B",
+      "label": "If you needed to add more information about your application but were not able to, you can write it here. If there is no further information you want to add, click Save and continue.",
+      "type": "LNG",
+      "required": false,
+      "rules": { "maxLen": 2000 },
+      "draft": "Draft: optional, always shown, up to 2,000 characters. Not encrypted."
+    },
+    {
+      "id": "q10_3",
+      "number": "10.3",
+      "section": "10B",
+      "label": "Add further details",
+      "type": "LNG",
+      "required": false,
+      "rules": { "maxLen": 2000 },
+      "draft": "Draft: optional, always shown, up to 2,000 characters. It stands alone and does not depend on 10.2 (the printout does not say, so this is our choice). Not encrypted."
+    },
+    {
+      "id": "q10_4",
+      "number": "10.4",
+      "section": "10C",
+      "label": "We may have to talk to you about your application. Which language would you prefer to use?",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "english", "label": "English" },
+        { "value": "urdu", "label": "Urdu" },
+        { "value": "punjabi", "label": "Punjabi" },
+        { "value": "pashto", "label": "Pashto" },
+        { "value": "hindi", "label": "Hindi" },
+        { "value": "arabic", "label": "Arabic" },
+        { "value": "bengali", "label": "Bengali" },
+        { "value": "mandarin", "label": "Chinese (Mandarin)" },
+        { "value": "spanish", "label": "Spanish" },
+        { "value": "french", "label": "French" },
+        { "value": "other", "label": "Other" }
+      ],
+      "draft": "Draft option list (the printout does not give one). 'Other' opens a required box for the language. Needs senior review."
+    },
+    {
+      "id": "q10_4a",
+      "number": "10.4a",
+      "section": "10C",
+      "label": "Which language?",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q10_4", "eq": "other" },
+      "rules": { "maxLen": 100 },
+      "draft": "Draft: required when 10.4 is Other, up to 100 characters."
+    },
+    {
+      "id": "q10_5",
+      "number": "10.5",
+      "section": "10C",
+      "label": "Do you have a UK National Insurance number?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true,
+      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required box for the number."
+    },
+    {
+      "id": "q10_5a",
+      "number": "10.5a",
+      "section": "10C",
+      "label": "What is your National Insurance number?",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q10_5", "eq": true },
+      "rules": {
+        "maxLen": 30,
+        "normalize": "uppercase_no_spaces",
+        "pattern": {
+          "regex": "^(?!BG|GB|KN|NK|NT|TN|ZZ)[A-CEGHJ-PR-TW-Z][A-CEGHJ-NPR-TW-Z][0-9]{6}[A-D]$",
+          "message": "Enter a National Insurance number in the format AB 12 34 56 C"
+        }
+      },
+      "sensitive": true,
+      "help": "Two letters, six numbers and a last letter A, B, C or D, for example AB 12 34 56 C. You can type it with or without spaces, in capitals or small letters.",
+      "draft": "Draft: required when 10.5 is Yes. Spaces and small letters are accepted; the number is stored in capitals with no spaces. The standard UK format is checked (including the letters never used at the start and the prefixes BG, GB, KN, NK, NT, TN and ZZ). Stored encrypted."
     }
   ]
 }

@@ -102,17 +102,21 @@ test('config: covers exactly the questions of Parts 1 to 8 in the spec (plus the
   for (let i = 1; i <= 14; i++) expected.add(`9.${i}`);
   for (let i = 1; i <= 10; i++) expected.add(`9.${i}a`);
   for (const l of 'abcd') expected.add(`8.2${l}`);
+  // Part 10A to 10C (8b-2): the penalties checklist with a details box per choice, two extra-information boxes, language and NI number.
+  for (let i = 1; i <= 5; i++) expected.add(`10.${i}`);
+  for (const l of 'abcdef') expected.add(`10.1${l}`);
+  expected.add('10.4a'); expected.add('10.5a');
   const actual = new Set(config.questions.map((q) => q.number));
   assert.deepEqual([...actual].sort(), [...expected].sort());
   assert.equal(config.questions.length, expected.size);
 });
 
-test('config: sections are 1, 2A-2D, 3, 4A-4C, 5, 6A-6D, 7, 8, 9A-9C and every question belongs to one', () => {
+test('config: sections are 1, 2A-2D, 3, 4A-4C, 5, 6A-6D, 7, 8, 9A-9C, 10A-10C and every question belongs to one', () => {
   assert.deepEqual(
     config.sections.map((s) => s.id),
-    ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C']
+    ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C']
   );
-  assert.deepEqual(config.parts.map((p) => p.id), ['1', '2', '3', '4', '5', '6', '7', '8', '9']);
+  assert.deepEqual(config.parts.map((p) => p.id), ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']);
   const ids = new Set(config.sections.map((s) => s.id));
   assert.ok(config.questions.every((q) => ids.has(q.section)));
 });
@@ -131,7 +135,8 @@ test('config: the drafts are exactly the defaults we chose, each with a note', (
   assert.deepEqual(
     drafts.map((q) => q.number),
     ['1.1', '1.2', '1.3', '1.4', '2.5', '2.7', '2.8', '2.12', '2.13', '2.23', '2.28', '2.29', '2.30', '2.31', '2.33', '2.35', '4.1', '4.7a', '4.8a', '4.8f', '5.1', '5.9', '6.1', '6.5', '6.6', '6.7', '6.8', '7.3', '7.5', '7.5a', '7.6', '7.7a', '8.1', '8.2b',
-      '9.11', '9.1', '9.1a', '9.12', '9.2', '9.2a', '9.13', '9.3', '9.3a', '9.4', '9.4a', '9.5', '9.5a', '9.14', '9.6', '9.6a', '9.7', '9.7a', '9.8', '9.8a', '9.9', '9.9a', '9.10', '9.10a']
+      '9.11', '9.1', '9.1a', '9.12', '9.2', '9.2a', '9.13', '9.3', '9.3a', '9.4', '9.4a', '9.5', '9.5a', '9.14', '9.6', '9.6a', '9.7', '9.7a', '9.8', '9.8a', '9.9', '9.9a', '9.10', '9.10a',
+      '10.1', '10.1a', '10.1b', '10.1c', '10.1d', '10.1e', '10.1f', '10.2', '10.3', '10.4', '10.4a', '10.5', '10.5a']
   );
   assert.deepEqual(config.groups.filter((g) => g.draft).map((g) => g.id), ['otherNames', 'parents', 'accommodation', 'ukVisas']);
   for (const x of [...drafts, ...config.groups.filter((g) => g.draft)]) assert.ok(x.draft.length > 20, x.id);
@@ -145,10 +150,10 @@ test('config: no tbc is left anywhere (Parts 1 to 8 hold drafts only)', () => {
 
 test('draft items: getDraftItems lists them by section, and a draft alone leaves a section releasable but held', () => {
   const items = engine.getDraftItems(config);
-  assert.equal(items.reduce((n, s) => n + s.items.length, 0), 62, '58 questions and 4 groups');
+  assert.equal(items.reduce((n, s) => n + s.items.length, 0), 75, '71 questions and 4 groups');
   assert.deepEqual(items.find((s) => s.sectionId === '2D').items.map((i) => i.number), ['2.33', '2.35']);
   assert.ok(items.every((s) => s.items.every((i) => i.draft && i.id && (i.number === null || typeof i.number === 'string'))));
-  for (const id of ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C']) {
+  for (const id of ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C']) {
     assert.equal(engine.isSectionReleasable(config, id), true, `${id} has only drafts`);
     assert.equal(items.some((s) => s.sectionId === id), true);
   }
@@ -204,9 +209,11 @@ test('compatibility: an answer saved with an old placeholder value is refused as
 
 // The ten Part 9 Yes/No questions and their ten details boxes (the four ticks are not sensitive).
 const PART9_SENSITIVE = Array.from({ length: 10 }, (_, i) => [`9.${i + 1}`, `9.${i + 1}a`]).flat();
+// Part 10: the penalties checklist and its six details boxes, the National Insurance Yes/No and the number itself.
+const PART10_SENSITIVE = ['10.1', '10.1a', '10.1b', '10.1c', '10.1d', '10.1e', '10.1f', '10.5', '10.5a'];
 
-test('config: sensitive questions are the ID number, passport number, licence number, treatment text, the three Part 7 fields and the Part 9 answers', () => {
-  assert.deepEqual(config.questions.filter((q) => q.sensitive).map((q) => q.number), ['2.19', '2.30a', '2.31b', '3.1', '7.2c', '7.3f', '7.6d', ...PART9_SENSITIVE]);
+test('config: sensitive questions are the ID number, passport number, licence number, treatment text, the three Part 7 fields the Part 9 answers and the Part 10 answers', () => {
+  assert.deepEqual(config.questions.filter((q) => q.sensitive).map((q) => q.number), ['2.19', '2.30a', '2.31b', '3.1', '7.2c', '7.3f', '7.6d', ...PART9_SENSITIVE, ...PART10_SENSITIVE]);
 });
 
 test('config: validateConfig reports broken configs', () => {
@@ -859,7 +866,7 @@ test('sections: a section is hidden exactly when none of its questions is visibl
 
 test('sections: on the real config only 4A can be hidden, and only by 2.13', () => {
   const visible = (answers) => engine.getVisibleSections(config, answers).map((s) => s.id);
-  const rest = ['5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C'];
+  const rest = ['5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C'];
   assert.deepEqual(visible({}), ['1', '2A', '2B', '2C', '2D', '3', '4B', '4C', ...rest]);
   assert.deepEqual(visible({ q2_13: 'single' }), ['1', '2A', '2B', '2C', '2D', '3', '4B', '4C', ...rest]);
   assert.deepEqual(visible({ q2_13: 'married' }), ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', ...rest]);
@@ -1395,7 +1402,7 @@ test('config: sensitive fields of Part 7 sit inside groups and are optional or r
   assert.equal(q('q7_6d').required, true);
   for (const id of ['q7_2c', 'q7_3f', 'q7_6d']) assert.ok(q(id).group, `${id} lives in a group`);
   // Nothing already stored in earlier steps was made sensitive in this one.
-  assert.deepEqual(config.questions.filter((x) => x.sensitive && !['7', '9A', '9B', '9C'].includes(x.section)).map((x) => x.number), ['2.19', '2.30a', '2.31b', '3.1']);
+  assert.deepEqual(config.questions.filter((x) => x.sensitive && !['7', '9A', '9B', '9C', '10A', '10C'].includes(x.section)).map((x) => x.number), ['2.19', '2.30a', '2.31b', '3.1']);
   // None of the follow-ups asks about identity or passport numbers.
   assert.ok(!config.questions.some((x) => x.section === '7' && /passport|identity|national id/i.test(x.label)));
 });
@@ -1623,7 +1630,7 @@ test('drafts can sit on any question or group; getDraftItems lists groups too, w
 
 test('getHeldSections: a section is held while it has a tbc flag or a draft; nothing held means ready', () => {
   const held = engine.getHeldSections(config);
-  assert.deepEqual(held.map((h) => h.sectionId), ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', 'declarations']);
+  assert.deepEqual(held.map((h) => h.sectionId), ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C', 'declarations']);
   assert.deepEqual(held.find((h) => h.sectionId === '3'), undefined, 'section 3 has neither');
   assert.deepEqual(held.find((h) => h.sectionId === '2D'), { sectionId: '2D', tbc: 0, draft: 2 });
   assert.deepEqual(held.find((h) => h.sectionId === '6B'), { sectionId: '6B', tbc: 0, draft: 1 });
@@ -1633,6 +1640,9 @@ test('getHeldSections: a section is held while it has a tbc flag or a draft; not
   assert.deepEqual(held.find((h) => h.sectionId === '9A'), { sectionId: '9A', tbc: 0, draft: 6 });
   assert.deepEqual(held.find((h) => h.sectionId === '9B'), { sectionId: '9B', tbc: 0, draft: 12 });
   assert.deepEqual(held.find((h) => h.sectionId === '9C'), { sectionId: '9C', tbc: 0, draft: 6 });
+  assert.deepEqual(held.find((h) => h.sectionId === '10A'), { sectionId: '10A', tbc: 0, draft: 7 });
+  assert.deepEqual(held.find((h) => h.sectionId === '10B'), { sectionId: '10B', tbc: 0, draft: 2 });
+  assert.deepEqual(held.find((h) => h.sectionId === '10C'), { sectionId: '10C', tbc: 0, draft: 4 });
   assert.deepEqual(held.find((h) => h.sectionId === 'declarations'), { sectionId: 'declarations', tbc: 0, draft: 1 }, 'the submit declaration wording is still a draft');
 
   const c = clone(config);
@@ -2211,8 +2221,8 @@ test('release check: exits 2 (drafts only), lists the Part 9 sections and the de
   const run = spawnSync(process.execPath, [script], { encoding: 'utf8' });
   assert.equal(run.status, 2, run.stderr);
   assert.match(run.stdout, new RegExp(`Tourist Visa config ${config.version.replace(/\./g, '\.')}`));
-  for (const id of ['9A', '9B', '9C']) assert.match(run.stdout, new RegExp(`section ${id}: .*NEEDS SENIOR REVIEW`), id);
-  assert.match(run.stdout, /19 sections: 0 blocked, 18 need senior review only, 1 clean\./);
+  for (const id of ['9A', '9B', '9C', '10A', '10B', '10C']) assert.match(run.stdout, new RegExp(`section ${id}: .*NEEDS SENIOR REVIEW`), id);
+  assert.match(run.stdout, /22 sections: 0 blocked, 21 need senior review only, 1 clean\./);
   assert.match(run.stderr, /Needs senior approval: declaration wording/);
   assert.match(run.stderr, /declarations\.submit/);
   assert.match(run.stderr, /9\.11: Draft: the tick and its guidance are our own plain wording/);
@@ -2243,4 +2253,245 @@ test('release check: on a config file it exits 1 for a tbc, 2 for a draft or for
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Step 8b-2: the normalize rule, and Part 10A to 10C
+// ---------------------------------------------------------------------------
+
+const normCfg = () => mk([
+  { id: 'q1_1', number: '1.1', type: 'TXT', rules: { normalize: 'uppercase_no_spaces', maxLen: 12 } },
+  { id: 'q1_2', number: '1.2', type: 'TXT', rules: { normalize: 'uppercase_no_spaces', pattern: { regex: '^[A-Z]{2}[0-9]{2}$', message: 'Enter two letters then two numbers' } } },
+  { id: 'q1_3', number: '1.3', type: 'TXT', rules: { pattern: { regex: '^[A-Z]{2}$', message: 'Enter two capital letters' } } },
+]);
+
+test('normalize rule: the answer is stored without spaces and in capitals', () => {
+  const cfg = normCfg();
+  assert.deepEqual(engine.validateConfig(cfg), []);
+  const r = vs(cfg, { q1_1: '  ab 12\t cd  ', q1_2: 'ab 1 2', q1_3: 'AB' });
+  assert.equal(r.success, true, JSON.stringify(r.errors));
+  assert.deepEqual(r.data, { q1_1: 'AB12CD', q1_2: 'AB12', q1_3: 'AB' });
+});
+
+test('normalize rule: the pattern is checked on the tidied answer; without the rule the answer is left as typed', () => {
+  const cfg = normCfg();
+  assert.equal(vs(cfg, { q1_1: 'x', q1_2: 'a b 1 2', q1_3: 'AB' }).success, true);
+  assert.equal(vs(cfg, { q1_1: 'x', q1_2: 'abc12', q1_3: 'AB' }).errors.q1_2, 'Enter two letters then two numbers');
+  assert.equal(vs(cfg, { q1_1: 'x', q1_2: 'AB12', q1_3: 'ab' }).errors.q1_3, 'Enter two capital letters', 'no normalize: small letters stay as typed');
+  assert.equal(vs(cfg, { q1_1: 'x', q1_2: 'AB12', q1_3: 'A B' }).errors.q1_3, 'Enter two capital letters', 'no normalize: the space stays');
+});
+
+test('normalize rule: blank is still required and the length limit counts what was typed', () => {
+  const cfg = normCfg();
+  assert.equal(vs(cfg, { q1_2: 'AB12', q1_3: 'AB' }).errors.q1_1, 'This question is required');
+  assert.equal(vs(cfg, { q1_1: '   ', q1_2: 'AB12', q1_3: 'AB' }).errors.q1_1, 'This question is required');
+  assert.equal(vs(cfg, { q1_1: 'a b c d e f g h i', q1_2: 'AB12', q1_3: 'AB' }).errors.q1_1, 'Must be 12 characters or fewer', 'spaces count: 17 typed characters');
+  assert.equal(vs(cfg, { q1_1: 'a b c d e f', q1_2: 'AB12', q1_3: 'AB' }).success, true);
+});
+
+test('normalize rule: validateConfig checks it', () => {
+  const cases = [
+    ['on a long text question', (c) => { c.questions[0].type = 'LNG'; }, /rules.normalize is only for TXT/],
+    ['with a name that does not exist', (c) => { c.questions[0].rules.normalize = 'lowercase'; }, /rules.normalize must be one of uppercase_no_spaces/],
+    ['with a built-in property name', (c) => { c.questions[0].rules.normalize = 'constructor'; }, /rules.normalize must be one of/],
+  ];
+  for (const [name, mutate, pattern] of cases) {
+    const c = clone(normCfg());
+    mutate(c);
+    const problems = engine.validateConfig(c);
+    assert.ok(problems.some((p) => pattern.test(p)), `${name}: got ${JSON.stringify(problems)}`);
+  }
+});
+
+// Valid made-up answers for the three new sections.
+const S10A = { q10_1: ['none'] };
+const S10C = { q10_4: 'english', q10_5: false };
+const DETAILS10 = 'Made-up details of what happened.';
+const CHOICES10 = [
+  ['conviction', 'q10_1a'], ['driving', 'q10_1b'], ['arrest_charge', 'q10_1c'],
+  ['out_of_court', 'q10_1d'], ['civil_judgment', 'q10_1e'], ['immigration_penalty', 'q10_1f'],
+];
+
+test('part 10: each new section validates with the simplest valid answers', () => {
+  for (const [section, answers] of [['10A', S10A], ['10B', {}], ['10C', S10C]]) {
+    const r = validate(section, answers);
+    assert.equal(r.success, true, `${section}: ${JSON.stringify(r.errors)}`);
+    assert.deepEqual(r.data, answers);
+  }
+});
+
+test('part 10: what is required, in section order', () => {
+  assert.deepEqual(Object.keys(validate('10A', {}).errors), ['q10_1']);
+  assert.deepEqual(validate('10B', {}).errors, {}, '10.2 and 10.3 are optional');
+  assert.deepEqual(Object.keys(validate('10C', {}).errors).sort(), ['q10_4', 'q10_5']);
+  assert.deepEqual(engine.getVisibleQuestions(config, '10A', {}).map((q) => q.number), ['10.1']);
+  assert.deepEqual(engine.getVisibleQuestions(config, '10B', {}).map((q) => q.number), ['10.2', '10.3']);
+  assert.deepEqual(engine.getVisibleQuestions(config, '10C', {}).map((q) => q.number), ['10.4', '10.5']);
+  for (const id of ['10A', '10B', '10C']) assert.equal(engine.isSectionVisible(config, id, {}), true, id);
+});
+
+test('10.1: six choices and one exclusive "None of these", in this order', () => {
+  const q = config.questions.find((x) => x.id === 'q10_1');
+  assert.deepEqual(q.options.map((o) => o.value), [...CHOICES10.map((c) => c[0]), 'none']);
+  assert.deepEqual(q.options.filter((o) => o.exclusive).map((o) => o.value), ['none']);
+  assert.equal(q.options.find((o) => o.value === 'none').label, 'None of these');
+});
+
+test('10.1: "None of these" cannot be ticked with another choice, and alone it needs no details', () => {
+  const msg = '"None of these" cannot be chosen together with other options';
+  assert.equal(validate('10A', { q10_1: ['none'] }).success, true);
+  assert.equal(validate('10A', { q10_1: ['none', 'conviction'], q10_1a: DETAILS10 }).errors.q10_1, msg);
+  assert.equal(validate('10A', { q10_1: ['driving', 'none'], q10_1b: DETAILS10 }).errors.q10_1, msg);
+  assert.equal(validate('10A', { q10_1: [] }).errors.q10_1, 'This question is required');
+  assert.equal(validate('10A', { q10_1: ['made_up'] }).errors.q10_1, 'Choose from the listed options');
+  assert.deepEqual(engine.getVisibleQuestions(config, '10A', S10A).map((q) => q.number), ['10.1']);
+});
+
+for (const [choice, follow] of CHOICES10) {
+  test(`10.1 gate ${choice}: ticking it asks for its own details, unticking removes them`, () => {
+    const own = { q10_1: [choice] };
+    assert.equal(validate('10A', own).errors[follow], 'This question is required');
+    assert.equal(validate('10A', { ...own, [follow]: '  ' }).errors[follow], 'This question is required');
+    const ok = validate('10A', { ...own, [follow]: DETAILS10 });
+    assert.equal(ok.success, true, JSON.stringify(ok.errors));
+    assert.deepEqual(ok.data, { ...own, [follow]: DETAILS10 });
+    assert.equal(validate('10A', { ...own, [follow]: 'x'.repeat(2001) }).errors[follow], 'Must be 2000 characters or fewer');
+    assert.equal(validate('10A', { ...own, [follow]: 'x'.repeat(2000) }).success, true);
+    // only its own box opens
+    assert.deepEqual(engine.getVisibleQuestions(config, '10A', own).map((q) => q.id), ['q10_1', follow]);
+
+    // Unticking removes the box and the answer; ticking "None of these" instead does the same.
+    const other = CHOICES10.find((c) => c[0] !== choice);
+    for (const [after, rest] of [[['none'], {}], [[other[0]], { [other[1]]: DETAILS10 }]]) {
+      const stored = { q10_1: [choice], [follow]: 'stale details' };
+      const r = validate('10A', { q10_1: after, [follow]: 'stale details', ...rest }, stored);
+      assert.equal(r.success, true, JSON.stringify(r.errors));
+      assert.deepEqual(r.removed, [follow]);
+      assert.equal(r.data[follow], undefined);
+    }
+    assert.deepEqual(engine.pruneAnswers(config, { q10_1: ['none'], [follow]: 'x' }).removed, [follow]);
+    assert.deepEqual(engine.pruneAnswers(config, { q10_1: [choice], [follow]: 'x' }).removed, []);
+    assert.deepEqual(engine.pruneAnswers(config, { [follow]: 'x' }).removed, [], 'waits until the checklist is answered');
+  });
+}
+
+test('10.1: several choices ticked at once ask for every box; unticking one keeps the others', () => {
+  const all = CHOICES10.map((c) => c[0]);
+  assert.deepEqual(engine.getVisibleQuestions(config, '10A', { q10_1: all }).map((q) => q.number), ['10.1', '10.1a', '10.1b', '10.1c', '10.1d', '10.1e', '10.1f']);
+  assert.deepEqual(Object.keys(validate('10A', { q10_1: all }).errors).sort(), CHOICES10.map((c) => c[1]).sort());
+  const stored = { q10_1: ['conviction', 'driving'], q10_1a: 'first', q10_1b: 'second' };
+  const r = validate('10A', { q10_1: ['driving'], q10_1a: 'first', q10_1b: 'second' }, stored);
+  assert.equal(r.success, true, JSON.stringify(r.errors));
+  assert.deepEqual(r.removed, ['q10_1a']);
+  assert.deepEqual(r.data, { q10_1: ['driving'], q10_1b: 'second' });
+});
+
+test('10B: the two boxes are optional, always shown, and 10.3 stands alone', () => {
+  assert.deepEqual(validate('10B', { q10_3: DETAILS10 }).data, { q10_3: DETAILS10 });
+  assert.deepEqual(validate('10B', { q10_2: DETAILS10 }).data, { q10_2: DETAILS10 });
+  assert.deepEqual(validate('10B', { q10_2: DETAILS10, q10_3: 'More.' }).data, { q10_2: DETAILS10, q10_3: 'More.' });
+  assert.equal(validate('10B', { q10_2: '   ', q10_3: '' }).success, true, 'blank boxes are left out');
+  assert.deepEqual(validate('10B', { q10_2: '   ' }).data, {});
+  for (const id of ['q10_2', 'q10_3']) {
+    assert.equal(validate('10B', { [id]: 'x'.repeat(2001) }).errors[id], 'Must be 2000 characters or fewer');
+    assert.equal(validate('10B', { [id]: 'x'.repeat(2000) }).success, true);
+    const q = config.questions.find((x) => x.id === id);
+    assert.equal(q.showWhen, undefined, `${id} has no condition`);
+    assert.equal(q.sensitive, undefined, `${id} is not encrypted`);
+    assert.equal(q.required, false);
+  }
+});
+
+test('10.4: the draft language list; Other asks which language, and a change removes it', () => {
+  const q = config.questions.find((x) => x.id === 'q10_4');
+  assert.deepEqual(q.options.map((o) => o.label), ['English', 'Urdu', 'Punjabi', 'Pashto', 'Hindi', 'Arabic', 'Bengali', 'Chinese (Mandarin)', 'Spanish', 'French', 'Other']);
+  for (const o of q.options.filter((x) => x.value !== 'other')) {
+    assert.equal(validate('10C', { q10_4: o.value, q10_5: false }).success, true, o.value);
+    assert.deepEqual(engine.getVisibleQuestions(config, '10C', { q10_4: o.value }).map((x) => x.number), ['10.4', '10.5'], o.value);
+  }
+  assert.equal(validate('10C', { q10_4: 'klingon', q10_5: false }).errors.q10_4, 'Choose from the listed options');
+  assert.equal(validate('10C', { q10_4: 'other', q10_5: false }).errors.q10_4a, 'This question is required');
+  assert.equal(validate('10C', { q10_4: 'other', q10_4a: '  ', q10_5: false }).errors.q10_4a, 'This question is required');
+  const ok = validate('10C', { q10_4: 'other', q10_4a: 'Sindhi', q10_5: false });
+  assert.deepEqual(ok.data, { q10_4: 'other', q10_4a: 'Sindhi', q10_5: false });
+  assert.equal(validate('10C', { q10_4: 'other', q10_4a: 'x'.repeat(101), q10_5: false }).errors.q10_4a, 'Must be 100 characters or fewer');
+  const back = validate('10C', { q10_4: 'urdu', q10_4a: 'Sindhi', q10_5: false }, { q10_4: 'other', q10_4a: 'Sindhi', q10_5: false });
+  assert.equal(back.success, true);
+  assert.deepEqual(back.removed, ['q10_4a']);
+  assert.deepEqual(back.data, { q10_4: 'urdu', q10_5: false });
+});
+
+const ni = (value) => validate('10C', { q10_4: 'english', q10_5: true, q10_5a: value });
+const NI_MESSAGE = 'Enter a National Insurance number in the format AB 12 34 56 C';
+
+test('10.5: a valid National Insurance number is stored in capitals with no spaces', () => {
+  for (const [typed, stored] of [
+    ['AB123456C', 'AB123456C'], ['ab123456c', 'AB123456C'], ['AB 12 34 56 C', 'AB123456C'], ['ab 12 34 56 c', 'AB123456C'],
+    ['  jg 10 37 59 a  ', 'JG103759A'], ['AB  12  34  56  D', 'AB123456D'], ['CE 00 00 01 B', 'CE000001B'], ['PZ 99 99 99 A', 'PZ999999A'],
+    ['Ab123456a', 'AB123456A'], ['EA 11 22 33 B', 'EA112233B'],
+  ]) {
+    const r = ni(typed);
+    assert.equal(r.success, true, `${typed}: ${JSON.stringify(r.errors)}`);
+    assert.equal(r.data.q10_5a, stored, typed);
+  }
+});
+
+test('10.5: the invalid prefixes BG, GB, KN, NK, NT, TN and ZZ are rejected in any case and with spaces', () => {
+  for (const prefix of ['BG', 'GB', 'KN', 'NK', 'NT', 'TN', 'ZZ']) {
+    for (const typed of [`${prefix}123456C`, `${prefix.toLowerCase()}123456c`, `${prefix[0]} ${prefix[1]} 12 34 56 C`]) {
+      const r = ni(typed);
+      assert.equal(r.success, false, typed);
+      assert.equal(r.errors.q10_5a, NI_MESSAGE, typed);
+    }
+  }
+});
+
+test('10.5: letters that are never used, a wrong length or a wrong last letter are rejected', () => {
+  const bad = [
+    'DA123456C', 'FA123456C', 'IA123456C', 'QA123456C', 'UA123456C', 'VA123456C', // first letter
+    'AD123456C', 'AF123456C', 'AI123456C', 'AO123456C', 'AQ123456C', 'AU123456C', 'AV123456C', // second letter
+    'AB12345C', 'AB1234567C', 'AB123456', 'AB123456CC', 'A123456C', 'ABC123456C', 'AB 12 34 56', // length
+    'AB123456E', 'AB123456Z', 'AB1234561', // last letter
+    '12345678A', 'AB-12-34-56-C', 'AB123456C.', 'AB12A456C', // other shapes
+  ];
+  for (const typed of bad) assert.equal(ni(typed).errors.q10_5a, NI_MESSAGE, typed);
+  assert.equal(ni('').errors.q10_5a, 'This question is required');
+  assert.equal(ni('   ').errors.q10_5a, 'This question is required');
+  assert.equal(ni(undefined).errors.q10_5a, 'This question is required');
+  assert.equal(ni('A'.repeat(31)).errors.q10_5a, 'Must be 30 characters or fewer');
+});
+
+test('10.5: the error never repeats what was typed', () => {
+  for (const typed of ['GB123456C', 'secret-value-123', 'AB123456E']) assert.ok(!JSON.stringify(ni(typed).errors).includes(typed));
+});
+
+test('10.5: No removes a stored number; Yes asks for it', () => {
+  assert.equal(validate('10C', { ...S10C, q10_5: true }).errors.q10_5a, 'This question is required');
+  const stored = { ...S10C, q10_5: true, q10_5a: 'AB123456C' };
+  const no = validate('10C', { ...S10C, q10_5a: 'AB123456C' }, stored);
+  assert.equal(no.success, true, JSON.stringify(no.errors));
+  assert.deepEqual(no.removed, ['q10_5a']);
+  assert.deepEqual(no.data, S10C);
+  assert.deepEqual(engine.pruneAnswers(config, { q10_5: false, q10_5a: 'AB123456C' }).removed, ['q10_5a']);
+  assert.deepEqual(engine.pruneAnswers(config, { q10_5: true, q10_5a: 'AB123456C' }).removed, []);
+  assert.deepEqual(engine.pruneAnswers(config, { q10_5a: 'AB123456C' }).removed, []);
+});
+
+test('part 10: the encrypted fields are exactly 10.1, its six boxes, 10.5 and the number; every new question is a draft', () => {
+  const part10 = config.questions.filter((q) => ['10A', '10B', '10C'].includes(q.section));
+  assert.equal(part10.length, 13);
+  assert.deepEqual(part10.filter((q) => q.sensitive).map((q) => q.number), PART10_SENSITIVE);
+  assert.deepEqual(part10.filter((q) => !q.sensitive).map((q) => q.number), ['10.2', '10.3', '10.4', '10.4a']);
+  for (const q of part10) assert.ok(q.draft && q.draft.length > 20, `${q.number} is a draft with a note`);
+  for (const q of part10.filter((x) => x.type === 'LNG')) assert.equal(q.rules.maxLen, 2000, q.number);
+  assert.equal(config.questions.filter((q) => q.sensitive).length, 36, '27 earlier fields and 9 new ones');
+  // Part 10 has no document question yet (10D is step 8c).
+  assert.ok(!config.sections.some((s) => s.id === '10D'));
+  assert.ok(!config.questions.some((q) => q.type === 'FILE'));
+});
+
+test('part 10: the new sections do not change the earlier ones', () => {
+  assert.equal(validate('8', S8).success, true);
+  assert.equal(validate('9A', S9A).success, true);
+  assert.deepEqual(engine.getVisibleSections(config, {}).map((s) => s.id).slice(-4), ['9C', '10A', '10B', '10C']);
 });

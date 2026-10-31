@@ -51,6 +51,8 @@ export interface QuestionRules {
   maxLen?: number;
   /** TXT: the whole answer must match this expression (it starts with ^ and ends with $). */
   pattern?: { regex: string; message: string };
+  /** TXT: tidy the answer before its pattern is checked and before it is stored (uppercase_no_spaces removes all spaces and capitalises). */
+  normalize?: 'uppercase_no_spaces';
   /** NUM: inclusive bounds (default 0..1000). */
   min?: number;
   /** NUM: inclusive upper bound. AMT: largest amount accepted (default 1,000,000,000; never negative). */
