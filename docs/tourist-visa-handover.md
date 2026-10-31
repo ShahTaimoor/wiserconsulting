@@ -2,7 +2,7 @@
 
 For the engineer who will review and deploy this. It describes what is built, what is not, how to switch it on, what it needs on production, what it changed in existing files, and what still needs a decision.
 
-Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-spec.md](tourist-visa-form-spec.md). Config version at the time of writing: `0.10.0-draft`. This describes the state after step 8b-2: Parts 1 to 10 are built except the documents (10D); the document upload and everything after the questions are still to build (section 14).
+Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-spec.md](tourist-visa-form-spec.md). Config version at the time of writing: `0.10.0-draft`. This describes the state after step 8c-1: Parts 1 to 10 are built except the documents screen (10D); the backend for document uploads is built (section 2.1) but has no screen yet (step 8c-2), and everything after is still to build (section 14).
 
 ## 1. At a glance
 
@@ -41,20 +41,68 @@ Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-
 
 **Cross-section and date rules.** Passport expiry (3.4) must be after the issue date and after the planned leave date (1.7). Places of stay must fall inside the travel dates (1.6 to 1.7) and must not overlap. Past-event dates cannot be in the future, and "in the past 10 years" dates cannot be older than 10 years.
 
-**Encryption at rest.** 36 answers are encrypted: the national identity card number (2.19), the UK driving licence number (2.30a), the medical treatment text (2.31b), the passport number (3.1), and, new in step 7d, the UK visa reference number (7.2c), the leave-to-remain application reference number (7.3f) and the breach details (7.6d), and, new in step 8b-1, the ten Yes/No answers of Part 9 (9.1 to 9.10) and their ten details boxes (9.1a to 9.10a), and, new in step 8b-2, the penalties checklist (10.1) and its six details boxes (10.1a to 10.1f), the National Insurance Yes/No (10.5) and the number itself (10.5a). The four declaration ticks (9.11 to 9.14), the two extra-information boxes (10.2, 10.3) and the language (10.4, 10.4a) are not encrypted. A National Insurance number is stored in capitals with no spaces, whatever the applicant typed. The medical text and the three Part 7 answers sit inside group entries, and each entry is encrypted on its own. They are encrypted before they are stored (AES-256-GCM, stored as `enc:v1:...`). The ciphertext is bound to the application and the field, so it cannot be copied into another field or entry. Everything else is stored as typed. Answers are never written to logs, localStorage, Redux, URLs, the console or analytics.
+**Encryption at rest.** 36 answers, and the original file name of every uploaded document, are encrypted: the national identity card number (2.19), the UK driving licence number (2.30a), the medical treatment text (2.31b), the passport number (3.1), and, new in step 7d, the UK visa reference number (7.2c), the leave-to-remain application reference number (7.3f) and the breach details (7.6d), and, new in step 8b-1, the ten Yes/No answers of Part 9 (9.1 to 9.10) and their ten details boxes (9.1a to 9.10a), and, new in step 8b-2, the penalties checklist (10.1) and its six details boxes (10.1a to 10.1f), the National Insurance Yes/No (10.5) and the number itself (10.5a). The original name of each uploaded file (section 2.1) is encrypted the same way. The four declaration ticks (9.11 to 9.14), the two extra-information boxes (10.2, 10.3) and the language (10.4, 10.4a) are not encrypted. A National Insurance number is stored in capitals with no spaces, whatever the applicant typed. The medical text and the three Part 7 answers sit inside group entries, and each entry is encrypted on its own. They are encrypted before they are stored (AES-256-GCM, stored as `enc:v1:...`). The ciphertext is bound to the application and the field, so it cannot be copied into another field or entry. Everything else is stored as typed. Answers are never written to logs, localStorage, Redux, URLs, the console or analytics.
 
 **Interface.** Accessible labels, errors and focus handling, an error summary, light and dark mode, and a layout that works at 375 px. Leaving a section with unsaved changes opens a dialog in the site's own style ("Stay on this page" / "Leave without saving"); saving shows a "Section saved" toast. The feature uses no native browser alert, confirm or prompt.
 
 **Declarations.** A tick the applicant must give (type `ACK`, the four of Part 9) records what was agreed: the SHA-256 hash of the exact words shown (the tick text and its guidance), the time, the user and the config version, on the application as `declarations.<question id>`. No IP address or browser data is kept, and the applicant is never sent the records. If the wording is later changed in the config, a tick given for the old words is shown unticked and its section shows "Needs review" until it is ticked again; the stored answer is not touched. The exact wording of the ticks and of the final submit declaration lives in one place, `shared/tourist-visa/questions.json` (section 10.5).
 
+**Documents (backend only, step 8c-1).** The passport copy and the proof of funds are uploaded through the server to private storage. There is no screen yet and no 10D section in the config or on the dashboard; the details are in section 2.1.
+
 **Preview markers.** In preview mode (section 4) a question or repeating group shows a **TBC** badge when it has a real unknown, and a **Draft options** badge when it carries a draft (an option list, follow-up questions or a rule we chose).
 
 **Tests.** See section 8.
 
+### 2.1 Document uploads (backend, step 8c-1)
+
+Built and tested, with no screen. Nothing links to it and the config has no 10D section until step 8c-2. It sits behind the same switches as everything else (section 4): while `TOURIST_VISA_ENABLED` is not `true`, all three routes answer the fixed 404 `FEATURE_CLOSED`, before any file is read.
+
+**Routes** (under `/api/tourist-visa`, signed-in user, own application only):
+
+| Route | What it does |
+| --- | --- |
+| `POST /applications/me/documents` | One file per request, `multipart/form-data` with two parts: `slot` (`passport` or `funds`) and `file`. Answers 201 with the new file's metadata. |
+| `GET /applications/me/documents` | The applicant's files (metadata only) and the limits, so the screen can show them. |
+| `DELETE /applications/me/documents/:docId` | Deletes one file from the draft and from storage. |
+
+The applicant is only ever sent `id`, `slot`, `name`, `size`, `type` and `uploadedAt`. **No link, no URL and no storage id (public id) is ever returned**; `GET /applications/me` shows the same metadata in its `documents` list. The routes are `/applications/me/documents` (not `/application/documents`) to match the existing `/applications/me/...` routes.
+
+**Limits** live in one file, `backend/config/touristVisaDocuments.js`; change a number there and everything follows.
+
+| Limit | Value |
+| --- | --- |
+| Types | PDF, JPG, PNG, decided by the file's first bytes, never by its name or the type the browser declared. A text file renamed `.pdf` is refused; a real PNG named `.pdf` is accepted as a PNG. |
+| Size of one file | **4 MB**. Empty files are refused. |
+| Files | passport (10.6): up to 3; funds (10.7): up to 10. Total of all files of one application: 40 MB. |
+| Temporary link | 2 minutes |
+| Upload rate | 40 uploads per hour per signed-in user (in memory per server process, like the other limiters here) |
+
+**Why 4 MB, and the Vercel note.** The backend may run on Vercel serverless, where a request body cannot be larger than 4.5 MB; a 4 MB file plus its multipart wrapper stays under that. **On a normal server (not serverless) the limit can be raised to 5 MB:** change `MAX_FILE_BYTES` in that one file. The route reads one file per request, in memory, with multer's limits set so an oversize file is stopped as it arrives (the declared length is checked first). Hosting is still to be confirmed before 8c-2; if the backend does not run serverless, a larger limit and direct-to-storage uploads can be reconsidered.
+
+**Error codes** (sent as `code` next to the usual `message`; the messages are fixed text, so nothing the caller sent comes back): `WRONG_TYPE` (415), `FILE_TOO_LARGE` (413), `FILE_EMPTY`, `FILE_REQUIRED`, `INVALID_SLOT`, `INVALID_UPLOAD` (400), `TOO_MANY_FILES`, `TOTAL_TOO_LARGE`, `DOCUMENTS_LOCKED` (409), `DOCUMENT_NOT_FOUND`, `APPLICATION_NOT_FOUND` (404), `TOO_MANY_UPLOADS` (429), `UPLOAD_FAILED` (502), `STORAGE_UNAVAILABLE` (503). `AppError` gained an optional `code` for this; responses of every other route are unchanged.
+
+**Locking and limits.** Uploads and deletes are allowed only while the application is a draft; a submitted (or later) application answers `DOCUMENTS_LOCKED`. The per-slot count, the total size and the draft status are checked **in the same database write that adds the file**, so two uploads at the same moment cannot both pass a check that only one should. The server also checks before it stores anything, so a refused file is never uploaded.
+
+**No file is left behind.** If the database write does not happen (a limit hit by a parallel upload, the application submitted a moment ago, or a database error), the stored file is deleted again. Deleting a file removes the reference first and then the stored file (best effort); a failed delete is logged with the application and file id only, never a file name or any personal detail.
+
+**Storage: Cloudinary, private.** Files are uploaded as type `authenticated` (no plain delivery URL exists), into the folder `tourist-visa/<applicationId>/`, with a random 32-character public id plus the extension of the detected type. **The original file name is never part of the storage id.** The resource type is **`raw`** for all three file types. Reason: a raw file is stored exactly as sent and never processed, and Cloudinary's account setting that restricts delivery of PDFs (and ZIPs) as images does not apply to raw files, so one path works for PDF, JPG and PNG alike. Delivery is a **signed download link with an expiry** (Cloudinary's `private_download_url` with `expires_at`), not a delivery URL: the signature covers the expiry, so it cannot be extended. The module is `backend/config/touristVisaStorage.js`; it passes its credentials with every call and does not change the global Cloudinary setup that the public assessment uploads use.
+
+**Temporary links (no route yet).** `touristVisaDocumentService.getTemporaryLink(applicationId, docId)` returns `{ url, expiresAt }` for a link that works for 2 minutes. It is deliberately **not reachable from any route**: the admin view (step 8e) will add one, behind the admin checks and with every view logged. It is covered by tests, including that no applicant path hands out a link.
+
+**Data.** `documents[]` on the application now holds `id` (our own random id, the only identifier an applicant sees), `slot`, `publicId`, `resourceType`, `format`, `bytes`, `mime`, `uploadedAt` and `originalName`. **The original name is encrypted** with the field cipher, bound to the application and the document (`<applicationId>:documents.<docId>.originalName`), so a name cannot be moved to another file. The name is cleaned for display (no folders, control or direction-changing characters, at most 150 characters; an empty name becomes `document.<ext>`). The earlier `documents` shape (`kind`, `size`, `mimetype`) was never written by any code, so nothing needs migrating.
+
+**Where it lives.** `backend/config/touristVisaDocuments.js` (limits, types, error codes), `backend/config/touristVisaStorage.js` (Cloudinary), `backend/services/touristVisaDocumentService.js`, `backend/controllers/touristVisaDocumentController.js`, `backend/middleware/touristVisaUpload.js` (multer and the rate limiter), `backend/utils/{detectFileType,documentError,touristVisaDocumentView}.js`, and the three routes in `backend/routes/touristVisaRoutes.js`. The repository gained the guarded add and remove.
+
+**Parsers.** `touristVisaBodyParser` refuses any body that is not JSON; it now lets exactly `POST /applications/me/documents` through when the body is multipart, and multer reads it. The global JSON and URL-encoded parsers ignore multipart bodies, and the HTML sanitizer was already skipped for `/api/tourist-visa`. Every other Tourist Visa route still answers 415 to a multipart body. This is tested through the same middleware order as `index.js` and through the real `index.js`.
+
+**What is not yet proven.** No real Cloudinary call has been made (the tests use a fake storage, and the real adapter is tested for what it asks of the SDK and for the signed link's shape and expiry). Before the upload screen is trusted, one real upload, one real signed download and one real delete must be done against the test Cloudinary account (planned in step 8c-2's manual test). The choice of `raw` is the one to watch: if Cloudinary refuses `authenticated` raw files on the account's plan, the fallback is `image` for JPG and PNG and `raw` for PDF, which is a change in `touristVisaStorage.js` only (the stored `resourceType` already travels with each file).
+
+**Not covered here (security review, step 8j).** Files are not scanned for malware, and a PDF can contain active content: they must only ever be offered as downloads from the private link, never displayed inline from our own site. The rate limit is per server process.
+
 ## 3. What is NOT built
 
 - **Part 10D, the documents** of the spec (the passport copy and the proof of funds). Part 9 and Part 10A to 10C are built as drafts (steps 8b-1 and 8b-2). Everything still to build is planned in order in section 14.
-- **Document upload** (passport copy and proof of funds). The model has a `documents` list for references, but no upload route or screen exists.
+- **The document upload screen** (section 10D: the passport copy and the proof of funds) and its two questions in the config. The backend behind it is built (step 8c-1, section 2.1) and tested with a fake storage; it has **never been run against real Cloudinary** (section 2.1, "What is not yet proven"). The screen, the 10D section and the dashboard row are step 8c-2.
 - **Review page and final submit.** There is no review step and no way to submit; an application stays a draft.
 - **Admin view** of applications and **PDF export** in the printout's layout.
 - **Entry points.** No link to `/tourist-visa` was added to the Footer, the Navbar or the Services pages (the Footer's existing "Tourist Visa" link points at `/services/tourist-visa`, which does not exist). Add links only once the form is ready to open.
@@ -109,6 +157,11 @@ Important: **a draft keeps the client gate closed, exactly like a `tbc` item.** 
 | --- | --- | --- |
 | `TOURIST_VISA_ENABLED` | No | **Production default: leave it unset** (closed). Set to exactly `true` to open the API, on test deployments and at release (section 9). Listed in `backend/.env.example`. |
 | `FIELD_ENCRYPTION_KEY` | Yes, once `TOURIST_VISA_ENABLED=true` | 32 random bytes, as base64 (44 characters) or hex (64 characters). Not needed, and not warned about, while the switch is off. |
+| `CLOUDINARY_CLOUD_NAME` | Yes, once `TOURIST_VISA_ENABLED=true` | Already used by the existing assessment uploads, so a deployment that has those has this. The document uploads (section 2.1) need it. |
+| `CLOUDINARY_API_KEY` | Yes, once `TOURIST_VISA_ENABLED=true` | As above. |
+| `CLOUDINARY_API_SECRET` | Yes, once `TOURIST_VISA_ENABLED=true` | As above. Never logged or put in a link (the signed link carries the key and a signature, not the secret). |
+
+The three Cloudinary names are the **same ones the rest of the backend already reads** (`backend/config/cloudinary.js`), so nothing new has to be invented. If any is missing while the switch is on, the server logs the **names** of the missing ones at startup (never a value) and every upload answers `STORAGE_UNAVAILABLE` (503); a closed deployment does not complain. Use the same account for test and production only if you are sure the `tourist-visa/` folder is private there; a separate test account is safer.
 
 Generate one with:
 
@@ -119,7 +172,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 Rules for the key:
 
 - **Store it safely**, in the host's secret store, and keep a copy in your password manager or vault. It is never in the repository and the feature never logs it.
-- **Losing it, or changing it, makes every encrypted answer (2.19, 2.30a, 2.31b, 3.1, 7.2c, 7.3f, 7.6d, the ten Yes/No answers and ten details boxes of Part 9, and 10.1, 10.1a to 10.1f, 10.5 and 10.5a) unrecoverable.** There is no recovery and no key rotation yet; rotation is planned as its own step before real applicants (section 14). Back it up before the first real applicant saves anything.
+- **Losing it, or changing it, makes every encrypted answer (2.19, 2.30a, 2.31b, 3.1, 7.2c, 7.3f, 7.6d, the ten Yes/No answers and ten details boxes of Part 9, and 10.1, 10.1a to 10.1f, 10.5 and 10.5a, and the original name of every uploaded file) unrecoverable.** There is no recovery and no key rotation yet; rotation is planned as its own step before real applicants (section 14). Back it up before the first real applicant saves anything.
 - Do not reuse the key from a test environment, and use a different key per environment.
 - If the switch is on and it is missing or malformed, the server **refuses every section save** with a 503 ("Secure storage is not configured") and logs an error at startup. Nothing is stored in plain text as a fallback. Reading an application only needs the key when it holds encrypted answers.
 
@@ -133,13 +186,14 @@ Existing variables the feature relies on and does not change: `JWT_SECRET` (sign
 
 ## 6. What changed in existing files
 
-Only six existing files were modified. Everything else is new, including `backend/.env.example` (it did not exist before; it names `FIELD_ENCRYPTION_KEY` only).
+Only six existing files were modified. Everything else is new, including `backend/.env.example` (it did not exist before; it names the switch, `FIELD_ENCRYPTION_KEY` and the three Cloudinary variables, with no values).
 
 | File | Change |
 | --- | --- |
 | `backend/index.js` | Requires the new routes and three small middlewares; mounts the feature switch (`touristVisaFeatureGate`) straight after CORS, before every other middleware; mounts `app.use("/api/tourist-visa", touristVisaRoutes)`; parses Tourist Visa bodies first with log-safe errors (`touristVisaBodyParser`); and wraps the global input sanitizer as `skipPaths(["/api/tourist-visa"], sanitize)`. The sanitizer strips `<` and `>` from every string, which would alter free-text answers, so it is skipped for this one path only. Every other route is sanitized exactly as before. |
 | `client/src/components/login-form.tsx` | After sign-in, goes back to the page the visitor came from (`?next=`) when it is a safe same-site path (`client/src/utils/safeRedirect.ts`); otherwise the old defaults (admins to `/admin/users`, others to `/`). |
 | `backend/package.json` (and lock file) | `npm test` now runs the backend tests (it was a placeholder), one file at a time (`--test-concurrency=1`); adds the dev dependency `mongodb-memory-server`. |
+| `backend/middleware/errorHandler.js` | `AppError` takes an optional third argument, `code`, and the error response carries it when it is set (step 8c-1). Nothing changes for an error without a code. |
 | `client/package.json` | Adds the `test:unit` script. |
 | `client/.env.example` | Documents `NEXT_PUBLIC_TOURIST_VISA_PREVIEW`. |
 | `backend/package-lock.json` | Lock file for the dev dependency above. It adds 30 packages (the in-memory database for tests, dev only) and also moved the locked versions of six existing indirect packages: `b4a` 1.6.7 to 1.9.0, `bare-events` 2.6.1 to 2.9.2, `semver` 7.7.2 to 7.8.5, `streamx` 2.22.1 to 2.28.1, `tar-stream` 3.1.7 to 3.2.2 and `text-decoder` 1.2.3 to 1.2.7. These are not used by the Tourist Visa code. If you want the lock file to change by the new packages only, regenerate it from main with `npm install --save-dev mongodb-memory-server@^11.3.0`. |
@@ -161,6 +215,8 @@ New code lives under: `backend/{config,controllers,middleware,models,repositorie
 The feature adds **one new collection**, `touristvisaapplications` (model `TouristVisaApplication`), with three indexes: one live draft per applicant (unique, partial), `applicant + createdAt`, and `status + createdAt`. It does not read or change any existing collection except `users` (to identify the signed-in user, as the rest of the site does).
 
 Each application records the `configVersion` its answers were collected with. When the config changes, saved answers are never rewritten: the server works out the status of each section when it reads the application, and a section whose answers no longer fit shows as **Needs review**.
+
+**Documents (step 8c-1).** The `documents` list on the application changed shape (section 2.1). The old shape was never written (there was no upload code), so no saved application holds one and nothing is migrated. No Tourist Visa answer or section status is affected.
 
 **Config `0.10.0-draft` (step 8b-2) and saved answers.** Nothing is deleted or rewritten. Part 10A to 10C is new, so no saved application has any Part 10 answer: its sections simply show as not started, every earlier section and every declaration record keeps its status, and the resume point moves to 10A once Parts 1 to 9 are saved. Reading an application writes nothing. The new answers are encrypted from the first save, so no migration is needed, and no existing question became encrypted (section 10.9). Covered by tests (`touristVisaPart10.test.js`).
 
@@ -194,6 +250,8 @@ npm test                             # runs the test files one at a time
 
 Two test files cover the server switch: `touristVisaFeatureSwitch.test.js` (every route and every non-`true` value returns the closed answer with no database connected, no model call and no log line; with `true` the routes behave as before) and `touristVisaFeatureSwitchWiring.test.js` (the real `index.js` started with the switch unset and no encryption key: same answer before sign-in and body parsing, readable cross-origin, rest of the API unaffected, nothing logged).
 
+`touristVisaDocuments.test.js` covers the document uploads (step 8c-1) with a fake Cloudinary and no network: valid PDF, JPG and PNG; a fake file renamed `.pdf`, an oversize, an empty and a wrong-slot file; the per-slot caps, the total cap, parallel uploads at both caps; locking after submit; delete removing the stored file; a database failure cleaning up the stored file; the encrypted original name; no URL or storage id in any applicant response; another user unable to touch my files; the closed feature gate; the rate limit; `getTemporaryLink` and its 2-minute expiry; and the real Cloudinary adapter's upload options and signed link (offline). `touristVisaDocumentsWiring.test.js` boots the real `index.js` to check that a multipart upload gets through the real parser order and that the startup warning gives names only; `touristVisaFeatureSwitchWiring.test.js` also checks the three document routes while the feature is closed.
+
 `touristVisaPart10.test.js` covers Part 10A to 10C (step 8b-2): one test for each of the six penalty choices (ticking it asks for its details, unticking removes them from the database), "None of these" refused with another choice, the ticked list and the details stored as ciphertext, the language and the extra-information boxes stored as typed, the National Insurance number stored in capitals with no spaces and encrypted (and a wrong one refused without repeating it), exactly the expected fields encrypted and no earlier question newly encrypted, a ciphertext that cannot be moved to another question, and an application saved before Part 10 staying untouched.
 
 `touristVisaPart9.test.js` covers Part 9 (step 8b-1): one test per gate (Yes needs details, No removes them from the database), the Yes/No answers and details stored as ciphertext while the ticks are not, a ciphertext that cannot be moved to another question, the declaration record (hash, time, user, config version, no IP address), a changed wording asking for the tick again, and an application saved before Part 9 staying untouched.
@@ -216,7 +274,7 @@ npx eslint src/utils src/components/tourist-visa src/app/tourist-visa
 npx next build
 ```
 
-All of these were green at the time of writing (shared 226 tests, backend 216, client 164). The tests use made-up data only.
+All of these were green at the time of writing (shared 226 tests, backend 261, client 164). The tests use made-up data only.
 
 ## 9. Deploying
 
@@ -515,6 +573,8 @@ The Tourist Visa pages use the site's own dialog and toast components and no nat
 | A validation or visibility rule, or a new rule type | `shared/tourist-visa/engine.js` (+ `engine.d.ts`, `engine.test.js`) |
 | What the server saves, prunes and flags | `backend/services/touristVisaApplicationService.js`, `backend/repositories/touristVisaApplicationRepository.js` |
 | Encryption | `backend/config/fieldEncryption.js`, `backend/repositories/fieldCipher.js` |
+| File limits, allowed types, document error codes | `backend/config/touristVisaDocuments.js` (one file; section 2.1) |
+| Where uploaded files are stored, and how links are made | `backend/config/touristVisaStorage.js` (Cloudinary), `backend/services/touristVisaDocumentService.js` |
 | How a question or group is drawn | `client/src/components/tourist-visa/` (`QuestionField.tsx`, `RepeatGroupField.tsx`, `fields/`) |
 | Section form behaviour and unsaved-changes guard | `client/src/components/tourist-visa/SectionForm.tsx`, `client/src/hooks/useUnsavedChangesGuard.ts` |
 | Dashboard and open/closed switch | `client/src/app/tourist-visa/`, `client/src/utils/touristVisaChecklist.ts` |
@@ -527,7 +587,7 @@ Planned, **not built**. The order below is the agreed order; step names are work
 | Step | What | Steps |
 | --- | --- | --- |
 | 8b | Parts 9 and 10 questions and declarations (drafts; sensitive answers encrypted; ACK declarations recorded with who, when and wording version). **8b-1 and 8b-2 are built**: 8b-1 added the engine features (`includes` condition, `exclusive` checklist option, `pattern` rule), Part 9 and the declaration records; 8b-2 added the `normalize` rule and Part 10A to 10C (10D, the documents, is the upload step 8c) | 2 |
-| 8c | Document upload: passport and funds, private storage, expiring links (2 minutes). Through the server, 4 MB per file, PDF/JPG/PNG only, passport up to 3 files, funds up to 10, 40 MB in total; assumes the backend runs on Vercel serverless until the hosting is confirmed, which comes before this step | 2 |
+| 8c | Document upload: passport and funds, private storage, expiring links (2 minutes). **8c-1 is built** (the backend, section 2.1): 4 MB per file, PDF/JPG/PNG only, passport up to 3 files, funds up to 10, 40 MB in total, Cloudinary private storage, the Vercel serverless assumption (4 MB; 5 MB on a normal server). **8c-2** is the screen (section 14.4) | 2 |
 | 8d | Review page and submit (read-only view and lock after submit) | 2 |
 | 8e | Admin list and Overview (call details first, view logging) | 2 |
 | 8f | Admin edit with an audit trail (reason required, validated by the same engine, old and new values encrypted) | 3 |
@@ -577,3 +637,11 @@ A cover letter is generated from the applicant's answers when the application is
 ### 14.3 Recommendation for the senior (not part of this feature): MFA for admin accounts
 
 Admins will be able to read every applicant's decrypted answers, including passport numbers and the security-history answers, and to change them. Admin sign-in today is email and password only, with a token kept in the browser. It is recommended to add **multi-factor authentication for admin accounts** before the admin Overview (step 8e) is used with real applicants. It is a change to the existing login, outside the Tourist Visa code, so it is recorded here rather than planned as a step; the view log and the audit trail (steps 8e and 8f) show who looked at or changed what, but do not stop a stolen password.
+
+### 14.4 Step 8c-2: the upload screen (plan, not built)
+
+- **Config.** Add section 10D, "Documents", with two `FILE` questions as drafts: 10.6 (slot `passport`, up to 3 files, required) and 10.7 (slot `funds`, up to 10 files, required before submit). The engine already skips `FILE` questions when it validates a section, so the "at least one file" rule is worked out by the server from the stored files, not from an answer: 10D is "saved" when the passport slot has a file, and the funds rule is checked at submit (8d). The released config, the release check, the draft list and the dashboard (10D after 10C) follow from the config as before.
+- **Screen.** A `FileField` for each slot: choose a file, the browser checks type and size first using the limits from `GET /applications/me/documents` (so they are not repeated in the client), upload one file at a time with a progress state, list the stored files (name, size, a delete button with the site's own dialog), and show each error code as a clear message. Mobile first (375 px, light and dark). No preview and no link: the applicant never needs one.
+- **Dashboard and resume.** 10D shows as saved or not started from the stored files; the resume point and "needs review" follow.
+- **Manual test with real Cloudinary** (the check section 2.1 says is missing): one real upload of each type, a real delete, and a signed link opened from a script (not from any route) to see it work and then fail after 2 minutes. Hosting (serverless or not) is confirmed before this step.
+- **Not in 8c-2:** the admin link route and viewer (8e), the review page (8d), and any malware scanning (8j).
