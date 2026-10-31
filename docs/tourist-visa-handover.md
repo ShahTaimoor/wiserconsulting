@@ -2,12 +2,12 @@
 
 For the engineer who will review and deploy this. It describes what is built, what is not, how to switch it on, what it needs on production, what it changed in existing files, and what still needs a decision.
 
-Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-spec.md](tourist-visa-form-spec.md). Config version at the time of writing: `0.11.0-draft`. This describes the state after step 8c-2: Parts 1 to 10 are built, including the document upload screen (10D, section 2.1); the review page, submit, the admin side and everything after are still to build (section 14).
+Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-spec.md](tourist-visa-form-spec.md). Config version at the time of writing: `0.12.0-draft`. This describes the state after step 8d: the applicant's whole journey is built (fill in the sections, upload the documents, review, submit; sections 2.1 and 2.2). The admin side, the cover letter, the PDF, the entry points and everything after are still to build (section 14).
 
 ## 1. At a glance
 
 - A signed-in user fills in a UK visitor (tourist) visa application, one section at a time, and can leave and come back. Answers are saved on the server per section ("Save and continue").
-- It is **not ready to open to the public**. **No `tbc` item is left anywhere** (every real unknown has been turned into a default), but **22 of the 23 sections carry drafts**: 77 defaults we chose (73 questions and 4 repeating groups), each with a short note, that need senior review (section 10.8 lists them all), and the **wording of the final submit declaration** is a draft too. Only the passport section (3) is free of drafts. **The client opens the form only when no section has a `tbc` item and none has a draft**, so an unreviewed default cannot reach the public by accident. Until then the live site shows "The application isn't open yet".
+- It is **not ready to open to the public**. **No `tbc` item is left anywhere** (every real unknown has been turned into a default), but **22 of the 23 sections carry drafts**: 77 defaults we chose (73 questions and 4 repeating groups), each with a short note, that need senior review (section 10.8 lists them all), and the **wording of the final submit declaration** and of **the text shown after submitting** are drafts too. Only the passport section (3) is free of drafts. **The client opens the form only when no section has a `tbc` item and none has a draft**, so an unreviewed default cannot reach the public by accident. Until then the live site shows "The application isn't open yet".
 - **Two switches keep it closed** (section 4): the backend variable `TOURIST_VISA_ENABLED`, which is **off unless it is exactly `true`**, and the client's own gate. With the backend switch off, the whole API is inert: every request gets one fixed "closed" answer and nothing is read, stored or logged. **Production must keep both switches consistent.**
 - Nothing links to the form yet. It can only be reached by typing `/tourist-visa`.
 - It adds one new database collection and does not change the data of any existing feature.
@@ -109,14 +109,46 @@ The applicant is only ever sent `id`, `slot`, `name`, `size`, `type` and `upload
 
 **Not covered here (security review, step 8j).** Files are not scanned for malware, and a PDF can contain active content: they must only ever be offered as downloads from the private link, never displayed inline from our own site. The rate limit is per server process.
 
+### 2.2 Review and submit (step 8d)
+
+**The applicant's flow.** The dashboard shows a "Review and submit" card. It is enabled only when every section that applies is complete and both documents are uploaded; otherwise it says what is still missing, section by section, with a link to each. "Review and submit" opens `/tourist-visa/review`: every part and section in order with an **Edit** link back to it, the files by name and size, the Part 9 ticks as given (with the date), then the **final declaration** (the wording of `declarations.submit`, with a Draft badge in preview mode), a required tick and a **Submit application** button. Submit opens the site's own dialog ("Submit your application? You will not be able to change it afterwards."); no native alert, confirm or prompt is used. The page can be visited by address at any time; while something is missing it shows the review and the list of what is missing, and Submit stays disabled. After a submit the page shows the **confirmation** (focus moves to its heading, and a live region and a toast announce it): the application's reference, "Submitted on <date>", "What happens next" and the declaration, followed by the same review with every edit control gone. The dashboard then shows the reference and a "View your application" link, with no Continue button and no section links.
+
+**Read only after submit.** Any section address (`/tourist-visa/2A`, `/tourist-visa/10D` and so on) goes straight to the review page for a submitted application, never to a form. The server enforces it too: saving a section, uploading and deleting a file all answer the locked error (409), and a second submit answers 409 `ALREADY_SUBMITTED`. There is no withdraw or reopen: that is for an admin only (step 8f).
+
+**One builder for every view: `shared/tourist-visa/view.js`** (with `view.d.ts`; synced to the client and the backend like the engine, and covered by the drift check). `buildReview(config, answers, documents, declarations)` is a pure function with no UI or server code in it. It returns the ordered parts, sections and rows: only questions that are visible, option labels instead of codes, dates written out ("1 March 2027"), amounts ("£1,500"), Yes and No, each repeating-group entry as its own numbered item ("Parent 1"), files as a name and a size, and a declaration tick as "Confirmed on <date>". Sensitive answers pass through as plain text, because the server decrypts before it calls the builder. It can never contain a link, a URL or a storage id: it is only ever given a file's name and size. The applicant's review page uses it now; **the admin Overview (8e) and the PDF (8h) must use the same function**, so the three always agree.
+
+**The review is built on the server** (`GET /applications/me/review`), from the decrypted answers, and sent to the owner only. For a draft it uses the live config; for a submitted application it uses **the config it was submitted under** (below), so a later change to a question, an option label or the declaration wording never changes what the applicant sees of what they submitted. The answer carries `review`, `status`, `reference`, `submittedAt`, `configVersion`, `documentsComplete` and `declaration` (its wording and when it was accepted). The ordinary `GET /applications/me` also returns the status, `submittedAt` and the `reference`.
+
+**The submit: `POST /applications/me/submit`**, body `{ "declarationAccepted": true }`, behind the feature gate and sign-in. The server first re-checks **everything against the current config**, and nothing is submitted unless all of it passes:
+
+- every section that applies is saved and its stored answers still pass the rules (a section that was never saved, needs another look, or whose answers no longer validate counts);
+- the documents are complete (`documentsComplete`: a file in every slot);
+- every Part 9 tick still matches the current wording (a tick given for other words counts against its section);
+- `declarationAccepted` is exactly `true`.
+
+If anything fails, the answer is **422 `NOT_READY`** with `sections: [{ id, problems }]` (a section id and how many things in it need attention, in form order) and `declarationMissing`. It never contains an answer or a value. Other answers: 400 `INVALID_REQUEST` (the body is not exactly that shape), 404 `APPLICATION_NOT_FOUND`, 409 `ALREADY_SUBMITTED`, 409 `APPLICATION_CHANGED` (it changed three times while being submitted), 503 `REFERENCE_UNAVAILABLE` (no free reference found; nothing was submitted). The client turns each into plain words (`client/src/utils/touristVisaReview.ts`); for a 422 it lists the sections that need attention, each linking to its section.
+
+**One atomic write.** draft -> submitted is a single conditional database write that matches only if the application is still the applicant's draft **and has not changed since it was checked** (it compares `updatedAt`), so what was checked is what is submitted. Of two submits at the same moment exactly one wins; the other is told 409 `ALREADY_SUBMITTED`. If the application changed between the check and the write, the server checks again (up to three times) instead of submitting something it did not check.
+
+**What the submit records.** `status: submitted`, `submittedAt`, a **reference**, `configSha256` and `configVersion`, and `declarations.submit`: the same record as the Part 9 ticks (the SHA-256 of the exact wording of `declarations.submit`, the time, the user, the config version; **no IP address**). Nothing else changes: the answers, the files and the Part 9 records are left exactly as they were.
+
+**The reference** is `TV-` and eight characters from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` (31 characters: no 0, O, 1, I or L, so it can be read out over the phone), for example `TV-K7M2QX9P`: about 850 billion possibilities, drawn with `crypto.randomInt`. It has a **unique index** (applications without one are not in it); if a reference is already taken the server draws another (up to five times, then answers 503 and submits nothing). The reference is a label to quote, not a secret and not a credential: nothing is ever looked up by it from the applicant side.
+
+**The config snapshot.** The exact `questions.json` the application was submitted under is stored as text in its own collection, `touristvisaconfigsnapshots`, with the SHA-256 of that text as its `_id` (plus `version` and `createdAt`). It is written once per distinct config (an upsert that only inserts), never changed, and holds only the form's questions: no answer and nothing about an applicant. The application stores `configSha256` and `configVersion`. **Later views (the admin Overview, the PDF) must render a submitted application with its snapshot** (`touristVisaApplicationService.configOf(application)` does this; it falls back to the live config only for a draft) and must not use the live config for a submitted application.
+
+**Logging.** A submit writes one log line at most (in development only) with the application's id and nothing else; a refusal's response and the log carry section ids and counts only, never an answer, and a database error is turned into a plain 500 by the same log-safe handler as the other routes.
+
+**Draft wording.** The final declaration (`declarations.submit`) and the steps shown after submitting (`afterSubmit`) are our own plain words, kept in `questions.json`, both with a draft note: the release check lists them and the client form stays closed until the senior approves or replaces them. The release check also proves the review page can be built from the config.
+
+**Not built in this step:** the admin screens (8e), withdrawing or reopening (8f, admin only), the cover letter (8g), the PDF (8h) and a confirmation email.
+
 ## 3. What is NOT built
 
 - **Part 10D, the documents** of the spec (the passport copy and the proof of funds). Part 9 and Part 10A to 10C are built as drafts (steps 8b-1 and 8b-2). Everything still to build is planned in order in section 14.
 - **Real Cloudinary has not been exercised.** The upload page and its backend are built (steps 8c-1 and 8c-2) and tested with a fake storage; the first real upload, signed download, expiry and delete are still to be checked by hand (section 14.4).
-- **Review page and final submit.** There is no review step and no way to submit; an application stays a draft.
-- **Admin view** of applications and **PDF export** in the printout's layout.
+- **Withdrawing or reopening** a submitted application (admin only, step 8f), the **admin view** of applications (8e), the **cover letter** (8g), the **PDF export** in the printout's layout (8h) and a **confirmation email**. A submitted application is locked for the applicant for good.
 - **Entry points.** No link to `/tourist-visa` was added to the Footer, the Navbar or the Services pages (the Footer's existing "Tourist Visa" link points at `/services/tourist-visa`, which does not exist). Add links only once the form is ready to open.
-- **Senior review of the drafts.** Nothing is confirmed: all 77 drafts (section 10.8) and the declaration wording still need a decision before release. No question is left open as a `tbc`.
+- **Senior review of the drafts.** Nothing is confirmed: all 77 drafts (section 10.8) and the wording of the final declaration and of the text shown after submitting still need a decision before release. No question is left open as a `tbc`.
 - The **EEA help list** at 8.1 is a fixed list of 30 country codes in the config (27 EU states, Iceland, Liechtenstein and Norway). It is not maintained automatically: update it by hand if membership changes.
 - **Tying the server to the client's release gate.** The server switch is one all-or-nothing flag set by a person. It does not look at the open `tbc` items. If someone sets it to `true` while `tbc` items remain, the form still shows "not open yet" but the API accepts calls from a signed-in user. Keep the two consistent (section 4).
 - **Key rotation** for the encryption key (section 5). Planned as its own step before any real applicant data is stored (section 14).
@@ -203,7 +235,7 @@ Only six existing files were modified. Everything else is new, including `backen
 | `backend/index.js` | Requires the new routes and three small middlewares; mounts the feature switch (`touristVisaFeatureGate`) straight after CORS, before every other middleware; mounts `app.use("/api/tourist-visa", touristVisaRoutes)`; parses Tourist Visa bodies first with log-safe errors (`touristVisaBodyParser`); and wraps the global input sanitizer as `skipPaths(["/api/tourist-visa"], sanitize)`. The sanitizer strips `<` and `>` from every string, which would alter free-text answers, so it is skipped for this one path only. Every other route is sanitized exactly as before. |
 | `client/src/components/login-form.tsx` | After sign-in, goes back to the page the visitor came from (`?next=`) when it is a safe same-site path (`client/src/utils/safeRedirect.ts`); otherwise the old defaults (admins to `/admin/users`, others to `/`). |
 | `backend/package.json` (and lock file) | `npm test` now runs the backend tests (it was a placeholder), one file at a time (`--test-concurrency=1`); adds the dev dependency `mongodb-memory-server`. |
-| `backend/middleware/errorHandler.js` | `AppError` takes an optional third argument, `code`, and the error response carries it when it is set (step 8c-1). Nothing changes for an error without a code. |
+| `backend/middleware/errorHandler.js` | `AppError` takes an optional third argument, `code`, and a fourth, `details` (ids and counts only, for a refused submit), and the error response carries them when they are set (steps 8c-1 and 8d). Nothing changes for an error without them. |
 | `client/package.json` | Adds the `test:unit` script. |
 | `client/.env.example` | Documents `NEXT_PUBLIC_TOURIST_VISA_PREVIEW`. |
 | `backend/package-lock.json` | Lock file for the dev dependency above. It adds 30 packages (the in-memory database for tests, dev only) and also moved the locked versions of six existing indirect packages: `b4a` 1.6.7 to 1.9.0, `bare-events` 2.6.1 to 2.9.2, `semver` 7.7.2 to 7.8.5, `streamx` 2.22.1 to 2.28.1, `tar-stream` 3.1.7 to 3.2.2 and `text-decoder` 1.2.3 to 1.2.7. These are not used by the Tourist Visa code. If you want the lock file to change by the new packages only, regenerate it from main with `npm install --save-dev mongodb-memory-server@^11.3.0`. |
@@ -212,19 +244,24 @@ New at the repository root: `package.json` (scripts only, no dependencies) and `
 
 New code lives under: `backend/{config,controllers,middleware,models,repositories,routes,services,shared,tests}`, `client/src/app/tourist-visa`, `client/src/components/tourist-visa`, `client/src/components/ui/alert-dialog.tsx`, `client/src/{context,hooks,services,shared,utils}`, and `docs/`. The backend follows the existing layering (routes, controller, service, repository, model).
 
-**API.** Three routes. While `TOURIST_VISA_ENABLED` is not `true` every one of them (and any other path under the prefix) returns the fixed closed answer (section 4.1). When it is, they are all behind the existing `isAuthorized` middleware, and each only ever touches the signed-in user's own application:
+**API.** These routes. While `TOURIST_VISA_ENABLED` is not `true` every one of them (and any other path under the prefix) returns the fixed closed answer (section 4.1). When it is, they are all behind the existing `isAuthorized` middleware, and each only ever touches the signed-in user's own application:
 
 - `POST /api/tourist-visa/applications` creates the draft, or returns the existing one.
 - `GET /api/tourist-visa/applications/me` returns it, with sensitive answers decrypted for the owner.
 - `PUT /api/tourist-visa/applications/me/sections/:sectionId` validates and saves one section.
+- `GET`, `POST` and `DELETE /api/tourist-visa/applications/me/documents` (and `/:docId`) list, upload and delete files (section 2.1).
+- `GET /api/tourist-visa/applications/me/review` returns the application as a readable review (section 2.2).
+- `POST /api/tourist-visa/applications/me/submit` submits the draft (section 2.2).
 
-**Shared copies.** The client and backend are deployed separately, so each carries a generated copy of `shared/tourist-visa/` (`client/src/shared/tourist-visa/`, `backend/shared/tourist-visa/`, each with a `GENERATED.txt`). After editing anything in `shared/tourist-visa/`, run `npm run sync:shared` and commit the copies. A test fails if a copy has drifted.
+**Shared copies.** The client and backend are deployed separately, so each carries a generated copy of `shared/tourist-visa/` (`client/src/shared/tourist-visa/`, `backend/shared/tourist-visa/`, each with a `GENERATED.txt`). Step 8d added `view.js` and `view.d.ts` (the review builder) to the shared set. After editing anything in `shared/tourist-visa/`, run `npm run sync:shared` and commit the copies. A test fails if a copy has drifted.
 
 ## 7. Database
 
 The feature adds **one new collection**, `touristvisaapplications` (model `TouristVisaApplication`), with three indexes: one live draft per applicant (unique, partial), `applicant + createdAt`, and `status + createdAt`. It does not read or change any existing collection except `users` (to identify the signed-in user, as the rest of the site does).
 
 Each application records the `configVersion` its answers were collected with. When the config changes, saved answers are never rewritten: the server works out the status of each section when it reads the application, and a section whose answers no longer fit shows as **Needs review**.
+
+**Step 8d: what is new in the database.** Each application gains two optional fields, `reference` and `configSha256` (set only at submit), and `declarations.submit`. There is one new collection, `touristvisaconfigsnapshots` (section 2.2), and one new index: a **unique, partial index on `reference`** (only documents that have a text reference are in it). Mongoose builds it when the server starts; **on a deployment where automatic index building is switched off, create it once by hand**: `db.touristvisaapplications.createIndex({ reference: 1 }, { unique: true, partialFilterExpression: { reference: { $type: "string" } } })`. Existing drafts are not touched and need no migration. Config `0.12.0-draft` only adds the `afterSubmit` wording, so no saved answer changes.
 
 **Config `0.11.0-draft` (step 8c-2) and saved answers.** Nothing is deleted or rewritten. Section 10D is new and has no answers: its status is worked out from the uploaded files and is never stored, so no saved application changes. An applicant who had saved Parts 1 to 10C now resumes on 10D. Reading an application writes nothing. Covered by tests (`touristVisaDocuments.test.js`).
 
@@ -249,7 +286,7 @@ From the repository root:
 ```
 npm run sync:shared                  # after editing shared/tourist-visa/
 npm run check:shared                 # fails if the client or backend copy has drifted
-npm run test:shared                  # engine, config and release-check tests (234)
+npm run test:shared                  # engine, config, review-builder and release-check tests (250)
 npm run check:tourist-visa-release   # open tbc items and draft lists; exit 1 blocked, 2 drafts only (expected today), 0 clear
 ```
 
@@ -262,7 +299,9 @@ npm test                             # runs the test files one at a time
 
 Two test files cover the server switch: `touristVisaFeatureSwitch.test.js` (every route and every non-`true` value returns the closed answer with no database connected, no model call and no log line; with `true` the routes behave as before) and `touristVisaFeatureSwitchWiring.test.js` (the real `index.js` started with the switch unset and no encryption key: same answer before sign-in and body parsing, readable cross-origin, rest of the API unaffected, nothing logged).
 
-`touristVisaDocuments.test.js` covers the document uploads (step 8c-1) with a fake Cloudinary and no network: valid PDF, JPG and PNG; a fake file renamed `.pdf`, an oversize, an empty and a wrong-slot file; the per-slot caps, the total cap, parallel uploads at both caps; locking after submit; delete removing the stored file; a database failure cleaning up the stored file; the encrypted original name; no URL or storage id in any applicant response; another user unable to touch my files; the closed feature gate; the rate limit; `getTemporaryLink` and its 2-minute expiry; and the real Cloudinary adapter's upload options and signed link (offline). `touristVisaDocLinkScript.test.js` covers the developer tool (it refuses without confirmation, never prints a secret or an error message, and the link it prints expires 2 minutes after it is asked for). The 8c-2 additions to `touristVisaDocuments.test.js` cover the 10D status following the files (not started, in progress, saved, and back), the refusal to save 10D as a section, the resume point, a locked application keeping its files, and a test that fails if any production file could swap the storage for a fake. On the client, `touristVisaDocuments.test.mjs` covers the browser's check of a file (type, size, caps, in the server's order), the plain-words message for every code the server can send (and that none is missing), and the formatting; the checklist and service tests cover the 10D row and the three document calls.
+`touristVisaDocuments.test.js` covers the document uploads (step 8c-1) with a fake Cloudinary and no network: valid PDF, JPG and PNG; a fake file renamed `.pdf`, an oversize, an empty and a wrong-slot file; the per-slot caps, the total cap, parallel uploads at both caps; locking after submit; delete removing the stored file; a database failure cleaning up the stored file; the encrypted original name; no URL or storage id in any applicant response; another user unable to touch my files; the closed feature gate; the rate limit; `getTemporaryLink` and its 2-minute expiry; and the real Cloudinary adapter's upload options and signed link (offline). `touristVisaSubmit.test.js` covers the submit (step 8d): a successful submit and everything it records, each kind of refusal (a section never saved or needing another look, saved answers that no longer pass, missing documents, a stale Part 9 tick, a missing declaration, a bad request), five submits at the same moment (one winner), a change between the check and the write, the lock after submit (save, upload, delete), the config snapshot (stored once, never rewritten, used to show a submitted application after the live config changes), the reference (format, uniqueness, retry on a collision, giving up cleanly), ownership, sign-in, the closed feature gate, and that no answer reaches a response or a log line. `shared/tourist-visa/view.test.js` covers the review builder (hidden questions, option labels, dates and amounts, groups and their per-entry conditions, files without anything but a name and a size, an input that already holds decrypted values, and that the client and backend copies match the source). On the client, `touristVisaReview.test.mjs` covers the plain words for every way a submit can be refused, and the checklist and service tests cover the readiness rules and the review and submit calls.
+
+`touristVisaDocLinkScript.test.js` covers the developer tool (it refuses without confirmation, never prints a secret or an error message, and the link it prints expires 2 minutes after it is asked for). The 8c-2 additions to `touristVisaDocuments.test.js` cover the 10D status following the files (not started, in progress, saved, and back), the refusal to save 10D as a section, the resume point, a locked application keeping its files, and a test that fails if any production file could swap the storage for a fake. On the client, `touristVisaDocuments.test.mjs` covers the browser's check of a file (type, size, caps, in the server's order), the plain-words message for every code the server can send (and that none is missing), and the formatting; the checklist and service tests cover the 10D row and the three document calls.
 
 `touristVisaDocumentsWiring.test.js` boots the real `index.js` to check that a multipart upload gets through the real parser order and that the startup warning gives names only; `touristVisaFeatureSwitchWiring.test.js` also checks the three document routes while the feature is closed.
 
@@ -288,7 +327,9 @@ npx eslint src/utils src/components/tourist-visa src/app/tourist-visa
 npx next build
 ```
 
-All of these were green at the time of writing (shared 234 tests, backend 276, client 190). The tests use made-up data only.
+All of these were green at the time of writing (shared 250 tests, backend 306, client 208). The tests use made-up data only.
+
+**Browser check of review and submit.** The same fake-storage method drives the incomplete path (the dashboard's disabled button and list, the review page by address), the fix on the documents page, a refusal by the server after the page loaded (listing the section, never the answer), the confirm dialog (cancelled, then confirmed), the confirmation, the read-only review, a direct visit to section addresses after submit, the locked server answers, and 375 px in light and dark.
 
 **Browser check with a fake storage.** Real Cloudinary is not available to the automated check, so the 10D page is driven in a real browser (375 px, light and dark) against a throwaway database and a **fake storage**. The fake is put in place by a small wrapper script that lives outside the repository and starts the real `backend/index.js` afterwards; nothing in the repository can do that. The document service's storage defaults to the Cloudinary adapter, no setting or request can change it, and a backend test fails if any production file assigns the storage or reads a "fake" or "mock" setting. A production start (`node index.js`) therefore always uses Cloudinary.
 
@@ -432,6 +473,8 @@ Current draft wording (generated from the config at the time of writing; the con
 | 9.12 | I have read the information above about war crimes, crimes against humanity and genocide. | War crimes are serious breaches of the rules of war, such as deliberately attacking civilians or mistreating prisoners. Crimes against humanity are widespread or organised attacks on civilians, such as murder, torture or forcing people from their homes. Genocide is acting with the aim of destroying a national, ethnic, racial or religious group. The question below covers both peace time and war time. |
 | 9.13 | I have read the information above about terrorist activities, organisations and views. | Terrorism means using or threatening serious violence, or serious damage to property, to influence a government or frighten the public for a political, religious or ideological cause. Being involved includes planning, carrying out, helping, paying for or encouraging it. Supporting an organisation includes being a member, giving it money or other help, or speaking for it. The three questions below cover activities, organisations, and things you have said or published in any form, including online. |
 | 9.14 | I have read the information above about extremist organisations and views. | Extremism means holding or promoting views that reject basic values such as the rule of law, equal treatment of people and respect for other faiths and beliefs, including by encouraging hatred or violence against others. The two questions below cover organisations you have belonged to or supported, and views you have expressed in any form, including online. |
+
+**Text shown after submitting (draft, step 8d, `afterSubmit` in the config):** "Our team will review your application. We may call you on the telephone number you gave, to check your answers with you. Keep your reference number. You can quote it if you contact us. Your application can no longer be changed. If something needs correcting, tell us when we call or contact us." The senior approves or replaces it in the config, like the declaration.
 
 **Final submit declaration (draft, step 8d):** I declare that the information I have given in this application is complete and true to the best of my knowledge. I understand that giving false or incomplete information may lead to my application being refused. I agree that Wiser Consulting may call me on the telephone number I gave, to check my answers.
 
@@ -596,6 +639,9 @@ The Tourist Visa pages use the site's own dialog and toast components and no nat
 | The documents page (10D) | `client/src/components/tourist-visa/DocumentsSection.tsx`, the browser's file check and messages in `client/src/utils/touristVisaDocuments.ts`, the dashboard row in `client/src/utils/touristVisaChecklist.ts` |
 | The document status rules and the file question type | `shared/tourist-visa/engine.js` (`documentsStatus`, `documentsComplete`, `isFilesOnlySection`) |
 | Opening an uploaded file by hand (developer only) | `backend/scripts/tourist-visa-doc-link.js` (section 2.1) |
+| The review page, the Submit button and the confirmation | `client/src/app/tourist-visa/review/page.tsx`, `client/src/components/tourist-visa/ReviewSummary.tsx`, the plain words for a refusal in `client/src/utils/touristVisaReview.ts`, the readiness rule in `client/src/utils/touristVisaChecklist.ts` |
+| How an application is turned into a readable review (the applicant now, the admin and the PDF later) | `shared/tourist-visa/view.js` (`buildReview`) |
+| The submit rules, the reference and the config snapshot | `backend/services/touristVisaApplicationService.js` (`submit`, `submitProblems`, `getReview`, `configOf`), `backend/repositories/touristVisaApplicationRepository.js` (`submitApplication`, `saveConfigSnapshot`), `backend/models/TouristVisaConfigSnapshot.js` |
 | File limits, allowed types, document error codes | `backend/config/touristVisaDocuments.js` (one file; section 2.1) |
 | Where uploaded files are stored, and how links are made | `backend/config/touristVisaStorage.js` (Cloudinary), `backend/services/touristVisaDocumentService.js` |
 | How a question or group is drawn | `client/src/components/tourist-visa/` (`QuestionField.tsx`, `RepeatGroupField.tsx`, `fields/`) |
@@ -611,13 +657,13 @@ Planned, **not built**. The order below is the agreed order; step names are work
 | --- | --- | --- |
 | 8b | Parts 9 and 10 questions and declarations (drafts; sensitive answers encrypted; ACK declarations recorded with who, when and wording version). **8b-1 and 8b-2 are built**: 8b-1 added the engine features (`includes` condition, `exclusive` checklist option, `pattern` rule), Part 9 and the declaration records; 8b-2 added the `normalize` rule and Part 10A to 10C (10D, the documents, is the upload step 8c) | 2 |
 | 8c | Document upload: passport and funds, private storage, expiring links (2 minutes). **8c-1 and 8c-2 are built**: the backend (4 MB per file, PDF/JPG/PNG only, passport up to 3 files, funds up to 10, 40 MB in total, Cloudinary private storage, the Vercel serverless assumption) and the upload page (section 10D, section 2.1). Still to do by hand: the check against real Cloudinary (section 14.4) | 2 |
-| 8d | Review page and submit (read-only view and lock after submit). Must refuse to submit until `documentsComplete` is true (section 2.1) | 2 |
+| 8d | Review page and submit (read-only view and lock after submit). **Built** (section 2.2): the shared review builder, the atomic submit with its checks, the reference and the config snapshot, the review and confirmation pages | 2 |
 | 8e | Admin list and Overview (call details first, view logging) | 2 |
 | 8f | Admin edit with an audit trail (reason required, validated by the same engine, old and new values encrypted) | 3 |
 | 8g | **Automatic cover letter** (14.2) | 3 |
 | 8h | PDF export of the application (Latin text only; no printout is needed as a reference) | 2 |
 | 8i | Entry points: links (the Footer points at `/tourist-visa`), and the **assessment modal change** (14.1) | 2 |
-| 8j | Security review | 2 |
+| 8j | Security review (the list so far is in section 14.5) | 2 |
 | 8k | **Key rotation** for the field encryption key (its own step, **before any real applicant data is stored**; it can be done earlier) | 1 |
 
 About 21 steps in all. Earlier drafts of this plan called the PDF export 8g, the entry points 8h and the security review 8i; the cover letter is new, so those three moved down one letter. The order of the other steps is unchanged.
@@ -675,3 +721,15 @@ Admins will be able to read every applicant's decrypted answers, including passp
 6. If any of this fails, note the exact message the page gives and the console's settings for the asset; the fallback for PDFs is in section 2.1 ("What is not yet proven").
 
 **Not in 8c-2:** the admin route and viewer for files (8e, with every view logged), the review page and submit (8d), and malware scanning (8j).
+
+### 14.5 For the security review (step 8j)
+
+Things to look at, collected as the steps were built:
+
+- **The reference** (8d): the format `TV-` + 8 characters of a 31-character alphabet (about 850 billion), drawn with `crypto.randomInt`, unique-indexed, shown to the applicant and meant to be quoted. It must never be used to look an application up or to authorise anything. It can be read out loud, so a person may guess a mistyped one: nothing should confirm that a reference exists to anyone but its owner or an admin.
+- **The config snapshot** (8d): stored as text in its own collection, keyed by its SHA-256, written once and never changed or deleted; it holds the form's questions and wording only. Check that nothing can write to or read from that collection except the submit and the review code, and that an admin or PDF path never falls back to the live config for a submitted application.
+- **What a submit logs** (8d): at most one line with the application's id, in development only; the refusal and the 500 carry ids and counts, never an answer. Re-check this after every change to the submit.
+- **No rate limit on submit** (8d): submit and review sit behind sign-in and the general API limiter only. A dedicated limit is cheap to add.
+- **Uploaded files** (8c): no malware scan, and a PDF can carry active content, so files must only ever be offered as downloads from the private 2-minute link, never displayed inline from our own site; the upload rate limit is per server process; the developer link tool prints a working link to a real file, so it must never run in a shared environment.
+- **MFA for admin accounts** (section 14.3) and the admin view log (8e).
+- **Key rotation** (8k) before any real applicant data is stored.
