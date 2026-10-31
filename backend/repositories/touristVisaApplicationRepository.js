@@ -61,13 +61,15 @@ class TouristVisaApplicationRepository {
    * Returns the updated application (decrypted), or null if no editable
    * application matched.
    */
-  async saveSection(applicationId, applicantId, { answers, unset, sectionStatus, clearStatus = [], currentSection }) {
+  async saveSection(applicationId, applicantId, { answers, unset, sectionStatus, clearStatus = [], currentSection, declarations = {} }) {
     const key = getFieldEncryptionKey(); // fails closed before anything is written
     const stored = this.encryptAnswers(String(applicationId), answers, key);
 
     const $set = { currentSection };
     for (const [id, value] of Object.entries(stored)) $set[`answers.${id}`] = value;
     for (const [sectionId, state] of Object.entries(sectionStatus)) $set[`sectionStatus.${sectionId}`] = state;
+    // Declaration records are written with the answers they belong to, in the same update.
+    for (const [questionId, record] of Object.entries(declarations)) $set[`declarations.${questionId}`] = record;
 
     const update = { $set };
     const $unset = {};

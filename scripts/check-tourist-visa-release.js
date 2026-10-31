@@ -12,7 +12,10 @@
  * Output: the config version, each part with its sections and their state, a count, then the
  * open tbc items and the drafts of every section that has them.
  *
- * Exit code: 1 while any section is blocked, 2 when nothing is blocked but drafts still need
+ * Declaration wording that is not a question (the final submit declaration) is listed on its own and counts as a
+ * draft too.
+ *
+ * Exit code: 1 while any section is blocked, 2 when nothing is blocked but drafts or wording still need
  * review, 0 when everything is clear. The client form opens to applicants only at exit code 0
  * (a build with NEXT_PUBLIC_TOURIST_VISA_PREVIEW=true excepted).
  *
@@ -20,7 +23,12 @@
  * it still has to be confirmed before release.
  */
 
-const { config, getReleaseBlockers, getDraftItems, validateConfig } = require('../shared/tourist-visa/engine');
+const fs = require('fs');
+const engine = require('../shared/tourist-visa/engine');
+
+const { getReleaseBlockers, getDraftItems, getWordingDrafts, validateConfig } = engine;
+// Checks the real config, or the questions.json file given as the first argument (used by the tests).
+const config = process.argv[2] ? JSON.parse(fs.readFileSync(process.argv[2], 'utf8')) : engine.config;
 
 const configProblems = validateConfig(config);
 if (configProblems.length) {
@@ -30,6 +38,7 @@ if (configProblems.length) {
 
 const blockers = getReleaseBlockers(config);
 const drafts = getDraftItems(config);
+const wording = getWordingDrafts(config);
 const openTbc = new Map(blockers.map((b) => [b.sectionId, b.items.length]));
 const openDrafts = new Map(drafts.map((d) => [d.sectionId, d.items.length]));
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -71,8 +80,13 @@ if (drafts.length) {
   }
 }
 
+if (wording.length) {
+  console.error('\nNeeds senior approval: declaration wording (not a question; kept in the config under "declarations"):');
+  for (const w of wording) console.error(`\n    ${w.id}: ${w.draft}`);
+}
+
 if (blockers.length) process.exit(1);
-if (drafts.length) {
+if (drafts.length || wording.length) {
   console.log('\nNothing is blocked, but drafts still need senior review. The client form stays closed until they are signed off.');
   process.exit(2);
 }

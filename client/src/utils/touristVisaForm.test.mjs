@@ -23,6 +23,7 @@ import {
   collectErrors,
   hintFor,
   helpCountryNames,
+  toggleChoice,
 } from "./touristVisaForm.ts";
 
 const cfg = engine.config;
@@ -76,9 +77,14 @@ const V7 = {
 const TRIP = { q8_2a: "FR", q8_2b: "tourism", q8_2c: ago(400), q8_2d: ago(390) };
 const V8 = { q8_1: 3, q8_2: true, otherCountryTrips: [TRIP] };
 // 2.13 is married here, so that section 4A applies and is exercised too.
+// Part 9: every answer No and every tick given.
+const V9A = { q9_11: true, q9_1: false, q9_12: true, q9_2: false };
+const V9B = { q9_13: true, q9_3: false, q9_4: false, q9_5: false, q9_14: true, q9_6: false, q9_7: false };
+const V9C = { q9_8: false, q9_9: false, q9_10: false };
 const ALL = {
   1: V1, "2A": V2A, "2B": { ...V2B, q2_13: "married" }, "2C": V2C, "2D": V2D, 3: V3, "4A": V4A, "4B": V4B, "4C": V4C,
   5: V5, "6A": V6A, "6B": { q6_6: false }, "6C": V6C, "6D": { q6_8: false }, 7: V7, 8: V8,
+  "9A": V9A, "9B": V9B, "9C": V9C,
 };
 
 const payload = (section, values, saved = {}) => buildPayload(cfg, section, values, saved).answers;
@@ -133,7 +139,11 @@ test("next and previous section follow the form order", () => {
   assert.equal(nextSectionId(cfg, "5"), "6A");
   assert.equal(nextSectionId(cfg, "6D"), "7");
   assert.equal(nextSectionId(cfg, "7"), "8");
-  assert.equal(nextSectionId(cfg, "8"), null);
+  assert.equal(nextSectionId(cfg, "8"), "9A");
+  assert.equal(nextSectionId(cfg, "9A"), "9B");
+  assert.equal(nextSectionId(cfg, "9B"), "9C");
+  assert.equal(nextSectionId(cfg, "9C"), null);
+  assert.equal(previousSectionId(cfg, "9A"), "8");
   assert.equal(previousSectionId(cfg, "6A"), "5");
   assert.equal(nextSectionId(cfg, "nope"), null);
   assert.equal(previousSectionId(cfg, "1"), null);
@@ -269,6 +279,36 @@ test("payload: never mutates the values it is given", () => {
   assert.doesNotThrow(() => buildPayload(cfg, "2A", values, Object.freeze({})));
 });
 
+test("payload: a declaration tick is sent only when ticked, and a Part 9 Yes sends its details", () => {
+  assert.equal(payload("9A", V9A).q9_11, true);
+  assert.equal("q9_11" in payload("9A", { ...V9A, q9_11: undefined }), false, "an untouched tick is left out, so it shows as required");
+  assert.equal(payload("9A", { ...V9A, q9_1: true, q9_1a: "Made-up details" }).q9_1a, "Made-up details");
+  assert.equal("q9_1a" in payload("9A", { ...V9A, q9_1a: "stale details" }), false, "a No leaves the details out");
+  assert.equal("q9_2a" in payload("9A", { ...V9A, q9_2: true }), false, "a Yes with no details yet sends nothing for them");
+  for (const [gate, section, base] of [["q9_3", "9B", V9B], ["q9_8", "9C", V9C], ["q9_10", "9C", V9C]]) {
+    assert.equal(payload(section, { ...base, [gate]: true, [`${gate}a`]: "Details" })[`${gate}a`], "Details", gate);
+    assert.equal(`${gate}a` in payload(section, { ...base, [`${gate}a`]: "stale" }), false, gate);
+  }
+});
+
+test("hintFor: a declaration tick shows its guidance", () => {
+  const q = cfg.questions.find((x) => x.id === "q9_13");
+  assert.equal(hintFor(cfg, q), q.help);
+  assert.match(hintFor(cfg, q), /Terrorism means/);
+});
+
+test("toggleChoice: ticks keep the option order; an exclusive option unticks the others and is unticked by any other", () => {
+  const options = [{ value: "a" }, { value: "b" }, { value: "c" }, { value: "none", exclusive: true }];
+  assert.deepEqual(toggleChoice(options, [], "b", true), ["b"]);
+  assert.deepEqual(toggleChoice(options, ["b"], "a", true), ["a", "b"]);
+  assert.deepEqual(toggleChoice(options, ["a", "b"], "a", false), ["b"]);
+  assert.deepEqual(toggleChoice(options, ["a", "b"], "none", true), ["none"], "None of these clears the rest");
+  assert.deepEqual(toggleChoice(options, ["none"], "c", true), ["c"], "another choice clears None of these");
+  assert.deepEqual(toggleChoice(options, ["none"], "none", false), []);
+  assert.deepEqual(toggleChoice(options, ["c", "a"], "b", true), ["a", "b", "c"]);
+  assert.deepEqual(toggleChoice([{ value: "x" }, { value: "y" }], ["x"], "y", true), ["x", "y"], "no exclusive option: plain ticks");
+});
+
 test("round trip: the payload built for every section passes the shared validation", () => {
   const saved = {};
   for (const section of cfg.sections) {
@@ -396,7 +436,8 @@ test("next and previous section skip a section that does not apply (4A without a
   }
   assert.equal(nextSectionId(cfg, "3", {}), "4B", "no 2.13 answer yet: no partner section");
   assert.equal(nextSectionId(cfg, "4C", single), "5");
-  assert.equal(nextSectionId(cfg, "8", single), null);
+  assert.equal(nextSectionId(cfg, "8", single), "9A");
+  assert.equal(nextSectionId(cfg, "9C", single), null);
   assert.equal(previousSectionId(cfg, "1", single), null);
   assert.equal(nextSectionId(cfg, "3"), "4A", "without answers the plain order is used");
 });

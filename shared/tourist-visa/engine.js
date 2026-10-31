@@ -161,6 +161,8 @@ function evalCondition(cfg, c, flat, entry) {
   if ('eq' in c) return value === c.eq;
   if ('in' in c) return c.in.includes(value);
   if ('gt' in c) return typeof value === 'number' && value > c.gt;
+  // A CHK answer (a list of ticked values) that contains this value.
+  if ('includes' in c) return Array.isArray(value) && value.includes(c.includes);
   return false;
 }
 
@@ -321,8 +323,11 @@ function typeSchema(z, cfg, q) {
     z.string().trim().min(1, REQUIRED_MSG).max(max, `Must be ${max} characters or fewer`);
 
   switch (q.type) {
-    case 'TXT':
-      return str(rules.maxLen || lim.txtMax || 200);
+    case 'TXT': {
+      const base = str(rules.maxLen || lim.txtMax || 200);
+      // rules.pattern: { regex, message } must match the whole answer (for example a National Insurance number).
+      return rules.pattern ? base.regex(new RegExp(rules.pattern.regex), rules.pattern.message) : base;
+    }
     case 'LNG':
       return str(rules.maxLen || lim.lngMax || 5000);
     case 'DATE':
@@ -434,6 +439,11 @@ function relationalIssues(cfg, q, value, flat, entry, today) {
     const allowed = new Set(resolveOptionsIn(cfg, q, flat, entry).map((o) => o.value));
     const vals = Array.isArray(value) ? value : [value];
     if (!vals.every((v) => allowed.has(v))) issues.push({ path: [], message: 'Choose from the listed options' });
+    // An exclusive choice (such as "None of these") cannot be ticked together with any other.
+    if (q.type === 'CHK' && vals.length > 1) {
+      const exclusive = resolveOptionsIn(cfg, q, flat, entry).find((o) => o.exclusive && vals.includes(o.value));
+      if (exclusive) issues.push({ path: [], message: `"${exclusive.label}" cannot be chosen together with other options` });
+    }
   }
 
   // after is strict; onOrAfter and onOrBefore allow the same day. A reference
@@ -711,9 +721,36 @@ function getDraftItems(cfg) {
 function getHeldSections(cfg) {
   const tbc = new Map(getReleaseBlockers(cfg).map((b) => [b.sectionId, b.items.length]));
   const draft = new Map(getDraftItems(cfg).map((d) => [d.sectionId, d.items.length]));
-  return cfg.sections
+  const held = cfg.sections
     .filter((s) => tbc.has(s.id) || draft.has(s.id))
     .map((s) => ({ sectionId: s.id, tbc: tbc.get(s.id) || 0, draft: draft.get(s.id) || 0 }));
+  // Declaration wording awaiting approval holds the form back too, as one more entry that is not a section.
+  const wording = getWordingDrafts(cfg);
+  if (wording.length) held.push({ sectionId: 'declarations', tbc: 0, draft: wording.length });
+  return held;
+}
+
+/**
+ * The exact words an applicant agrees to for a declaration: the tick's text and the guidance shown with
+ * it (the question's label and help), whitespace-normalised. The server records its hash, so a later
+ * change of wording is detectable. Returns '' for a question that is not found.
+ */
+function wordingOf(cfg, questionId) {
+  const q = getQuestion(cfg, questionId);
+  if (!q) return '';
+  const clean = (t) => String(t || '').replace(/\s+/g, ' ').trim();
+  return [clean(q.label), clean(q.help)].filter(Boolean).join('\n');
+}
+
+/**
+ * Declaration wording that is still a draft: the config's top-level `declarations` (the final submit
+ * declaration, step 8d). The tick questions of Part 9 carry their own draft markers.
+ * Returns [{ id, draft }].
+ */
+function getWordingDrafts(cfg) {
+  return Object.entries(cfg.declarations || {})
+    .filter(([, d]) => d && d.draft)
+    .map(([id, d]) => ({ id: `declarations.${id}`, draft: d.draft }));
 }
 
 function isSectionReleasable(cfg, sectionId) {
@@ -733,6 +770,16 @@ function validateConfig(cfg) {
   }
   if (!Array.isArray(cfg.parts) || !Array.isArray(cfg.sections) || !Array.isArray(cfg.questions)) {
     return errs.concat('parts, sections and questions must be arrays');
+  }
+
+  if (cfg.declarations !== undefined) {
+    if (!cfg.declarations || typeof cfg.declarations !== 'object' || Array.isArray(cfg.declarations)) err('declarations must be an object');
+    else {
+      for (const [id, d] of Object.entries(cfg.declarations)) {
+        if (!d || typeof d.text !== 'string' || !d.text.trim()) err(`declarations.${id}: text is required`);
+        if (d && d.draft !== undefined && (typeof d.draft !== 'string' || !d.draft.trim())) err(`declarations.${id}: draft must be a non-empty string`);
+      }
+    }
   }
 
   const partIds = new Set();
@@ -772,11 +819,17 @@ function validateConfig(cfg) {
       return list.forEach((x) => checkCondition(x, q, where));
     }
     if (c.not) return checkCondition(c.not, q, where);
-    if (['eq', 'in', 'gt'].filter((k) => k in c).length !== 1) return err(`${where}: condition on ${c.q} needs exactly one of eq, in, gt`);
+    if (['eq', 'in', 'gt', 'includes'].filter((k) => k in c).length !== 1) return err(`${where}: condition on ${c.q} needs exactly one of eq, in, gt, includes`);
     if ('in' in c && !Array.isArray(c.in)) err(`${where}: "in" must be an array`);
     if ('gt' in c && (typeof c.gt !== 'number' || !Number.isFinite(c.gt))) err(`${where}: "gt" must be a number`);
     if (!byId.has(c.q)) return err(`${where}: refers to unknown question ${c.q}`);
     if ('gt' in c && byId.get(c.q).type !== 'NUM') err(`${where}: "gt" needs a NUM question (${c.q})`);
+    if ('includes' in c) {
+      const target = byId.get(c.q);
+      if (typeof c.includes !== 'string' || !c.includes) err(`${where}: "includes" must be an option value`);
+      else if (target.type !== 'CHK') err(`${where}: "includes" needs a CHK question (${c.q})`);
+      else if (Array.isArray(target.options) && !target.options.some((opt) => opt.value === c.includes)) err(`${where}: "includes" ${c.includes} is not an option of ${c.q}`);
+    }
     if (order.get(c.q) >= order.get(q.id)) err(`${where}: must refer to an earlier question than itself (${c.q})`);
   };
 
@@ -801,9 +854,12 @@ function validateConfig(cfg) {
     if (q.type === 'SEL' || q.type === 'CHK') {
       if (Array.isArray(o)) {
         if (!o.length) err(`${w}: options is empty`);
+        if (o.filter((opt) => opt.exclusive).length > 1) err(`${w}: at most one option can be exclusive`);
         const seen = new Set();
         for (const opt of o) {
           if (!opt.value || !opt.label) err(`${w}: every option needs value and label`);
+          if (opt.exclusive !== undefined && typeof opt.exclusive !== 'boolean') err(`${w}: option ${opt.value} exclusive must be true or false`);
+          if (opt.exclusive && q.type !== 'CHK') err(`${w}: an exclusive option is only for CHK questions`);
           if (seen.has(opt.value)) err(`${w}: duplicate option value ${opt.value}`);
           seen.add(opt.value);
         }
@@ -845,6 +901,18 @@ function validateConfig(cfg) {
       else if (q.type === 'AMT' && (r[key] < 0 || r[key] > AMOUNT_MAX)) err(`${w}: rules.max must be from 0 to ${AMOUNT_MAX}`);
     }
     if (typeof r.min === 'number' && typeof r.max === 'number' && r.min > r.max) err(`${w}: rules.min is above rules.max`);
+    if (r.pattern !== undefined) {
+      const p = r.pattern;
+      if (q.type !== 'TXT') err(`${w}: rules.pattern is only for TXT`);
+      else if (!p || typeof p !== 'object' || typeof p.regex !== 'string' || !p.regex || typeof p.message !== 'string' || !p.message.trim()) {
+        err(`${w}: rules.pattern needs a regex and a message`);
+      } else {
+        if (p.regex.length > 200) err(`${w}: rules.pattern.regex is too long`);
+        if (!p.regex.startsWith('^') || !p.regex.endsWith('$')) err(`${w}: rules.pattern.regex must match the whole answer (start with ^ and end with $)`);
+        try { new RegExp(p.regex); } catch { err(`${w}: rules.pattern.regex is not a valid expression`); }
+      }
+    }
+    if (q.type === 'ACK' && q.required !== true) err(`${w}: an ACK question must be required`);
     if (r.withinYears !== undefined) {
       if (q.type !== 'DATE' && q.type !== 'MY') err(`${w}: rules.withinYears needs a DATE or MY question`);
       if (!Number.isInteger(r.withinYears) || r.withinYears < 1 || r.withinYears > 100) err(`${w}: rules.withinYears must be a whole number from 1 to 100`);
@@ -949,6 +1017,8 @@ module.exports = {
   getReleaseBlockers,
   getDraftItems,
   getHeldSections,
+  getWordingDrafts,
+  wordingOf,
   isSectionReleasable,
   validateConfig,
 };

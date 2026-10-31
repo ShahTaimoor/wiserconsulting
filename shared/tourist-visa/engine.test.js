@@ -98,18 +98,21 @@ test('config: covers exactly the questions of Parts 1 to 8 in the spec (plus the
   for (const l of 'abcd') expected.add(`7.7${l}`);
   for (let i = 1; i <= 2; i++) expected.add(`8.${i}`);
   expected.add('8.1a');
+  // Part 9 (8b-1): ten Yes/No questions with a details box each, and four declaration ticks.
+  for (let i = 1; i <= 14; i++) expected.add(`9.${i}`);
+  for (let i = 1; i <= 10; i++) expected.add(`9.${i}a`);
   for (const l of 'abcd') expected.add(`8.2${l}`);
   const actual = new Set(config.questions.map((q) => q.number));
   assert.deepEqual([...actual].sort(), [...expected].sort());
   assert.equal(config.questions.length, expected.size);
 });
 
-test('config: sections are 1, 2A-2D, 3, 4A-4C, 5, 6A-6D, 7, 8 and every question belongs to one', () => {
+test('config: sections are 1, 2A-2D, 3, 4A-4C, 5, 6A-6D, 7, 8, 9A-9C and every question belongs to one', () => {
   assert.deepEqual(
     config.sections.map((s) => s.id),
-    ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8']
+    ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C']
   );
-  assert.deepEqual(config.parts.map((p) => p.id), ['1', '2', '3', '4', '5', '6', '7', '8']);
+  assert.deepEqual(config.parts.map((p) => p.id), ['1', '2', '3', '4', '5', '6', '7', '8', '9']);
   const ids = new Set(config.sections.map((s) => s.id));
   assert.ok(config.questions.every((q) => ids.has(q.section)));
 });
@@ -127,7 +130,8 @@ test('config: the drafts are exactly the defaults we chose, each with a note', (
   const drafts = config.questions.filter((q) => q.draft);
   assert.deepEqual(
     drafts.map((q) => q.number),
-    ['1.1', '1.2', '1.3', '1.4', '2.5', '2.7', '2.8', '2.12', '2.13', '2.23', '2.28', '2.29', '2.30', '2.31', '2.33', '2.35', '4.1', '4.7a', '4.8a', '4.8f', '5.1', '5.9', '6.1', '6.5', '6.6', '6.7', '6.8', '7.3', '7.5', '7.5a', '7.6', '7.7a', '8.1', '8.2b']
+    ['1.1', '1.2', '1.3', '1.4', '2.5', '2.7', '2.8', '2.12', '2.13', '2.23', '2.28', '2.29', '2.30', '2.31', '2.33', '2.35', '4.1', '4.7a', '4.8a', '4.8f', '5.1', '5.9', '6.1', '6.5', '6.6', '6.7', '6.8', '7.3', '7.5', '7.5a', '7.6', '7.7a', '8.1', '8.2b',
+      '9.11', '9.1', '9.1a', '9.12', '9.2', '9.2a', '9.13', '9.3', '9.3a', '9.4', '9.4a', '9.5', '9.5a', '9.14', '9.6', '9.6a', '9.7', '9.7a', '9.8', '9.8a', '9.9', '9.9a', '9.10', '9.10a']
   );
   assert.deepEqual(config.groups.filter((g) => g.draft).map((g) => g.id), ['otherNames', 'parents', 'accommodation', 'ukVisas']);
   for (const x of [...drafts, ...config.groups.filter((g) => g.draft)]) assert.ok(x.draft.length > 20, x.id);
@@ -141,10 +145,10 @@ test('config: no tbc is left anywhere (Parts 1 to 8 hold drafts only)', () => {
 
 test('draft items: getDraftItems lists them by section, and a draft alone leaves a section releasable but held', () => {
   const items = engine.getDraftItems(config);
-  assert.equal(items.reduce((n, s) => n + s.items.length, 0), 38, '34 questions and 4 groups');
+  assert.equal(items.reduce((n, s) => n + s.items.length, 0), 62, '58 questions and 4 groups');
   assert.deepEqual(items.find((s) => s.sectionId === '2D').items.map((i) => i.number), ['2.33', '2.35']);
   assert.ok(items.every((s) => s.items.every((i) => i.draft && i.id && (i.number === null || typeof i.number === 'string'))));
-  for (const id of ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8']) {
+  for (const id of ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C']) {
     assert.equal(engine.isSectionReleasable(config, id), true, `${id} has only drafts`);
     assert.equal(items.some((s) => s.sectionId === id), true);
   }
@@ -198,8 +202,11 @@ test('compatibility: an answer saved with an old placeholder value is refused as
   assert.deepEqual(engine.getVisibleQuestions(config, '5', { q5_1: 'tbc_employed' }).map((x) => x.id), ['q5_1'], 'an old value shows only 5.1');
 });
 
-test('config: sensitive questions are the ID number, passport number, licence number, treatment text and the three Part 7 references/details', () => {
-  assert.deepEqual(config.questions.filter((q) => q.sensitive).map((q) => q.number), ['2.19', '2.30a', '2.31b', '3.1', '7.2c', '7.3f', '7.6d']);
+// The ten Part 9 Yes/No questions and their ten details boxes (the four ticks are not sensitive).
+const PART9_SENSITIVE = Array.from({ length: 10 }, (_, i) => [`9.${i + 1}`, `9.${i + 1}a`]).flat();
+
+test('config: sensitive questions are the ID number, passport number, licence number, treatment text, the three Part 7 fields and the Part 9 answers', () => {
+  assert.deepEqual(config.questions.filter((q) => q.sensitive).map((q) => q.number), ['2.19', '2.30a', '2.31b', '3.1', '7.2c', '7.3f', '7.6d', ...PART9_SENSITIVE]);
 });
 
 test('config: validateConfig reports broken configs', () => {
@@ -209,12 +216,12 @@ test('config: validateConfig reports broken configs', () => {
     ['unknown section', (c) => { c.questions[0].section = 'ZZ'; }, /unknown section/],
     ['unknown type', (c) => { c.questions[0].type = 'XYZ'; }, /unknown type/],
     ['SEL without options', (c) => { delete c.questions[0].options; }, /needs options/],
-    ['showWhen on unknown question', (c) => { c.questions[3].showWhen = { q: 'q9_9', eq: 'x' }; }, /unknown question/],
+    ['showWhen on unknown question', (c) => { c.questions[3].showWhen = { q: 'q99_99', eq: 'x' }; }, /unknown question/],
     ['showWhen on a later question', (c) => { c.questions[0].showWhen = { q: 'q1_2', eq: true }; }, /earlier question/],
     ['condition without eq/in', (c) => { c.questions[3].showWhen = { q: 'q1_1' }; }, /exactly one of eq, in/],
     ['after on a non-date', (c) => { c.questions[0].rules = { after: 'q1_6' }; }, /needs a DATE or MY/],
     ['unknown group', (c) => { c.questions[0].group = 'nope'; }, /unknown group/],
-    ['group with an unknown gate', (c) => { c.groups[0].gate = 'q9_9'; }, /unknown gate/],
+    ['group with an unknown gate', (c) => { c.groups[0].gate = 'q99_99'; }, /unknown gate/],
     ['group min of zero', (c) => { c.groups[0].min = 0; }, /min must be an integer/],
     ['group min above max', (c) => { c.groups[0].min = 5; c.groups[0].max = 3; }, /min must be an integer/],
     ['group gate not YN', (c) => { c.groups[0].gate = 'q2_1'; }, /must be a YN question/],
@@ -598,9 +605,9 @@ test('section save uses answers from other sections for conditions', () => {
 });
 
 test('keys that do not belong to the section are reported and never accepted', () => {
-  const r = validate('1', { ...S1, q2_1: 'Testfirst', q9_9: 'x' });
+  const r = validate('1', { ...S1, q2_1: 'Testfirst', q99_99: 'x' });
   assert.equal(r.success, false);
-  assert.deepEqual(r.unknownKeys.sort(), ['q2_1', 'q9_9']);
+  assert.deepEqual(r.unknownKeys.sort(), ['q2_1', 'q99_99']);
   assert.equal('q2_1' in r.data, false);
 });
 
@@ -852,7 +859,7 @@ test('sections: a section is hidden exactly when none of its questions is visibl
 
 test('sections: on the real config only 4A can be hidden, and only by 2.13', () => {
   const visible = (answers) => engine.getVisibleSections(config, answers).map((s) => s.id);
-  const rest = ['5', '6A', '6B', '6C', '6D', '7', '8'];
+  const rest = ['5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C'];
   assert.deepEqual(visible({}), ['1', '2A', '2B', '2C', '2D', '3', '4B', '4C', ...rest]);
   assert.deepEqual(visible({ q2_13: 'single' }), ['1', '2A', '2B', '2C', '2D', '3', '4B', '4C', ...rest]);
   assert.deepEqual(visible({ q2_13: 'married' }), ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', ...rest]);
@@ -1075,14 +1082,14 @@ test('config: validateConfig checks the new date, amount and group rules', () =>
   const g = (c) => c.groups.find((x) => x.id === 'accommodation');
   const cases = [
     ['onOrAfter on a non-date', (c) => { q(c, 'q6_3').rules.onOrAfter = 'q1_6'; }, /rules.onOrAfter needs a DATE or MY/],
-    ['onOrBefore on an unknown question', (c) => { q(c, 'q6_7c').rules.onOrBefore = 'q9_9'; }, /unknown question/],
+    ['onOrBefore on an unknown question', (c) => { q(c, 'q6_7c').rules.onOrBefore = 'q99_99'; }, /unknown question/],
     ['onOrAfter on a later question', (c) => { q(c, 'q1_6').rules = { onOrAfter: 'q6_7c' }; }, /earlier question/],
     ['AMT max above the hard limit', (c) => { q(c, 'q6_3').rules.max = 5e9; }, /rules.max must be from 0/],
     ['AMT max negative', (c) => { q(c, 'q6_3').rules.max = -1; }, /rules.max must be from 0/],
     ['AMT min', (c) => { q(c, 'q6_3').rules.min = -5; }, /never negative/],
     ['max on a text question', (c) => { q(c, 'q5_3').rules = { max: 5 }; }, /only for NUM and AMT/],
     ['max that is not a number', (c) => { q(c, 'q6_3').rules.max = '5'; }, /must be a number/],
-    ['noOverlap on a missing member', (c) => { g(c).noOverlap.end = 'q9_9'; }, /noOverlap.end must be a DATE member/],
+    ['noOverlap on a missing member', (c) => { g(c).noOverlap.end = 'q99_99'; }, /noOverlap.end must be a DATE member/],
     ['noOverlap on a non-date', (c) => { g(c).noOverlap.start = 'q6_7a'; }, /noOverlap.start must be a DATE member/],
     ['noOverlap on the same question twice', (c) => { g(c).noOverlap.end = 'q6_7c'; }, /must differ/],
   ];
@@ -1388,7 +1395,7 @@ test('config: sensitive fields of Part 7 sit inside groups and are optional or r
   assert.equal(q('q7_6d').required, true);
   for (const id of ['q7_2c', 'q7_3f', 'q7_6d']) assert.ok(q(id).group, `${id} lives in a group`);
   // Nothing already stored in earlier steps was made sensitive in this one.
-  assert.deepEqual(config.questions.filter((x) => x.sensitive && !['7'].includes(x.section)).map((x) => x.number), ['2.19', '2.30a', '2.31b', '3.1']);
+  assert.deepEqual(config.questions.filter((x) => x.sensitive && !['7', '9A', '9B', '9C'].includes(x.section)).map((x) => x.number), ['2.19', '2.30a', '2.31b', '3.1']);
   // None of the follow-ups asks about identity or passport numbers.
   assert.ok(!config.questions.some((x) => x.section === '7' && /passport|identity|national id/i.test(x.label)));
 });
@@ -1397,7 +1404,7 @@ test('config: validateConfig checks count-driven groups, items and the look-back
   const q = (c, id) => c.questions.find((x) => x.id === id);
   const g = (c) => c.groups.find((x) => x.id === 'ukVisits');
   const cases = [
-    ['unknown count question', (c) => { g(c).count = 'q9_9'; }, /unknown count question/],
+    ['unknown count question', (c) => { g(c).count = 'q99_99'; }, /unknown count question/],
     ['count question not a number', (c) => { g(c).count = 'q7_4'; }, /must be a NUM question/],
     ['count question in another section', (c) => { q(c, 'q7_5').section = '8'; }, /same section/],
     ['count question without a minimum', (c) => { delete q(c, 'q7_5').rules.min; }, /rules.min of at least 1/],
@@ -1616,17 +1623,22 @@ test('drafts can sit on any question or group; getDraftItems lists groups too, w
 
 test('getHeldSections: a section is held while it has a tbc flag or a draft; nothing held means ready', () => {
   const held = engine.getHeldSections(config);
-  assert.deepEqual(held.map((h) => h.sectionId), ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8']);
+  assert.deepEqual(held.map((h) => h.sectionId), ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', 'declarations']);
   assert.deepEqual(held.find((h) => h.sectionId === '3'), undefined, 'section 3 has neither');
   assert.deepEqual(held.find((h) => h.sectionId === '2D'), { sectionId: '2D', tbc: 0, draft: 2 });
   assert.deepEqual(held.find((h) => h.sectionId === '6B'), { sectionId: '6B', tbc: 0, draft: 1 });
   assert.deepEqual(held.find((h) => h.sectionId === '5'), { sectionId: '5', tbc: 0, draft: 2 });
   assert.deepEqual(held.find((h) => h.sectionId === '7'), { sectionId: '7', tbc: 0, draft: 6 });
   assert.deepEqual(held.find((h) => h.sectionId === '8'), { sectionId: '8', tbc: 0, draft: 2 });
+  assert.deepEqual(held.find((h) => h.sectionId === '9A'), { sectionId: '9A', tbc: 0, draft: 6 });
+  assert.deepEqual(held.find((h) => h.sectionId === '9B'), { sectionId: '9B', tbc: 0, draft: 12 });
+  assert.deepEqual(held.find((h) => h.sectionId === '9C'), { sectionId: '9C', tbc: 0, draft: 6 });
+  assert.deepEqual(held.find((h) => h.sectionId === 'declarations'), { sectionId: 'declarations', tbc: 0, draft: 1 }, 'the submit declaration wording is still a draft');
 
   const c = clone(config);
   for (const q of c.questions) { delete q.tbc; delete q.draft; }
   for (const g of c.groups) { delete g.tbc; delete g.draft; }
+  for (const d of Object.values(c.declarations)) delete d.draft;
   assert.deepEqual(engine.getHeldSections(c), []);
 
   // A single draft on a group is enough to hold its section.
@@ -1943,4 +1955,292 @@ test('compatibility: answers saved under config 0.6.0 keep validating, except a 
   assert.equal(validate('6B', { q6_6: true }).success, false);
   assert.equal(validate('6C', { q6_7: false }).success, false);
   assert.equal(validate('6D', { q6_8: true }).success, false);
+});
+
+// ---------------------------------------------------------------------------
+// Step 8b-1: engine additions (includes, exclusive option, pattern rule)
+// ---------------------------------------------------------------------------
+
+const NI_PATTERN = { regex: '^[A-Za-z]{2}\\s?\\d{2}\\s?\\d{2}\\s?\\d{2}\\s?[A-Za-z]$', message: 'Enter a National Insurance number such as AB 12 34 56 C' };
+const chkCfg = () => mk([
+  { id: 'q1_1', number: '1.1', type: 'CHK', options: [{ value: 'a', label: 'Apples' }, { value: 'b', label: 'Bananas' }, { value: 'none', label: 'None of these', exclusive: true }] },
+  { id: 'q1_1a', number: '1.1a', type: 'TXT', showWhen: { q: 'q1_1', includes: 'a' } },
+  { id: 'q1_2', number: '1.2', type: 'TXT', rules: { pattern: NI_PATTERN } },
+]);
+
+test('includes condition: shown only while the ticked list contains the value', () => {
+  const cfg = chkCfg();
+  assert.deepEqual(engine.validateConfig(cfg), []);
+  const shown = (answers) => engine.isVisible(cfg, 'q1_1a', answers);
+  assert.equal(shown({ q1_1: ['a'] }), true);
+  assert.equal(shown({ q1_1: ['b', 'a'] }), true);
+  assert.equal(shown({ q1_1: ['b'] }), false);
+  assert.equal(shown({ q1_1: ['none'] }), false);
+  assert.equal(shown({}), false, 'not answered');
+  assert.equal(shown({ q1_1: 'a' }), false, 'a text value is not a list');
+  assert.equal(shown({ q1_1: [] }), false);
+});
+
+test('includes condition: unticking removes the details, and an unanswered checklist keeps what is stored', () => {
+  const cfg = chkCfg();
+  assert.deepEqual(engine.pruneAnswers(cfg, { q1_1: ['b'], q1_1a: 'details' }).removed, ['q1_1a']);
+  assert.deepEqual(engine.pruneAnswers(cfg, { q1_1: ['a'], q1_1a: 'details' }).removed, []);
+  assert.deepEqual(engine.pruneAnswers(cfg, { q1_1a: 'details' }).removed, [], 'waits until the checklist is answered');
+  const r = vs(cfg, { q1_1: ['b'], q1_2: 'AB123456C', q1_1a: 'stale' }, { q1_1: ['a'], q1_1a: 'stale' });
+  assert.equal(r.unknownKeys.length, 0);
+  assert.equal(r.success, true, JSON.stringify(r.errors));
+});
+
+test('includes condition: validateConfig checks it', () => {
+  const cases = [
+    ['on a question that is not a checklist', (c) => { c.questions[1].showWhen = { q: 'q1_2', includes: 'a' }; }, /"includes" needs a CHK question/],
+    ['with a value that is not an option', (c) => { c.questions[1].showWhen = { q: 'q1_1', includes: 'zzz' }; }, /is not an option of q1_1/],
+    ['together with eq', (c) => { c.questions[1].showWhen = { q: 'q1_1', includes: 'a', eq: 'a' }; }, /exactly one of eq, in, gt, includes/],
+    ['with a value that is not text', (c) => { c.questions[1].showWhen = { q: 'q1_1', includes: 5 }; }, /"includes" must be an option value/],
+  ];
+  for (const [name, mutate, pattern] of cases) {
+    const c = clone(chkCfg());
+    mutate(c);
+    const problems = engine.validateConfig(c);
+    assert.ok(problems.some((p) => pattern.test(p)), `${name}: got ${JSON.stringify(problems)}`);
+  }
+});
+
+test('exclusive option: it cannot be ticked together with another choice, and alone it is fine', () => {
+  const cfg = chkCfg();
+  const check = (value) => vs(cfg, { q1_1: value, q1_2: 'AB123456C' }).errors.q1_1;
+  assert.equal(check(['none']), undefined);
+  assert.equal(check(['a']), undefined);
+  assert.equal(check(['a', 'b']), undefined);
+  assert.equal(check(['a', 'none']), '"None of these" cannot be chosen together with other options');
+  assert.equal(check(['none', 'a', 'b']), '"None of these" cannot be chosen together with other options');
+  assert.equal(check([]), 'This question is required');
+  assert.equal(check(['made_up']), 'Choose from the listed options');
+});
+
+test('exclusive option: validateConfig checks it', () => {
+  const cases = [
+    ['two exclusive options', (c) => { c.questions[0].options[0].exclusive = true; }, /at most one option can be exclusive/],
+    ['exclusive that is not true or false', (c) => { c.questions[0].options[2].exclusive = 'yes'; }, /exclusive must be true or false/],
+    ['exclusive on a dropdown', (c) => { c.questions[0].type = 'SEL'; c.questions[1].showWhen = undefined; }, /an exclusive option is only for CHK/],
+  ];
+  for (const [name, mutate, pattern] of cases) {
+    const c = clone(chkCfg());
+    mutate(c);
+    const problems = engine.validateConfig(c);
+    assert.ok(problems.some((p) => pattern.test(p)), `${name}: got ${JSON.stringify(problems)}`);
+  }
+});
+
+test('pattern rule: the whole answer must match, with the configured message', () => {
+  const cfg = chkCfg();
+  const check = (value) => vs(cfg, { q1_1: ['b'], q1_2: value }).errors.q1_2;
+  for (const ok of ['AB123456C', 'ab123456c', 'AB 12 34 56 C', ' AB123456C ']) assert.equal(check(ok), undefined, ok);
+  for (const bad of ['AB12', 'AB1234567C', '12345678A', 'AB123456C and more', 'A B123456C']) assert.equal(check(bad), 'Enter a National Insurance number such as AB 12 34 56 C', bad);
+  assert.equal(check(''), 'This question is required');
+  assert.equal(check(undefined), 'This question is required');
+});
+
+test('pattern rule: validateConfig checks it', () => {
+  const cases = [
+    ['on a long text question', (c) => { c.questions[2].type = 'LNG'; }, /rules.pattern is only for TXT/],
+    ['without a message', (c) => { c.questions[2].rules.pattern.message = ' '; }, /rules.pattern needs a regex and a message/],
+    ['without a regex', (c) => { delete c.questions[2].rules.pattern.regex; }, /rules.pattern needs a regex and a message/],
+    ['not anchored at the start', (c) => { c.questions[2].rules.pattern.regex = '[A-Z]{2}$'; }, /must match the whole answer/],
+    ['not anchored at the end', (c) => { c.questions[2].rules.pattern.regex = '^[A-Z]{2}'; }, /must match the whole answer/],
+    ['not a valid expression', (c) => { c.questions[2].rules.pattern.regex = '^([A-Z$'; }, /not a valid expression/],
+    ['too long', (c) => { c.questions[2].rules.pattern.regex = '^' + 'a'.repeat(250) + '$'; }, /regex is too long/],
+  ];
+  for (const [name, mutate, pattern] of cases) {
+    const c = clone(chkCfg());
+    mutate(c);
+    const problems = engine.validateConfig(c);
+    assert.ok(problems.some((p) => pattern.test(p)), `${name}: got ${JSON.stringify(problems)}`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Step 8b-1: Part 9 (sections 9A, 9B, 9C)
+// ---------------------------------------------------------------------------
+
+const S9A = { q9_11: true, q9_1: false, q9_12: true, q9_2: false };
+const S9B = { q9_13: true, q9_3: false, q9_4: false, q9_5: false, q9_14: true, q9_6: false, q9_7: false };
+const S9C = { q9_8: false, q9_9: false, q9_10: false };
+const DETAILS9 = 'Made-up details of what happened.';
+
+test('part 9: each section validates with every answer No and every tick given', () => {
+  for (const [section, answers] of [['9A', S9A], ['9B', S9B], ['9C', S9C]]) {
+    const r = validate(section, answers);
+    assert.equal(r.success, true, `${section}: ${JSON.stringify(r.errors)}`);
+    assert.deepEqual(r.data, answers);
+  }
+});
+
+test('part 9: every Yes/No question and every tick is required, in section order', () => {
+  assert.deepEqual(Object.keys(validate('9A', {}).errors).sort(), ['q9_1', 'q9_11', 'q9_12', 'q9_2']);
+  assert.deepEqual(Object.keys(validate('9B', {}).errors).sort(), ['q9_13', 'q9_14', 'q9_3', 'q9_4', 'q9_5', 'q9_6', 'q9_7']);
+  assert.deepEqual(Object.keys(validate('9C', {}).errors).sort(), ['q9_10', 'q9_8', 'q9_9']);
+  assert.deepEqual(engine.getVisibleQuestions(config, '9A', {}).map((q) => q.number), ['9.11', '9.1', '9.12', '9.2']);
+  assert.deepEqual(engine.getVisibleQuestions(config, '9B', {}).map((q) => q.number), ['9.13', '9.3', '9.4', '9.5', '9.14', '9.6', '9.7']);
+  assert.deepEqual(engine.getVisibleQuestions(config, '9C', {}).map((q) => q.number), ['9.8', '9.9', '9.10']);
+});
+
+test('part 9: a declaration tick must be ticked; an untouched or false tick stops the section', () => {
+  for (const [section, base, id] of [['9A', S9A, 'q9_11'], ['9A', S9A, 'q9_12'], ['9B', S9B, 'q9_13'], ['9B', S9B, 'q9_14']]) {
+    assert.equal(validate(section, { ...base, [id]: false }).errors[id], 'You must tick this box to continue', `${id} false`);
+    assert.equal(validate(section, { ...base, [id]: undefined }).errors[id], 'This question is required', `${id} untouched`);
+  }
+});
+
+test('part 9: the ticks carry their guidance, are our own wording and are drafts', () => {
+  for (const id of ['q9_11', 'q9_12', 'q9_13', 'q9_14']) {
+    const q = config.questions.find((x) => x.id === id);
+    assert.equal(q.type, 'ACK', id);
+    assert.equal(q.required, true, id);
+    assert.ok(q.help && q.help.length > 150, `${id} has guidance`);
+    assert.ok(q.draft && q.draft.length > 20, `${id} is a draft`);
+    assert.equal(q.sensitive, undefined, `${id}: the tick itself is not encrypted`);
+  }
+  // None of the wording is copied from the official guidance: it must not contain its stock phrases.
+  const all = config.questions.filter((q) => q.section.startsWith('9')).map((q) => `${q.label} ${q.help || ''}`).join(' ');
+  assert.ok(!/gov\.uk/i.test(all));
+});
+
+// One test per new gate: Yes needs details, details are kept with a Yes and removed with a No, on the server rules.
+const GATES9 = [
+  ['q9_1', '9A', S9A], ['q9_2', '9A', S9A],
+  ['q9_3', '9B', S9B], ['q9_4', '9B', S9B], ['q9_5', '9B', S9B], ['q9_6', '9B', S9B], ['q9_7', '9B', S9B],
+  ['q9_8', '9C', S9C], ['q9_9', '9C', S9C], ['q9_10', '9C', S9C],
+];
+for (const [gate, section, base] of GATES9) {
+  const follow = `${gate}a`;
+  test(`part 9 gate ${gate.slice(1).replace('_', '.')}: Yes asks for the details, No removes them`, () => {
+    assert.equal(validate(section, { ...base, [gate]: true }).errors[follow], 'This question is required');
+    assert.equal(validate(section, { ...base, [gate]: true, [follow]: '  ' }).errors[follow], 'This question is required');
+    const yes = validate(section, { ...base, [gate]: true, [follow]: DETAILS9 });
+    assert.equal(yes.success, true, JSON.stringify(yes.errors));
+    assert.equal(yes.data[follow], DETAILS9);
+    assert.equal(validate(section, { ...base, [gate]: true, [follow]: 'x'.repeat(2001) }).errors[follow], 'Must be 2000 characters or fewer');
+    assert.equal(validate(section, { ...base, [gate]: true, [follow]: 'x'.repeat(2000) }).success, true, '2,000 characters is the limit itself');
+
+    const no = validate(section, { ...base, [follow]: 'stale details' }, { ...base, [gate]: true, [follow]: 'stale details' });
+    assert.equal(no.success, true, JSON.stringify(no.errors));
+    assert.deepEqual(no.removed, [follow]);
+    assert.equal(no.data[follow], undefined);
+    assert.deepEqual(engine.pruneAnswers(config, { [gate]: false, [follow]: 'x' }).removed, [follow]);
+    assert.deepEqual(engine.pruneAnswers(config, { [gate]: true, [follow]: 'x' }).removed, []);
+    // An answer never given does not remove stored details (they wait for the gate).
+    assert.deepEqual(engine.pruneAnswers(config, { [follow]: 'x' }).removed, []);
+  });
+}
+
+test('part 9: a Yes opens only its own details box', () => {
+  const shown = (answers) => engine.getVisibleQuestions(config, '9B', answers).map((q) => q.number);
+  assert.deepEqual(shown({ ...S9B, q9_4: true }), ['9.13', '9.3', '9.4', '9.4a', '9.5', '9.14', '9.6', '9.7']);
+  assert.deepEqual(shown({ ...S9B, q9_3: true, q9_7: true }), ['9.13', '9.3', '9.3a', '9.4', '9.5', '9.14', '9.6', '9.7', '9.7a']);
+});
+
+test('part 9: all new answers are sensitive and required; the details are long text of at most 2,000 characters', () => {
+  for (const q of config.questions.filter((x) => x.section.startsWith('9') && x.type !== 'ACK')) {
+    assert.equal(q.sensitive, true, `${q.number} is encrypted`);
+    assert.equal(q.required, true, q.number);
+    assert.ok(q.draft, `${q.number} is a draft`);
+    if (q.type === 'LNG') assert.equal(q.rules.maxLen, 2000, q.number);
+  }
+  assert.equal(config.questions.filter((x) => x.section.startsWith('9')).length, 24);
+});
+
+test('part 9: sections 9A to 9C always apply and do not change the other sections', () => {
+  for (const id of ['9A', '9B', '9C']) assert.equal(engine.isSectionVisible(config, id, {}), true, id);
+  assert.equal(validate('8', S8).success, true, 'Part 8 is unchanged');
+});
+
+test('part 9: an application saved before Part 9 existed has no 9.x answers and nothing to prune', () => {
+  assert.deepEqual(engine.pruneAnswers(config, { ...S7, ...S8 }).removed, []);
+});
+
+// ---------------------------------------------------------------------------
+// Step 8b-1: wording of declarations
+// ---------------------------------------------------------------------------
+
+test('wordingOf: the tick text and its guidance, whitespace-normalised; it changes when either changes', () => {
+  const q = config.questions.find((x) => x.id === 'q9_11');
+  assert.equal(engine.wordingOf(config, 'q9_11'), `${q.label}\n${q.help}`);
+  assert.equal(engine.wordingOf(config, 'q99_99'), '');
+  const c = clone(config);
+  const before = engine.wordingOf(c, 'q9_11');
+  c.questions.find((x) => x.id === 'q9_11').help += ' More.';
+  assert.notEqual(engine.wordingOf(c, 'q9_11'), before);
+  const d = clone(config);
+  d.questions.find((x) => x.id === 'q9_11').label = '  I   have   read   it  ';
+  assert.equal(engine.wordingOf(d, 'q9_11').split('\n')[0], 'I have read it');
+});
+
+test('declarations: the submit wording is kept in the config, is a draft and holds the form back until approved', () => {
+  assert.ok(config.declarations.submit.text.length > 100);
+  assert.deepEqual(engine.getWordingDrafts(config).map((w) => w.id), ['declarations.submit']);
+  const c = clone(config);
+  delete c.declarations.submit.draft;
+  assert.deepEqual(engine.getWordingDrafts(c), []);
+  assert.equal(engine.getHeldSections(c).some((h) => h.sectionId === 'declarations'), false);
+  assert.equal(engine.getHeldSections(config).some((h) => h.sectionId === 'declarations'), true);
+});
+
+test('declarations: validateConfig checks the wording block and that every tick is required', () => {
+  const cases = [
+    ['declarations that is not an object', (c) => { c.declarations = []; }, /declarations must be an object/],
+    ['declaration without text', (c) => { c.declarations.submit.text = ' '; }, /declarations.submit: text is required/],
+    ['empty draft note', (c) => { c.declarations.submit.draft = ''; }, /declarations.submit: draft must be a non-empty string/],
+    ['optional tick', (c) => { c.questions.find((q) => q.id === 'q9_11').required = false; }, /an ACK question must be required/],
+  ];
+  for (const [name, mutate, pattern] of cases) {
+    const c = clone(config);
+    mutate(c);
+    const problems = engine.validateConfig(c);
+    assert.ok(problems.some((p) => pattern.test(p)), `${name}: got ${JSON.stringify(problems)}`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Step 8b-1: the release check script
+// ---------------------------------------------------------------------------
+
+test('release check: exits 2 (drafts only), lists the Part 9 sections and the declaration wording awaiting approval', () => {
+  const { spawnSync } = require('node:child_process');
+  const script = path.join(__dirname, '..', '..', 'scripts', 'check-tourist-visa-release.js');
+  const run = spawnSync(process.execPath, [script], { encoding: 'utf8' });
+  assert.equal(run.status, 2, run.stderr);
+  assert.match(run.stdout, new RegExp(`Tourist Visa config ${config.version.replace(/\./g, '\.')}`));
+  for (const id of ['9A', '9B', '9C']) assert.match(run.stdout, new RegExp(`section ${id}: .*NEEDS SENIOR REVIEW`), id);
+  assert.match(run.stdout, /19 sections: 0 blocked, 18 need senior review only, 1 clean\./);
+  assert.match(run.stderr, /Needs senior approval: declaration wording/);
+  assert.match(run.stderr, /declarations\.submit/);
+  assert.match(run.stderr, /9\.11: Draft: the tick and its guidance are our own plain wording/);
+});
+
+test('release check: on a config file it exits 1 for a tbc, 2 for a draft or for wording alone, and 0 only when everything is clear', () => {
+  const { spawnSync } = require('node:child_process');
+  const os = require('node:os');
+  const fs = require('node:fs');
+  const script = path.join(__dirname, '..', '..', 'scripts', 'check-tourist-visa-release.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tv-release-'));
+  try {
+    const exitFor = (mutate) => {
+      const c = clone(config);
+      for (const q of c.questions) { delete q.tbc; delete q.draft; }
+      for (const g of c.groups) { delete g.tbc; delete g.draft; }
+      for (const d of Object.values(c.declarations)) delete d.draft;
+      mutate(c);
+      const file = path.join(dir, 'questions.json');
+      fs.writeFileSync(file, JSON.stringify(c));
+      return spawnSync(process.execPath, [script, file], { encoding: 'utf8' }).status;
+    };
+    assert.equal(exitFor(() => {}), 0, 'nothing open');
+    assert.equal(exitFor((c) => { c.declarations.submit.draft = 'Draft: wording'; }), 2, 'the declaration wording alone');
+    assert.equal(exitFor((c) => { c.questions.find((q) => q.id === 'q9_1').draft = 'Draft: x'; }), 2, 'a question draft');
+    assert.equal(exitFor((c) => { c.questions.find((q) => q.id === 'q9_1').tbc = 'x'; c.declarations.submit.draft = 'Draft: wording'; }), 1, 'a tbc beats everything');
+    assert.equal(exitFor((c) => { c.questions[0].type = 'XYZ'; }), 1, 'an invalid config');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

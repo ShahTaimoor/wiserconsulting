@@ -203,6 +203,23 @@ export function helpCountryNames(question: Question): string[] {
     .sort((a, b) => a.localeCompare(b));
 }
 
+/**
+ * The ticked values after one checkbox is switched on or off. The result keeps the order of the options, so
+ * the same ticks always give the same list. An exclusive option (such as "None of these") unticks every
+ * other option when it is ticked, and ticking any other option unticks it.
+ */
+export function toggleChoice(
+  options: Array<{ value: string; exclusive?: boolean }>,
+  ticked: string[],
+  optionValue: string,
+  on: boolean
+): string[] {
+  const exclusive = new Set(options.filter((o) => o.exclusive).map((o) => o.value));
+  let next = on ? [...ticked.filter((v) => v !== optionValue), optionValue] : ticked.filter((v) => v !== optionValue);
+  if (on) next = exclusive.has(optionValue) ? [optionValue] : next.filter((v) => !exclusive.has(v));
+  return options.map((o) => o.value).filter((v) => next.includes(v));
+}
+
 /** Whether a repeating group is open: its Yes/No question is shown and answered Yes, or it has no Yes/No question. */
 export function isGroupOpen(cfg: TouristVisaConfig, group: RepeatGroup, merged: Record<string, unknown>): boolean {
   if (group.gate === undefined) return true;

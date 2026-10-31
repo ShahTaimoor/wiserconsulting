@@ -1,5 +1,5 @@
 {
-  "version": "0.8.0-draft",
+  "version": "0.9.0-draft",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
@@ -14,7 +14,8 @@
     { "id": "5", "title": "Employment" },
     { "id": "6", "title": "Money, family in the UK and accommodation" },
     { "id": "7", "title": "Travel history (UK)" },
-    { "id": "8", "title": "Travel history (other countries)" }
+    { "id": "8", "title": "Travel history (other countries)" },
+    { "id": "9", "title": "Other history" }
   ],
   "sections": [
     { "id": "1", "part": "1", "title": "Travel information" },
@@ -32,8 +33,17 @@
     { "id": "6C", "part": "6", "title": "Accommodation details" },
     { "id": "6D", "part": "6", "title": "Public funds" },
     { "id": "7", "part": "7", "title": "Travel history (UK)" },
-    { "id": "8", "part": "8", "title": "Travel history (other countries)" }
+    { "id": "8", "part": "8", "title": "Travel history (other countries)" },
+    { "id": "9A", "part": "9", "title": "Espionage, sabotage and war crimes" },
+    { "id": "9B", "part": "9", "title": "Terrorism and extremism" },
+    { "id": "9C", "part": "9", "title": "Other conduct and character" }
   ],
+  "declarations": {
+    "submit": {
+      "text": "I declare that the information I have given in this application is complete and true to the best of my knowledge. I understand that giving false or incomplete information may lead to my application being refused. I agree that Wiser Consulting may call me on the telephone number I gave, to check my answers.",
+      "draft": "Draft wording in our own plain words for the final declaration on the review page (step 8d). The senior approves or replaces it here."
+    }
+  },
   "groups": [
     {
       "id": "otherNames",
@@ -2078,6 +2088,276 @@
       "required": true,
       "group": "otherCountryTrips",
       "rules": { "after": "q8_2c", "notFuture": true, "withinYears": 10 }
+    },
+    {
+      "id": "q9_11",
+      "number": "9.11",
+      "section": "9A",
+      "label": "I have read the information above about espionage and sabotage.",
+      "type": "ACK",
+      "required": true,
+      "help": "Espionage means secretly collecting or passing on sensitive information to help another country or group, against the interests of the country it comes from. Sabotage means deliberately damaging or disrupting property, systems or services in order to harm a country or its people. The question below asks whether you have ever been involved in, suspected of, or convicted of either.",
+      "draft": "Draft: the tick and its guidance are our own plain wording, kept here for the senior to approve or replace. Changing the wording makes applicants tick again."
+    },
+    {
+      "id": "q9_1",
+      "number": "9.1",
+      "section": "9A",
+      "label": "Have you ever been involved in, suspected or convicted of sabotage or espionage?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true,
+      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required details box."
+    },
+    {
+      "id": "q9_1a",
+      "number": "9.1a",
+      "section": "9A",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q9_1", "eq": true },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can.",
+      "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
+    },
+    {
+      "id": "q9_12",
+      "number": "9.12",
+      "section": "9A",
+      "label": "I have read the information above about war crimes, crimes against humanity and genocide.",
+      "type": "ACK",
+      "required": true,
+      "help": "War crimes are serious breaches of the rules of war, such as deliberately attacking civilians or mistreating prisoners. Crimes against humanity are widespread or organised attacks on civilians, such as murder, torture or forcing people from their homes. Genocide is acting with the aim of destroying a national, ethnic, racial or religious group. The question below covers both peace time and war time.",
+      "draft": "Draft: the tick and its guidance are our own plain wording, kept here for the senior to approve or replace. Changing the wording makes applicants tick again."
+    },
+    {
+      "id": "q9_2",
+      "number": "9.2",
+      "section": "9A",
+      "label": "In either peace or war time have you ever been involved in, or suspected of involvement in, war crimes, crimes against humanity, or genocide?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true,
+      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required details box."
+    },
+    {
+      "id": "q9_2a",
+      "number": "9.2a",
+      "section": "9A",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q9_2", "eq": true },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can.",
+      "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
+    },
+    {
+      "id": "q9_13",
+      "number": "9.13",
+      "section": "9B",
+      "label": "I have read the information above about terrorist activities, organisations and views.",
+      "type": "ACK",
+      "required": true,
+      "help": "Terrorism means using or threatening serious violence, or serious damage to property, to influence a government or frighten the public for a political, religious or ideological cause. Being involved includes planning, carrying out, helping, paying for or encouraging it. Supporting an organisation includes being a member, giving it money or other help, or speaking for it. The three questions below cover activities, organisations, and things you have said or published in any form, including online.",
+      "draft": "Draft: the tick and its guidance are our own plain wording, kept here for the senior to approve or replace. Changing the wording makes applicants tick again."
+    },
+    {
+      "id": "q9_3",
+      "number": "9.3",
+      "section": "9B",
+      "label": "Have you ever been involved in, supported or encouraged terrorist activities in any country?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true,
+      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required details box."
+    },
+    {
+      "id": "q9_3a",
+      "number": "9.3a",
+      "section": "9B",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q9_3", "eq": true },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can.",
+      "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
+    },
+    {
+      "id": "q9_4",
+      "number": "9.4",
+      "section": "9B",
+      "label": "Have you ever been a member of, or given support to, an organisation which has been concerned in terrorism?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true,
+      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required details box."
+    },
+    {
+      "id": "q9_4a",
+      "number": "9.4a",
+      "section": "9B",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q9_4", "eq": true },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can.",
+      "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
+    },
+    {
+      "id": "q9_5",
+      "number": "9.5",
+      "section": "9B",
+      "label": "Have you, by any means or medium, expressed views that justify or glorify terrorist violence or that may encourage others to commit terrorist or other serious criminal acts?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true,
+      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required details box."
+    },
+    {
+      "id": "q9_5a",
+      "number": "9.5a",
+      "section": "9B",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q9_5", "eq": true },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can.",
+      "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
+    },
+    {
+      "id": "q9_14",
+      "number": "9.14",
+      "section": "9B",
+      "label": "I have read the information above about extremist organisations and views.",
+      "type": "ACK",
+      "required": true,
+      "help": "Extremism means holding or promoting views that reject basic values such as the rule of law, equal treatment of people and respect for other faiths and beliefs, including by encouraging hatred or violence against others. The two questions below cover organisations you have belonged to or supported, and views you have expressed in any form, including online.",
+      "draft": "Draft: the tick and its guidance are our own plain wording, kept here for the senior to approve or replace. Changing the wording makes applicants tick again."
+    },
+    {
+      "id": "q9_6",
+      "number": "9.6",
+      "section": "9B",
+      "label": "Have you ever been a member of, or given support to, an organisation which is or has been concerned with extremism?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true,
+      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required details box."
+    },
+    {
+      "id": "q9_6a",
+      "number": "9.6a",
+      "section": "9B",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q9_6", "eq": true },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can.",
+      "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
+    },
+    {
+      "id": "q9_7",
+      "number": "9.7",
+      "section": "9B",
+      "label": "Have you, by any means or medium, expressed any extremist views?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true,
+      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required details box."
+    },
+    {
+      "id": "q9_7a",
+      "number": "9.7a",
+      "section": "9B",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q9_7", "eq": true },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can.",
+      "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
+    },
+    {
+      "id": "q9_8",
+      "number": "9.8",
+      "section": "9C",
+      "label": "Have you, as a part of your employment or otherwise, undertaken paid or unpaid activity on behalf of a non-UK government which you know to be dangerous to the interests or national security of the UK or its allies?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true,
+      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required details box."
+    },
+    {
+      "id": "q9_8a",
+      "number": "9.8a",
+      "section": "9C",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q9_8", "eq": true },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can.",
+      "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
+    },
+    {
+      "id": "q9_9",
+      "number": "9.9",
+      "section": "9C",
+      "label": "Have you ever engaged in any other activities which might indicate that you may not be considered to be a person of good character?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true,
+      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required details box."
+    },
+    {
+      "id": "q9_9a",
+      "number": "9.9a",
+      "section": "9C",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q9_9", "eq": true },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can.",
+      "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
+    },
+    {
+      "id": "q9_10",
+      "number": "9.10",
+      "section": "9C",
+      "label": "Is there any other information about your character or behaviour which you would like to make us aware of?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true,
+      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required details box."
+    },
+    {
+      "id": "q9_10a",
+      "number": "9.10a",
+      "section": "9C",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q9_10", "eq": true },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can.",
+      "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
     }
   ]
 }

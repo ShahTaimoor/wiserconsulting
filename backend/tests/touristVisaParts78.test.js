@@ -151,14 +151,14 @@ async function fullApplication() {
 
 // ---------------------------------------------------------------------------
 
-test('a complete application: Parts 7 and 8 save, the visits keep their order, and the applicant resumes on the last section', async () => {
+test('a complete application: Parts 7 and 8 save, the visits keep their order, and the applicant resumes on the first Part 9 section', async () => {
   const { token, appId } = await fullApplication();
   const app = await get(token);
 
   assert.equal(app.sectionStatus['7'], 'saved');
   assert.equal(app.sectionStatus['8'], 'saved');
   assert.equal(Object.values(app.sectionStatus).filter((s) => s !== 'saved').length, 0);
-  assert.equal(app.currentSection, '8', 'everything applicable is saved: resume on the last section');
+  assert.equal(app.currentSection, '9A', 'Parts 1 to 8 are saved: resume on the first Part 9 section');
 
   const stored = await rawDoc(appId);
   assert.equal(stored.answers.q7_5, 2);

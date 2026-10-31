@@ -57,6 +57,13 @@ const touristVisaApplicationSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.Mixed,
             default: {},
         },
+        // What the applicant agreed to with each declaration tick, by question id:
+        // { wordingSha256, configVersion, acceptedAt, acceptedBy }. The hash is of the exact words shown
+        // (the tick text and its guidance), so a later change of wording is detectable. No IP address is kept.
+        declarations: {
+            type: mongoose.Schema.Types.Mixed,
+            default: {},
+        },
         documents: [documentSchema],
         submittedAt: { type: Date },
         isDeleted: { type: Boolean, default: false },

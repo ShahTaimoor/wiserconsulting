@@ -13,6 +13,8 @@ export type Condition =
   | { q: string; in: Array<string | boolean | number> }
   /** The answer to a NUM question is a number greater than this. */
   | { q: string; gt: number }
+  /** A CHK answer that contains this option value. */
+  | { q: string; includes: string }
   | { all: Condition[] }
   | { any: Condition[] }
   | { not: Condition };
@@ -20,6 +22,8 @@ export type Condition =
 export interface QuestionOption {
   value: string;
   label: string;
+  /** CHK: this choice (such as "None of these") cannot be ticked together with any other. */
+  exclusive?: boolean;
 }
 
 export type OptionsSpec =
@@ -45,6 +49,8 @@ export interface QuestionRules {
   currencies?: string[];
   /** TXT/LNG: overrides limits.txtMax / limits.lngMax. */
   maxLen?: number;
+  /** TXT: the whole answer must match this expression (it starts with ^ and ends with $). */
+  pattern?: { regex: string; message: string };
   /** NUM: inclusive bounds (default 0..1000). */
   min?: number;
   /** NUM: inclusive upper bound. AMT: largest amount accepted (default 1,000,000,000; never negative). */
@@ -128,6 +134,11 @@ export interface TouristVisaConfig {
   sections: Array<{ id: string; part: string; title: string; intro?: string }>;
   groups: RepeatGroup[];
   questions: Question[];
+  /**
+   * Wording of declarations that are not questions (the final submit declaration), kept in the
+   * config so it can be approved or replaced in one place. `draft` holds the form back until removed.
+   */
+  declarations?: Record<string, { text: string; draft?: string }>;
 }
 
 /** Value shapes by answer type. */
@@ -226,5 +237,9 @@ export function getReleaseBlockers(cfg: TouristVisaConfig): ReleaseBlocker[];
 export function getDraftItems(cfg: TouristVisaConfig): DraftItems[];
 /** Sections still carrying a tbc flag or a draft marker. The client opens the form only when this is empty. */
 export function getHeldSections(cfg: TouristVisaConfig): HeldSection[];
+/** Declaration wording that is still a draft (top-level `declarations`), for the release check. */
+export function getWordingDrafts(cfg: TouristVisaConfig): Array<{ id: string; draft: string }>;
+/** The exact words of a declaration question (label and guidance), whitespace-normalised, for hashing. */
+export function wordingOf(cfg: TouristVisaConfig, questionId: string): string;
 export function isSectionReleasable(cfg: TouristVisaConfig, sectionId: string): boolean;
 export function validateConfig(cfg: unknown): string[];

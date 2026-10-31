@@ -129,17 +129,26 @@ export function QuestionField({ cfg, question, idBase, value, onChange, options,
   );
 
   if (INLINE_LABEL_TYPES.has(question.type)) {
+    // The guidance that goes with a declaration tick is shown above the tick, so it is read first.
+    const guidance = question.type === "ACK" && hint;
     return (
-      <div className="flex items-start gap-3" data-question-id={question.id}>
-        <div className="pt-0.5">{control}</div>
-        <div className="space-y-1">
-          <Label htmlFor={idBase} className="cursor-pointer items-start text-sm font-medium leading-snug">
-            {labelText}
-          </Label>
-          {itemsNode}
-          {hintNode}
-          {countriesNode}
-          {errorNode}
+      <div className="space-y-3" data-question-id={question.id}>
+        {guidance && (
+          <p id={hintId} className="rounded-md border border-border bg-muted/30 p-3 text-sm leading-relaxed text-foreground/90">
+            {hint}
+          </p>
+        )}
+        <div className="flex items-start gap-3">
+          <div className="pt-0.5">{control}</div>
+          <div className="space-y-1">
+            <Label htmlFor={idBase} className="cursor-pointer items-start text-sm font-medium leading-snug">
+              {labelText}
+            </Label>
+            {itemsNode}
+            {!guidance && hintNode}
+            {countriesNode}
+            {errorNode}
+          </div>
         </div>
       </div>
     );

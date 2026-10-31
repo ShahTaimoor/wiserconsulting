@@ -3,6 +3,7 @@
  * Business logic for a signed-in applicant's own Tourist Visa application
  */
 
+const crypto = require("crypto");
 const z = require("zod");
 const defaultRepository = require("../repositories/touristVisaApplicationRepository");
 const engine = require("../shared/tourist-visa/engine");
@@ -91,6 +92,13 @@ class TouristVisaApplicationService {
    */
   present(application) {
     const view = toClient(application);
+    // A declaration tick whose wording has changed since it was given (or that has no record) is shown
+    // unticked, so the applicant ticks the words they are now shown. Stored answers are not touched.
+    const stale = this.staleDeclarations(application);
+    if (stale.length) {
+      view.answers = { ...view.answers };
+      for (const id of stale) delete view.answers[id];
+    }
     const statuses = {};
     for (const section of engine.getVisibleSections(this.config, view.answers)) {
       const state = view.sectionStatus[section.id];
@@ -175,6 +183,7 @@ class TouristVisaApplicationService {
       sectionStatus,
       clearStatus,
       currentSection: this.resumeSection(statuses, pruned),
+      declarations: this.declarationRecords(sectionId, result.data, application.declarations, userId),
     });
 
     if (!updated) {
@@ -187,6 +196,38 @@ class TouristVisaApplicationService {
     }
 
     return { saved: true, application: this.present(updated), needsReview, removed: [...toUnset] };
+  }
+
+  /** SHA-256 of the exact words of a declaration question (its tick text and guidance). */
+  wordingHash(questionId) {
+    return crypto.createHash("sha256").update(engine.wordingOf(this.config, questionId), "utf8").digest("hex");
+  }
+
+  /**
+   * Records for the declaration ticks of a section that were just given: one per ACK question answered
+   * true whose stored record is missing or was made for other wording. A tick that is already recorded
+   * for the same wording keeps its original time and user. No IP address or browser data is kept.
+   */
+  declarationRecords(sectionId, savedAnswers, stored, userId) {
+    const records = {};
+    for (const q of this.config.questions) {
+      if (q.section !== sectionId || q.type !== "ACK" || savedAnswers[q.id] !== true) continue;
+      const wordingSha256 = this.wordingHash(q.id);
+      const current = stored && stored[q.id];
+      if (current && current.wordingSha256 === wordingSha256) continue;
+      records[q.id] = { wordingSha256, configVersion: this.config.version, acceptedAt: new Date(), acceptedBy: userId };
+    }
+    return records;
+  }
+
+  /** Declaration ticks answered true whose record does not match the wording now in the config. */
+  staleDeclarations(application) {
+    const answers = application.answers || {};
+    const stored = application.declarations || {};
+    return this.config.questions
+      .filter((q) => q.type === "ACK" && answers[q.id] === true)
+      .filter((q) => !stored[q.id] || stored[q.id].wordingSha256 !== this.wordingHash(q.id))
+      .map((q) => q.id);
   }
 
   /** Answer keys that belong to a section: its questions and its repeating groups. */

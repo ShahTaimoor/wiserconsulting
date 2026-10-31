@@ -2,16 +2,16 @@
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { toggleChoice } from "@/utils/touristVisaForm";
 import type { FieldProps } from "./types";
 
-/** CHK: tick one or more options. The value is a list of the ticked option values. */
+/**
+ * CHK: tick one or more options. The value is a list of the ticked option values.
+ * An exclusive option (such as "None of these") unticks the others, and ticking any other option unticks it.
+ */
 export function CheckboxGroupField({ id, value, onChange, options, describedBy, required }: FieldProps) {
   const ticked = Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
-  const toggle = (optionValue: string, on: boolean) => {
-    const next = on ? [...ticked.filter((v) => v !== optionValue), optionValue] : ticked.filter((v) => v !== optionValue);
-    // Keep the order of the options, so the same ticks always produce the same list.
-    onChange(options.map((o) => o.value).filter((v) => next.includes(v)));
-  };
+  const toggle = (optionValue: string, on: boolean) => onChange(toggleChoice(options, ticked, optionValue, on));
   return (
     <div className="space-y-2" aria-describedby={describedBy} aria-required={required || undefined}>
       {options.map((option, index) => {
