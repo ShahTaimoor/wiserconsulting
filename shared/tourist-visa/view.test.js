@@ -231,6 +231,66 @@ test('a full application renders every part without a gap or a leftover code', (
   assert.equal(rowOf(review, '10D', 'q10_6').files.length, 1);
 });
 
+// ---------------------------------------------------------------------------
+// Step 8f: the "corrected by our team" marker and the one-value formatter
+// ---------------------------------------------------------------------------
+
+test('corrections: a corrected row carries the date in words and nothing else is added to it', () => {
+  const answers = { q2_13: 'single', q2_32: { countryCode: '+44', number: '7700 900123' }, q4_8: true, parents: [{ q4_8a: 'mother', q4_8b: 'Testmother', q4_8c: 'Testsurname' }, { q4_8a: 'father', q4_8b: 'Testfather' }] };
+  const plain = buildReview(config, answers, [], {});
+  const when = new Date(Date.UTC(2026, 9, 5, 23, 30));
+  const marked = buildReview(config, answers, [], {}, { q2_32: when, 'q4_8b[1]': '2027-03-01T10:00:00.000Z', parents: when });
+  const phone = rowOf(marked, '2D', 'q2_32');
+  assert.equal(phone.correctedByTeam, '5 October 2026');
+  assert.deepEqual({ ...phone, correctedByTeam: undefined }, { ...rowOf(plain, '2D', 'q2_32'), correctedByTeam: undefined }, 'the row is otherwise the same');
+  assert.deepEqual(Object.keys(phone).sort(), [...Object.keys(rowOf(plain, '2D', 'q2_32')), 'correctedByTeam'].sort());
+  const group = rowOf(marked, '4C', 'parents');
+  assert.equal(group.correctedByTeam, '5 October 2026', 'a group as a whole');
+  assert.equal(group.entries[1].rows.find((r) => r.id === 'q4_8b').correctedByTeam, '1 March 2027', 'one answer of one entry, given as text');
+  assert.equal(group.entries[0].rows.find((r) => r.id === 'q4_8b').correctedByTeam, undefined, 'the same question in another entry is not marked');
+  assert.equal(JSON.stringify(plain).includes('correctedByTeam'), false);
+});
+
+test('corrections: no marks, empty marks, marks for other things and marks that are not times change nothing', () => {
+  const answers = { q2_13: 'single', q1_1: 'tourism' };
+  const plain = buildReview(config, answers, [], {});
+  for (const corrections of [undefined, null, {}, { nope: new Date() }, { q1_1: 'not a date' }, { q1_1: undefined }, 'x', []]) {
+    assert.deepEqual(buildReview(config, answers, [], {}, corrections), plain, JSON.stringify(corrections));
+  }
+});
+
+test('corrections: a mark on a question that is hidden shows nothing, and the builder never reads a mark as an answer', () => {
+  const review = buildReview(config, { q2_18: false, q2_19: 'FAKE-ID-0001' }, [], {}, { q2_19: new Date() });
+  assert.equal(sectionOf(review, '2B').rows.some((r) => r.id === 'q2_19'), false);
+  const frozen = deepFreeze({ q1_1: new Date(Date.UTC(2026, 0, 2)) });
+  assert.equal(rowOf(buildReview(config, { q1_1: 'tourism' }, [], {}, frozen), '1', 'q1_1').correctedByTeam, '2 January 2026', 'the marks are only read');
+});
+
+test('correctionKey: the question id, with the entry number in brackets for an answer inside a group entry', () => {
+  assert.equal(view.correctionKey('q2_32'), 'q2_32');
+  assert.equal(view.correctionKey('q4_8b', 0), 'q4_8b[0]');
+  assert.equal(view.correctionKey('q4_8b', 12), 'q4_8b[12]');
+  assert.equal(view.correctionKey('parents', null), 'parents');
+  assert.equal(view.correctionKey('parents', undefined), 'parents');
+});
+
+test('describeValue: one stored value in the words the review uses, or "Not answered"', () => {
+  const q = (id) => engine.getQuestion(config, id);
+  assert.equal(view.describeValue(config, q('q1_6'), '2027-03-01', {}), '1 March 2027');
+  assert.equal(view.describeValue(config, q('q2_32'), { countryCode: '+44', number: '7700 900123' }, {}), '+44 7700 900123');
+  assert.equal(view.describeValue(config, q('q6_3'), { amount: 1500, currency: 'GBP' }, {}), '£1,500');
+  assert.equal(view.describeValue(config, q('q1_1'), 'tourism', {}), 'Tourism or holiday');
+  assert.equal(view.describeValue(config, q('q2_3'), true, {}), 'Yes');
+  assert.equal(view.describeValue(config, q('q2_3'), false, {}), 'No');
+  assert.equal(view.describeValue(config, q('q2_1'), 'Name', {}), 'Name');
+  for (const empty of [undefined, null, '', '   ', []]) assert.equal(view.describeValue(config, q('q2_1'), empty, {}), 'Not answered');
+  assert.equal(view.describeValue(config, q('q9_11'), true, {}), 'Confirmed');
+  assert.equal(view.describeValue(config, q('q9_11'), undefined, {}), 'Not confirmed');
+  // an option list made from other answers, and a value in an entry
+  assert.equal(view.describeValue(config, q('q2_9'), 'a@example.com', { q2_4: 'a@example.com' }), 'a@example.com');
+  assert.equal(view.describeValue(config, q('q4_8a'), 'mother', { q4_8: true, parents: [{ q4_8a: 'mother' }] }, { q4_8a: 'mother' }), engine.resolveOptions(config, 'q4_8a', { q4_8: true }, {}).find((o) => o.value === 'mother').label);
+});
+
 test('the copies in the client and the backend are the same as the shared source (the drift check)', () => {
   const root = path.join(__dirname, '..', '..');
   for (const name of ['view.js', 'view.d.ts', 'engine.js', 'engine.d.ts', 'questions.json']) {

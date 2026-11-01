@@ -91,18 +91,20 @@ test("each line of the activity says who did what, in words", () => {
   assert.equal(describeActivity({ action: "overview_view", admin: { id: "a2", name: "" } }).who, "An administrator");
 });
 
-test("the jump list has a link for every section the Overview shows, in order, and then Activity", () => {
+test("the jump list has Notes first, a link for every section the Overview shows in order, and then Changes and Activity", () => {
   const review = { parts: [
     { id: "1", title: "Travel", sections: [{ id: "1", title: "Travel information", filesOnly: false, rows: [] }] },
     { id: "2", title: "Personal", sections: [{ id: "2A", title: "Name", filesOnly: false, rows: [] }, { id: "2B", title: "Identity", filesOnly: false, rows: [] }] },
   ] };
   assert.deepEqual(jumpLinks(review), [
+    { href: "#notes", label: "Notes and calls" },
     { href: "#section-1", label: "1 Travel information" },
     { href: "#section-2A", label: "2A Name" },
     { href: "#section-2B", label: "2B Identity" },
+    { href: "#changes", label: "Changes" },
     { href: "#activity", label: "Activity" },
   ]);
-  assert.deepEqual(jumpLinks({ parts: [] }), [{ href: "#activity", label: "Activity" }]);
+  assert.deepEqual(jumpLinks({ parts: [] }), [{ href: "#notes", label: "Notes and calls" }, { href: "#changes", label: "Changes" }, { href: "#activity", label: "Activity" }]);
 });
 
 test("the files of a file question are found through its slot", () => {

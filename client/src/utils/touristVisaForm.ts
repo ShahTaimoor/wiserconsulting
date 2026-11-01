@@ -11,8 +11,9 @@
  * file for the unit tests; Next.js and TypeScript resolve it the same way.
  */
 
-import { getCountries, isSectionVisible, isVisible, resolveOptions } from "../shared/tourist-visa/engine.js";
+import { getCountries, getVisibleSections, isFilesOnlySection, isSectionVisible, isVisible, resolveOptions } from "../shared/tourist-visa/engine.js";
 import type { Answers, GroupEntry, Question, RepeatGroup, TouristVisaConfig } from "../shared/tourist-visa/engine.js";
+import type { AnswerChange } from "@/services/touristVisaAdminTypes";
 
 export type FormValues = Record<string, unknown>;
 
@@ -417,4 +418,120 @@ export function hintFor(cfg: TouristVisaConfig, question: Question): string | un
   if (question.rules?.withinYears) parts.push(`Must be within the past ${question.rules.withinYears} years.`);
   if (question.type === "TEL") parts.push("Include the country code, for example +44.");
   return parts.length > 0 ? parts.join(" ") : undefined;
+}
+
+// ---------------------------------------------------------------------------
+// The administrator's correction of a submitted application (step 8f)
+//
+// The admin Edit forms use the same field components as the applicant's form, built from the config the
+// application was submitted under. These functions keep the edited values per section, work out what the
+// application would look like with them, and turn the difference into the list of changes the server takes.
+// ---------------------------------------------------------------------------
+
+/** The most changes the server takes in one request. */
+export const MAX_CHANGES_PER_REQUEST = 30;
+
+/** Do two answers mean the same thing? (empty answers count as absent; key order does not matter). */
+export function sameValue(a: unknown, b: unknown): boolean {
+  return stable(cleanValue(a)) === stable(cleanValue(b));
+}
+
+/** The answers as they would stand with the edited sections applied: other sections as they were, each edited one as edited. */
+export function workingAnswers(cfg: TouristVisaConfig, base: Record<string, unknown>, edits: Record<string, FormValues>): Record<string, unknown> {
+  let current: Record<string, unknown> = { ...base };
+  for (const [sectionId, values] of Object.entries(edits)) current = mergedAnswers(cfg, sectionId, current, values);
+  return current;
+}
+
+/** One answer set. Answering Yes to a question that opens a repeating group gives the group its first entry to fill in. */
+export function applyAnswer(cfg: TouristVisaConfig, values: FormValues, questionId: string, value: unknown): FormValues {
+  const next: FormValues = { ...values, [questionId]: value };
+  for (const group of cfg.groups) {
+    const entries = next[group.id];
+    if (!group.count && group.gate === questionId && value === true && !(Array.isArray(entries) && entries.length > 0)) next[group.id] = [{}];
+  }
+  return next;
+}
+
+/** One answer inside an entry of a repeating group. The entries are filled with blanks up to this one. */
+export function applyEntryAnswer(values: FormValues, groupId: string, index: number, questionId: string, value: unknown): FormValues {
+  const current = Array.isArray(values[groupId]) ? (values[groupId] as unknown[]) : [];
+  const entries = Array.from({ length: Math.max(current.length, index + 1) }, (_, i) => current[i] ?? {});
+  entries[index] = { ...(isPlainObject(entries[index]) ? (entries[index] as Record<string, unknown>) : {}), [questionId]: value };
+  return { ...values, [groupId]: entries };
+}
+
+/** A blank entry added to the end of a repeating group. */
+export function appendEntry(values: FormValues, groupId: string): FormValues {
+  return { ...values, [groupId]: [...(Array.isArray(values[groupId]) ? (values[groupId] as unknown[]) : []), {}] };
+}
+
+/** An entry taken out of a repeating group. */
+export function dropEntry(values: FormValues, groupId: string, index: number): FormValues {
+  return { ...values, [groupId]: (Array.isArray(values[groupId]) ? (values[groupId] as unknown[]) : []).filter((_, i) => i !== index) };
+}
+
+/** The sections an administrator can open to correct: those that apply to the answers, not the one made only of files. */
+export function editableSectionIds(cfg: TouristVisaConfig, answers: Record<string, unknown>): string[] {
+  return getVisibleSections(cfg, asAnswers(answers))
+    .filter((section) => !isFilesOnlySection(cfg, section.id))
+    .map((section) => section.id);
+}
+
+/**
+ * The changes to send: what the edited sections now hold, compared with the answers as they were, in form order.
+ *  - a changed answer is one change; an answer cleared on purpose is a change with the value null;
+ *  - an answer that the edit has hidden is NOT sent: the server removes it itself and lists it in the preview;
+ *  - a repeating group that was opened or has more or fewer entries is sent as a whole; otherwise only the answers
+ *    that differ are sent, each with the number of its entry;
+ *  - the Part 9 ticks and files are never sent.
+ */
+export function buildChanges(cfg: TouristVisaConfig, base: Record<string, unknown>, edits: Record<string, FormValues>): AnswerChange[] {
+  const changes: AnswerChange[] = [];
+  const working = workingAnswers(cfg, base, edits);
+  for (const section of cfg.sections) {
+    const values = edits[section.id];
+    if (!values) continue;
+    const { answers: payload } = buildPayload(cfg, section.id, values, working);
+
+    for (const item of sectionItems(cfg, section.id)) {
+      if (item.kind === "question") {
+        const question = item.question;
+        if (question.type === "FILE" || question.type === "ACK") continue;
+        const was = base[question.id];
+        const now = payload[question.id];
+        if (sameValue(was, now)) continue;
+        if (now === undefined) {
+          // Cleared on purpose, unless the edit hid it (then the server removes it).
+          if (isVisible(cfg, question.id, asAnswers(working))) changes.push({ questionId: question.id, value: null });
+          continue;
+        }
+        changes.push({ questionId: question.id, value: now });
+        continue;
+      }
+
+      const group = item.group;
+      const nowEntries = payload[group.id];
+      if (!Array.isArray(nowEntries)) continue; // the group is closed now: the server removes its entries
+      const wasEntries = base[group.id];
+      if (!Array.isArray(wasEntries) || wasEntries.length !== nowEntries.length) {
+        if (!sameValue(wasEntries, nowEntries)) changes.push({ questionId: group.id, value: nowEntries });
+        continue;
+      }
+      nowEntries.forEach((entry, index) => {
+        const was = isPlainObject(wasEntries[index]) ? (wasEntries[index] as Record<string, unknown>) : {};
+        const now = isPlainObject(entry) ? (entry as Record<string, unknown>) : {};
+        for (const member of item.members) {
+          if (member.type === "FILE" || member.type === "ACK") continue;
+          if (sameValue(was[member.id], now[member.id])) continue;
+          if (now[member.id] === undefined) {
+            if (isVisible(cfg, member.id, asAnswers(working), asEntry(now))) changes.push({ questionId: member.id, index, value: null });
+            continue;
+          }
+          changes.push({ questionId: member.id, index, value: now[member.id] });
+        }
+      });
+    }
+  }
+  return changes;
 }

@@ -2,8 +2,9 @@
  * Tourist Visa admin routes (mounted at /api/tourist-visa/admin by touristVisaRoutes)
  * Only routes - no business logic, no DB queries.
  *
- * Read only, plus the status of an application. There is deliberately no route that changes an answer, a note
- * or the audit log: no PUT, no DELETE, and PATCH only for the status.
+ * Read, the status, and (step 8f) corrections, notes and flags. There is deliberately no route that changes or
+ * removes an audit row, a change record or a note: no DELETE, and no PUT/PATCH on those collections. The only PUTs
+ * are the correction of answers (which appends a change record) and the flags.
  * The feature gate, sign-in (401) and the administrator check (403) are applied by the parent router, and every
  * answer from here carries Cache-Control: no-store.
  */
@@ -11,6 +12,7 @@
 const express = require('express');
 const router = express.Router();
 const touristVisaAdminController = require('../controllers/touristVisaAdminController');
+const touristVisaAdminEditController = require('../controllers/touristVisaAdminEditController');
 
 // The list of submitted and later applications (never drafts)
 router.get('/applications', touristVisaAdminController.list);
@@ -26,5 +28,19 @@ router.get('/applications/:id/documents/:docId/link', touristVisaAdminController
 
 // Move it along: submitted -> in_review -> completed (and back to in_review)
 router.patch('/applications/:id/status', touristVisaAdminController.updateStatus);
+
+// Correcting answers (step 8f). The form needs the config the application was submitted under and its decrypted answers.
+router.get('/applications/:id/edit-form', touristVisaAdminEditController.editForm);
+// Body { expectedRevision, reason, changes, dryRun? }: a dry run only previews; a real one is a single transaction.
+router.put('/applications/:id/changes', touristVisaAdminEditController.change);
+// What was corrected, by whom, when and why, with the old and new values
+router.get('/applications/:id/changes', touristVisaAdminEditController.history);
+
+// Notes and the call log (append only)
+router.get('/applications/:id/notes', touristVisaAdminEditController.listNotes);
+router.post('/applications/:id/notes', touristVisaAdminEditController.addNote);
+
+// Admin-only flags from a fixed list
+router.put('/applications/:id/flags', touristVisaAdminEditController.setFlags);
 
 module.exports = router;

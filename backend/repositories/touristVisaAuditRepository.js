@@ -9,7 +9,7 @@ const User = require("../models/User");
 
 class TouristVisaAuditRepository {
   /**
-   * Adds rows ({ adminId, applicationId, action, at, fromStatus, toStatus, documentId }). Nothing else is stored:
+   * Adds rows ({ adminId, applicationId, action, at, fromStatus, toStatus, documentId, fromFlags, toFlags }). Nothing else is stored:
    * a field that is not part of a row is dropped by the model, so no answer, name, link or address can slip in.
    */
   async append(rows) {
@@ -30,6 +30,8 @@ class TouristVisaAuditRepository {
       admin: { id: String(row.adminId), name: names.get(String(row.adminId)) || "An administrator" },
       ...(row.fromStatus ? { fromStatus: row.fromStatus } : {}),
       ...(row.toStatus ? { toStatus: row.toStatus } : {}),
+      ...(row.fromFlags ? { fromFlags: row.fromFlags } : {}),
+      ...(row.toFlags ? { toFlags: row.toFlags } : {}),
     }));
   }
 }

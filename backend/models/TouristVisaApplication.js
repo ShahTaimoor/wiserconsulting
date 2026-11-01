@@ -5,6 +5,8 @@ const { SLOTS } = require('../config/touristVisaDocuments');
 const APPLICATION_STATUSES = ['draft', 'submitted', 'in_review', 'completed'];
 const SECTION_STATES = ['saved', 'needs_review'];
 const DOCUMENT_SLOTS = Object.keys(SLOTS);
+// The fixed words an admin can flag an application with (needs a call, has been called, ...).
+const ADMIN_FLAGS = ['needs_call', 'called', 'awaiting_applicant', 'verified', 'concern'];
 
 // Uploaded files are private; only references are stored here. `id` is our own random id (the only
 // identifier an applicant ever sees); `publicId` is the storage id and is never sent to a browser.
@@ -85,6 +87,11 @@ const touristVisaApplicationSchema = new mongoose.Schema(
         configSha256: { type: String },
         // { name, email, phone } for the admin list (not present on a draft).
         summary: { type: summarySchema, default: undefined },
+        // Counts the admin corrections of a submitted application (step 8f). Every successful edit adds one; an edit is
+        // refused when the admin did not see the latest. Applications saved before 8f have none, which means 0.
+        revision: { type: Number, default: 0 },
+        // Admin-only flags from a fixed list. Never part of any applicant response.
+        adminFlags: { type: [{ type: String, enum: ADMIN_FLAGS }], default: undefined },
         isDeleted: { type: Boolean, default: false },
     },
     {
@@ -109,3 +116,4 @@ module.exports = mongoose.model('TouristVisaApplication', touristVisaApplication
 module.exports.APPLICATION_STATUSES = APPLICATION_STATUSES;
 module.exports.SECTION_STATES = SECTION_STATES;
 module.exports.DOCUMENT_SLOTS = DOCUMENT_SLOTS;
+module.exports.ADMIN_FLAGS = ADMIN_FLAGS;

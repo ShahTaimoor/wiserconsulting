@@ -154,8 +154,9 @@ class TouristVisaApplicationRepository {
    * `q` is matched as an exact reference when it looks like one, otherwise as text inside the name or the email,
    * ignoring case, with every character of it taken literally (it is escaped, never run as an expression).
    */
-  async listForAdmin({ status, q, page, pageSize }) {
+  async listForAdmin({ status, q, flag, page, pageSize }) {
     const match = { isDeleted: false, status: status ? status : { $in: ADMIN_STATUSES } };
+    if (flag) match.adminFlags = flag; // one of the fixed flag words (the service has checked it)
     const search = typeof q === "string" ? q.trim() : "";
     if (search) {
       if (REFERENCE_SHAPE.test(search.toUpperCase())) match.reference = search.toUpperCase();
@@ -172,7 +173,7 @@ class TouristVisaApplicationRepository {
             { $sort: { submittedAt: -1, _id: -1 } },
             { $skip: (page - 1) * pageSize },
             { $limit: pageSize },
-            { $project: { reference: 1, summary: 1, submittedAt: 1, status: 1, documentCount: { $size: { $ifNull: ["$documents", []] } } } },
+            { $project: { reference: 1, summary: 1, submittedAt: 1, status: 1, adminFlags: 1, documentCount: { $size: { $ifNull: ["$documents", []] } } } },
           ],
           total: [{ $count: "n" }],
         },
@@ -209,6 +210,24 @@ class TouristVisaApplicationRepository {
       { new: true, projection: { status: 1 } }
     ).lean();
     return updated ? updated.status : null;
+  }
+
+  /**
+   * Replaces the admin flags. Returns the flags the application had (so the change can be recorded and, if the record
+   * cannot be written, undone), or null when there is no such submitted or later application.
+   */
+  async setAdminFlags(applicationId, flags) {
+    const before = await TouristVisaApplication.findOneAndUpdate(
+      { _id: applicationId, isDeleted: false, status: { $in: ADMIN_STATUSES } },
+      { $set: { adminFlags: flags } },
+      { new: false, projection: { adminFlags: 1 }, timestamps: false }
+    ).lean();
+    return before ? before.adminFlags || [] : null;
+  }
+
+  /** The answers as they are stored: the sensitive ones encrypted, bound to this application (for an admin correction). */
+  encryptAnswersForStorage(applicationId, answers) {
+    return this.encryptAnswers(String(applicationId), answers, getFieldEncryptionKey());
   }
 
   /** Did this duplicate-key error come from the reference index? */

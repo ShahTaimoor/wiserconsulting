@@ -1,6 +1,20 @@
 /** in_progress is worked out by the server for the documents section (10D) from the uploaded files. */
 import type { Review } from "../shared/tourist-visa/view.js";
-import type { ActivityRow, AdminList, AdminListQuery, AdminOverview, AdminStatus } from "./touristVisaAdminTypes";
+import type {
+  ActivityRow,
+  AdminFlag,
+  AdminList,
+  AdminListQuery,
+  AdminNote,
+  AdminOverview,
+  AdminStatus,
+  AnswerChange,
+  CallOutcome,
+  ChangePreview,
+  ChangeRecordView,
+  EditForm,
+  NoteKind,
+} from "./touristVisaAdminTypes";
 
 export type SectionState = "saved" | "needs_review" | "in_progress";
 export type ApplicationStatus = "draft" | "submitted" | "in_review" | "completed";
@@ -229,6 +243,7 @@ export function listQueryString(query: AdminListQuery): string {
   const q = (query.q ?? "").trim();
   if (q) params.set("q", q);
   if (query.status) params.set("status", query.status);
+  if (query.flag) params.set("flag", query.flag);
   if (query.page && query.page > 1) params.set("page", String(query.page));
   if (query.pageSize) params.set("pageSize", String(query.pageSize));
   const text = params.toString();
@@ -366,5 +381,71 @@ export const touristVisaService = {
     const data = json?.data as unknown as { activity?: ActivityRow[] } | undefined;
     if (!data || !Array.isArray(data.activity)) throw new TouristVisaApiError(502, "The server sent an unexpected response.");
     return data.activity;
+  },
+
+  // -------------------------------------------------------------------------
+  // Correcting answers, notes, calls and flags (step 8f)
+  // -------------------------------------------------------------------------
+
+  /** The config the application was submitted under, its decrypted answers and its revision, for the Edit forms. */
+  async adminEditForm(token: string, id: string): Promise<EditForm> {
+    const { status, json } = await request(`/admin/applications/${encodeURIComponent(id)}/edit-form`, "GET", token);
+    if (status < 200 || status >= 300) throw failure(status, json);
+    const data = json?.data as unknown as EditForm | undefined;
+    if (!data || !data.config || !data.answers || !data.application || !Number.isInteger(data.application.revision)) throw new TouristVisaApiError(502, "The server sent an unexpected response.");
+    return data;
+  },
+
+  /** A dry run: everything is checked and described, nothing is changed. A 422 carries `sections` and `fieldErrors`. */
+  async adminPreviewChanges(token: string, id: string, body: { expectedRevision: number; changes: AnswerChange[] }): Promise<ChangePreview> {
+    const { status, json } = await request(`/admin/applications/${encodeURIComponent(id)}/changes`, "PUT", token, { ...body, dryRun: true });
+    if (status < 200 || status >= 300) throw failure(status, json);
+    const data = json?.data as unknown as ChangePreview | undefined;
+    if (!data || data.dryRun !== true || !Array.isArray(data.changes) || !Array.isArray(data.removed) || !Array.isArray(data.required)) throw new TouristVisaApiError(502, "The server sent an unexpected response.");
+    return data;
+  },
+
+  /** The real correction, in one transaction on the server. `reason` is 10 to 1000 characters. */
+  async adminApplyChanges(token: string, id: string, body: { expectedRevision: number; reason: string; changes: AnswerChange[] }): Promise<{ revision: number; applied: number }> {
+    const { status, json } = await request(`/admin/applications/${encodeURIComponent(id)}/changes`, "PUT", token, body);
+    if (status < 200 || status >= 300) throw failure(status, json);
+    const data = json?.data as unknown as { revision?: unknown; applied?: unknown } | undefined;
+    if (!data || !Number.isInteger(data.revision) || !Number.isInteger(data.applied)) throw new TouristVisaApiError(502, "The server sent an unexpected response.");
+    return { revision: data.revision as number, applied: data.applied as number };
+  },
+
+  /** The corrections made so far, newest first, with the reason and the old and new values. */
+  async adminChanges(token: string, id: string): Promise<ChangeRecordView[]> {
+    const { status, json } = await request(`/admin/applications/${encodeURIComponent(id)}/changes`, "GET", token);
+    if (status < 200 || status >= 300) throw failure(status, json);
+    const data = json?.data as unknown as { history?: ChangeRecordView[] } | undefined;
+    if (!data || !Array.isArray(data.history)) throw new TouristVisaApiError(502, "The server sent an unexpected response.");
+    return data.history;
+  },
+
+  async adminNotes(token: string, id: string): Promise<AdminNote[]> {
+    const { status, json } = await request(`/admin/applications/${encodeURIComponent(id)}/notes`, "GET", token);
+    if (status < 200 || status >= 300) throw failure(status, json);
+    const data = json?.data as unknown as { notes?: AdminNote[] } | undefined;
+    if (!data || !Array.isArray(data.notes)) throw new TouristVisaApiError(502, "The server sent an unexpected response.");
+    return data.notes;
+  },
+
+  /** Adds a note ({ kind: "note", text }) or a call ({ kind: "call", outcome, text? }). Returns the new entry. */
+  async adminAddNote(token: string, id: string, body: { kind: NoteKind; text?: string; outcome?: CallOutcome }): Promise<AdminNote> {
+    const { status, json } = await request(`/admin/applications/${encodeURIComponent(id)}/notes`, "POST", token, body);
+    if (status < 200 || status >= 300) throw failure(status, json);
+    const data = json?.data as unknown as { note?: AdminNote } | undefined;
+    if (!data || !data.note || typeof data.note.id !== "string") throw new TouristVisaApiError(502, "The server sent an unexpected response.");
+    return data.note;
+  },
+
+  /** Replaces the flags. Returns the flags as stored (always in the fixed order). */
+  async adminSetFlags(token: string, id: string, flags: AdminFlag[]): Promise<AdminFlag[]> {
+    const { status, json } = await request(`/admin/applications/${encodeURIComponent(id)}/flags`, "PUT", token, { flags });
+    if (status < 200 || status >= 300) throw failure(status, json);
+    const data = json?.data as unknown as { flags?: AdminFlag[] } | undefined;
+    if (!data || !Array.isArray(data.flags)) throw new TouristVisaApiError(502, "The server sent an unexpected response.");
+    return data.flags;
   },
 };

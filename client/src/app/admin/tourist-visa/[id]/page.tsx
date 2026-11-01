@@ -3,9 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { AlertTriangle, ArrowLeft, Copy, ExternalLink, FileText, Loader2, Mail, Phone } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Copy, ExternalLink, FileText, Loader2, Mail, Pencil, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AdminChangesPanel } from "@/components/tourist-visa/AdminChangesPanel";
+import { AdminEditor } from "@/components/tourist-visa/AdminEditor";
+import { AdminFlagsEditor } from "@/components/tourist-visa/AdminFlags";
+import { AdminNotesPanel } from "@/components/tourist-visa/AdminNotesPanel";
 import { AdminStatusBadge } from "@/components/tourist-visa/AdminStatusBadge";
 import { ConfirmDialog } from "@/components/tourist-visa/ConfirmDialog";
 import { notifyAdminDone, notifyAdminFailed } from "@/components/tourist-visa/notify";
@@ -15,10 +19,10 @@ import { logout } from "@/redux/slices/auth/authSlice";
 import { config } from "@/shared/tourist-visa/engine";
 import type { ReviewRow } from "@/shared/tourist-visa/view";
 import { touristVisaService, TouristVisaApiError } from "@/services/touristVisaService";
-import type { ActivityRow, AdminOverview, AdminStatus } from "@/services/touristVisaAdminTypes";
+import type { ActivityRow, AdminFlag, AdminOverview, AdminStatus, ChangeRecordView } from "@/services/touristVisaAdminTypes";
 import { countHeldSections, isFormOpen, isPreviewMode } from "@/utils/touristVisaChecklist";
 import { formatBytes } from "@/utils/touristVisaDocuments";
-import { describeActivity, describeAdminError, filesOfRow, formatWhen, jumpLinks, moveWords, statusLabel } from "@/utils/touristVisaAdmin";
+import { describeActivity, describeAdminError, filesOfRow, formatWhen, jumpLinks, moveWords, statusLabel, toggleFlag } from "@/utils/touristVisaAdmin";
 
 function readToken(): string | null {
   try {
@@ -37,8 +41,9 @@ interface HeldLink {
 const HELD_LINK_MS = 90_000;
 
 /**
- * One submitted application (/admin/tourist-visa/<id>): who to call, every answer as the applicant gave it, the files,
- * the status, and the activity log. Opening this page is recorded. Nothing here edits an answer.
+ * One submitted application (/admin/tourist-visa/<id>): who to call, flags, notes and calls, every answer as the applicant
+ * gave it (each section can be corrected while the application is submitted or in review), the files, the status, the
+ * history of corrections and the activity log. Opening this page is recorded.
  *
  * A file is never linked from the page: the Open button asks the server for a link that lasts two minutes, at the
  * moment it is pressed, and opens it in a new tab. The link is not kept, shown or logged.
@@ -54,6 +59,10 @@ export default function AdminTouristVisaOverviewPage() {
   const [attempt, setAttempt] = useState(0);
   const [activity, setActivity] = useState<ActivityRow[] | null>(null);
   const [activityError, setActivityError] = useState(false);
+  const [history, setHistory] = useState<ChangeRecordView[] | null>(null);
+  const [historyError, setHistoryError] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [flagsBusy, setFlagsBusy] = useState(false);
   const [pendingMove, setPendingMove] = useState<AdminStatus | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [changing, setChanging] = useState(false);
@@ -66,6 +75,7 @@ export default function AdminTouristVisaOverviewPage() {
   const statusRegion = useRef<HTMLDivElement | null>(null);
   const moveButtons = useRef<Record<string, HTMLButtonElement | null>>({});
   const returnFocusTo = useRef<"button" | "region">("button");
+  const focusAfterEdit = useRef<string | null>(null);
 
   useEffect(() => {
     alive.current = true;
@@ -101,6 +111,20 @@ export default function AdminTouristVisaOverviewPage() {
     }
   }, [id]);
 
+  const loadHistory = useCallback(async () => {
+    const token = readToken();
+    if (!token) return;
+    try {
+      const rows = await touristVisaService.adminChanges(token, id);
+      if (alive.current) {
+        setHistory(rows);
+        setHistoryError(false);
+      }
+    } catch {
+      if (alive.current) setHistoryError(true);
+    }
+  }, [id]);
+
   // Load the Overview once for each visit. The server records the view, so the guard stops a second request in development
   // (React strict mode runs effects twice) from writing a second row.
   useEffect(() => {
@@ -120,6 +144,7 @@ export default function AdminTouristVisaOverviewPage() {
         if (!alive.current) return;
         setOverview(result);
         void loadActivity();
+        void loadHistory();
       } catch (e) {
         if (!alive.current) return;
         const message = fail(e);
@@ -127,7 +152,54 @@ export default function AdminTouristVisaOverviewPage() {
         setLoadError({ message, retry: !missing });
       }
     })();
-  }, [id, attempt, notOpen, dispatch, fail, loadActivity]);
+  }, [id, attempt, notOpen, dispatch, fail, loadActivity, loadHistory]);
+
+  // After the editor closes, focus goes back to the Edit button of the section that was edited.
+  useEffect(() => {
+    if (editing !== null || !overview || !focusAfterEdit.current) return;
+    const sectionId = focusAfterEdit.current;
+    focusAfterEdit.current = null;
+    const button = document.querySelector<HTMLElement>(`[data-edit-section="${sectionId}"]`);
+    (button ?? statusRegion.current)?.focus();
+  }, [editing, overview]);
+
+  const reloadOverview = useCallback(() => {
+    started.current = null;
+    setAttempt((n) => n + 1);
+  }, []);
+
+  const closeEditor = useCallback(
+    (result: { applied: boolean; sectionId: string }) => {
+      focusAfterEdit.current = result.sectionId;
+      setEditing(null);
+      if (result.applied) reloadOverview();
+    },
+    [reloadOverview]
+  );
+
+  const toggleOneFlag = useCallback(
+    async (flag: AdminFlag) => {
+      const token = readToken();
+      if (!token || !overview || flagsBusy) return;
+      setFlagsBusy(true);
+      try {
+        const next = await touristVisaService.adminSetFlags(token, id, toggleFlag(overview.application.flags, flag));
+        if (!alive.current) return;
+        setOverview((previous) => (previous ? { ...previous, application: { ...previous.application, flags: next } } : previous));
+        notifyAdminDone("Flags updated.");
+        announce("Flags updated.");
+        void loadActivity();
+      } catch (e) {
+        if (!alive.current) return;
+        const message = fail(e);
+        notifyAdminFailed(message);
+        announce(message);
+      } finally {
+        if (alive.current) setFlagsBusy(false);
+      }
+    },
+    [overview, flagsBusy, id, announce, fail, loadActivity]
+  );
 
   // A link that could not be opened is dropped after a while, so it cannot be used long after it was made.
   useEffect(() => {
@@ -408,7 +480,24 @@ export default function AdminTouristVisaOverviewPage() {
               <p className="mt-2 text-sm text-muted-foreground">No status change is available.</p>
             )}
           </div>
+
+          <AdminFlagsEditor flags={application.flags} busy={flagsBusy} onToggle={(flag) => void toggleOneFlag(flag)} />
         </section>
+
+        {editing ? (
+          <AdminEditor
+            applicationId={id}
+            reference={call.reference}
+            startSectionId={editing}
+            readToken={readToken}
+            fail={fail}
+            announce={announce}
+            onClose={closeEditor}
+            onStale={reloadOverview}
+          />
+        ) : (
+          <>
+        <AdminNotesPanel applicationId={id} readToken={readToken} fail={fail} announce={announce} onRecorded={() => void loadActivity()} />
 
         <nav aria-label="Jump to a section" className="rounded-lg border border-border bg-card p-4">
           <h2 className="mb-2 text-sm font-semibold text-foreground">Jump to</h2>
@@ -423,7 +512,37 @@ export default function AdminTouristVisaOverviewPage() {
           </ul>
         </nav>
 
-        <ReviewSummary review={overview.review} editable={false} renderFiles={renderFiles} />
+        {application.status === "completed" && (
+          <p className="rounded-lg border border-border bg-card p-3 text-sm text-muted-foreground">
+            This application is completed, so its answers cannot be corrected. Reopen it for review to edit them.
+          </p>
+        )}
+
+        <ReviewSummary
+          review={overview.review}
+          editable={false}
+          renderFiles={renderFiles}
+          renderSectionAction={(section) =>
+            application.editable && !section.filesOnly ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                data-edit-section={section.id}
+                aria-label={`Edit section ${section.id}, ${section.title}`}
+                onClick={() => {
+                  announce(`Editing section ${section.id}.`);
+                  setEditing(section.id);
+                }}
+              >
+                <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                Edit
+              </Button>
+            ) : null
+          }
+        />
+
+        <AdminChangesPanel history={history} error={historyError} onRetry={() => void loadHistory()} />
 
         <section id="activity" aria-labelledby="activity-heading" className="scroll-mt-20 rounded-lg border border-border bg-card p-4 text-card-foreground sm:p-6">
           <h2 id="activity-heading" className="text-lg font-semibold text-foreground">
@@ -459,6 +578,8 @@ export default function AdminTouristVisaOverviewPage() {
             </ol>
           )}
         </section>
+          </>
+        )}
 
         <ConfirmDialog
           open={confirmOpen}

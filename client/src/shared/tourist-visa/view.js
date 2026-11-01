@@ -15,6 +15,9 @@
  *  - answers       the answers by question id, ALREADY DECRYPTED (decrypting is the server's job, before this)
  *  - documents     the files' metadata ({ slot, name, size }); only the name and size are used
  *  - declarations  the declaration records by question id ({ acceptedAt }), used to say when a tick was given
+ *  - corrections   optional: when the team corrected an answer, by correction key (see correctionKey) -> a time. A
+ *                  corrected row gets `correctedByTeam` (the date in words) and NOTHING else: never the old value
+ *                  and never the reason, so the same builder can serve the applicant.
  *
  * Only questions that are visible with these answers appear. Values are text for people: option labels
  * instead of codes, dates written out, Yes and No, each repeating-group entry as its own numbered item,
@@ -138,8 +141,34 @@ function hasValue(value) {
   return true;
 }
 
-function questionRow(cfg, question, answers, entry, documents, declarations) {
-  const base = { id: question.id, number: question.number, label: question.label };
+/**
+ * The text of one stored value as the review would show it ("Yes", "1 March 2027", "£1,500", an option's label),
+ * or "Not answered" when there is nothing to show. `answers` is the whole application (some option lists are made
+ * from other answers) and `entry` is the repeating-group entry when the question is inside one.
+ */
+function describeValue(cfg, question, value, answers, entry) {
+  if (question.type === 'ACK') return value === true ? 'Confirmed' : 'Not confirmed';
+  if (!hasValue(value)) return NOT_ANSWERED;
+  return readValue(cfg, question, value, isObject(answers) ? answers : {}, entry || null).text;
+}
+
+/**
+ * The key a correction is stored under: the question id, or "<question id>[<entry index>]" for an answer inside a
+ * repeating group's entry. A repeating group as a whole (entries added or removed) uses the group's id.
+ */
+function correctionKey(questionId, index) {
+  return index === undefined || index === null ? questionId : `${questionId}[${index}]`;
+}
+
+/** { correctedByTeam: "1 March 2027" } when the answer under this key was corrected by the team, else nothing. */
+function correctionMark(corrections, key) {
+  if (!isObject(corrections) || corrections[key] === undefined) return {};
+  const when = formatMoment(corrections[key]);
+  return when ? { correctedByTeam: when } : {};
+}
+
+function questionRow(cfg, question, answers, entry, documents, declarations, corrections, key) {
+  const base = { id: question.id, number: question.number, label: question.label, ...correctionMark(corrections, key) };
 
   if (question.type === 'FILE') {
     const files = (Array.isArray(documents) ? documents : [])
@@ -162,7 +191,7 @@ function questionRow(cfg, question, answers, entry, documents, declarations) {
   return { ...base, kind: 'value', value: text, ...(items ? { items } : {}) };
 }
 
-function groupRow(cfg, group, answers, documents, declarations) {
+function groupRow(cfg, group, answers, documents, declarations, corrections) {
   const entries = Array.isArray(answers[group.id]) ? answers[group.id] : [];
   const members = group.questions.map((id) => engine.getQuestion(cfg, id)).filter(Boolean);
   return {
@@ -170,31 +199,32 @@ function groupRow(cfg, group, answers, documents, declarations) {
     number: null,
     label: `${group.entryLabel} details`,
     kind: 'group',
+    ...correctionMark(corrections, correctionKey(group.id)),
     empty: entries.length === 0,
     value: entries.length === 0 ? 'No entries' : `${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}`,
     entries: entries.map((entry, index) => ({
       title: `${group.entryLabel} ${index + 1}`,
       rows: members
         .filter((m) => engine.isVisible(cfg, m.id, answers, isObject(entry) ? entry : {}))
-        .map((m) => questionRow(cfg, m, answers, isObject(entry) ? entry : {}, documents, declarations)),
+        .map((m) => questionRow(cfg, m, answers, isObject(entry) ? entry : {}, documents, declarations, corrections, correctionKey(m.id, index))),
     })),
   };
 }
 
-function sectionRows(cfg, sectionId, answers, documents, declarations) {
+function sectionRows(cfg, sectionId, answers, documents, declarations, corrections) {
   const visible = new Set(engine.getVisibleQuestions(cfg, sectionId, answers).map((q) => q.id));
   const rows = [];
   const placed = new Set();
   for (const question of cfg.questions) {
     if (question.section !== sectionId || !visible.has(question.id)) continue;
     if (!question.group) {
-      rows.push(questionRow(cfg, question, answers, null, documents, declarations));
+      rows.push(questionRow(cfg, question, answers, null, documents, declarations, corrections, correctionKey(question.id)));
       continue;
     }
     if (placed.has(question.group)) continue;
     placed.add(question.group);
     const group = (cfg.groups || []).find((g) => g.id === question.group);
-    if (group) rows.push(groupRow(cfg, group, answers, documents, declarations));
+    if (group) rows.push(groupRow(cfg, group, answers, documents, declarations, corrections));
   }
   return rows;
 }
@@ -204,7 +234,7 @@ function sectionRows(cfg, sectionId, answers, documents, declarations) {
  * Sections and parts that do not apply (nothing in them is visible) are left out, in form order.
  * A row is { id, number, label, kind: 'value' | 'files' | 'group', value, empty?, items?, note?, files?, entries? }.
  */
-function buildReview(cfg, answers, documents, declarations) {
+function buildReview(cfg, answers, documents, declarations, corrections) {
   const given = isObject(answers) ? answers : {};
   const sections = engine.getVisibleSections(cfg, given);
   const parts = cfg.parts
@@ -217,7 +247,7 @@ function buildReview(cfg, answers, documents, declarations) {
           id: section.id,
           title: section.title,
           filesOnly: engine.isFilesOnlySection(cfg, section.id),
-          rows: sectionRows(cfg, section.id, given, documents, declarations),
+          rows: sectionRows(cfg, section.id, given, documents, declarations, corrections),
         })),
     }))
     .filter((part) => part.sections.length > 0);
@@ -226,6 +256,8 @@ function buildReview(cfg, answers, documents, declarations) {
 
 module.exports = {
   buildReview,
+  describeValue,
+  correctionKey,
   formatDate,
   formatMonth,
   formatMoment,

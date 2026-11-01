@@ -5,14 +5,15 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, FileText, Mail, Phone, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AdminFlagChips } from "@/components/tourist-visa/AdminFlags";
 import { AdminStatusBadge } from "@/components/tourist-visa/AdminStatusBadge";
 import { useAppDispatch } from "@/redux/hooks";
 import { logout } from "@/redux/slices/auth/authSlice";
 import { config } from "@/shared/tourist-visa/engine";
 import { describeError, touristVisaService, TouristVisaApiError } from "@/services/touristVisaService";
-import type { AdminList, AdminStatus } from "@/services/touristVisaAdminTypes";
+import type { AdminFlag, AdminList, AdminStatus } from "@/services/touristVisaAdminTypes";
 import { countHeldSections, isFormOpen, isPreviewMode } from "@/utils/touristVisaChecklist";
-import { ADMIN_STATUSES, describeAdminError, emptyListText, formatWhen, listSummaryText, pagerState, statusLabel } from "@/utils/touristVisaAdmin";
+import { ADMIN_FLAGS, ADMIN_STATUSES, describeAdminError, emptyListText, flagLabel, formatWhen, listSummaryText, pagerState, statusLabel } from "@/utils/touristVisaAdmin";
 
 const PAGE_SIZE = 20;
 
@@ -26,7 +27,7 @@ function readToken(): string | null {
 
 /**
  * Tourist Visa applications (/admin/tourist-visa): every submitted application, newest first. A draft is never listed.
- * Search by reference, name or email; filter by status. The server decides what is listed, so a search never
+ * Search by reference, name or email; filter by status or by flag. The server decides what is listed, so a search never
  * reveals anything the admin could not already open.
  */
 export default function AdminTouristVisaListPage() {
@@ -34,6 +35,7 @@ export default function AdminTouristVisaListPage() {
   const [draftQ, setDraftQ] = useState("");
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<AdminStatus | "">("");
+  const [flag, setFlag] = useState<AdminFlag | "">("");
   const [page, setPage] = useState(1);
   const [data, setData] = useState<AdminList | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,7 +50,7 @@ export default function AdminTouristVisaListPage() {
   useEffect(() => {
     if (notOpen) return;
     // The server records each list view, so one set of choices is asked for once (React strict mode runs effects twice in development).
-    const key = JSON.stringify([q, status, page, attempt]);
+    const key = JSON.stringify([q, status, flag, page, attempt]);
     if (lastKey.current === key) return;
     lastKey.current = key;
     const token = readToken();
@@ -61,7 +63,7 @@ export default function AdminTouristVisaListPage() {
     setError(null);
     void (async () => {
       try {
-        const result = await touristVisaService.adminList(token, { q, status, page, pageSize: PAGE_SIZE });
+        const result = await touristVisaService.adminList(token, { q, status, flag, page, pageSize: PAGE_SIZE });
         if (run !== latest.current) return;
         setData(result);
       } catch (e) {
@@ -75,7 +77,7 @@ export default function AdminTouristVisaListPage() {
         if (run === latest.current) setLoading(false);
       }
     })();
-  }, [q, status, page, attempt, notOpen, dispatch]);
+  }, [q, status, flag, page, attempt, notOpen, dispatch]);
 
   const search = (event: React.FormEvent) => {
     event.preventDefault();
@@ -92,11 +94,12 @@ export default function AdminTouristVisaListPage() {
     setDraftQ("");
     setQ("");
     setStatus("");
+    setFlag("");
     setPage(1);
   };
 
   const pager = data ? pagerState(data.page, data.totalPages) : { hasPrevious: false, hasNext: false };
-  const filtered = q !== "" || status !== "";
+  const filtered = q !== "" || status !== "" || flag !== "";
 
   return (
     <div className="mx-auto w-full max-w-6xl px-2 py-4 sm:px-4 sm:py-6">
@@ -151,6 +154,27 @@ export default function AdminTouristVisaListPage() {
                 ))}
               </select>
             </div>
+            <div className="sm:w-52">
+              <label htmlFor="tv-admin-flag" className="mb-1 block text-sm font-medium text-foreground">
+                Flag
+              </label>
+              <select
+                id="tv-admin-flag"
+                value={flag}
+                onChange={(event) => {
+                  setFlag(event.target.value as AdminFlag | "");
+                  setPage(1);
+                }}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">All flags</option>
+                {ADMIN_FLAGS.map((value) => (
+                  <option key={value} value={value}>
+                    {flagLabel(value)}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="flex gap-2">
               <Button type="submit" className="flex-1 sm:flex-none">
                 Search
@@ -184,7 +208,7 @@ export default function AdminTouristVisaListPage() {
               <Skeleton className="h-16 w-full rounded-lg" />
             </div>
           ) : data && data.applications.length === 0 ? (
-            <div className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">{emptyListText(q, status)}</div>
+            <div className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">{emptyListText(q, status || flag)}</div>
           ) : data ? (
             <div className={loading ? "opacity-60 transition-opacity" : "transition-opacity"} aria-busy={loading}>
               {/* Wide screens: a table. */}
@@ -212,6 +236,11 @@ export default function AdminTouristVisaListPage() {
                         <td className="px-4 py-3">
                           <p className="truncate font-medium text-foreground">{item.name || "No name"}</p>
                           <p className="truncate text-xs text-muted-foreground">{item.email}</p>
+                          {item.flags.length > 0 && (
+                            <div className="mt-1">
+                              <AdminFlagChips flags={item.flags} />
+                            </div>
+                          )}
                         </td>
                         <td className="truncate px-4 py-3 text-foreground">{item.phone}</td>
                         <td className="px-4 py-3 text-foreground">{formatWhen(item.submittedAt)}</td>
@@ -240,6 +269,11 @@ export default function AdminTouristVisaListPage() {
                         </div>
                         <AdminStatusBadge status={item.status} />
                       </div>
+                      {item.flags.length > 0 && (
+                        <div className="mt-2">
+                          <AdminFlagChips flags={item.flags} />
+                        </div>
+                      )}
                       <dl className="mt-3 space-y-1 text-sm">
                         <div className="flex items-center gap-2">
                           <dt className="sr-only">Phone</dt>

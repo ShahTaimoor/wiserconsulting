@@ -1,5 +1,6 @@
 /**
- * Tourist Visa admin service: the administrator's read-only view of submitted applications, plus the status.
+ * Tourist Visa admin service: the administrator's view of submitted applications, plus the status.
+ * (Correcting answers is touristVisaAdminEditService; notes, calls and flags are touristVisaAdminNotesService.)
  *
  * What it never does: show a draft, change an answer, return a link, a storage id or an encrypted value
  * except through the one document-link call, or write anything but ids, fixed action names and times to the
@@ -19,6 +20,7 @@ const engine = require("../shared/tourist-visa/engine");
 const { buildReview } = require("../shared/tourist-visa/view");
 const { summaryOf, telHref } = require("../utils/touristVisaSummary");
 const { AppError } = require("../middleware/errorHandler");
+const { FLAGS } = require("../models/TouristVisaAudit");
 const logger = require("../utils/logger");
 
 const STATUS_VALUES = ["submitted", "in_review", "completed"];
@@ -59,7 +61,7 @@ class TouristVisaAdminService {
   }
 
   /**
-   * The list: submitted and later applications only, newest first. Query: status, q (a reference, or part of a name
+   * The list: submitted and later applications only, newest first. Query: status, flag, q (a reference, or part of a name
    * or an email), page, pageSize. Each application shown is written to the audit log as seen in the list.
    */
   async list(adminId, query = {}) {
@@ -67,6 +69,8 @@ class TouristVisaAdminService {
     if (typeof q !== "string" || q.length > MAX_SEARCH_LENGTH) throw fail(400, "INVALID_QUERY", "The search text is not valid.");
     const status = query.status === undefined || query.status === "" ? undefined : query.status;
     if (status !== undefined && !STATUS_VALUES.includes(status)) throw fail(400, "INVALID_QUERY", "The status filter is not valid.");
+    const flag = query.flag === undefined || query.flag === "" ? undefined : query.flag;
+    if (flag !== undefined && !FLAGS.includes(flag)) throw fail(400, "INVALID_QUERY", "The flag filter is not valid.");
     const page = wholeNumber(query.page, 1);
     const pageSize = wholeNumber(query.pageSize, DEFAULT_PAGE_SIZE);
     if (page === null || page < 1 || pageSize === null || pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
@@ -74,7 +78,7 @@ class TouristVisaAdminService {
     }
 
     await this.fillMissingSummaries();
-    const { rows, total } = await this.repository.listForAdmin({ status, q, page, pageSize });
+    const { rows, total } = await this.repository.listForAdmin({ status, q, flag, page, pageSize });
 
     const at = this.now();
     await this.audit.append(rows.map((row) => ({ adminId, applicationId: row._id, action: "list_view", at })));
@@ -89,6 +93,7 @@ class TouristVisaAdminService {
         submittedAt: row.submittedAt || null,
         status: row.status,
         documentCount: row.documentCount,
+        flags: FLAGS.filter((f) => (row.adminFlags || []).includes(f)),
       })),
       page,
       pageSize,
@@ -105,7 +110,9 @@ class TouristVisaAdminService {
 
     const cfg = await this.applications.configOf(application);
     const files = (application.documents || []).map((doc) => ({ id: doc.id, slot: doc.slot, name: doc.name || doc.originalName, size: doc.bytes, type: doc.mime }));
-    const review = buildReview(cfg, application.answers || {}, files.map((f) => ({ slot: f.slot, name: f.name, size: f.size })), application.declarations || {});
+    // The rows the team has corrected carry a "corrected by our team" date, the same marker the applicant sees.
+    const corrections = await this.applications.correctionMarks(application, cfg);
+    const review = buildReview(cfg, application.answers || {}, files.map((f) => ({ slot: f.slot, name: f.name, size: f.size })), application.declarations || {}, corrections);
 
     const fileSlots = {};
     for (const question of engine.getFileQuestions(cfg)) fileSlots[question.id] = question.slot;
@@ -118,6 +125,10 @@ class TouristVisaAdminService {
         submittedAt: application.submittedAt || null,
         configVersion: application.configVersion,
         allowedMoves: this.allowedMoves(application.status),
+        // The number an edit must quote, whether answers can be corrected now, and the admin-only flags.
+        revision: application.revision || 0,
+        editable: application.status === "submitted" || application.status === "in_review",
+        flags: FLAGS.filter((f) => (application.adminFlags || []).includes(f)),
       },
       call: this.callBlock(application, review),
       review,

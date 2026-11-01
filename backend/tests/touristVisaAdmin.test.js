@@ -218,7 +218,7 @@ test('authorization: the role is read from the database, so an applicant whose t
   assert.equal((await adminGet(forged, '/applications')).status, 403);
 });
 
-test('there is no way to change or delete anything through the admin routes, and no way to touch the audit log', async () => {
+test('there is no way to change or delete a draft, a file, an audit row or the activity through the admin routes, and no extra route exists for the status or the answers', async () => {
   const app = await submitted();
   const admin = await makeAdmin();
   const doc = (await rawDoc(app.appId)).documents[0];
@@ -314,7 +314,7 @@ test('the list: one row per submitted application with the reference, name, emai
   const mine = applications.filter((a) => [first.appId, second.appId].includes(a.id));
   assert.deepEqual(mine.map((a) => a.id), [second.appId, first.appId], 'newest first');
   const row = mine[1];
-  assert.deepEqual(Object.keys(row).sort(), ['documentCount', 'email', 'id', 'name', 'phone', 'reference', 'status', 'submittedAt']);
+  assert.deepEqual(Object.keys(row).sort(), ['documentCount', 'email', 'flags', 'id', 'name', 'phone', 'reference', 'status', 'submittedAt']);
   assert.equal(row.reference, first.reference);
   assert.equal(row.name, 'Listone Firstperson');
   assert.equal(row.email, 'list.one@example.com');

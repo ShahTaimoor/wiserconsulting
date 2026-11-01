@@ -1,7 +1,11 @@
 import type { Review } from "../shared/tourist-visa/view.js";
+import type { TouristVisaConfig } from "../shared/tourist-visa/engine.js";
 
 /** The statuses an administrator sees. A draft is never one of them. */
 export type AdminStatus = "submitted" | "in_review" | "completed";
+
+/** The fixed words an administrator can flag an application with. Never shown to the applicant. */
+export type AdminFlag = "needs_call" | "called" | "awaiting_applicant" | "verified" | "concern";
 
 export interface AdminListItem {
   id: string;
@@ -12,6 +16,7 @@ export interface AdminListItem {
   submittedAt: string | null;
   status: AdminStatus;
   documentCount: number;
+  flags: AdminFlag[];
 }
 
 export interface AdminList {
@@ -25,6 +30,7 @@ export interface AdminList {
 export interface AdminListQuery {
   q?: string;
   status?: AdminStatus | "";
+  flag?: AdminFlag | "";
   page?: number;
   pageSize?: number;
 }
@@ -51,7 +57,19 @@ export interface AdminFile {
 }
 
 export interface AdminOverview {
-  application: { id: string; reference: string | null; status: AdminStatus; submittedAt: string | null; configVersion: string; allowedMoves: AdminStatus[] };
+  application: {
+    id: string;
+    reference: string | null;
+    status: AdminStatus;
+    submittedAt: string | null;
+    configVersion: string;
+    allowedMoves: AdminStatus[];
+    /** The number an edit must quote. It goes up by one with every correction. */
+    revision: number;
+    /** Answers can be corrected now (submitted or in review). */
+    editable: boolean;
+    flags: AdminFlag[];
+  };
   call: CallBlock;
   review: Review;
   documents: AdminFile[];
@@ -59,7 +77,18 @@ export interface AdminOverview {
   fileSlots: Record<string, string>;
 }
 
-export type AuditAction = "list_view" | "overview_view" | "document_link" | "status_change";
+export type AuditAction =
+  | "list_view"
+  | "overview_view"
+  | "document_link"
+  | "status_change"
+  | "edit_open"
+  | "changes_preview"
+  | "changes_apply"
+  | "changes_view"
+  | "notes_view"
+  | "notes_add"
+  | "flags_change";
 
 export interface ActivityRow {
   id: string;
@@ -68,4 +97,70 @@ export interface ActivityRow {
   admin: { id: string; name: string };
   fromStatus?: AdminStatus;
   toStatus?: AdminStatus;
+  fromFlags?: AdminFlag[];
+  toFlags?: AdminFlag[];
+}
+
+// ---------------------------------------------------------------------------
+// Correcting answers (step 8f)
+// ---------------------------------------------------------------------------
+
+/** What the Edit forms need: the config the application was submitted under, its decrypted answers and its revision. */
+export interface EditForm {
+  application: { id: string; reference: string | null; status: AdminStatus; revision: number; configVersion: string };
+  config: TouristVisaConfig;
+  answers: Record<string, unknown>;
+}
+
+/** One change as it is sent: a question (or, without `index`, a whole repeating group) and its new value; null clears. */
+export interface AnswerChange {
+  questionId: string;
+  index?: number;
+  value: unknown;
+}
+
+/** One line of a preview or of the history: where it is, what it is called, and the old and new value in words. */
+export interface ChangeLine {
+  sectionId: string;
+  sectionTitle: string;
+  questionId: string;
+  index?: number;
+  number: string | null;
+  label: string;
+  old?: string;
+  new?: string;
+}
+
+export interface ChangePreview {
+  dryRun: true;
+  revision: number;
+  sections: Array<{ id: string; title: string }>;
+  /** Answers that are set or cleared. */
+  changes: ChangeLine[];
+  /** Answers removed because the change hides them. */
+  removed: ChangeLine[];
+  /** Questions the change makes necessary, with what was supplied for them. */
+  required: ChangeLine[];
+}
+
+export interface ChangeRecordView {
+  id: string;
+  at: string;
+  admin: { id: string; name: string };
+  revisionBefore: number;
+  revisionAfter: number;
+  reason: string;
+  changes: Array<ChangeLine & { kind: "edited" | "pruned" | "structure" }>;
+}
+
+export type NoteKind = "note" | "call";
+export type CallOutcome = "reached" | "no_answer" | "wrong_number" | "call_back";
+
+export interface AdminNote {
+  id: string;
+  at: string;
+  kind: NoteKind;
+  text: string;
+  outcome?: CallOutcome;
+  admin: { id: string; name: string };
 }

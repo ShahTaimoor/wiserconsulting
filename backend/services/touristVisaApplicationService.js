@@ -6,11 +6,13 @@
 const crypto = require("crypto");
 const z = require("zod");
 const defaultRepository = require("../repositories/touristVisaApplicationRepository");
+const defaultChanges = require("../repositories/touristVisaChangeRepository");
 const engine = require("../shared/tourist-visa/engine");
 const { AppError } = require("../middleware/errorHandler");
 const { toDocumentView } = require("../utils/touristVisaDocumentView");
 const { buildReview } = require("../shared/tourist-visa/view");
 const { summaryOf } = require("../utils/touristVisaSummary");
+const { correctionsOf } = require("../utils/touristVisaChanges");
 const logger = require("../utils/logger");
 
 // A reference is "TV-" and eight characters from an alphabet without look-alikes (no 0, O, 1, I or L), so it can be
@@ -53,8 +55,9 @@ const toClient = (application) => ({
 const isPlainObject = (v) => Object.prototype.toString.call(v) === "[object Object]";
 
 class TouristVisaApplicationService {
-  constructor({ repository = defaultRepository, config = engine.config, now = () => new Date(), newReference = generateReference } = {}) {
+  constructor({ repository = defaultRepository, changes = defaultChanges, config = engine.config, now = () => new Date(), newReference = generateReference } = {}) {
     this.repository = repository;
+    this.changes = changes;
     this.config = config;
     this.now = now;
     this.newReference = newReference;
@@ -94,7 +97,19 @@ class TouristVisaApplicationService {
     if (!application) {
       throw new AppError("You have not started a Tourist Visa application yet.", 404);
     }
-    return this.present(application);
+    const view = this.present(application);
+    // Which answers the team corrected, and when (a date only: never the old value and never the reason).
+    if (application.status !== "draft") view.corrections = await this.correctionMarks(application, await this.configOf(application));
+    return view;
+  }
+
+  /**
+   * When the team corrected each answer of a submitted application, by correction key: { "q2_32": Date, "q4_8b[0]": Date }.
+   * Read from the change records without their values. Empty for a draft and for an application nobody corrected.
+   */
+  async correctionMarks(application, cfg) {
+    if (application.status === "draft") return {};
+    return correctionsOf(cfg, await this.changes.findCorrectionMarks(application._id));
   }
 
   /**
@@ -376,8 +391,9 @@ class TouristVisaApplicationService {
     const cfg = await this.configOf(application);
     const documents = view.documents.map((doc) => ({ slot: doc.slot, name: doc.name, size: doc.size }));
     const record = application.declarations && application.declarations.submit;
+    const corrections = await this.correctionMarks(application, cfg);
     return {
-      review: buildReview(cfg, view.answers, documents, application.declarations || {}),
+      review: buildReview(cfg, view.answers, documents, application.declarations || {}, corrections),
       status: application.status,
       reference: application.reference || null,
       submittedAt: application.submittedAt || null,

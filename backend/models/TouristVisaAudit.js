@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const appendOnly = require('./appendOnly');
 
 /**
  * The Tourist Visa audit log: who looked at or changed which application, and when.
@@ -8,11 +9,18 @@ const mongoose = require('mongoose');
  * no such operation. (This is the application's own guarantee. Someone with direct access to the database can
  * still change it, so the retention and the database permissions of this collection are for the security review.)
  *
- * A row holds only ids, a fixed action name, a time and, for a status change, the old and the new status.
- * NEVER an answer, a file name, a link or an IP address.
+ * A row holds only ids, a fixed action name, a time and, for a status change, the old and the new status, and for a
+ * flag change the old and the new list of flag names (fixed words, not sensitive).
+ * NEVER an answer, a note, a reason, a file name, a link or an IP address.
  */
 
-const ACTIONS = ['list_view', 'overview_view', 'document_link', 'status_change'];
+const ACTIONS = [
+    'list_view', 'overview_view', 'document_link', 'status_change',
+    // Step 8f: the admin edit, the notes and the flags
+    'edit_open', 'changes_preview', 'changes_apply', 'changes_view', 'notes_view', 'notes_add', 'flags_change',
+];
+// Fixed words an admin can put on an application. Never shown to the applicant.
+const FLAGS = ['needs_call', 'called', 'awaiting_applicant', 'verified', 'concern'];
 
 const auditSchema = new mongoose.Schema(
     {
@@ -25,6 +33,9 @@ const auditSchema = new mongoose.Schema(
         toStatus: { type: String, immutable: true },
         // document_link only: the id of the document (not its name, and never the link)
         documentId: { type: String, immutable: true },
+        // flags_change only: the flag names before and after
+        fromFlags: { type: [{ type: String, enum: FLAGS }], default: undefined, immutable: true },
+        toFlags: { type: [{ type: String, enum: FLAGS }], default: undefined, immutable: true },
     },
     { collection: 'touristvisaaudit', versionKey: false, minimize: false }
 );
@@ -33,24 +44,9 @@ auditSchema.index({ applicationId: 1, at: -1 });
 auditSchema.index({ adminId: 1, at: -1 });
 
 const REFUSED = 'The Tourist Visa audit log is append-only.';
-const refuse = function refuse() {
-    throw new Error(REFUSED);
-};
-
-// Every way the model has of changing or removing rows is refused.
-auditSchema.pre(
-    ['updateOne', 'updateMany', 'findOneAndUpdate', 'findOneAndReplace', 'replaceOne', 'deleteOne', 'deleteMany', 'findOneAndDelete'],
-    { document: true, query: true },
-    refuse
-);
-auditSchema.pre('save', function onSave() {
-    if (!this.isNew) throw new Error(REFUSED);
-});
-auditSchema.pre('bulkWrite', function onBulkWrite(next, ops) {
-    if (Array.isArray(ops) && ops.some((op) => !op || !op.insertOne)) throw new Error(REFUSED);
-    next();
-});
+auditSchema.plugin(appendOnly, REFUSED);
 
 module.exports = mongoose.model('TouristVisaAudit', auditSchema);
 module.exports.ACTIONS = ACTIONS;
+module.exports.FLAGS = FLAGS;
 module.exports.REFUSED = REFUSED;

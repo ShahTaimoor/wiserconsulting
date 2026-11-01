@@ -27,6 +27,8 @@ export interface ReviewRow {
   items?: string[];
   /** For a declaration tick: when it was given. */
   note?: string;
+  /** When the team corrected this answer, in words ("1 March 2027"). Never the old value and never the reason. */
+  correctedByTeam?: string;
   /** kind "files". */
   files?: ReviewFile[];
   /** kind "group": one numbered item per entry. */
@@ -59,8 +61,22 @@ export function buildReview(
   cfg: TouristVisaConfig,
   answers: Record<string, unknown> | undefined,
   documents?: Array<{ slot: string; name: string; size: number }>,
-  declarations?: Record<string, { acceptedAt?: Date | string } | undefined>
+  declarations?: Record<string, { acceptedAt?: Date | string } | undefined>,
+  /** Latest correction time by correction key (see correctionKey). */
+  corrections?: Record<string, Date | string | undefined>
 ): Review;
+
+/** The key a correction is stored under: the question id, or "<id>[<entry index>]" inside a repeating group's entry; a group as a whole uses its id. */
+export function correctionKey(questionId: string, index?: number | null): string;
+
+/** One stored value as the review shows it, or "Not answered". `entry` is the repeating-group entry when the question is inside one. */
+export function describeValue(
+  cfg: TouristVisaConfig,
+  question: import('./engine').Question,
+  value: unknown,
+  answers?: Record<string, unknown>,
+  entry?: Record<string, unknown> | null
+): string;
 
 export function formatDate(value: string): string;
 export function formatMonth(value: string): string;

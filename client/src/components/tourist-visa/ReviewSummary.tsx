@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FileText, Pencil } from "lucide-react";
+import { FileText, Pencil, PencilLine } from "lucide-react";
 import type { Review, ReviewRow } from "@/shared/tourist-visa/view";
 
 interface ReviewSummaryProps {
@@ -10,6 +10,21 @@ interface ReviewSummaryProps {
   editable: boolean;
   /** Draw the files of a file question in another way (the admin Overview adds an Open button to each). */
   renderFiles?: (row: ReviewRow) => React.ReactNode;
+  /** Put something in the header of each section instead of the applicant's Edit link (the admin Overview adds its Edit button). */
+  renderSectionAction?: (section: { id: string; title: string; filesOnly: boolean }) => React.ReactNode;
+}
+
+/** When the team corrected an answer: the date only. Never the old value and never the reason. */
+function CorrectedMark({ date }: { date: string }) {
+  return (
+    <span
+      className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-medium text-sky-900 ring-1 ring-inset ring-sky-600/30 dark:bg-sky-500/15 dark:text-sky-200 dark:ring-sky-400/30"
+      data-testid="corrected-by-team"
+    >
+      <PencilLine className="h-3 w-3 shrink-0" aria-hidden />
+      Corrected by our team on {date}
+    </span>
+  );
 }
 
 /** One answer: its number and question, and its value in words. A group shows its entries as numbered items. */
@@ -57,6 +72,11 @@ function RowView({ row, nested = false, renderFiles }: { row: ReviewRow; nested?
         <span className={row.empty ? "italic text-muted-foreground" : undefined}>{row.value}</span>
       )}
       {row.note && <span className="mt-1 block text-xs text-muted-foreground">{row.note}</span>}
+      {row.correctedByTeam && (
+        <span className="block">
+          <CorrectedMark date={row.correctedByTeam} />
+        </span>
+      )}
     </>
   );
 
@@ -76,7 +96,7 @@ function RowView({ row, nested = false, renderFiles }: { row: ReviewRow; nested?
  * answer in words, the files by name and size, and the Part 9 ticks as given. Read only. It never receives or shows a
  * link or a storage id, because the builder is never given one.
  */
-export function ReviewSummary({ review, editable, renderFiles }: ReviewSummaryProps) {
+export function ReviewSummary({ review, editable, renderFiles, renderSectionAction }: ReviewSummaryProps) {
   return (
     <div className="space-y-8">
       {review.parts.map((part) => (
@@ -92,7 +112,9 @@ export function ReviewSummary({ review, editable, renderFiles }: ReviewSummaryPr
                     <span className="mr-2 text-muted-foreground">{section.id}</span>
                     {section.title}
                   </h3>
-                  {editable && (
+                  {renderSectionAction ? (
+                    renderSectionAction({ id: section.id, title: section.title, filesOnly: section.filesOnly })
+                  ) : editable ? (
                     <Link
                       href={`/tourist-visa/${section.id}`}
                       aria-label={`Edit ${section.title}`}
@@ -101,7 +123,7 @@ export function ReviewSummary({ review, editable, renderFiles }: ReviewSummaryPr
                       <Pencil className="h-3.5 w-3.5" aria-hidden />
                       Edit
                     </Link>
-                  )}
+                  ) : null}
                 </header>
                 <dl className="divide-y divide-border">
                   {section.rows.map((row) => (
