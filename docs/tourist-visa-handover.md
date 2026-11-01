@@ -2,13 +2,13 @@
 
 For the engineer who will review and deploy this. It describes what is built, what is not, how to switch it on, what it needs on production, what it changed in existing files, and what still needs a decision.
 
-Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-spec.md](tourist-visa-form-spec.md). Config version at the time of writing: `0.12.0-draft`. This describes the state after step 8f: the applicant's whole journey is built (fill in the sections, upload the documents, review, submit; sections 2.1 and 2.2), and so is the admin side: a list, an Overview with the call details first, files by a 2-minute link, a status and an activity log (section 2.3), and the **correction of a submitted application's answers with a full audit trail, notes, a call log and flags** (section 2.4). The cover letter, the PDF, the entry points and everything after are still to build (section 14).
+Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-spec.md](tourist-visa-form-spec.md). Config version at the time of writing: `1.0.0` (the design was approved as final by the senior on 2026-11-01, section 10). This describes the state after step 8f: the applicant's whole journey is built (fill in the sections, upload the documents, review, submit; sections 2.1 and 2.2), and so is the admin side: a list, an Overview with the call details first, files by a 2-minute link, a status and an activity log (section 2.3), and the **correction of a submitted application's answers with a full audit trail, notes, a call log and flags** (section 2.4). The cover letter, the PDF, the entry points and everything after are still to build (section 14).
 
 ## 1. At a glance
 
 - A signed-in user fills in a UK visitor (tourist) visa application, one section at a time, and can leave and come back. Answers are saved on the server per section ("Save and continue").
-- It is **not ready to open to the public**. **No `tbc` item is left anywhere** (every real unknown has been turned into a default), but **22 of the 23 sections carry drafts**: 77 defaults we chose (73 questions and 4 repeating groups), each with a short note, that need senior review (section 10.8 lists them all), and the **wording of the final submit declaration** and of **the text shown after submitting** are drafts too. Only the passport section (3) is free of drafts. **The client opens the form only when no section has a `tbc` item and none has a draft**, so an unreviewed default cannot reach the public by accident. Until then the live site shows "The application isn't open yet".
-- **Two switches keep it closed** (section 4): the backend variable `TOURIST_VISA_ENABLED`, which is **off unless it is exactly `true`**, and the client's own gate. With the backend switch off, the whole API is inert: every request gets one fixed "closed" answer and nothing is read, stored or logged. **Production must keep both switches consistent.**
+- **The design is final.** The senior approved as final by the senior on **2026-11-01**: every question, option list, follow-up and rule, the four Part 9 ticks, the final submit declaration and the text shown after submitting. The `draft` markers and notes were removed from the config (version `1.0.0`, from `0.12.0-draft`) **without changing a word, option, rule or id**, and **no `tbc` is left**, so the release check now exits **0**. The choices that were drafts are kept in section 10 as the record of what was approved. A later change of wording comes from the senior as a question number or part; section 10.10 says how to make it.
+- **Two switches decide whether it is open** (section 4): the backend variable `TOURIST_VISA_ENABLED`, which is **off unless it is exactly `true`**, and the client's own gate (open when no section is held by a `tbc` or `draft` marker, or in a preview build). With the backend switch off, the whole API is inert: every request gets one fixed "closed" answer and nothing is read, stored or logged. **With the approved config the client gate opens by itself, so `TOURIST_VISA_ENABLED` is now the one switch that keeps production closed. Production must keep it off until the release (section 9.2).**
 - Nothing links to the form yet. It can only be reached by typing `/tourist-visa`.
 - It adds five new database collections (`touristvisaapplications`, `touristvisaconfigsnapshots`, `touristvisaaudit`, `touristvisachanges`, `touristvisanotes`) and does not change the data of any existing feature. The only existing collection it reads is `users`.
 
@@ -49,7 +49,7 @@ Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-
 
 **Documents (steps 8c-1 and 8c-2).** The passport copy and the proof of funds are uploaded through the server to private storage, from the documents page (section 10D). Details in section 2.1.
 
-**Preview markers.** In preview mode (section 4) a question or repeating group shows a **TBC** badge when it has a real unknown, and a **Draft options** badge when it carries a draft (an option list, follow-up questions or a rule we chose).
+**Preview markers.** In preview mode (section 4) a question or repeating group shows a **TBC** badge when it has a real unknown, and a **Draft options** badge when it carries a draft (an option list, follow-up questions or a rule we chose). **The approved config carries neither, so no badge appears today**; the markers still work and show again if a `tbc` or a `draft` is ever added to the config (section 10.10).
 
 **Tests.** See section 8.
 
@@ -81,7 +81,7 @@ The applicant is only ever sent `id`, `slot`, `name`, `size`, `type` and `upload
 
 **Error codes** (sent as `code` next to the usual `message`; the messages are fixed text, so nothing the caller sent comes back): `WRONG_TYPE` (415), `FILE_TOO_LARGE` (413), `FILE_EMPTY`, `FILE_REQUIRED`, `INVALID_SLOT`, `INVALID_UPLOAD` (400), `TOO_MANY_FILES`, `TOTAL_TOO_LARGE`, `DOCUMENTS_LOCKED` (409), `DOCUMENT_NOT_FOUND`, `APPLICATION_NOT_FOUND` (404), `TOO_MANY_UPLOADS` (429), `UPLOAD_FAILED` (502), `STORAGE_UNAVAILABLE` (503). `AppError` gained an optional `code` for this; responses of every other route are unchanged.
 
-**Section 10D, the page (step 8c-2).** Section 10D "Documents" is the last section of Part 10 and has two `FILE` questions, both drafts: **10.6 "Your passport or travel document"** (slot `passport`, up to 3 files; a clear scan or photo of the page with your photo and personal details) and **10.7 "Evidence of funds"** (slot `funds`, up to 10 files; documents showing money you can clearly access, for example recent bank statements). "Save and continue" on 10C goes to 10D; the dashboard lists it as the last row of Part 10. The page shows each slot with its guidance, the accepted types and limits (read from `GET .../documents`, never written in the client), the files uploaded so far (name, type, size, time), an Upload button per slot and a Remove button per file. One file goes up per request; the browser first checks type and size and says why in plain words, and the server (which looks at the real content) stays the authority: every code of section 2.1 has its own message. Removing a file asks first, in the site's own dialog. If the applicant tries to leave while a file is still uploading, the site's own "unsaved changes" dialog asks (the upload is cancelled if they leave). Results are announced in a live region and as toasts (fixed wording, never a file name), keyboard focus moves to the new file or back to the slot's Upload button, and the layout holds at 375 px in light and dark. No native alert, confirm or prompt is used, and the applicant never sees a link, a URL or a storage id.
+**Section 10D, the page (step 8c-2).** Section 10D "Documents" is the last section of Part 10 and has two `FILE` questions: **10.6 "Your passport or travel document"** (slot `passport`, up to 3 files; a clear scan or photo of the page with your photo and personal details) and **10.7 "Evidence of funds"** (slot `funds`, up to 10 files; documents showing money you can clearly access, for example recent bank statements). "Save and continue" on 10C goes to 10D; the dashboard lists it as the last row of Part 10. The page shows each slot with its guidance, the accepted types and limits (read from `GET .../documents`, never written in the client), the files uploaded so far (name, type, size, time), an Upload button per slot and a Remove button per file. One file goes up per request; the browser first checks type and size and says why in plain words, and the server (which looks at the real content) stays the authority: every code of section 2.1 has its own message. Removing a file asks first, in the site's own dialog. If the applicant tries to leave while a file is still uploading, the site's own "unsaved changes" dialog asks (the upload is cancelled if they leave). Results are announced in a live region and as toasts (fixed wording, never a file name), keyboard focus moves to the new file or back to the slot's Upload button, and the layout holds at 375 px in light and dark. No native alert, confirm or prompt is used, and the applicant never sees a link, a URL or a storage id.
 
 **The file question type.** `FILE` was already in the engine's type list; 8c-2 gave it its rules. A `FILE` question needs a `slot` (lower-case letters, one question per slot) and may have no options, rules, condition, group or encryption. It stores **nothing** in the answers: its id is not an answer key (a request that sends one is refused like any unknown key), pruning ignores it, and `required` means "at least one file before the application can be submitted". The engine gained `getFileQuestions`, `isFilesOnlySection`, `documentsStatus` and `documentsComplete` (all in `shared/tourist-visa/engine.js`, with types).
 
@@ -138,7 +138,7 @@ If anything fails, the answer is **422 `NOT_READY`** with `sections: [{ id, prob
 
 **Logging.** A submit writes one log line at most (in development only) with the application's id and nothing else; a refusal's response and the log carry section ids and counts only, never an answer, and a database error is turned into a plain 500 by the same log-safe handler as the other routes.
 
-**Draft wording.** The final declaration (`declarations.submit`) and the steps shown after submitting (`afterSubmit`) are our own plain words, kept in `questions.json`, both with a draft note: the release check lists them and the client form stays closed until the senior approves or replaces them. The release check also proves the review page can be built from the config.
+**Approved wording.** The final declaration (`declarations.submit`) and the steps shown after submitting (`afterSubmit`) are our own plain words, kept in `questions.json` and approved as final by the senior on **2026-11-01**. The draft notes were removed without touching the words, so **the wording hash of every Part 9 tick and of the final declaration is exactly what it was**: every tick and declaration already given stays valid (a test pins the five hashes, section 8). The release check also proves the review page can be built from the config.
 
 **Not built in this step:** the admin screens (built in 8e, section 2.3), withdrawing or reopening (8f, admin only), the cover letter (8g), the PDF (8h) and a confirmation email.
 
@@ -252,13 +252,13 @@ There is still **no route that updates or deletes** an audit row, a change recor
 
 ## 3. What is NOT built
 
-- **Part 10D, the documents** of the spec (the passport copy and the proof of funds). Part 9 and Part 10A to 10C are built as drafts (steps 8b-1 and 8b-2). Everything still to build is planned in order in section 14.
+- **Part 10D, the documents** of the spec (the passport copy and the proof of funds) is built (steps 8c-1 and 8c-2). Everything still to build is planned in order in section 14.
 - **Real Cloudinary has not been exercised.** The upload page and its backend are built (steps 8c-1 and 8c-2) and tested with a fake storage; the first real upload, signed download, expiry and delete are still to be checked by hand (section 14.4).
 - **Withdrawing or reopening** a submitted application for the applicant to edit (admin only, step 8f), **editing answers as an admin** (8f), the **cover letter** (8g), the **PDF export** in the printout's layout (8h) and a **confirmation email**. A submitted application is locked for the applicant for good.
 - **Entry points.** No link to `/tourist-visa` was added to the Footer, the Navbar or the Services pages (the Footer's existing "Tourist Visa" link points at `/services/tourist-visa`, which does not exist). Add links only once the form is ready to open.
-- **Senior review of the drafts.** Nothing is confirmed: all 77 drafts (section 10.8) and the wording of the final declaration and of the text shown after submitting still need a decision before release. No question is left open as a `tbc`.
+- **Senior review of the drafts: done.** The design was approved as final by the senior on **2026-11-01** (section 10). No `tbc` and no `draft` is left.
 - The **EEA help list** at 8.1 is a fixed list of 30 country codes in the config (27 EU states, Iceland, Liechtenstein and Norway). It is not maintained automatically: update it by hand if membership changes.
-- **Tying the server to the client's release gate.** The server switch is one all-or-nothing flag set by a person. It does not look at the open `tbc` items. If someone sets it to `true` while `tbc` items remain, the form still shows "not open yet" but the API accepts calls from a signed-in user. Keep the two consistent (section 4).
+- **Tying the server to the client's release gate.** The server switch is one all-or-nothing flag set by a person. It does not look at the config. **With the approved config the client gate is open by itself**, so the form is open to everyone as soon as `TOURIST_VISA_ENABLED=true` is set on the backend; there is no longer a second, client-side hold. Keep it off until the release (section 4, section 9).
 - **Key rotation** for the encryption key (section 5). Planned as its own step before any real applicant data is stored (section 14).
 - **Deleting or exporting** an applicant's data.
 
@@ -277,10 +277,11 @@ The form opens only when **both** of these say open.
 
 ### 4.2 Client gate (client build)
 
-- The form is **open** when no section is held, **or** when the build has `NEXT_PUBLIC_TOURIST_VISA_PREVIEW=true` (`client/src/utils/touristVisaChecklist.ts`). A section is **held** while it has an open `tbc` item (a real unknown) **or** a `draft` marker (a default awaiting senior review). Preview mode still shows everything for testing.
+- The form is **open** when no section is held, **or** when the build has `NEXT_PUBLIC_TOURIST_VISA_PREVIEW=true` (`client/src/utils/touristVisaChecklist.ts`). A section is **held** while it has an open `tbc` item (a real unknown) **or** a `draft` marker (a default awaiting senior review). **The approved config `1.0.0` holds nothing, so this gate is open without preview mode.** Preview mode still shows everything for testing, and the gate would close again if a `tbc` or `draft` were added.
 - **Off means unset or any value other than the exact text `true`.** Leave it unset in production.
 - It is a `NEXT_PUBLIC_` variable, so it is read **when the client is built**, not at run time. Changing it needs a rebuild and redeploy.
-- Preview mode also shows the TBC and Draft badges. Use it in development and on a private test deployment only.
+- Preview mode also shows the TBC and Draft badges (none appear with the approved config). Use it in development and on a private test deployment only.
+- Because the gate is open, a client build now shows the admin menu entry "Tourist Visa" and the dashboard's Start button whenever it is built; with the backend switch off every one of them still ends at the fixed "isn't open yet" answer, and nothing is stored.
 
 ### 4.3 What an applicant sees
 
@@ -291,13 +292,13 @@ Whichever side says closed, a signed-in applicant sees the **same message**, "Th
 | Backend `TOURIST_VISA_ENABLED` | Client build | Result |
 | --- | --- | --- |
 | unset or not `true` | anything | **Closed. The API is inert.** Applicants see "isn't open yet". **This is the production default.** |
-| `true` | no preview, `tbc` or draft items remain | The client says "isn't open yet", but the API is live. **Avoid in production**: a signed-in user could call the API directly and save answers. |
+| `true` | no preview, and a `tbc` or `draft` has been added to the config | The client says "isn't open yet", but the API is live. **Avoid in production**: a signed-in user could call the API directly and save answers. (Not the case with config `1.0.0`.) |
 | `true` | preview `true` | Open, with TBC and Draft badges. **Test builds only.** |
-| `true` | no preview, no `tbc` and no draft left | **Open. This is the public release.** |
+| `true` | no preview, no `tbc` and no draft left (**config `1.0.0`**) | **Open. This is the public release.** |
 
 **Production needs both switches to be consistent.** Keep the backend switch off until the client is ready to open too, and turn it on as the last step of a release (section 9.2). With the backend switch off, the earlier caveat that the API accepted saves while the client showed "not open yet" no longer applies: the API refuses everything.
 
-Important: **a draft keeps the client gate closed, exactly like a `tbc` item.** Nothing is ever confirmed silently: the form opens to the public only after someone has removed every `draft` line (and settled every `tbc`) in `shared/tourist-visa/questions.json`. The release check says the same thing: it exits 1 while anything is blocked by a `tbc`, 2 when nothing is blocked but drafts still need senior review, and **0 only when the client would open**. The declaration wording kept under `declarations` in the config (the final submit declaration) is a draft in the same way: it is listed by the release check and holds the form back until its `draft` line is removed. Run the check before every production deploy (section 8) and treat anything other than 0 as "do not release yet".
+Important: **a draft keeps the client gate closed, exactly like a `tbc` item.** Nothing is ever confirmed silently: the form opens to the public only after someone has removed every `draft` line (and settled every `tbc`) in `shared/tourist-visa/questions.json`. The release check says the same thing: it exits 1 while anything is blocked by a `tbc`, 2 when nothing is blocked but drafts still need senior review, and **0 only when the client would open**. The declaration wording kept under `declarations` in the config (the final submit declaration) is a draft in the same way: it is listed by the release check and holds the form back until its `draft` line is removed. Run the check before every production deploy (section 8) and treat anything other than 0 as "do not release yet". **Today the config carries neither, so the check exits 0 and the client gate is open; the backend switch is therefore the only thing keeping production closed.**
 
 ## 5. Environment variables for production
 
@@ -401,8 +402,8 @@ From the repository root:
 ```
 npm run sync:shared                  # after editing shared/tourist-visa/
 npm run check:shared                 # fails if the client or backend copy has drifted
-npm run test:shared                  # engine, config, review-builder and release-check tests (255)
-npm run check:tourist-visa-release   # open tbc items and draft lists; exit 1 blocked, 2 drafts only (expected today), 0 clear
+npm run test:shared                  # engine, config, review-builder and release-check tests (257)
+npm run check:tourist-visa-release   # open tbc items and draft lists; exit 1 blocked, 2 drafts only, 0 clear (0 today)
 ```
 
 Backend (needs no database and no `.env`; it starts an in-memory MongoDB, and the test files set `TOURIST_VISA_ENABLED` themselves, so your own `.env` does not matter):
@@ -418,7 +419,7 @@ Two test files cover the server switch: `touristVisaFeatureSwitch.test.js` (ever
 
 `touristVisaAdmin.test.js` covers the admin side (step 8e, 34 tests, fake storage, no network): the authorization matrix for every route (no token 401, a non-admin 403, an admin allowed, the closed feature gate 404 first), drafts never listed and never openable, search (reference, name, email, any case, the typed text escaped so regular-expression characters match only themselves, an object in the query refused or ignored), the status filter and paging, the one-time summary fill for applications submitted before the summary existed (and that it never overwrites), an Overview built from the snapshot even after the live config changed, decrypted values only for admins, exactly one audit row for each Overview view and one `list_view` row for each application shown, a file link that lasts 2 minutes with an audit row that holds the document id and no link, every valid and every invalid status move, a status changed behind the page's back, an audit failure returning no data (and undoing a status change), audit rows holding no value, no update or delete of an audit row through the model, `Cache-Control: no-store` on every answer, and that no answer, name, file name or link reaches an error response or a log line.
 
-`touristVisaChangesLogic.test.js` (24 tests, no database) covers the rules of a correction: every kind of request that is refused and its code, the reason lengths, the section validated as a whole, hidden answers pruned, follow-ups and whole sections that become required, a problem that was already there not being blamed on the change, repeating groups (add, remove, replace), the preview wording, the "corrected" marks and the review builder's use of them. `touristVisaAdminEdit.test.js` (43 tests, an in-memory **replica set**, fake storage, no network) covers the routes: the authorization matrix (no token 401, a non-admin 403, an admin allowed, the closed gate 404, a demoted admin refused at once), drafts invisible, the status gates, the revision (a stale one 409, two corrections at the same moment give exactly one winner), every part an admin cannot change, the snapshot config used when today's config differs, the dry run writing no data change and one value-free audit row, a failure in the record or the audit row rolling everything back, the summary refreshing for a name, an email or a phone, encrypted fields never plaintext at rest (answers, change records, reasons, notes), what an applicant's responses hold (only the date marker), the history, the form, the notes, the flags and their filter, append-only change records and notes, audit rows holding ids and fixed words only, and no value, reason or note in an error or a log line. `shared/tourist-visa/view.test.js` gained tests for the corrections input and `describeValue`. On the client, `touristVisaAdminEdit.test.mjs` (27 tests) covers the diff that turns edited sections into changes, the form helpers, the reason and note rules, the flags and outcomes, the plain words for every refusal, and the eight new service calls.
+`touristVisaConfigApproved.test.js` (4 tests, an in-memory replica set) covers the move to config `1.0.0` (step 8f+: the draft markers removed): the config has no draft marker and nothing held, the server switch is still exactly `true`, a draft saved under `0.12.0-draft` keeps its answers, statuses and Part 9 ticks (and their old hashes) and can still be submitted, and an application submitted under `0.12.0-draft` is still shown to the applicant, in the admin Overview and in the Edit form with its snapshot, and can still be corrected. In `shared/tourist-visa/engine.test.js` the tests that assumed drafts now prove the opposite (no marker, nothing held, the release check exits 0) and prove the mechanism still works on a config with one marker put back (a draft exits 2, a `tbc` exits 1, the client gate closes again), and one test pins the wording hash of the four ticks and of the final declaration. `touristVisaChangesLogic.test.js` (24 tests, no database) covers the rules of a correction: every kind of request that is refused and its code, the reason lengths, the section validated as a whole, hidden answers pruned, follow-ups and whole sections that become required, a problem that was already there not being blamed on the change, repeating groups (add, remove, replace), the preview wording, the "corrected" marks and the review builder's use of them. `touristVisaAdminEdit.test.js` (43 tests, an in-memory **replica set**, fake storage, no network) covers the routes: the authorization matrix (no token 401, a non-admin 403, an admin allowed, the closed gate 404, a demoted admin refused at once), drafts invisible, the status gates, the revision (a stale one 409, two corrections at the same moment give exactly one winner), every part an admin cannot change, the snapshot config used when today's config differs, the dry run writing no data change and one value-free audit row, a failure in the record or the audit row rolling everything back, the summary refreshing for a name, an email or a phone, encrypted fields never plaintext at rest (answers, change records, reasons, notes), what an applicant's responses hold (only the date marker), the history, the form, the notes, the flags and their filter, append-only change records and notes, audit rows holding ids and fixed words only, and no value, reason or note in an error or a log line. `shared/tourist-visa/view.test.js` gained tests for the corrections input and `describeValue`. On the client, `touristVisaAdminEdit.test.mjs` (27 tests) covers the diff that turns edited sections into changes, the form helpers, the reason and note rules, the flags and outcomes, the plain words for every refusal, and the eight new service calls.
 
 `touristVisaDocLinkScript.test.js` covers the developer tool (it refuses without confirmation, never prints a secret or an error message, and the link it prints expires 2 minutes after it is asked for). The 8c-2 additions to `touristVisaDocuments.test.js` cover the 10D status following the files (not started, in progress, saved, and back), the refusal to save 10D as a section, the resume point, a locked application keeping its files, and a test that fails if any production file could swap the storage for a fake. On the client, `touristVisaDocuments.test.mjs` covers the browser's check of a file (type, size, caps, in the server's order), the plain-words message for every code the server can send (and that none is missing), and the formatting; the checklist and service tests cover the 10D row and the three document calls.
 
@@ -446,7 +447,7 @@ npx eslint src/utils src/components/tourist-visa src/app/tourist-visa
 npx next build
 ```
 
-All of these were green at the time of writing (shared 255 tests, backend 407, client 249). The tests use made-up data only.
+All of these were green at the time of writing (shared 257 tests, backend 411, client 249). The tests use made-up data only.
 
 **Browser check of the admin pages (step 8e).** The same fake-storage method, against a throwaway database with a real submitted application (two files), 25 more submitted rows and a draft: a non-admin is sent away and the API says 403; the menu entry appears in preview mode and is absent when the form is closed; the list (20 a page, newest first, no drafts), search by reference, name and email in any case, special characters matching nothing without an error, the status filter, Clear, paging with focus moved to the results, and 375 px as cards with no sideways scroll in light and dark; the Overview (call block with the `tel:` link and Copy number, all sections, files by name and size, a jump list, no link or storage id anywhere in the page, exactly one Overview request and one view row); Open pointing a new tab at the link and writing a row with the document id only, and the blocked-tab fallback; the status dialog (Go back changes nothing and returns focus, then Start review, Mark as completed and Reopen for review, each with its audit row), a status changed behind the page; a draft and an unknown id giving "could not be found" with no row; the keyboard (the dialog keeps focus, Escape cancels) and labelled headings; `no-store` on the answers; audit rows with no value in them; and nothing sensitive in storage, the console or the address bar.
 
@@ -460,7 +461,7 @@ All of these were green at the time of writing (shared 255 tests, backend 407, c
 
 ### 9.1 Deploy with the switch OFF (the production default)
 
-From the repository root, check the branch first. The release check is expected to exit **2** at present (no `tbc` is left, but the drafts are not reviewed); that is what keeps the client closed too.
+From the repository root, check the branch first. The release check is expected to exit **0** (nothing is held), so the client gate is open in this build; **the deployment stays inert only because the backend switch is off.**
 
 ```
 git fetch && git checkout feature/tourist-visa-form && git pull
@@ -468,7 +469,7 @@ npm run check:shared
 npm run test:shared
 (cd backend && npm ci && npm test)            # keep 1 GB free on the temp drive
 (cd client  && npm ci && npm run test:unit && npx tsc --noEmit && npx next build)
-npm run check:tourist-visa-release            # expect exit 2
+npm run check:tourist-visa-release            # expect exit 0
 ```
 
 Then:
@@ -486,12 +487,12 @@ Then:
 
 ### 9.2 Turning it ON later
 
-1. Review every draft (section 10; no `tbc` is left): edit `shared/tourist-visa/questions.json`, run `npm run sync:shared`, update the tests, and remove each reviewed `draft` line. `npm run check:tourist-visa-release` must exit **0**. Exit 1 means something is still blocked and exit 2 means drafts are still unreviewed: either way the client stays closed, and you should not release.
+1. The design is approved (section 10) and `npm run check:tourist-visa-release` must exit **0**. If a later change added a `draft` or a `tbc`, exit 2 or 1 keeps the client closed and you should not release until it is removed.
 2. Add the entry-point links (Footer, Navbar, Services) as a separate change.
 3. Generate `FIELD_ENCRYPTION_KEY` if you have not (section 5), store it in the secret store and back it up. **Do not skip the backup.**
 4. In this order:
    1. Deploy the backend with the new config and the key set, **still without `TOURIST_VISA_ENABLED`**. The API is still closed.
-   2. Build and deploy the client **without** `NEXT_PUBLIC_TOURIST_VISA_PREVIEW`. Its own gate now opens (no `tbc` left), but while the server answers "closed" applicants still see "isn't open yet", so nothing is exposed.
+   2. Build and deploy the client **without** `NEXT_PUBLIC_TOURIST_VISA_PREVIEW`. Its own gate is open (nothing is held), but while the server answers "closed" applicants still see "isn't open yet", so nothing is exposed.
    3. **Set `TOURIST_VISA_ENABLED=true` on the backend and restart or redeploy it. This is the moment the form opens.**
 5. Smoke test with a throwaway account: start an application, save a section, and confirm in the database that the passport and ID numbers are stored as `enc:v1:...`. Look at the backend log for errors.
 6. **To close it again, instantly and for everyone:** unset `TOURIST_VISA_ENABLED` and restart or redeploy the backend. No client rebuild is needed. Saved data stays in the database.
@@ -500,13 +501,15 @@ Then:
 
 **Your own machine:** add the line `TOURIST_VISA_ENABLED=true` to `backend/.env`, and restart the backend. Without it your local backend answers "closed" to every Tourist Visa request.
 
-## 10. Draft options and defaults that need review
+## 10. The defaults we chose, approved as final
 
-### 10.1 Draft option lists
+**Approval.** The senior approved the design of the form as final on **2026-11-01** (recorded here on the senior's word, as given to the engineer who made the change). Everything in sections 10.1 to 10.9 below is therefore the record of what was approved. On approval the `draft` marker and its note were removed from every question, repeating group and declaration in `shared/tourist-visa/questions.json` (the sections and parts never carried one), including `declarations.submit` and `afterSubmit`, and the version went from `0.12.0-draft` to `1.0.0`. **No wording, option, rule or id changed**; a test compares the config with the old one minus the `draft` keys, and pins the wording hash of the four Part 9 ticks and of the final declaration (section 8). The `tbc` and `draft` mechanisms are still in the engine, the release check and the client gate, unused, so a future draft can hold the form closed again (section 10.10).
 
-These replaced the earlier `[TBC]` placeholders. They are modelled on the UK online visitor visa application and on the hints in the spec, but they have not been checked against the official form. Each carries a `draft` marker in the config and a "Draft options" badge in preview mode. To finalise one, edit its options in `shared/tourist-visa/questions.json`, delete its `draft` line, run `npm run sync:shared`, and update any test that names its values. The stored value is the first column in each list; the label is what the applicant sees.
+### 10.1 Option lists
 
-| Question | Label | Draft values |
+These replaced the earlier `[TBC]` placeholders. They are modelled on the UK online visitor visa application and on the hints in the spec, and were approved as final on 2026-11-01. To change one later, follow section 10.10. The stored value is the first column in each list; the label is what the applicant sees.
+
+| Question | Label | Values |
 | --- | --- | --- |
 | 1.1 | Main reason for the visit | tourism, family_friends, business, study, medical, transit, other |
 | 1.4 | Main reason for the holiday visit (shown for `tourism`) | holiday, event, shopping, cruise, other |
@@ -529,9 +532,9 @@ Values that other questions depend on: `tourism` (1.1) opens 1.4; `other` (2.28)
 
 2.35 is the only list that starts from the printout (telephone call and text message); the messaging-app choice is our addition.
 
-### 10.2 Drafted follow-ups in Parts 1 to 4 (step 7b)
+### 10.2 Follow-ups in Parts 1 to 4 (step 7b)
 
-These replaced the earlier `tbc` items and placeholder boxes. They are modelled on the UK online visitor visa application and on what a visa consultancy intake form asks, but they have not been checked against the official form. Each carries a `draft` marker with a short note in the config, a "Draft options" badge in preview mode, and is listed by the release check under "needs senior review". To sign one off, edit the questions if needed and delete its `draft` line. Follow-ups are required when shown unless marked optional.
+These replaced the earlier `tbc` items and placeholder boxes. They are modelled on the UK online visitor visa application and on what a visa consultancy intake form asks, and were approved as final on 2026-11-01 (no `draft` marker is left in the config). Follow-ups are required when shown unless marked optional.
 
 | Item | What the draft asks | Encrypted |
 | --- | --- | --- |
@@ -547,9 +550,9 @@ These replaced the earlier `tbc` items and placeholder boxes. They are modelled 
 | 4.8 parents | **New** Yes/No first: "Are you able to give details of your parents?" Yes opens 1 to 4 parents (was up to 20); No asks an optional reason (4.8g). | no |
 | 4.8f parent's nationality | No: previous nationality (required) and when it changed (optional). | no |
 
-### 10.3 Drafted follow-ups in Parts 5 and 6 (step 7c)
+### 10.3 Follow-ups in Parts 5 and 6 (step 7c)
 
-Same status as section 10.2: each is a `draft` with a short note in the config, listed by the release check, and never confirmed. No answer in Parts 5 and 6 is encrypted. New long-text questions are limited to 2,000 characters (the older long questions keep 5,000). Follow-ups are required when shown unless marked optional.
+Same status as section 10.2: approved as final on 2026-11-01. No answer in Parts 5 and 6 is encrypted. New long-text questions are limited to 2,000 characters (the older long questions keep 5,000). Follow-ups are required when shown unless marked optional.
 
 | Item | What the draft asks |
 | --- | --- |
@@ -562,9 +565,9 @@ Same status as section 10.2: each is a `draft` with a short note in the config, 
 | 6.7 stays | Unchanged: stays may not overlap; a gap between stays, or two stays meeting on one day, is accepted. |
 | 6.8 public funds | Yes opens up to 5 entries: type (housing benefit, universal credit, child benefit, council tax reduction, other) and when it started (month and year, not in the future) are required; when it stopped (month and year, on or after the start, not in the future) and the amount are optional. Replaces the old details box. |
 
-### 10.4 Drafted follow-ups in Parts 7 and 8 (step 7d)
+### 10.4 Follow-ups in Parts 7 and 8 (step 7d)
 
-These resolved the last open items. Same status as sections 10.2 and 10.3: each is a `draft` with a short note in the config, listed by the release check, and never confirmed. Dates are month and year. Follow-ups are required when shown unless marked optional. **Encrypted** fields are marked.
+These resolved the last open items. Same status as sections 10.2 and 10.3: approved as final on 2026-11-01. Dates are month and year. Follow-ups are required when shown unless marked optional. **Encrypted** fields are marked.
 
 | Item | What the draft asks | Encrypted |
 | --- | --- | --- |
@@ -577,18 +580,18 @@ These resolved the last open items. Same status as sections 10.2 and 10.3: each 
 
 **Why only the new fields are encrypted.** The three encrypted fields are all new, so no saved answer exists in plain text. No existing question was made encrypted (section 10.9).
 
-### 10.5 Drafted Part 9 and declaration wording (step 8b-1)
+### 10.5 Part 9 and declaration wording (step 8b-1)
 
-Same status as sections 10.2 to 10.4: every question has a short draft note in the config, is listed by the release check, and is never confirmed.
+Same status as sections 10.2 to 10.4: approved as final on 2026-11-01.
 
 | Item | What the draft asks | Encrypted |
 | --- | --- | --- |
 | 9.1 to 9.10 | Yes/No, all required, in three sections: 9A espionage, sabotage and war crimes (9.1, 9.2); 9B terrorism and extremism (9.3 to 9.7); 9C other conduct and character (9.8 to 9.10). A **Yes opens one required "Please give details" box** (up to 2,000 characters, 9.1a to 9.10a). | **yes** (answer and details) |
 | 9.11 to 9.14 | A tick the applicant must give, with its guidance shown above it. Each tick comes **before** the questions it covers (9.11 before 9.1, 9.12 before 9.2, 9.13 before 9.3 to 9.5, 9.14 before 9.6 and 9.7), so the guidance is read first; the printout puts the tick after the group, and moving it is a one-line change of order in the config. | no (the record of the tick is kept, see section 2) |
 
-**Where the declaration wording lives.** All the exact words are in `shared/tourist-visa/questions.json`, so the senior can approve or replace them in one place: the four ticks (the tick text is the question `label`, the guidance is its `help`) and the final submit declaration (`declarations.submit.text`, used by the review page in step 8d). They are our own plain words, not copied from the official guidance. To approve a piece of wording, edit it if needed and delete its `draft` line, then run `npm run sync:shared`. Changing the wording of a tick later makes applicants who ticked the old words tick again (section 2).
+**Where the declaration wording lives.** All the exact words are in `shared/tourist-visa/questions.json`, so the senior can change them in one place: the four ticks (the tick text is the question `label`, the guidance is its `help`) and the final submit declaration (`declarations.submit.text`, used by the review page in step 8d). They are our own plain words, not copied from the official guidance. To change a piece of wording later, follow section 10.10. Changing the wording of a tick makes applicants who ticked the old words tick again (section 2); the current wording hashes are pinned by a test, so such a change has to be made on purpose.
 
-Current draft wording (generated from the config at the time of writing; the config wins):
+The approved wording (generated from the config at the time of writing; the config wins):
 
 | No. | Tick | Guidance shown above it |
 | --- | --- | --- |
@@ -597,13 +600,13 @@ Current draft wording (generated from the config at the time of writing; the con
 | 9.13 | I have read the information above about terrorist activities, organisations and views. | Terrorism means using or threatening serious violence, or serious damage to property, to influence a government or frighten the public for a political, religious or ideological cause. Being involved includes planning, carrying out, helping, paying for or encouraging it. Supporting an organisation includes being a member, giving it money or other help, or speaking for it. The three questions below cover activities, organisations, and things you have said or published in any form, including online. |
 | 9.14 | I have read the information above about extremist organisations and views. | Extremism means holding or promoting views that reject basic values such as the rule of law, equal treatment of people and respect for other faiths and beliefs, including by encouraging hatred or violence against others. The two questions below cover organisations you have belonged to or supported, and views you have expressed in any form, including online. |
 
-**Text shown after submitting (draft, step 8d, `afterSubmit` in the config):** "Our team will review your application. We may call you on the telephone number you gave, to check your answers with you. Keep your reference number. You can quote it if you contact us. Your application can no longer be changed. If something needs correcting, tell us when we call or contact us." The senior approves or replaces it in the config, like the declaration.
+**Text shown after submitting (approved, step 8d, `afterSubmit` in the config):** "Our team will review your application. We may call you on the telephone number you gave, to check your answers with you. Keep your reference number. You can quote it if you contact us. Your application can no longer be changed. If something needs correcting, tell us when we call or contact us." Change it in the config like the declaration (section 10.10).
 
-**Final submit declaration (draft, step 8d):** I declare that the information I have given in this application is complete and true to the best of my knowledge. I understand that giving false or incomplete information may lead to my application being refused. I agree that Wiser Consulting may call me on the telephone number I gave, to check my answers.
+**Final submit declaration (approved, step 8d):** I declare that the information I have given in this application is complete and true to the best of my knowledge. I understand that giving false or incomplete information may lead to my application being refused. I agree that Wiser Consulting may call me on the telephone number I gave, to check my answers.
 
-### 10.6 Drafted Part 10A to 10D (steps 8b-2 and 8c-2)
+### 10.6 Part 10A to 10D (steps 8b-2 and 8c-2)
 
-Same status as sections 10.2 to 10.5: every question has a short draft note in the config, is listed by the release check, and is never confirmed. Part 10D (the documents, step 8c-2) is the last two rows of the table.
+Same status as sections 10.2 to 10.5: approved as final on 2026-11-01. Part 10D (the documents, step 8c-2) is the last two rows of the table.
 
 | Item | What the draft asks | Encrypted |
 | --- | --- | --- |
@@ -624,11 +627,11 @@ Same status as sections 10.2 to 10.5: every question has a short draft note in t
 
 ### 10.7 Open items (`tbc`)
 
-**None.** Every item that was a `tbc` is now a draft (sections 10.2 to 10.6). The release check exits 2 (drafts only), not 1.
+**None.** Every item that was a `tbc` became a default (sections 10.2 to 10.6) and the defaults were approved on 2026-11-01. The release check exits 0.
 
-### 10.8 Every draft at a glance
+### 10.8 Every default at a glance (the notes that were removed on approval)
 
-All 77 drafts (73 questions and 4 groups) in 22 sections, plus the declaration wording, with the note stored next to each in `shared/tourist-visa/questions.json`. The notes are the defaults. Deleting a note after review is what lets its section open. Generated from the config at the time of writing; if it differs from the config, the config wins.
+The 77 defaults (73 questions and 4 groups) in 22 sections, plus the declaration wording, with the note that was stored next to each in `shared/tourist-visa/questions.json` until it was removed on approval. **These notes are no longer in the config; they are kept here as the record of what was approved.** Generated from the config as it was before approval.
 
 | Section | Item | Default |
 | --- | --- | --- |
@@ -720,6 +723,23 @@ All 77 drafts (73 questions and 4 groups) in 22 sections, plus the declaration w
 - **2.1 to 2.35:** email 2.4 is pre-filled from the account email and can be edited; 2.21 and 2.22 are required whenever 2.18 is Yes; 2.27 is two boxes (years, months, months at most 11); an address needs line 1, town and country.
 - **Hidden sections and old answers:** a section that does not apply (4A) cannot be saved, and the server removes its answers when the gate closes.
 
+### 10.10 How to change a question later
+
+The senior sends a change as a **question number or a part** ("question 2.8: add Other to the list"). To make it:
+
+1. Edit **only `shared/tourist-visa/questions.json`**: a label, help text, option list, rule, follow-up or a new question. **Never change or reuse an `id`**: stored answers sit under it. To retire a question, hide it (a condition that is never met) or remove it, knowing its stored answers stay in the database untouched and are no longer shown (section 7).
+2. Run `npm run sync:shared` (copies to `client/src/shared` and `backend/shared`), then `npm run check:shared`.
+3. **Bump `version`** (it is recorded on every application as `configVersion`): `1.0.1` for wording or an extra option, `1.1.0` for a new or removed question or a new rule, `2.0.0` for a redesign. Nothing is migrated whatever the number: it tells people which questions an application was collected with.
+4. Run `npm run test:shared`, the backend tests and the client tests, and update the tests that name the changed values. The test "wording hashes: every Part 9 tick and the final declaration have exactly the hash they had..." pins the hash of the four ticks and of the final declaration: it fails if a tick or the declaration wording changes, so such a change is always deliberate (and applicants who ticked the old words will tick again).
+5. `npm run check:tourist-visa-release` must exit 0. **To hold a change back for review before release**, add a `draft` line with a short note (or a `tbc` line for a real unknown) to that question: the check then exits 2 (or 1), the client gate closes, and preview mode shows the badge, exactly as before. Remove the line when the change is approved.
+6. Deploy the backend and the client from the same commit (each carries its own copy of the config). **The release switches do not change**: `TOURIST_VISA_ENABLED` and the client gate are untouched by a config change.
+
+**What happens to applications already in the system:**
+
+- **Not yet submitted (drafts).** Every saved answer is kept. The server works out each section's status against the new config each time it reads the application: a saved section whose answers no longer pass shows **Needs review**; a new question shows as needing an answer; an answer to a question that no longer exists stays stored, untouched and hidden; an answer that is hidden only because its Yes/No was never answered is kept (section 2). A tick whose wording changed is shown unticked until it is given again. Submitting re-checks everything against the new config.
+- **Already submitted.** Never rewritten and never re-validated. Each is shown, to the applicant (review and read-only page), in the admin Overview and in the admin Edit forms, with **the config snapshot it was submitted under** (`configSha256`, section 2.2), so a later change to a label or an option never changes what was submitted. An admin's correction is validated against that same snapshot (section 2.4). Declarations already given keep their record and stay valid.
+- A test (`touristVisaConfigApproved.test.js`) shows both cases with the move from `0.12.0-draft` to `1.0.0`.
+
 ## 11. Not part of this feature, found while reviewing
 
 These are existing problems in the rest of the application. They were found while reading the code to build this feature, and **none of them was changed**. They are listed so they are not lost. The new Tourist Visa routes do not have these problems.
@@ -784,7 +804,7 @@ Planned, **not built**. The order below is the agreed order; step names are work
 
 | Step | What | Steps |
 | --- | --- | --- |
-| 8b | Parts 9 and 10 questions and declarations (drafts; sensitive answers encrypted; ACK declarations recorded with who, when and wording version). **8b-1 and 8b-2 are built**: 8b-1 added the engine features (`includes` condition, `exclusive` checklist option, `pattern` rule), Part 9 and the declaration records; 8b-2 added the `normalize` rule and Part 10A to 10C (10D, the documents, is the upload step 8c) | 2 |
+| 8b | Parts 9 and 10 questions and declarations (sensitive answers encrypted; ACK declarations recorded with who, when and wording version). **8b-1 and 8b-2 are built**: 8b-1 added the engine features (`includes` condition, `exclusive` checklist option, `pattern` rule), Part 9 and the declaration records; 8b-2 added the `normalize` rule and Part 10A to 10C (10D, the documents, is the upload step 8c) | 2 |
 | 8c | Document upload: passport and funds, private storage, expiring links (2 minutes). **8c-1 and 8c-2 are built**: the backend (4 MB per file, PDF/JPG/PNG only, passport up to 3 files, funds up to 10, 40 MB in total, Cloudinary private storage, the Vercel serverless assumption) and the upload page (section 10D, section 2.1). Still to do by hand: the check against real Cloudinary (section 14.4) | 2 |
 | 8d | Review page and submit (read-only view and lock after submit). **Built** (section 2.2): the shared review builder, the atomic submit with its checks, the reference and the config snapshot, the review and confirmation pages | 2 |
 | 8e | Admin list and Overview (call details first, view logging). **Built** (section 2.3): the list, the Overview with the call block, files by a 2-minute link, the status moves, the append-only audit log and the activity panel; read only | 2 |
@@ -797,7 +817,7 @@ Planned, **not built**. The order below is the agreed order; step names are work
 
 About 21 steps in all. Earlier drafts of this plan called the PDF export 8g, the entry points 8h and the security review 8i; the cover letter is new, so those three moved down one letter. The order of the other steps is unchanged.
 
-**Approved decisions** (all still drafts until the senior signs them off):
+**Approved decisions** (the design was approved as final by the senior on **2026-11-01**):
 
 - Uploads, links and PDF: see the rows 8c and 8h above. A document link lasts 2 minutes.
 - Part 9 and 10.1: one required details box per Yes (per ticked choice for 10.1); Part 9, 10.1, the 10.5 Yes/No and the National Insurance number are encrypted.
