@@ -1,5 +1,5 @@
 {
-  "version": "0.12.0-draft",
+  "version": "1.0.0",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
@@ -45,8 +45,7 @@
   ],
   "declarations": {
     "submit": {
-      "text": "I declare that the information I have given in this application is complete and true to the best of my knowledge. I understand that giving false or incomplete information may lead to my application being refused. I agree that Wiser Consulting may call me on the telephone number I gave, to check my answers.",
-      "draft": "Draft wording in our own plain words for the final declaration on the review page (step 8d). The senior approves or replaces it here."
+      "text": "I declare that the information I have given in this application is complete and true to the best of my knowledge. I understand that giving false or incomplete information may lead to my application being refused. I agree that Wiser Consulting may call me on the telephone number I gave, to check my answers."
     }
   },
   "afterSubmit": {
@@ -55,8 +54,7 @@
       "We may call you on the telephone number you gave, to check your answers with you.",
       "Keep your reference number. You can quote it if you contact us.",
       "Your application can no longer be changed. If something needs correcting, tell us when we call or contact us."
-    ],
-    "draft": "Draft wording in our own plain words for what the applicant is told after submitting (step 8d). The senior approves or replaces it here."
+    ]
   },
   "groups": [
     {
@@ -65,8 +63,7 @@
       "entryLabel": "Other name",
       "gate": "q2_3",
       "max": 10,
-      "questions": ["q2_3a", "q2_3b", "q2_3c"],
-      "draft": "Draft: given names and family name, plus an optional reason (list: maiden name, married name, deed poll, nickname, other). Up to 10 names."
+      "questions": ["q2_3a", "q2_3b", "q2_3c"]
     },
     {
       "id": "dependants",
@@ -83,8 +80,7 @@
       "gate": "q4_8",
       "min": 1,
       "max": 4,
-      "questions": ["q4_8a", "q4_8b", "q4_8c", "q4_8d", "q4_8e", "q4_8f", "q4_8h", "q4_8i"],
-      "draft": "Draft: a Yes/No first (4.8, can you give your parents' details?). Yes opens up to 4 parents, at least 1; No asks an optional reason (4.8g)."
+      "questions": ["q4_8a", "q4_8b", "q4_8c", "q4_8d", "q4_8e", "q4_8f", "q4_8h", "q4_8i"]
     },
     {
       "id": "accommodation",
@@ -93,8 +89,7 @@
       "gate": "q6_7",
       "max": 20,
       "questions": ["q6_7a", "q6_7b", "q6_7c", "q6_7d"],
-      "noOverlap": { "start": "q6_7c", "end": "q6_7d" },
-      "draft": "Draft: stays may not overlap, but a gap between two stays, or two stays that meet on the same day, is accepted (the spec proposes that the next stay starts when this one ends)."
+      "noOverlap": { "start": "q6_7c", "end": "q6_7d" }
     },
     {
       "id": "companions",
@@ -150,8 +145,7 @@
       "entryLabel": "Visa",
       "gate": "q7_1",
       "max": 10,
-      "questions": ["q7_2a", "q7_2b", "q7_2c"],
-      "draft": "Draft: Yes opens up to 10 visas: date applied (month and year, within 10 years) and type of visa (list) are required; the visa reference is optional and stored encrypted."
+      "questions": ["q7_2a", "q7_2b", "q7_2c"]
     },
     {
       "id": "ukLeaveApplications",
@@ -211,8 +205,7 @@
         { "value": "medical", "label": "Medical treatment" },
         { "value": "transit", "label": "Passing through the UK on the way to another country" },
         { "value": "other", "label": "Another reason" }
-      ],
-      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review. The value 'tourism' is the one that opens 1.4."
+      ]
     },
     {
       "id": "q1_2",
@@ -220,8 +213,7 @@
       "section": "1",
       "label": "Will you be travelling to the UK as part of an organised group?",
       "type": "YN",
-      "required": true,
-      "draft": "Draft: Yes asks for the name of the group or organiser (required) and the kind of group (optional list: tour, school or college, religious, sports or cultural, business, other)."
+      "required": true
     },
     {
       "id": "q1_2a",
@@ -255,8 +247,7 @@
       "section": "1",
       "label": "Will you be travelling to the UK with someone who is not your partner, spouse or dependant?",
       "type": "YN",
-      "required": true,
-      "draft": "Draft: Yes opens up to 10 companions: relationship (list), given names, family name, date of birth (optional) and nationality (optional). No passport numbers are asked."
+      "required": true
     },
     {
       "id": "q1_3a",
@@ -324,8 +315,7 @@
         { "value": "shopping", "label": "A shopping trip" },
         { "value": "cruise", "label": "Joining or leaving a cruise" },
         { "value": "other", "label": "Another leisure reason" }
-      ],
-      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review."
+      ]
     },
     {
       "id": "q1_5",
@@ -434,8 +424,7 @@
         { "value": "family_or_friend", "label": "A family member or friend" },
         { "value": "representative", "label": "A representative or agent helping me apply" },
         { "value": "other", "label": "Someone else" }
-      ],
-      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review."
+      ]
     },
     {
       "id": "q2_6",
@@ -452,8 +441,7 @@
       "label": "Additional email address",
       "type": "EML",
       "required": true,
-      "showWhen": { "q": "q2_6", "eq": true },
-      "draft": "Draft: one additional email address, not several."
+      "showWhen": { "q": "q2_6", "eq": true }
     },
     {
       "id": "q2_8",
@@ -468,8 +456,7 @@
         { "value": "family_or_friend", "label": "A family member or friend" },
         { "value": "representative", "label": "A representative or agent helping me apply" },
         { "value": "other", "label": "Someone else" }
-      ],
-      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review."
+      ]
     },
     {
       "id": "q2_9",
@@ -510,8 +497,7 @@
         { "value": "female", "label": "Female" },
         { "value": "male", "label": "Male" },
         { "value": "other", "label": "Another term shown in my passport, for example X" }
-      ],
-      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review."
+      ]
     },
     {
       "id": "q2_13",
@@ -529,7 +515,6 @@
         { "value": "divorced", "label": "Divorced or civil partnership dissolved" },
         { "value": "widowed", "label": "Widowed" }
       ],
-      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review. Draft mapping: married, civil_partnership and unmarried_partner show section 4A; single, separated, divorced and widowed do not.",
       "note": "The answer decides whether the spouse or partner questions in Part 4 appear."
     },
     {
@@ -620,8 +605,7 @@
       "section": "2B",
       "label": "Do you currently hold, or have you ever held, any other nationality or citizenship?",
       "type": "YN",
-      "required": true,
-      "draft": "Draft: Yes opens up to 5 other nationalities: country, how it was acquired (list), whether it is still held, and when it ended (optional). No identity or passport numbers of another country are asked."
+      "required": true
     },
     {
       "id": "q2_23b",
@@ -718,8 +702,7 @@
         { "value": "with_family_or_friends", "label": "I live with family or friends" },
         { "value": "employer_provided", "label": "My employer provides my home" },
         { "value": "other", "label": "Other" }
-      ],
-      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review. The value 'other' is the one the printout links to 2.29."
+      ]
     },
     {
       "id": "q2_29",
@@ -728,8 +711,7 @@
       "label": "Give more details about your living situation, such as who you live with and who owns the property",
       "type": "LNG",
       "required": true,
-      "showWhen": { "q": "q2_28", "in": ["with_family_or_friends", "employer_provided", "other"] },
-      "draft": "Draft: shown when 2.28 is with_family_or_friends, employer_provided or other (the cases where ownership is unclear), and required when shown."
+      "showWhen": { "q": "q2_28", "in": ["with_family_or_friends", "employer_provided", "other"] }
     },
     {
       "id": "q2_30",
@@ -737,8 +719,7 @@
       "section": "2C",
       "label": "Do you have a UK driving licence?",
       "type": "YN",
-      "required": true,
-      "draft": "Draft: Yes asks for the licence number (optional, stored encrypted)."
+      "required": true
     },
     {
       "id": "q2_30a",
@@ -757,8 +738,7 @@
       "section": "2C",
       "label": "Have you ever been given medical treatment in the UK?",
       "type": "YN",
-      "required": true,
-      "draft": "Draft: Yes opens up to 5 treatments: when, what treatment (stored encrypted), where (optional), whether the costs were paid in full, and the amount still owing (optional, up to 100,000)."
+      "required": true
     },
     {
       "id": "q2_31a",
@@ -830,8 +810,7 @@
         { "value": "in_home_country", "label": "In my home country" },
         { "value": "in_uk", "label": "In the UK" },
         { "value": "in_other_country", "label": "In another country" }
-      ],
-      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review."
+      ]
     },
     {
       "id": "q2_34",
@@ -857,8 +836,7 @@
         { "value": "call", "label": "Telephone call" },
         { "value": "sms", "label": "Text message (SMS)" },
         { "value": "messaging_app", "label": "Messaging app, for example WhatsApp" }
-      ],
-      "draft": "Draft option list. The printout shows telephone call and text message (SMS); the messaging app choice is an addition. Needs senior review."
+      ]
     },
 
     {
@@ -906,8 +884,7 @@
       "label": "Given names",
       "type": "TXT",
       "required": true,
-      "showWhen": { "q": "q2_13", "in": ["married", "civil_partnership", "unmarried_partner"] },
-      "draft": "Draft: married, civil_partnership and unmarried_partner show section 4A (4.1 to 4.6); single, separated, divorced and widowed do not."
+      "showWhen": { "q": "q2_13", "in": ["married", "civil_partnership", "unmarried_partner"] }
     },
     {
       "id": "q4_2",
@@ -981,8 +958,7 @@
         { "value": "sibling", "label": "Brother or sister" },
         { "value": "other_relative", "label": "Other relative" },
         { "value": "other", "label": "Someone else who depends on me" }
-      ],
-      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review."
+      ]
     },
     {
       "id": "q4_7b",
@@ -1062,8 +1038,7 @@
         { "value": "stepmother", "label": "Stepmother" },
         { "value": "stepfather", "label": "Stepfather" },
         { "value": "guardian", "label": "Legal guardian" }
-      ],
-      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review."
+      ]
     },
     {
       "id": "q4_8b",
@@ -1109,8 +1084,7 @@
       "label": "Have they always had the same nationality?",
       "type": "YN",
       "required": true,
-      "group": "parents",
-      "draft": "Draft: No asks for the previous nationality (required) and when it changed (optional)."
+      "group": "parents"
     },
     {
       "id": "q4_8h",
@@ -1150,7 +1124,6 @@
         { "value": "unemployed", "label": "Not working" },
         { "value": "other", "label": "Other" }
       ],
-      "draft": "Draft: option list modelled on the UK online application. Only 'employed' shows 5.2 to 5.9. Self-employed asks the business name, start date, address, what it does and monthly income after tax (all required). Student asks the institution (required), its address and the course (optional). Retired asks when you retired and the monthly pension (both optional). Homemaker, not working and other ask who supports you financially (optional list), with a required description when that answer is 'other'.",
       "note": "The answer decides which of 5.2 to 5.9 appear."
     },
     {
@@ -1347,8 +1320,7 @@
       "type": "TXT",
       "required": false,
       "showWhen": { "q": "q5_1", "eq": "employed" },
-      "help": "Leave this blank if you have no previous employment to list.",
-      "draft": "Draft: an optional text box, so the organisation's name is kept and a blank answer means none."
+      "help": "Leave this blank if you have no previous employment to list."
     },
 
     {
@@ -1364,7 +1336,6 @@
         { "value": "savings_and_income", "label": "I have savings and another income" },
         { "value": "none", "label": "I have neither" }
       ],
-      "draft": "Draft: option list modelled on the UK online application; one choice, with a combined choice. 'savings' and 'savings_and_income' show 6.2. 'other_income' and 'savings_and_income' show an optional monthly other-income amount (6.1a).",
       "note": "6.2 shows when the answer includes savings."
     },
     {
@@ -1411,8 +1382,7 @@
       "section": "6A",
       "label": "Will anyone be paying towards the cost of your visit?",
       "type": "YN",
-      "required": true,
-      "draft": "Draft: Yes opens up to 5 payers: who is paying, name, relationship to you and the country they live in (required); the amount (optional, up to 1,000,000) and what it covers (optional tick boxes)."
+      "required": true
     },
     {
       "id": "q6_5b",
@@ -1498,8 +1468,7 @@
       "section": "6B",
       "label": "Do you have any family in the UK?",
       "type": "YN",
-      "required": true,
-      "draft": "Draft: Yes opens up to 10 relatives: relationship, given names, family name, nationality and immigration status in the UK (required); date of birth (optional)."
+      "required": true
     },
     {
       "id": "q6_6b",
@@ -1584,8 +1553,7 @@
       "section": "6C",
       "label": "Do you have an address for where you are going to stay in the UK?",
       "type": "YN",
-      "required": true,
-      "draft": "Draft: a No asks for your accommodation plans (list, required) and the area or city you expect to stay in (optional)."
+      "required": true
     },
     {
       "id": "q6_7x",
@@ -1657,8 +1625,7 @@
       "section": "6D",
       "label": "Have you received any public funds (money) in the UK?",
       "type": "YN",
-      "required": true,
-      "draft": "Draft: Yes opens up to 5 entries: type of public funds (list) and when it started (month and year) are required; when it stopped (month and year, on or after the start) and the amount are optional."
+      "required": true
     },
     {
       "id": "q6_8b",
@@ -1759,8 +1726,7 @@
       "section": "7",
       "label": "Have you applied for leave to remain in the UK in the past 10 years?",
       "type": "YN",
-      "required": true,
-      "draft": "Draft: Yes opens up to 5 applications: date applied (month and year, within 10 years), purpose (list) and outcome (list) are required; decision date (optional, on or after the date applied) and application reference number (optional, stored encrypted)."
+      "required": true
     },
     {
       "id": "q7_3b",
@@ -1843,7 +1809,6 @@
       "showWhen": { "q": "q7_4", "eq": true },
       "rules": { "min": 1, "max": 99 },
       "help": "Enter the real number of times. Only your 20 most recent visits are listed below: if you have been more than 20 times, give details of the latest 20.",
-      "draft": "Draft: the number can be 1 to 99, but only the 20 most recent visits are listed (when it is more than 20, exactly 20 are asked for).",
       "note": "Sets how many visit entries 7.5a to 7.5c appear."
     },
     {
@@ -1863,8 +1828,7 @@
         { "value": "medical", "label": "Medical treatment" },
         { "value": "transit", "label": "Passing through the UK on the way to another country" },
         { "value": "other", "label": "Another reason" }
-      ],
-      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review."
+      ]
     },
     {
       "id": "q7_5b",
@@ -1899,8 +1863,7 @@
         "breached the conditions of your leave, for example worked without permission or received public funds when you did not have permission",
         "given false information when applying for a visa, leave to enter, or leave to remain",
         "breached UK immigration law in any other way"
-      ],
-      "draft": "Draft: Yes opens up to 5 entries: which of the five items (list), when (month and year, no look-back) and details (up to 2,000 characters, stored encrypted), all required."
+      ]
     },
     {
       "id": "q7_6b",
@@ -1974,8 +1937,7 @@
         { "value": "removed", "label": "Removed" },
         { "value": "required_to_leave", "label": "Required to leave" },
         { "value": "excluded_or_banned", "label": "Excluded or banned from entry" }
-      ],
-      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review. The choices are the eight items listed under 7.7."
+      ]
     },
     {
       "id": "q7_7b",
@@ -2026,8 +1988,7 @@
         "summary": "Which countries are part of the European Economic Area (EEA)?",
         "countries": ["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE", "IS", "LI", "NO"]
       },
-      "help": "Give one combined number for all of these places. Enter 0 if you have not been to any.",
-      "draft": "Draft: a whole number from 0 to 1000; a count above 0 shows an optional tick list of which places (8.1a); the EEA help list (the 27 EU states plus Iceland, Liechtenstein and Norway) is an expandable note."
+      "help": "Give one combined number for all of these places. Enter 0 if you have not been to any."
     },
     {
       "id": "q8_1a",
@@ -2080,8 +2041,7 @@
         { "value": "medical", "label": "Medical treatment" },
         { "value": "transit", "label": "Passing through the UK on the way to another country" },
         { "value": "other", "label": "Another reason" }
-      ],
-      "draft": "Draft option list, modelled on the UK online visitor visa application. Needs senior review."
+      ]
     },
     {
       "id": "q8_2c",
@@ -2110,8 +2070,7 @@
       "label": "I have read the information above about espionage and sabotage.",
       "type": "ACK",
       "required": true,
-      "help": "Espionage means secretly collecting or passing on sensitive information to help another country or group, against the interests of the country it comes from. Sabotage means deliberately damaging or disrupting property, systems or services in order to harm a country or its people. The question below asks whether you have ever been involved in, suspected of, or convicted of either.",
-      "draft": "Draft: the tick and its guidance are our own plain wording, kept here for the senior to approve or replace. Changing the wording makes applicants tick again."
+      "help": "Espionage means secretly collecting or passing on sensitive information to help another country or group, against the interests of the country it comes from. Sabotage means deliberately damaging or disrupting property, systems or services in order to harm a country or its people. The question below asks whether you have ever been involved in, suspected of, or convicted of either."
     },
     {
       "id": "q9_1",
@@ -2120,8 +2079,7 @@
       "label": "Have you ever been involved in, suspected or convicted of sabotage or espionage?",
       "type": "YN",
       "required": true,
-      "sensitive": true,
-      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required details box."
+      "sensitive": true
     },
     {
       "id": "q9_1a",
@@ -2133,8 +2091,7 @@
       "showWhen": { "q": "q9_1", "eq": true },
       "rules": { "maxLen": 2000 },
       "sensitive": true,
-      "help": "Say what happened, when and where, as clearly as you can.",
-      "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
+      "help": "Say what happened, when and where, as clearly as you can."
     },
     {
       "id": "q9_12",
@@ -2143,8 +2100,7 @@
       "label": "I have read the information above about war crimes, crimes against humanity and genocide.",
       "type": "ACK",
       "required": true,
-      "help": "War crimes are serious breaches of the rules of war, such as deliberately attacking civilians or mistreating prisoners. Crimes against humanity are widespread or organised attacks on civilians, such as murder, torture or forcing people from their homes. Genocide is acting with the aim of destroying a national, ethnic, racial or religious group. The question below covers both peace time and war time.",
-      "draft": "Draft: the tick and its guidance are our own plain wording, kept here for the senior to approve or replace. Changing the wording makes applicants tick again."
+      "help": "War crimes are serious breaches of the rules of war, such as deliberately attacking civilians or mistreating prisoners. Crimes against humanity are widespread or organised attacks on civilians, such as murder, torture or forcing people from their homes. Genocide is acting with the aim of destroying a national, ethnic, racial or religious group. The question below covers both peace time and war time."
     },
     {
       "id": "q9_2",
@@ -2153,8 +2109,7 @@
       "label": "In either peace or war time have you ever been involved in, or suspected of involvement in, war crimes, crimes against humanity, or genocide?",
       "type": "YN",
       "required": true,
-      "sensitive": true,
-      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required details box."
+      "sensitive": true
     },
     {
       "id": "q9_2a",
@@ -2166,8 +2121,7 @@
       "showWhen": { "q": "q9_2", "eq": true },
       "rules": { "maxLen": 2000 },
       "sensitive": true,
-      "help": "Say what happened, when and where, as clearly as you can.",
-      "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
+      "help": "Say what happened, when and where, as clearly as you can."
     },
     {
       "id": "q9_13",
@@ -2176,8 +2130,7 @@
       "label": "I have read the information above about terrorist activities, organisations and views.",
       "type": "ACK",
       "required": true,
-      "help": "Terrorism means using or threatening serious violence, or serious damage to property, to influence a government or frighten the public for a political, religious or ideological cause. Being involved includes planning, carrying out, helping, paying for or encouraging it. Supporting an organisation includes being a member, giving it money or other help, or speaking for it. The three questions below cover activities, organisations, and things you have said or published in any form, including online.",
-      "draft": "Draft: the tick and its guidance are our own plain wording, kept here for the senior to approve or replace. Changing the wording makes applicants tick again."
+      "help": "Terrorism means using or threatening serious violence, or serious damage to property, to influence a government or frighten the public for a political, religious or ideological cause. Being involved includes planning, carrying out, helping, paying for or encouraging it. Supporting an organisation includes being a member, giving it money or other help, or speaking for it. The three questions below cover activities, organisations, and things you have said or published in any form, including online."
     },
     {
       "id": "q9_3",
@@ -2186,8 +2139,7 @@
       "label": "Have you ever been involved in, supported or encouraged terrorist activities in any country?",
       "type": "YN",
       "required": true,
-      "sensitive": true,
-      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required details box."
+      "sensitive": true
     },
     {
       "id": "q9_3a",
@@ -2199,8 +2151,7 @@
       "showWhen": { "q": "q9_3", "eq": true },
       "rules": { "maxLen": 2000 },
       "sensitive": true,
-      "help": "Say what happened, when and where, as clearly as you can.",
-      "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
+      "help": "Say what happened, when and where, as clearly as you can."
     },
     {
       "id": "q9_4",
@@ -2209,8 +2160,7 @@
       "label": "Have you ever been a member of, or given support to, an organisation which has been concerned in terrorism?",
       "type": "YN",
       "required": true,
-      "sensitive": true,
-      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required details box."
+      "sensitive": true
     },
     {
       "id": "q9_4a",
@@ -2222,8 +2172,7 @@
       "showWhen": { "q": "q9_4", "eq": true },
       "rules": { "maxLen": 2000 },
       "sensitive": true,
-      "help": "Say what happened, when and where, as clearly as you can.",
-      "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
+      "help": "Say what happened, when and where, as clearly as you can."
     },
     {
       "id": "q9_5",
@@ -2232,8 +2181,7 @@
       "label": "Have you, by any means or medium, expressed views that justify or glorify terrorist violence or that may encourage others to commit terrorist or other serious criminal acts?",
       "type": "YN",
       "required": true,
-      "sensitive": true,
-      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required details box."
+      "sensitive": true
     },
     {
       "id": "q9_5a",
@@ -2245,8 +2193,7 @@
       "showWhen": { "q": "q9_5", "eq": true },
       "rules": { "maxLen": 2000 },
       "sensitive": true,
-      "help": "Say what happened, when and where, as clearly as you can.",
-      "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
+      "help": "Say what happened, when and where, as clearly as you can."
     },
     {
       "id": "q9_14",
@@ -2255,8 +2202,7 @@
       "label": "I have read the information above about extremist organisations and views.",
       "type": "ACK",
       "required": true,
-      "help": "Extremism means holding or promoting views that reject basic values such as the rule of law, equal treatment of people and respect for other faiths and beliefs, including by encouraging hatred or violence against others. The two questions below cover organisations you have belonged to or supported, and views you have expressed in any form, including online.",
-      "draft": "Draft: the tick and its guidance are our own plain wording, kept here for the senior to approve or replace. Changing the wording makes applicants tick again."
+      "help": "Extremism means holding or promoting views that reject basic values such as the rule of law, equal treatment of people and respect for other faiths and beliefs, including by encouraging hatred or violence against others. The two questions below cover organisations you have belonged to or supported, and views you have expressed in any form, including online."
     },
     {
       "id": "q9_6",
@@ -2265,8 +2211,7 @@
       "label": "Have you ever been a member of, or given support to, an organisation which is or has been concerned with extremism?",
       "type": "YN",
       "required": true,
-      "sensitive": true,
-      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required details box."
+      "sensitive": true
     },
     {
       "id": "q9_6a",
@@ -2278,8 +2223,7 @@
       "showWhen": { "q": "q9_6", "eq": true },
       "rules": { "maxLen": 2000 },
       "sensitive": true,
-      "help": "Say what happened, when and where, as clearly as you can.",
-      "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
+      "help": "Say what happened, when and where, as clearly as you can."
     },
     {
       "id": "q9_7",
@@ -2288,8 +2232,7 @@
       "label": "Have you, by any means or medium, expressed any extremist views?",
       "type": "YN",
       "required": true,
-      "sensitive": true,
-      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required details box."
+      "sensitive": true
     },
     {
       "id": "q9_7a",
@@ -2301,8 +2244,7 @@
       "showWhen": { "q": "q9_7", "eq": true },
       "rules": { "maxLen": 2000 },
       "sensitive": true,
-      "help": "Say what happened, when and where, as clearly as you can.",
-      "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
+      "help": "Say what happened, when and where, as clearly as you can."
     },
     {
       "id": "q9_8",
@@ -2311,8 +2253,7 @@
       "label": "Have you, as a part of your employment or otherwise, undertaken paid or unpaid activity on behalf of a non-UK government which you know to be dangerous to the interests or national security of the UK or its allies?",
       "type": "YN",
       "required": true,
-      "sensitive": true,
-      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required details box."
+      "sensitive": true
     },
     {
       "id": "q9_8a",
@@ -2324,8 +2265,7 @@
       "showWhen": { "q": "q9_8", "eq": true },
       "rules": { "maxLen": 2000 },
       "sensitive": true,
-      "help": "Say what happened, when and where, as clearly as you can.",
-      "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
+      "help": "Say what happened, when and where, as clearly as you can."
     },
     {
       "id": "q9_9",
@@ -2334,8 +2274,7 @@
       "label": "Have you ever engaged in any other activities which might indicate that you may not be considered to be a person of good character?",
       "type": "YN",
       "required": true,
-      "sensitive": true,
-      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required details box."
+      "sensitive": true
     },
     {
       "id": "q9_9a",
@@ -2347,8 +2286,7 @@
       "showWhen": { "q": "q9_9", "eq": true },
       "rules": { "maxLen": 2000 },
       "sensitive": true,
-      "help": "Say what happened, when and where, as clearly as you can.",
-      "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
+      "help": "Say what happened, when and where, as clearly as you can."
     },
     {
       "id": "q9_10",
@@ -2357,8 +2295,7 @@
       "label": "Is there any other information about your character or behaviour which you would like to make us aware of?",
       "type": "YN",
       "required": true,
-      "sensitive": true,
-      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required details box."
+      "sensitive": true
     },
     {
       "id": "q9_10a",
@@ -2370,8 +2307,7 @@
       "showWhen": { "q": "q9_10", "eq": true },
       "rules": { "maxLen": 2000 },
       "sensitive": true,
-      "help": "Say what happened, when and where, as clearly as you can.",
-      "draft": "Draft: required details (up to 2,000 characters), stored encrypted."
+      "help": "Say what happened, when and where, as clearly as you can."
     },
     {
       "id": "q10_1",
@@ -2390,8 +2326,7 @@
         { "value": "none", "label": "None of these", "exclusive": true }
       ],
       "sensitive": true,
-      "help": "Tick every one that applies. If none of them applies to you, tick \"None of these\".",
-      "draft": "Draft: the six choices are from the printout; 'on bail' in the third choice was partly hidden on the printout and is our guess. 'None of these' cannot be ticked with the others. Each ticked choice opens its own required details box. The answer is stored encrypted."
+      "help": "Tick every one that applies. If none of them applies to you, tick \"None of these\"."
     },
     {
       "id": "q10_1a",
@@ -2403,8 +2338,7 @@
       "showWhen": { "q": "q10_1", "includes": "conviction" },
       "rules": { "maxLen": 2000 },
       "sensitive": true,
-      "help": "Say what happened, when and where, as clearly as you can.",
-      "draft": "Draft: required details (up to 2,000 characters) for this ticked choice, stored encrypted. Removed if the choice is unticked."
+      "help": "Say what happened, when and where, as clearly as you can."
     },
     {
       "id": "q10_1b",
@@ -2416,8 +2350,7 @@
       "showWhen": { "q": "q10_1", "includes": "driving" },
       "rules": { "maxLen": 2000 },
       "sensitive": true,
-      "help": "Say what happened, when and where, as clearly as you can.",
-      "draft": "Draft: required details (up to 2,000 characters) for this ticked choice, stored encrypted. Removed if the choice is unticked."
+      "help": "Say what happened, when and where, as clearly as you can."
     },
     {
       "id": "q10_1c",
@@ -2429,8 +2362,7 @@
       "showWhen": { "q": "q10_1", "includes": "arrest_charge" },
       "rules": { "maxLen": 2000 },
       "sensitive": true,
-      "help": "Say what happened, when and where, as clearly as you can.",
-      "draft": "Draft: required details (up to 2,000 characters) for this ticked choice, stored encrypted. Removed if the choice is unticked."
+      "help": "Say what happened, when and where, as clearly as you can."
     },
     {
       "id": "q10_1d",
@@ -2442,8 +2374,7 @@
       "showWhen": { "q": "q10_1", "includes": "out_of_court" },
       "rules": { "maxLen": 2000 },
       "sensitive": true,
-      "help": "Say what happened, when and where, as clearly as you can.",
-      "draft": "Draft: required details (up to 2,000 characters) for this ticked choice, stored encrypted. Removed if the choice is unticked."
+      "help": "Say what happened, when and where, as clearly as you can."
     },
     {
       "id": "q10_1e",
@@ -2455,8 +2386,7 @@
       "showWhen": { "q": "q10_1", "includes": "civil_judgment" },
       "rules": { "maxLen": 2000 },
       "sensitive": true,
-      "help": "Say what happened, when and where, as clearly as you can.",
-      "draft": "Draft: required details (up to 2,000 characters) for this ticked choice, stored encrypted. Removed if the choice is unticked."
+      "help": "Say what happened, when and where, as clearly as you can."
     },
     {
       "id": "q10_1f",
@@ -2468,8 +2398,7 @@
       "showWhen": { "q": "q10_1", "includes": "immigration_penalty" },
       "rules": { "maxLen": 2000 },
       "sensitive": true,
-      "help": "Say what happened, when and where, as clearly as you can.",
-      "draft": "Draft: required details (up to 2,000 characters) for this ticked choice, stored encrypted. Removed if the choice is unticked."
+      "help": "Say what happened, when and where, as clearly as you can."
     },
     {
       "id": "q10_2",
@@ -2478,8 +2407,7 @@
       "label": "If you needed to add more information about your application but were not able to, you can write it here. If there is no further information you want to add, click Save and continue.",
       "type": "LNG",
       "required": false,
-      "rules": { "maxLen": 2000 },
-      "draft": "Draft: optional, always shown, up to 2,000 characters. Not encrypted."
+      "rules": { "maxLen": 2000 }
     },
     {
       "id": "q10_3",
@@ -2488,8 +2416,7 @@
       "label": "Add further details",
       "type": "LNG",
       "required": false,
-      "rules": { "maxLen": 2000 },
-      "draft": "Draft: optional, always shown, up to 2,000 characters. It stands alone and does not depend on 10.2 (the printout does not say, so this is our choice). Not encrypted."
+      "rules": { "maxLen": 2000 }
     },
     {
       "id": "q10_4",
@@ -2510,8 +2437,7 @@
         { "value": "spanish", "label": "Spanish" },
         { "value": "french", "label": "French" },
         { "value": "other", "label": "Other" }
-      ],
-      "draft": "Draft option list (the printout does not give one). 'Other' opens a required box for the language. Needs senior review."
+      ]
     },
     {
       "id": "q10_4a",
@@ -2521,8 +2447,7 @@
       "type": "TXT",
       "required": true,
       "showWhen": { "q": "q10_4", "eq": "other" },
-      "rules": { "maxLen": 100 },
-      "draft": "Draft: required when 10.4 is Other, up to 100 characters."
+      "rules": { "maxLen": 100 }
     },
     {
       "id": "q10_5",
@@ -2531,8 +2456,7 @@
       "label": "Do you have a UK National Insurance number?",
       "type": "YN",
       "required": true,
-      "sensitive": true,
-      "draft": "Draft: the Yes/No answer is stored encrypted. A Yes opens a required box for the number."
+      "sensitive": true
     },
     {
       "id": "q10_5a",
@@ -2551,8 +2475,7 @@
         }
       },
       "sensitive": true,
-      "help": "Two letters, six numbers and a last letter A, B, C or D, for example AB 12 34 56 C. You can type it with or without spaces, in capitals or small letters.",
-      "draft": "Draft: required when 10.5 is Yes. Spaces and small letters are accepted; the number is stored in capitals with no spaces. The standard UK format is checked (including the letters never used at the start and the prefixes BG, GB, KN, NK, NT, TN and ZZ). Stored encrypted."
+      "help": "Two letters, six numbers and a last letter A, B, C or D, for example AB 12 34 56 C. You can type it with or without spaces, in capitals or small letters."
     },
     {
       "id": "q10_6",
@@ -2562,8 +2485,7 @@
       "type": "FILE",
       "slot": "passport",
       "required": true,
-      "help": "A clear scan or photo of the page with your photo and personal details. You can upload up to 3 files, for example if the page does not fit in one picture.",
-      "draft": "Draft: the guidance is our own wording. At least one file is needed before the application can be submitted (checked at submit, step 8d); a draft can be saved without it. Files are stored privately, up to 3, as PDF, JPG or PNG."
+      "help": "A clear scan or photo of the page with your photo and personal details. You can upload up to 3 files, for example if the page does not fit in one picture."
     },
     {
       "id": "q10_7",
@@ -2573,8 +2495,7 @@
       "type": "FILE",
       "slot": "funds",
       "required": true,
-      "help": "Documents that show money available to you which you can clearly access, for example recent bank statements. You can upload up to 10 files.",
-      "draft": "Draft: the guidance is our own wording. At least one file is needed before the application can be submitted (checked at submit, step 8d); a draft can be saved without it. Files are stored privately, up to 10, as PDF, JPG or PNG."
+      "help": "Documents that show money available to you which you can clearly access, for example recent bank statements. You can upload up to 10 files."
     }
   ]
 }

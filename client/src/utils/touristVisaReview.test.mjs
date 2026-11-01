@@ -79,9 +79,10 @@ test("submittedOnText writes the date out, or says only Submitted when there is 
   assert.equal(submittedOnText("not a date"), "Submitted");
 });
 
-test("the text shown after submitting is in the config as a draft, in plain steps", () => {
+test("the text shown after submitting is in the config, approved, in plain steps", () => {
   assert.ok(Array.isArray(config.afterSubmit.steps) && config.afterSubmit.steps.length >= 3);
-  assert.ok(config.afterSubmit.draft.length > 20);
+  assert.equal(config.afterSubmit.draft, undefined, "the wording is final");
+  assert.equal(config.declarations.submit.draft, undefined);
   assert.match(config.afterSubmit.steps.join(" "), /telephone number you gave/);
   assert.match(config.afterSubmit.steps.join(" "), /reference/);
 });

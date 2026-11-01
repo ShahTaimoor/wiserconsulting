@@ -13,7 +13,6 @@ import { isVisible, resolveOptions } from "@/shared/tourist-visa/engine";
 import type { Answers } from "@/shared/tourist-visa/engine";
 import { touristVisaService, TouristVisaApiError } from "@/services/touristVisaService";
 import type { ChangeLine, ChangePreview, EditForm } from "@/services/touristVisaAdminTypes";
-import { isPreviewMode } from "@/utils/touristVisaChecklist";
 import {
   appendEntry,
   applyAnswer,
@@ -100,7 +99,9 @@ function Diff({ line, showNew = true, oldLabel = "Was" }: { line: ChangeLine; sh
  * the site's own dialog, apply. The answers live only in this component's state: never in storage, the URL or the console.
  */
 export function AdminEditor({ applicationId, reference, startSectionId, readToken, fail, announce, onClose, onStale }: AdminEditorProps) {
-  const previewMode = isPreviewMode();
+  // The review markers (TBC, Draft options) are for people testing the applicant form: an administrator correcting a
+  // submitted application never sees them, even when the snapshot it was submitted under still carries an old note.
+  const previewMode = false;
   const [form, setForm] = useState<EditForm | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);

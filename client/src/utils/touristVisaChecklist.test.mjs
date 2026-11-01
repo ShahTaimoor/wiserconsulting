@@ -50,10 +50,10 @@ test("the form is open only with no blocked sections, or in preview mode", () =>
   assert.equal(isFormOpen(0, true), true);
 });
 
-test("with the current config the form is closed unless preview mode is on", () => {
+test("with the current, approved config nothing holds the form: it is open without preview mode, and preview mode changes nothing", () => {
   const held = countHeldSections(config);
-  assert.ok(held > 0, "the config still has open tbc items and drafts");
-  assert.equal(isFormOpen(held, false), false);
+  assert.equal(held, 0, "no open tbc item and no draft is left");
+  assert.equal(isFormOpen(held, false), true);
   assert.equal(isFormOpen(held, true), true);
 });
 const rows = (checklist) => checklist.parts.flatMap((p) => p.sections.map((s) => s.id));
@@ -103,11 +103,15 @@ const stripDrafts = (c) => {
   return c;
 };
 
-test("the form is closed while only drafts remain: a default nobody has signed off never reaches applicants", () => {
+test("the form is closed again while only drafts remain: a default nobody has signed off never reaches applicants", () => {
   const draftsOnly = stripTbc(clone(config));
+  assert.equal(countHeldSections(draftsOnly), 0, "the approved config has none");
+  draftsOnly.questions.find((q) => q.id === "q2_33").draft = "Draft: a default we chose.";
+  draftsOnly.questions.find((q) => q.id === "q5_1").draft = "Draft: another default we chose.";
   assert.equal(engine.getReleaseBlockers(draftsOnly).length, 0, "no tbc left, so nothing is 'blocked'");
-  assert.ok(countHeldSections(draftsOnly) > 0, "but the drafts still hold the sections");
+  assert.equal(countHeldSections(draftsOnly), 2, "but the drafts hold their sections");
   assert.equal(isFormOpen(countHeldSections(draftsOnly), false), false);
+  assert.equal(isFormOpen(countHeldSections(draftsOnly), true), true, "and preview mode still opens it for testing");
 });
 
 test("the form is closed while only tbc items remain", () => {
@@ -147,6 +151,8 @@ test("declaration wording that is still a draft holds the form closed even when 
 test("preview mode shows everything for testing, held or not", () => {
   assert.equal(isFormOpen(countHeldSections(config), true), true);
   assert.equal(isFormOpen(0, true), true);
+  assert.equal(isFormOpen(3, true), true);
+  assert.equal(isFormOpen(3, false), false);
 });
 
 test("countHeldSections counts sections, not items", () => {

@@ -12,6 +12,17 @@ const engine = require('./engine');
 const { config } = engine;
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
+
+/** A copy of the config with drafts put back on a question, a group and both wordings, for proving that the draft mechanism still works. */
+const withDrafts = () => {
+  const c = clone(config);
+  c.questions.find((q) => q.id === 'q2_33').draft = 'Draft: a default we chose for the telephone questions.';
+  c.questions.find((q) => q.id === 'q2_35').draft = 'Draft: a default we chose for how to be contacted.';
+  c.groups.find((g) => g.id === 'parents').draft = 'Draft: a default we chose for the parents group.';
+  c.declarations.submit.draft = 'Draft: wording awaiting approval.';
+  c.afterSubmit.draft = 'Draft: wording awaiting approval.';
+  return c;
+};
 const deepFreeze = (o) => {
   if (o && typeof o === 'object') {
     Object.values(o).forEach(deepFreeze);
@@ -132,34 +143,33 @@ test('config: no option is a [TBC] placeholder or a tbc_ value any more', () => 
   }
 });
 
-test('config: the drafts are exactly the defaults we chose, each with a note', () => {
-  const drafts = config.questions.filter((q) => q.draft);
-  assert.deepEqual(
-    drafts.map((q) => q.number),
-    ['1.1', '1.2', '1.3', '1.4', '2.5', '2.7', '2.8', '2.12', '2.13', '2.23', '2.28', '2.29', '2.30', '2.31', '2.33', '2.35', '4.1', '4.7a', '4.8a', '4.8f', '5.1', '5.9', '6.1', '6.5', '6.6', '6.7', '6.8', '7.3', '7.5', '7.5a', '7.6', '7.7a', '8.1', '8.2b',
-      '9.11', '9.1', '9.1a', '9.12', '9.2', '9.2a', '9.13', '9.3', '9.3a', '9.4', '9.4a', '9.5', '9.5a', '9.14', '9.6', '9.6a', '9.7', '9.7a', '9.8', '9.8a', '9.9', '9.9a', '9.10', '9.10a',
-      '10.1', '10.1a', '10.1b', '10.1c', '10.1d', '10.1e', '10.1f', '10.2', '10.3', '10.4', '10.4a', '10.5', '10.5a', '10.6', '10.7']
-  );
-  assert.deepEqual(config.groups.filter((g) => g.draft).map((g) => g.id), ['otherNames', 'parents', 'accommodation', 'ukVisas']);
-  for (const x of [...drafts, ...config.groups.filter((g) => g.draft)]) assert.ok(x.draft.length > 20, x.id);
+test('config 1.0.0: the design was approved as final, so no draft marker is left anywhere', () => {
+  assert.equal(config.version, '1.0.0');
+  assert.deepEqual(config.questions.filter((q) => q.draft).map((q) => q.number), []);
+  assert.deepEqual(config.groups.filter((g) => g.draft).map((g) => g.id), []);
+  assert.equal(config.declarations.submit.draft, undefined);
+  assert.equal(config.afterSubmit.draft, undefined);
+  assert.equal(JSON.stringify(config).includes('"draft"'), false, 'no draft key anywhere in the file');
+  assert.ok(config.declarations.submit.text.length > 100, 'the final declaration is still there');
+  assert.ok(config.afterSubmit.steps.length >= 2, 'and so is the text shown after submitting');
 });
 
-test('config: no tbc is left anywhere (Parts 1 to 8 hold drafts only)', () => {
+test('config: no tbc is left anywhere', () => {
   assert.deepEqual(config.questions.filter((q) => q.tbc).map((q) => q.number), []);
   assert.deepEqual(config.groups.filter((g) => g.tbc).map((g) => g.id), []);
   assert.deepEqual(engine.getReleaseBlockers(config), []);
 });
 
-test('draft items: getDraftItems lists them by section, and a draft alone leaves a section releasable but held', () => {
-  const items = engine.getDraftItems(config);
-  assert.equal(items.reduce((n, s) => n + s.items.length, 0), 77, '73 questions and 4 groups');
+test('draft items: nothing is a draft today, and a draft put back is listed by section and leaves its section releasable but held', () => {
+  assert.deepEqual(engine.getDraftItems(config), []);
+  for (const s of config.sections) assert.equal(engine.isSectionReleasable(config, s.id), true, s.id);
+  const c = withDrafts();
+  const items = engine.getDraftItems(c);
+  assert.deepEqual(items.map((s) => s.sectionId), ['2D', '4C']);
   assert.deepEqual(items.find((s) => s.sectionId === '2D').items.map((i) => i.number), ['2.33', '2.35']);
   assert.ok(items.every((s) => s.items.every((i) => i.draft && i.id && (i.number === null || typeof i.number === 'string'))));
-  for (const id of ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C', '10D']) {
-    assert.equal(engine.isSectionReleasable(config, id), true, `${id} has only drafts`);
-    assert.equal(items.some((s) => s.sectionId === id), true);
-  }
-  assert.deepEqual(items.find((s) => s.sectionId === '7').items.map((i) => i.number ?? i.id), ['ukVisas', '7.3', '7.5', '7.5a', '7.6', '7.7a']);
+  for (const id of ['2D', '4C']) assert.equal(engine.isSectionReleasable(c, id), true, `${id} has only drafts`);
+  assert.deepEqual(engine.getReleaseBlockers(c), []);
 });
 
 test('config: placeholder options are rejected', () => {
@@ -1619,42 +1629,21 @@ test('4.8f: a No asks for the previous nationality (required) and when it change
   assert.deepEqual(Object.keys(same.data.parents[0]).filter((k) => k === 'q4_8h' || k === 'q4_8i'), []);
 });
 
-test('drafts can sit on any question or group; getDraftItems lists groups too, with no number', () => {
-  const items = engine.getDraftItems(config);
-  const sectionOne = items.find((s) => s.sectionId === '1').items;
-  assert.deepEqual(sectionOne.map((i) => i.number), ['1.1', '1.2', '1.3', '1.4']);
-  const twoA = items.find((s) => s.sectionId === '2A').items;
-  assert.ok(twoA.some((i) => i.id === 'otherNames' && i.number === null), 'the other-names group is listed');
-  assert.ok(items.find((s) => s.sectionId === '4C').items.some((i) => i.id === 'parents' && i.number === null));
-  // A draft needs a note.
+test('drafts can still sit on any question or group; getDraftItems lists groups too, with no number', () => {
+  const items = engine.getDraftItems(withDrafts());
+  assert.ok(items.find((s) => s.sectionId === '4C').items.some((i) => i.id === 'parents' && i.number === null), 'the group is listed with no number');
   for (const s of items) for (const i of s.items) assert.ok(i.draft && i.draft.length > 20, i.id);
 });
 
-test('getHeldSections: a section is held while it has a tbc flag or a draft; nothing held means ready', () => {
-  const held = engine.getHeldSections(config);
-  assert.deepEqual(held.map((h) => h.sectionId), ['1', '2A', '2B', '2C', '2D', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C', '10D', 'declarations']);
-  assert.deepEqual(held.find((h) => h.sectionId === '3'), undefined, 'section 3 has neither');
+test('getHeldSections: nothing is held today; a section is held again by a tbc flag, a draft or draft wording', () => {
+  assert.deepEqual(engine.getHeldSections(config), []);
+  const held = engine.getHeldSections(withDrafts());
+  assert.deepEqual(held.map((h) => h.sectionId), ['2D', '4C', 'declarations']);
   assert.deepEqual(held.find((h) => h.sectionId === '2D'), { sectionId: '2D', tbc: 0, draft: 2 });
-  assert.deepEqual(held.find((h) => h.sectionId === '6B'), { sectionId: '6B', tbc: 0, draft: 1 });
-  assert.deepEqual(held.find((h) => h.sectionId === '5'), { sectionId: '5', tbc: 0, draft: 2 });
-  assert.deepEqual(held.find((h) => h.sectionId === '7'), { sectionId: '7', tbc: 0, draft: 6 });
-  assert.deepEqual(held.find((h) => h.sectionId === '8'), { sectionId: '8', tbc: 0, draft: 2 });
-  assert.deepEqual(held.find((h) => h.sectionId === '9A'), { sectionId: '9A', tbc: 0, draft: 6 });
-  assert.deepEqual(held.find((h) => h.sectionId === '9B'), { sectionId: '9B', tbc: 0, draft: 12 });
-  assert.deepEqual(held.find((h) => h.sectionId === '9C'), { sectionId: '9C', tbc: 0, draft: 6 });
-  assert.deepEqual(held.find((h) => h.sectionId === '10A'), { sectionId: '10A', tbc: 0, draft: 7 });
-  assert.deepEqual(held.find((h) => h.sectionId === '10B'), { sectionId: '10B', tbc: 0, draft: 2 });
-  assert.deepEqual(held.find((h) => h.sectionId === '10C'), { sectionId: '10C', tbc: 0, draft: 4 });
-  assert.deepEqual(held.find((h) => h.sectionId === '10D'), { sectionId: '10D', tbc: 0, draft: 2 });
-  assert.deepEqual(held.find((h) => h.sectionId === 'declarations'), { sectionId: 'declarations', tbc: 0, draft: 2 }, 'the submit declaration and the text after submitting are still drafts');
+  assert.deepEqual(held.find((h) => h.sectionId === '4C'), { sectionId: '4C', tbc: 0, draft: 1 });
+  assert.deepEqual(held.find((h) => h.sectionId === 'declarations'), { sectionId: 'declarations', tbc: 0, draft: 2 }, 'the submit declaration and the text after submitting');
 
   const c = clone(config);
-  for (const q of c.questions) { delete q.tbc; delete q.draft; }
-  for (const g of c.groups) { delete g.tbc; delete g.draft; }
-  for (const d of Object.values(c.declarations)) delete d.draft;
-  delete c.afterSubmit.draft;
-  assert.deepEqual(engine.getHeldSections(c), []);
-
   // A single draft on a group is enough to hold its section.
   c.groups.find((g) => g.id === 'parents').draft = 'Draft: test';
   assert.deepEqual(engine.getHeldSections(c), [{ sectionId: '4C', tbc: 0, draft: 1 }]);
@@ -1662,6 +1651,7 @@ test('getHeldSections: a section is held while it has a tbc flag or a draft; not
   c.groups.find((g) => g.id === 'parents').draft = undefined;
   c.questions.find((q) => q.id === 'q3_1').tbc = 'x';
   assert.deepEqual(engine.getHeldSections(c).map((h) => h.sectionId), ['3']);
+  assert.deepEqual(engine.getHeldSections(c)[0], { sectionId: '3', tbc: 1, draft: 0 });
 });
 
 test('config: validateConfig checks the draft marker on questions and groups', () => {
@@ -1943,14 +1933,11 @@ test('the old placeholder boxes 6.5a, 6.6a and 6.8a no longer exist, and nothing
   assert.deepEqual(removed, []);
 });
 
-test('Parts 5 and 6 carry drafts and no tbc; every draft says what the default is', () => {
+test('Parts 5 and 6 carry no tbc and nothing is held', () => {
   assert.deepEqual(config.questions.filter((q) => PART56.includes(q.section) && q.tbc), []);
   assert.deepEqual(config.groups.filter((g) => PART56.includes(g.section) && g.tbc), []);
-  const items = engine.getDraftItems(config).filter((s) => PART56.includes(s.sectionId));
-  assert.deepEqual(items.map((s) => [s.sectionId, s.items.map((i) => i.number || i.id)]), [
-    ['5', ['5.1', '5.9']], ['6A', ['6.1', '6.5']], ['6B', ['6.6']], ['6C', ['accommodation', '6.7']], ['6D', ['6.8']],
-  ]);
-  for (const s of items) for (const i of s.items) assert.match(i.draft, /^Draft/, i.id);
+  assert.deepEqual(engine.getDraftItems(config).filter((s) => PART56.includes(s.sectionId)), []);
+  assert.deepEqual(engine.getHeldSections(config).filter((h) => PART56.includes(h.sectionId)), []);
   for (const id of ['q5_1d', 'q5_1l']) assert.equal(config.questions.find((q) => q.id === id).rules.maxLen, 2000, id);
 });
 
@@ -2106,18 +2093,39 @@ test('part 9: a declaration tick must be ticked; an untouched or false tick stop
   }
 });
 
-test('part 9: the ticks carry their guidance, are our own wording and are drafts', () => {
+test('part 9: the ticks carry their guidance and are our own wording', () => {
   for (const id of ['q9_11', 'q9_12', 'q9_13', 'q9_14']) {
     const q = config.questions.find((x) => x.id === id);
     assert.equal(q.type, 'ACK', id);
     assert.equal(q.required, true, id);
     assert.ok(q.help && q.help.length > 150, `${id} has guidance`);
-    assert.ok(q.draft && q.draft.length > 20, `${id} is a draft`);
+    assert.equal(q.draft, undefined, `${id} is final`);
     assert.equal(q.sensitive, undefined, `${id}: the tick itself is not encrypted`);
   }
   // None of the wording is copied from the official guidance: it must not contain its stock phrases.
   const all = config.questions.filter((q) => q.section.startsWith('9')).map((q) => `${q.label} ${q.help || ''}`).join(' ');
   assert.ok(!/gov\.uk/i.test(all));
+});
+
+test('wording hashes: every Part 9 tick and the final declaration have exactly the hash they had before the draft markers were removed, so every tick and declaration already given stays valid', () => {
+  const crypto = require('node:crypto');
+  const BEFORE = {
+    q9_11: '1480306fdcedaaac124e2b576871a60958192bdc15dc6c685e9dddfb6e78ec0f',
+    q9_12: '5fc20121296e6cf35366239b3d946c5126c64dd84b363fde301b0ee9b5e3883a',
+    q9_13: '93de899ec95363f7d20408c1990e2d07400e4693c08f0e49d24fcd2338951bc3',
+    q9_14: '9195a0cbe850dbd753a163e23050ac9e16e9e35ca5632f22c3cc384f72720fbf',
+    'declarations.submit': 'ba987cf2b54255d648605386afb9a756f9f8a62dbbe0bbf4a68d045c30dc0e8a',
+  };
+  // The same way the server hashes the wording of a tick (touristVisaApplicationService.wordingHash).
+  const hashOf = (id) => crypto.createHash('sha256').update(engine.wordingOf(config, id), 'utf8').digest('hex');
+  for (const [id, hash] of Object.entries(BEFORE)) assert.equal(hashOf(id), hash, `${id}: the wording hash changed`);
+  // Every declaration tick in the config is pinned: a new or changed one must be added here on purpose.
+  assert.deepEqual(config.questions.filter((q) => q.type === 'ACK').map((q) => q.id), ['q9_11', 'q9_12', 'q9_13', 'q9_14']);
+  // The marker is not part of the wording: putting a draft note back (or removing it) never changes a hash.
+  const c = withDrafts();
+  c.questions.find((q) => q.id === 'q9_11').draft = 'Draft: a note that must not change the hash.';
+  assert.equal(crypto.createHash('sha256').update(engine.wordingOf(c, 'q9_11'), 'utf8').digest('hex'), BEFORE.q9_11);
+  assert.equal(crypto.createHash('sha256').update(engine.wordingOf(c, 'declarations.submit'), 'utf8').digest('hex'), BEFORE['declarations.submit']);
 });
 
 // One test per new gate: Yes needs details, details are kept with a Yes and removed with a No, on the server rules.
@@ -2158,7 +2166,6 @@ test('part 9: all new answers are sensitive and required; the details are long t
   for (const q of config.questions.filter((x) => x.section.startsWith('9') && x.type !== 'ACK')) {
     assert.equal(q.sensitive, true, `${q.number} is encrypted`);
     assert.equal(q.required, true, q.number);
-    assert.ok(q.draft, `${q.number} is a draft`);
     if (q.type === 'LNG') assert.equal(q.rules.maxLen, 2000, q.number);
   }
   assert.equal(config.questions.filter((x) => x.section.startsWith('9')).length, 24);
@@ -2190,17 +2197,21 @@ test('wordingOf: the tick text and its guidance, whitespace-normalised; it chang
   assert.equal(engine.wordingOf(d, 'q9_11').split('\n')[0], 'I have read it');
 });
 
-test('declarations: the submit wording is kept in the config, is a draft and holds the form back until approved', () => {
+test('declarations: the submit wording is kept in the config and is approved; a draft put back holds the form back again', () => {
   assert.ok(config.declarations.submit.text.length > 100);
-  assert.deepEqual(engine.getWordingDrafts(config).map((w) => w.id), ['declarations.submit', 'afterSubmit']);
+  assert.deepEqual(engine.getWordingDrafts(config), []);
+  assert.equal(engine.getHeldSections(config).some((h) => h.sectionId === 'declarations'), false);
   const c = clone(config);
+  c.declarations.submit.draft = 'Draft: wording awaiting approval.';
+  assert.deepEqual(engine.getWordingDrafts(c).map((w) => w.id), ['declarations.submit']);
+  assert.equal(engine.getHeldSections(c).some((h) => h.sectionId === 'declarations'), true);
+  c.afterSubmit.draft = 'Draft: wording awaiting approval.';
+  assert.deepEqual(engine.getWordingDrafts(c).map((w) => w.id), ['declarations.submit', 'afterSubmit']);
   delete c.declarations.submit.draft;
   assert.deepEqual(engine.getWordingDrafts(c).map((w) => w.id), ['afterSubmit'], 'the text after submitting holds it back on its own');
   assert.equal(engine.getHeldSections(c).some((h) => h.sectionId === 'declarations'), true);
   delete c.afterSubmit.draft;
   assert.deepEqual(engine.getWordingDrafts(c), []);
-  assert.equal(engine.getHeldSections(c).some((h) => h.sectionId === 'declarations'), false);
-  assert.equal(engine.getHeldSections(config).some((h) => h.sectionId === 'declarations'), true);
 });
 
 test('declarations: validateConfig checks the wording block and that every tick is required', () => {
@@ -2227,19 +2238,52 @@ test('declarations: validateConfig checks the wording block and that every tick 
 // Step 8b-1: the release check script
 // ---------------------------------------------------------------------------
 
-test('release check: exits 2 (drafts only), lists the Part 9 sections and the declaration wording awaiting approval', () => {
+test('release check: the approved config exits 0 and says everything is releasable', () => {
   const { spawnSync } = require('node:child_process');
   const script = path.join(__dirname, '..', '..', 'scripts', 'check-tourist-visa-release.js');
   const run = spawnSync(process.execPath, [script], { encoding: 'utf8' });
-  assert.equal(run.status, 2, run.stderr);
-  assert.match(run.stdout, new RegExp(`Tourist Visa config ${config.version.replace(/\./g, '\.')}`));
-  for (const id of ['9A', '9B', '9C', '10A', '10B', '10C', '10D']) assert.match(run.stdout, new RegExp(`section ${id}: .*NEEDS SENIOR REVIEW`), id);
-  assert.match(run.stdout, /23 sections: 0 blocked, 22 need senior review only, 1 clean\./);
-  assert.match(run.stderr, /Needs senior approval: wording that is not a question/);
-  assert.match(run.stderr, /declarations\.submit/);
-  assert.match(run.stderr, /afterSubmit/);
-  assert.match(run.stdout, /Submit: final declaration draft wording; text shown after submitting draft wording\./);
-  assert.match(run.stderr, /9\.11: Draft: the tick and its guidance are our own plain wording/);
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, new RegExp(`Tourist Visa config ${config.version.replace(/\./g, '\\.')}`));
+  assert.match(run.stdout, /Tourist Visa config 1\.0\.0/);
+  for (const id of ['1', '2A', '3', '9A', '9B', '9C', '10A', '10B', '10C', '10D']) assert.match(run.stdout, new RegExp(`section ${id}: .*: releasable`), id);
+  assert.doesNotMatch(run.stdout, /NEEDS SENIOR REVIEW|BLOCKED/);
+  assert.match(run.stdout, /23 sections: 0 blocked, 0 need senior review only, 23 clean\./);
+  assert.match(run.stdout, /Submit: final declaration approved wording; text shown after submitting approved wording\./);
+  assert.match(run.stdout, /All sections are releasable\./);
+  assert.equal(run.stderr, '', 'nothing is reported as open');
+});
+
+test('release check: one draft marker put back makes it exit 2 and name the item; one tbc makes it exit 1', () => {
+  const { spawnSync } = require('node:child_process');
+  const os = require('node:os');
+  const fs = require('node:fs');
+  const script = path.join(__dirname, '..', '..', 'scripts', 'check-tourist-visa-release.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tv-release-one-'));
+  try {
+    const runWith = (mutate) => {
+      const c = clone(config);
+      mutate(c);
+      const file = path.join(dir, 'questions.json');
+      fs.writeFileSync(file, JSON.stringify(c));
+      return spawnSync(process.execPath, [script, file], { encoding: 'utf8' });
+    };
+    const draft = runWith((c) => { c.questions.find((q) => q.id === 'q3_1').draft = 'Draft: one default we chose.'; });
+    assert.equal(draft.status, 2, 'one draft on one question');
+    assert.match(draft.stdout, /section 3: .*NEEDS SENIOR REVIEW \(1 draft\)/);
+    assert.match(draft.stdout, /23 sections: 0 blocked, 1 need senior review only, 22 clean\./);
+    assert.match(draft.stderr, /3\.1: Draft: one default we chose\./);
+    assert.equal(runWith((c) => { c.groups.find((g) => g.id === 'parents').draft = 'Draft: x.'; }).status, 2, 'one draft on a group');
+    assert.equal(runWith((c) => { c.declarations.submit.draft = 'Draft: x.'; }).status, 2, 'draft declaration wording');
+    assert.equal(runWith((c) => { c.afterSubmit.draft = 'Draft: x.'; }).status, 2, 'draft text after submitting');
+    const tbc = runWith((c) => { c.questions.find((q) => q.id === 'q3_1').tbc = 'A real unknown.'; });
+    assert.equal(tbc.status, 1, 'one tbc');
+    assert.match(tbc.stdout, /section 3: .*BLOCKED \(1 open tbc item\)/);
+    assert.match(tbc.stderr, /3\.1: A real unknown\./);
+    assert.equal(runWith((c) => { c.groups.find((g) => g.id === 'parents').tbc = 'x'; }).status, 1, 'a tbc on a group');
+    assert.equal(runWith(() => {}).status, 0, 'and the unchanged config is clear');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('release check: on a config file it exits 1 for a tbc, 2 for a draft or for wording alone, and 0 only when everything is clear', () => {
@@ -2251,10 +2295,6 @@ test('release check: on a config file it exits 1 for a tbc, 2 for a draft or for
   try {
     const exitFor = (mutate) => {
       const c = clone(config);
-      for (const q of c.questions) { delete q.tbc; delete q.draft; }
-      for (const g of c.groups) { delete g.tbc; delete g.draft; }
-      for (const d of Object.values(c.declarations)) delete d.draft;
-      delete c.afterSubmit.draft;
       mutate(c);
       const file = path.join(dir, 'questions.json');
       fs.writeFileSync(file, JSON.stringify(c));
@@ -2493,12 +2533,12 @@ test('10.5: No removes a stored number; Yes asks for it', () => {
   assert.deepEqual(engine.pruneAnswers(config, { q10_5a: 'AB123456C' }).removed, []);
 });
 
-test('part 10: the encrypted fields are exactly 10.1, its six boxes, 10.5 and the number; every new question is a draft', () => {
+test('part 10: the encrypted fields are exactly 10.1, its six boxes, 10.5 and the number', () => {
   const part10 = config.questions.filter((q) => ['10A', '10B', '10C'].includes(q.section));
   assert.equal(part10.length, 13);
   assert.deepEqual(part10.filter((q) => q.sensitive).map((q) => q.number), PART10_SENSITIVE);
   assert.deepEqual(part10.filter((q) => !q.sensitive).map((q) => q.number), ['10.2', '10.3', '10.4', '10.4a']);
-  for (const q of part10) assert.ok(q.draft && q.draft.length > 20, `${q.number} is a draft with a note`);
+  for (const q of part10) assert.equal(q.draft, undefined, `${q.number} is final`);
   for (const q of part10.filter((x) => x.type === 'LNG')) assert.equal(q.rules.maxLen, 2000, q.number);
   assert.equal(config.questions.filter((q) => q.sensitive).length, 36, '27 earlier fields and 9 new ones');
   // The only FILE questions are 10.6 and 10.7 (section 10D), and they store nothing.
@@ -2604,7 +2644,7 @@ test('section 10D: Part 10, always shown, two file questions in the passport and
   assert.equal(config.questions.find((q) => q.id === 'q10_6').label, 'Your passport or travel document');
   assert.equal(config.questions.find((q) => q.id === 'q10_7').label, 'Evidence of funds');
   for (const q of files) {
-    assert.ok(q.draft && q.draft.length > 20, `${q.number} is a draft with a note`);
+    assert.equal(q.draft, undefined, `${q.number} is final`);
     assert.equal(q.sensitive, undefined, `${q.number} stores no answer`);
   }
 });
