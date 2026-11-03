@@ -144,7 +144,7 @@ test('config: no option is a [TBC] placeholder or a tbc_ value any more', () => 
 });
 
 test('config 1.0.x: the design was approved as final, so no draft marker is left anywhere', () => {
-  assert.equal(config.version, '1.0.1');
+  assert.equal(config.version, '1.1.0');
   assert.doesNotMatch(config.version, /draft/);
   assert.deepEqual(config.questions.filter((q) => q.draft).map((q) => q.number), []);
   assert.deepEqual(config.groups.filter((g) => g.draft).map((g) => g.id), []);
@@ -2245,7 +2245,7 @@ test('release check: the approved config exits 0 and says everything is releasab
   const run = spawnSync(process.execPath, [script], { encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
   assert.match(run.stdout, new RegExp(`Tourist Visa config ${config.version.replace(/\./g, '\\.')}`));
-  assert.match(run.stdout, /Tourist Visa config 1\.0\.1/);
+  assert.match(run.stdout, /Tourist Visa config 1\.1\.0/);
   for (const id of ['1', '2A', '3', '9A', '9B', '9C', '10A', '10B', '10C', '10D']) assert.match(run.stdout, new RegExp(`section ${id}: .*: releasable`), id);
   assert.doesNotMatch(run.stdout, /NEEDS SENIOR REVIEW|BLOCKED/);
   assert.match(run.stdout, /23 sections: 0 blocked, 0 need senior review only, 23 clean\./);
@@ -2667,4 +2667,55 @@ test('section 10D: the guidance states the limits the backend enforces (3 passpo
   const files = engine.getFileQuestions(config);
   assert.deepEqual(files.map((q) => q.slot).sort(), Object.keys(SLOTS).sort(), 'the config and the backend know the same slots');
   for (const q of files) assert.ok(q.help.includes(`up to ${SLOTS[q.slot].max} files`), `${q.number}: ${q.help}`);
+});
+
+// ---------------------------------------------------------------------------
+// The currency helper flag (config 1.1.0)
+// ---------------------------------------------------------------------------
+
+test('currency helper: every money question carries the flag, inside repeating groups too, and nothing else does', () => {
+  const money = config.questions.filter((q) => q.type === 'AMT').map((q) => q.id);
+  assert.deepEqual(money, ['q2_31e', 'q5_1e', 'q5_1j', 'q5_7', 'q6_1a', 'q6_2', 'q6_3', 'q6_4', 'q6_5f', 'q6_8e']);
+  assert.deepEqual(config.questions.filter((q) => q.currencyHelper).map((q) => q.id), money);
+  assert.deepEqual(config.questions.filter((q) => q.type === 'AMT' && q.group).map((q) => [q.id, q.group, q.currencyHelper]), [['q2_31e', 'medicalTreatments', true], ['q6_5f', 'payers', true], ['q6_8e', 'publicFunds', true]]);
+  for (const q of config.questions) if (q.type !== 'AMT') assert.equal(q.currencyHelper, undefined, `${q.id} is not a money question`);
+  for (const q of config.questions.filter((x) => x.currencyHelper)) assert.ok(!q.rules || !q.rules.currencies || q.rules.currencies.includes('GBP'), `${q.id} accepts pounds`);
+});
+
+test('currency helper: validateConfig accepts it only on money questions, only true or false, and only where pounds are accepted', () => {
+  const cases = [
+    ['on a text question', (c) => { c.questions.find((q) => q.id === 'q2_1').currencyHelper = true; }, /currencyHelper is only for AMT/],
+    ['false on a text question', (c) => { c.questions.find((q) => q.id === 'q2_1').currencyHelper = false; }, /currencyHelper is only for AMT/],
+    ['on a number question', (c) => { c.questions.find((q) => q.id === 'q8_1').currencyHelper = true; }, /currencyHelper is only for AMT/],
+    ['on a yes or no question', (c) => { c.questions.find((q) => q.id === 'q2_3').currencyHelper = true; }, /currencyHelper is only for AMT/],
+    ['text instead of a boolean', (c) => { c.questions.find((q) => q.id === 'q6_3').currencyHelper = 'yes'; }, /currencyHelper must be true or false/],
+    ['a number instead of a boolean', (c) => { c.questions.find((q) => q.id === 'q6_3').currencyHelper = 1; }, /currencyHelper must be true or false/],
+    ['a money question that does not accept pounds', (c) => { c.questions.find((q) => q.id === 'q6_3').rules.currencies = ['USD']; }, /GBP must be an accepted currency/],
+  ];
+  for (const [name, mutate, pattern] of cases) {
+    const c = clone(config);
+    mutate(c);
+    assert.ok(engine.validateConfig(c).some((p) => pattern.test(p)), `${name}: got ${JSON.stringify(engine.validateConfig(c))}`);
+  }
+  // allowed: on or off for a money question, and a money question that lists pounds among others
+  const ok = clone(config);
+  ok.questions.find((q) => q.id === 'q6_3').currencyHelper = false;
+  ok.questions.find((q) => q.id === 'q6_4').rules.currencies = ['GBP', 'USD'];
+  assert.deepEqual(engine.validateConfig(ok), []);
+  assert.deepEqual(engine.validateConfig(config), []);
+});
+
+test('currency helper: the flag changes nothing about how an amount is validated or about any wording hash', () => {
+  const crypto = require('node:crypto');
+  const without = clone(config);
+  for (const q of without.questions) delete q.currencyHelper;
+  const hash = (cfg, id) => crypto.createHash('sha256').update(engine.wordingOf(cfg, id), 'utf8').digest('hex');
+  for (const id of ['q9_11', 'q9_12', 'q9_13', 'q9_14', 'declarations.submit', 'q6_3', 'q6_8e']) assert.equal(hash(config, id), hash(without, id), id);
+  const S6A = { q6_1: 'none', q6_3: { amount: 1500, currency: 'GBP' }, q6_4: { amount: 900, currency: 'GBP' }, q6_5: false };
+  for (const cfg of [config, without]) {
+    assert.equal(engine.validateSection(z, cfg, '6A', S6A, {}).success, true);
+    const tooMuch = engine.validateSection(z, cfg, '6A', { ...S6A, q6_3: { amount: 1000001, currency: 'GBP' } }, {});
+    assert.equal(tooMuch.success, false);
+    assert.ok(tooMuch.errors.q6_3 || Object.keys(tooMuch.errors).some((k) => k.startsWith('q6_3')));
+  }
 });

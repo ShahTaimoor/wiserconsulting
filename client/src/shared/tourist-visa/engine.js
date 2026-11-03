@@ -871,6 +871,12 @@ function validateConfig(cfg) {
     if (!TYPES.includes(q.type)) err(`${w}: unknown type ${q.type}`);
     if (typeof q.required !== 'boolean') err(`${w}: required must be true or false`);
     if (q.sensitive !== undefined && typeof q.sensitive !== 'boolean') err(`${w}: sensitive must be a boolean`);
+    // The currency helper (an inline "enter it in another currency" tool) belongs to money questions only, and fills in pounds.
+    if (q.currencyHelper !== undefined) {
+      if (typeof q.currencyHelper !== 'boolean') err(`${w}: currencyHelper must be true or false`);
+      else if (q.type !== 'AMT') err(`${w}: currencyHelper is only for AMT (money) questions`);
+      else if (q.currencyHelper && Array.isArray(q.rules && q.rules.currencies) && !q.rules.currencies.includes('GBP')) err(`${w}: currencyHelper fills in pounds, so GBP must be an accepted currency`);
+    }
     if (q.tbc !== undefined && (typeof q.tbc !== 'string' || !q.tbc)) err(`${w}: tbc must be a non-empty string`);
     if (q.draft !== undefined && (typeof q.draft !== 'string' || !q.draft.trim())) err(`${w}: draft must be a non-empty string`);
     if (Array.isArray(q.options)) {

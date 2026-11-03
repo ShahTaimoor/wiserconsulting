@@ -1,9 +1,12 @@
 "use client";
 
 import { Label } from "@/components/ui/label";
+import { config as liveConfig } from "@/shared/tourist-visa/engine";
 import type { Question, QuestionOption, TouristVisaConfig } from "@/shared/tourist-visa/engine";
+import { wantsCurrencyHelper } from "@/utils/touristVisaCurrency";
 import { helpCountryNames, hintFor } from "@/utils/touristVisaForm";
 import { FIELD_RENDERERS, GROUPED_TYPES, INLINE_LABEL_TYPES } from "./fields";
+import { CurrencyHelper } from "./CurrencyHelper";
 
 interface QuestionFieldProps {
   cfg: TouristVisaConfig;
@@ -20,6 +23,9 @@ interface QuestionFieldProps {
   /** Preview mode marks questions that still carry a tbc flag. */
   previewMode: boolean;
 }
+
+/** The questions today's config gives the currency helper; an older snapshot (admin Edit form) falls back to this. */
+const LIVE_HELPER_IDS: ReadonlySet<string> = new Set(liveConfig.questions.filter((q) => q.currencyHelper).map((q) => q.id));
 
 const badgeClass =
   "ml-2 inline-flex items-center rounded-full px-2 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset";
@@ -128,6 +134,9 @@ export function QuestionField({ cfg, question, idBase, value, onChange, options,
     />
   );
 
+  // Under a money question that asks for it: "Enter in another currency". It fills the field with whole pounds; nothing else is kept.
+  const helperNode = wantsCurrencyHelper(question, LIVE_HELPER_IDS) ? <CurrencyHelper idBase={idBase} onUse={(pounds) => onChange({ amount: pounds, currency: "GBP" })} /> : null;
+
   if (INLINE_LABEL_TYPES.has(question.type)) {
     // The guidance that goes with a declaration tick is shown above the tick, so it is read first.
     const guidance = question.type === "ACK" && hint;
@@ -163,6 +172,7 @@ export function QuestionField({ cfg, question, idBase, value, onChange, options,
         {countriesNode}
         {control}
         {errorNode}
+        {helperNode}
       </fieldset>
     );
   }
@@ -177,6 +187,7 @@ export function QuestionField({ cfg, question, idBase, value, onChange, options,
       {countriesNode}
       {control}
       {errorNode}
+      {helperNode}
     </div>
   );
 }

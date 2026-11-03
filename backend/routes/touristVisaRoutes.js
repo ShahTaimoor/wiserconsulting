@@ -11,6 +11,7 @@ const touristVisaDocumentController = require('../controllers/touristVisaDocumen
 const { isAuthorized, isAdmin } = require('../middleware/authMiddleware');
 const noStore = require('../middleware/noStore');
 const touristVisaAdminRoutes = require('./touristVisaAdminRoutes');
+const touristVisaRatesController = require('../controllers/touristVisaRatesController');
 const touristVisaErrorHandler = require('../middleware/touristVisaErrorHandler');
 const touristVisaFeatureGate = require('../middleware/touristVisaFeatureGate');
 const { isTouristVisaEnabled } = touristVisaFeatureGate;
@@ -34,6 +35,10 @@ router.use(isAuthorized);
 // The administrator's side: read only, plus the status. Anonymous is 401 (above), a signed-in user who is not an
 // administrator is 403 (the role is read from the database on every request).
 router.use('/admin', isAdmin, touristVisaAdminRoutes);
+
+// Exchange rates for the currency helper: any signed-in user, behind the feature gate and the general rate limiter.
+// It takes no input and sends nothing about the user to any provider (services/touristVisaRatesService.js).
+router.get('/rates', touristVisaRatesController.get);
 
 // Create a draft application (or return the existing one)
 router.post(

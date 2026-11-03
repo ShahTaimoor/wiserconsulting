@@ -113,7 +113,7 @@ async function oldSnapshot() {
 }
 
 test('the config is 1.0.x with no draft marker and nothing held, and the release switches are unchanged', () => {
-  assert.equal(engine.config.version, '1.0.1');
+  assert.equal(engine.config.version, '1.1.0');
   assert.equal(JSON.stringify(engine.config).includes('"draft"'), false);
   assert.deepEqual(engine.getHeldSections(engine.config), []);
   // The server switch is read from the environment, exactly true: nothing about it depends on the config.

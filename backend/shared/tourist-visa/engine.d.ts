@@ -86,6 +86,11 @@ export interface Question {
   helpCountries?: { summary: string; countries: string[] };
   /** Encrypt at rest (passport and ID numbers, Part 9, Part 10A). */
   sensitive?: boolean;
+  /**
+   * AMT (money) questions only: show the inline "Enter in another currency" tool under the field. It converts an amount in
+   * another currency to pounds and fills the field with whole pounds. Nothing from the tool is saved.
+   */
+  currencyHelper?: boolean;
   /** Pre-fill hint for the client only. */
   prefill?: 'account.email';
   help?: string;

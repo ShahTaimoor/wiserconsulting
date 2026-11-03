@@ -354,6 +354,16 @@ export const touristVisaService = {
     if (status < 200 || status >= 300) throw failure(status, json);
   },
 
+  /**
+   * The exchange rates for the currency helper (units of a currency per 1 GBP). Returns the route's `data` as it came; the
+   * caller checks it (readRatesAnswer) and treats any failure as "unavailable". Nothing about the user is sent but the sign-in token.
+   */
+  async getRates(token: string): Promise<unknown> {
+    const { status, json } = await request("/rates", "GET", token);
+    if (status < 200 || status >= 300) throw failure(status, json);
+    return json?.data;
+  },
+
   // -------------------------------------------------------------------------
   // The administrator's side (read only, plus the status). The server checks the role on every call.
   // -------------------------------------------------------------------------

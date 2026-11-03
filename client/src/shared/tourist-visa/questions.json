@@ -1,5 +1,5 @@
 {
-  "version": "1.0.1",
+  "version": "1.1.0",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
@@ -785,6 +785,7 @@
       "section": "2C",
       "label": "How much is still owing?",
       "type": "AMT",
+      "currencyHelper": true,
       "required": false,
       "group": "medicalTreatments",
       "showWhen": { "q": "q2_31d", "eq": false },
@@ -1170,6 +1171,7 @@
       "section": "5",
       "label": "How much do you earn each month from this business - after tax?",
       "type": "AMT",
+      "currencyHelper": true,
       "required": true,
       "showWhen": { "q": "q5_1", "eq": "self_employed" },
       "rules": { "max": 1000000 }
@@ -1217,6 +1219,7 @@
       "section": "5",
       "label": "How much pension do you receive each month?",
       "type": "AMT",
+      "currencyHelper": true,
       "required": false,
       "showWhen": { "q": "q5_1", "eq": "retired" },
       "rules": { "max": 1000000 }
@@ -1299,6 +1302,7 @@
       "section": "5",
       "label": "How much do you earn each month - after tax?",
       "type": "AMT",
+      "currencyHelper": true,
       "required": true,
       "showWhen": { "q": "q5_1", "eq": "employed" },
       "rules": { "max": 1000000 }
@@ -1344,6 +1348,7 @@
       "section": "6A",
       "label": "How much other income do you receive each month?",
       "type": "AMT",
+      "currencyHelper": true,
       "required": false,
       "showWhen": { "q": "q6_1", "in": ["other_income", "savings_and_income"] },
       "rules": { "max": 1000000 }
@@ -1354,6 +1359,7 @@
       "section": "6A",
       "label": "How much money do you have in savings?",
       "type": "AMT",
+      "currencyHelper": true,
       "required": true,
       "showWhen": { "q": "q6_1", "in": ["savings", "savings_and_income"] },
       "rules": { "max": 100000000 }
@@ -1364,6 +1370,7 @@
       "section": "6A",
       "label": "How much money are you personally planning to spend on your visit to the UK?",
       "type": "AMT",
+      "currencyHelper": true,
       "required": true,
       "rules": { "max": 1000000 }
     },
@@ -1373,6 +1380,7 @@
       "section": "6A",
       "label": "What is the total amount of money you spend each month?",
       "type": "AMT",
+      "currencyHelper": true,
       "required": true,
       "rules": { "max": 1000000 }
     },
@@ -1443,6 +1451,7 @@
       "section": "6A",
       "label": "How much will they pay?",
       "type": "AMT",
+      "currencyHelper": true,
       "required": false,
       "group": "payers",
       "rules": { "max": 1000000 }
@@ -1669,6 +1678,7 @@
       "section": "6D",
       "label": "How much did you receive?",
       "type": "AMT",
+      "currencyHelper": true,
       "required": false,
       "group": "publicFunds",
       "rules": { "max": 1000000 }
