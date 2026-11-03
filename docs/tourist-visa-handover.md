@@ -2,7 +2,7 @@
 
 For the engineer who will review and deploy this. It describes what is built, what is not, how to switch it on, what it needs on production, what it changed in existing files, and what still needs a decision.
 
-Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-spec.md](tourist-visa-form-spec.md). Config version at the time of writing: `1.1.0` (the design was approved as final by the senior on 2026-11-01, section 10; `1.1.0` only added the currency helper flag, section 2.5). This describes the state after step 8f and the currency helper (section 2.5): the applicant's whole journey is built (fill in the sections, upload the documents, review, submit; sections 2.1 and 2.2), and so is the admin side: a list, an Overview with the call details first, files by a 2-minute link, a status and an activity log (section 2.3), and the **correction of a submitted application's answers with a full audit trail, notes, a call log and flags** (section 2.4). The cover letter, the PDF, the entry points and everything after are still to build (section 14).
+Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-spec.md](tourist-visa-form-spec.md). Config version at the time of writing: `1.1.0` (the design was approved as final by the senior on 2026-11-01, section 10; `1.1.0` only added the currency helper flag, section 2.5). This describes the state after step 8f, the currency helper (section 2.5) and the AI-assisted cover letter for administrators (step 8g, section 2.6): the applicant's whole journey is built (fill in the sections, upload the documents, review, submit; sections 2.1 and 2.2), and so is the admin side: a list, an Overview with the call details first, files by a 2-minute link, a status and an activity log (section 2.3), and the **correction of a submitted application's answers with a full audit trail, notes, a call log and flags** (section 2.4). The PDF, the entry points and everything after are still to build (section 14).
 
 ## 1. At a glance
 
@@ -10,6 +10,7 @@ Branch: `feature/tourist-visa-form`. Question specification: [tourist-visa-form-
 - **The design is final.** The senior approved the design as final on **2026-11-01**: every question, option list, follow-up and rule, the four Part 9 ticks, the final submit declaration and the text shown after submitting. The `draft` markers and notes were removed from the config (version `1.0.0`, from `0.12.0-draft`) **without changing a word, option, rule or id**, and **no `tbc` is left**, so the release check exits **0**. Version `1.0.1` then reworded the config's `limits.note` to state the real limits and changed nothing else. Version `1.1.0` then added the optional `currencyHelper` flag to the ten money questions (section 2.5), again without changing a word, option, rule or id. The choices that were drafts are kept in section 10 as the record of what was approved. A later change of wording comes from the senior as a question number or part; section 10.10 says how to make it.
 - **The server's switch is the single source of truth** (section 4). The backend variable `TOURIST_VISA_ENABLED` is **off unless it is exactly `true`**; with it off the whole API is inert (every request gets one fixed "closed" answer and nothing is read, stored or logged) **except one public call, `GET /api/tourist-visa/status`, which answers `{ "open": false }`**. **The client asks that call and follows it**: while the server says closed, or the answer cannot be had, the Tourist Visa pages show "This application is not available yet", the admin menu has no Tourist Visa entry and the admin pages say the same, and no other Tourist Visa call is made. The client keeps its own config hold and its preview flag (section 4.2), but they can only close it further: a client build can never open a closed server. **Release and rollback are one switch on the backend (section 9).**
 - Nothing links to the form yet. It can only be reached by typing `/tourist-visa`.
+- **Administrators can have a cover letter written** (section 2.6), by an AI (Groq) from an allowlisted set of facts with no names or identifiers, or by a template when the AI is off or fails, then check, edit and approve it. It is admin only, off unless `AI_ENABLED` is `true`, and submitting an application never depends on it.
 - **Money questions have a currency helper** (section 2.5): "Enter in another currency" works out the pound amount from today's rate. It needs one new authenticated route, `GET /api/tourist-visa/rates`, which asks two outside exchange-rate providers for rates and sends them nothing about the applicant.
 - It adds five new database collections (`touristvisaapplications`, `touristvisaconfigsnapshots`, `touristvisaaudit`, `touristvisachanges`, `touristvisanotes`) and does not change the data of any existing feature. The only existing collection it reads is `users`.
 
@@ -280,11 +281,150 @@ A small inline tool under every money question, so an applicant who thinks in an
 
 **Browser check** (a throwaway database, a fake rates provider put into the rates service by a wrapper script outside the repository, no network): the applicant form and the admin Edit form of a submitted application, each at 375 px in light and dark: PKR first, the live line, Use this amount (the field, the closed helper, the focus, nothing extra stored), Enter and Escape, the stale notice, the helper hidden without any message when the providers fail, and one rates request per page load.
 
+### 2.6 The AI-assisted cover letter (step 8g)
+
+An administrator can have a cover letter written for a submitted application, check and edit it, and approve it. **Admin only**: the applicant never sees it, and there is no PDF yet (step 8h). The senior wants an AI, the administrator reviews and edits every letter, and **submitting an application never depends on the AI**: the letter is written on demand by an administrator, never automatically at submit and never from the browser.
+
+**The principles.** (1) Generated on demand, by a button, by an administrator. (2) A deterministic **template letter** is the fallback whenever the AI is off, failing, rate limited or over a limit, and a letter can always be written or edited by hand. (3) Parts 9 and 10A, the free text of 10B, health and treatment, licence and reference numbers, documents and every direct identifier **never** feed the letter.
+
+**Layers of fallback**, in the order a request meets them. A fixed code is recorded for the reason, never any text.
+
+1. The AI is off (`AI_DISABLED`), not set up (`AI_NOT_CONFIGURED`), or in production without the data-terms confirmation (`AI_TERMS_NOT_CONFIRMED`) -> template.
+2. The circuit breaker is open (`AI_CIRCUIT_OPEN`), the daily limit (`AI_DAILY_LIMIT`) or the administrator's hourly limit (`AI_ADMIN_LIMIT`) is reached -> template; the provider is not asked.
+3. The provider is asked and fails: rate limited (`AI_RATE_LIMITED`), too slow (`AI_TIMEOUT`), unreachable (`AI_NETWORK`), refuses the request, for example a wrong key (`AI_PROVIDER_REJECTED`), errors (`AI_PROVIDER_ERROR`), answers with something that is not a letter (`AI_BAD_RESPONSE`) or is cut off (`AI_TRUNCATED`) -> template.
+4. The AI answers but the letter fails the checks below (`LETTER_EMPTY`, `LETTER_LENGTH`, `LETTER_LINK`, `LETTER_UNKNOWN_TOKEN`, `LETTER_MISSING_TOKEN`, `LETTER_NUMBER_NOT_IN_FACTS`, `LETTER_DATE_NOT_IN_FACTS`) -> template.
+
+The administrator is shown a friendly sentence for each ("The AI was not available, so a template letter was created."). A fallback is a normal `201`, not an error.
+
+**The privacy design: one allowlist.** `shared/tourist-visa/coverLetterFacts.js` (copied to the client and the backend by `npm run sync:shared`, with `coverLetterFacts.d.ts`) maps specific question ids to the facts the letter may use. A question that is not named there can never reach the letter, whether the AI or the template writes it.
+
+- `validateAllowlist` refuses any id that is in Parts 9, 10A, 10B, 10C or 10D, in sections 2A, 2D, 3 or 4A, stored encrypted, of type email, telephone, file or declaration, in the excluded list below, or an address read in any way but its town or its country. `buildFacts` runs it every time and **refuses to build** (`FACTS_UNSAFE`, then a 500 `COVER_LETTER_UNAVAILABLE`) if it finds a problem, so a widened allowlist cannot slip into production silently.
+- Tests prove that none of those ids is on the allowlist and that **adding any of them makes validation fail** (`shared/tourist-visa/coverLetterFacts.test.js`).
+- People are **counted**, never named. Hidden answers (a gate answered No, a status that does not apply) are not used even if they are still stored.
+- A medical visit (1.1 is Medical): the reason, the holiday kind and the applicant's own words about the purpose (1.5) are **not sent**, because they can describe treatment. The letter then has a `[not provided: main reason for the visit]` gap for the administrator to write by hand.
+
+**Every question id on the allowlist (45 questions):**
+
+| Group | Fact | Question id | How it is used |
+| --- | --- | --- | --- |
+| The visit | Planned arrival date | `q1_6` | the answer in words |
+| The visit | Planned departure date | `q1_7` | the answer in words |
+| The visit | Length of the visit | `q1_6`, `q1_7` | worked out: nights between the two dates |
+| The visit | Main reason for the visit | `q1_1` | the answer in words; left out when 1.1 is Medical |
+| The visit | Kind of holiday visit | `q1_4` | the answer in words; left out when 1.1 is Medical |
+| The visit | Travelling as part of an organised group | `q1_2` | the answer in words |
+| The visit | Number of travelling companions who are not a partner or dependant | `q1_3` | only how many companions entries there are |
+| The visit | The applicant's own details of the purpose of the visit | `q1_5` | free text (cleaned, cut to 500 characters, passed as data); left out when 1.1 is Medical |
+| Where they will stay in the UK | Plans for accommodation | `q6_7x` | the answer in words |
+| Where they will stay in the UK | Area or city they expect to stay in | `q6_7y` | free text (cleaned, cut to 500 characters, passed as data) |
+| Where they will stay in the UK | Town or city of a place booked | `q6_7b` | only the town of the address |
+| Who pays | Someone else is paying towards the cost of the visit | `q6_5` | the answer in words |
+| Who pays | Payer | `q6_5b`, `q6_5d`, `q6_5e`, `q6_5f`, `q6_5g` | who is paying, relationship to the applicant, lives in, amount, will pay for of each entry (at most 5) (only when q6_5 is Yes) |
+| The applicant | Nationality | `q2_14` | the answer in words |
+| The applicant | Country of residence | `q2_24` | only the country of the address |
+| The applicant | Relationship status | `q2_13` | the answer in words |
+| The applicant | Number of people who rely on the applicant financially | `q4_7` | only how many dependants entries there are |
+| The applicant | Number of parents the applicant gave details of | `q4_8` | only how many parents entries there are |
+| Work | Employment status | `q5_1` | the answer in words |
+| Work | Job title | `q5_6` | free text (cleaned, cut to 500 characters, passed as data) |
+| Work | Employer or business | `q5_3`, `q5_1a` | held back as the placeholder [EMPLOYER] |
+| Work | Time with this employer | `q5_2` | worked out: time as at the day of the application |
+| Work | Time running the business | `q5_1b` | worked out: time as at the day of the application |
+| Work | What the business does | `q5_1d` | free text (cleaned, cut to 500 characters, passed as data) |
+| Work | Description of the job | `q5_8` | free text (cleaned, cut to 500 characters, passed as data) |
+| Work | School, college or university | `q5_1f` | held back as the placeholder [SCHOOL] |
+| Work | What they are studying | `q5_1h` | free text (cleaned, cut to 500 characters, passed as data) |
+| Work | Time since retiring | `q5_1i` | worked out: time as at the day of the application |
+| Money | Monthly income from work, after tax | `q5_7` | the answer in words |
+| Money | Monthly income from the business, after tax | `q5_1e` | the answer in words |
+| Money | Monthly pension | `q5_1j` | the answer in words |
+| Money | Other monthly income | `q6_1a` | the answer in words |
+| Money | Savings | `q6_2` | the answer in words |
+| Money | Money planned to be spent on the visit | `q6_3` | the answer in words |
+| Money | Total money spent each month | `q6_4` | the answer in words |
+| Earlier travel | Number of earlier visits to the UK in the past 10 years | `q7_5` | the answer in words (only when q7_4 is Yes) |
+| Earlier travel | Earlier UK visit | `q7_5b`, `q7_5c` | arrived, stayed of each entry (at most 20) (only when q7_4 is Yes) |
+| Earlier travel | Places visited in the past 10 years | `q8_1a` | the answer in words |
+| Earlier travel | Visit to another country | `q8_2a`, `q8_2c`, `q8_2d` | country, entered, left of each entry (at most 10) (only when q8_2 is Yes) |
+
+Placeholders: the real values come from these answers and are **never sent**: `[NAME]` from `q2_1` + `q2_2`, `[EMPLOYER]` from `q5_3` (employer) or `q5_1a` (business name), `[SCHOOL]` from `q5_1f`.
+
+**Excluded, by category** (the full list of ids; everything not on the allowlist above is excluded, these are the ones named so they can never be added by accident). Whole sections that can never feed the letter: `2A`, `2D`, `3`, `4A`, `9A`, `9B`, `9C`, `10A`, `10B`, `10C`, `10D` (names and emails; telephone; passport; the spouse; Part 9 security and character; Part 10A penalties, 10B extra information, 10C language and National Insurance number, 10D documents). Also every answer stored encrypted.
+
+| Category | Question ids |
+| --- | --- |
+| Identity: sex, place and country of birth, date of birth, identity card, other nationalities | `q2_12` `q2_15` `q2_16` `q2_17` `q2_18` `q2_19` `q2_20` `q2_21` `q2_22` `q2_23` `q2_23b` `q2_23c` `q2_23d` `q2_23e` |
+| Addresses (only the country of residence and the town of a stay are read) | `q2_25` `q2_26` `q5_1c` `q5_1g` `q5_4` `q6_7a` `q6_7c` `q6_7d` |
+| Housing details and the living situation free text | `q2_27` `q2_28` `q2_29` |
+| Health and medical treatment | `q2_31` `q2_31a` `q2_31b` `q2_31c` `q2_31d` `q2_31e` |
+| UK driving licence | `q2_30` `q2_30a` |
+| Visa and application reference numbers, immigration history | `q7_1` `q7_2a` `q7_2b` `q7_2c` `q7_3` `q7_3b` `q7_3c` `q7_3d` `q7_3e` `q7_3f` `q7_6` `q7_6b` `q7_6c` `q7_6d` `q7_7` `q7_7a` `q7_7b` `q7_7c` `q7_7d` `q7_5a` |
+| People as individuals (only counts are used): companions, group organiser, dependants, parents, relatives in the UK, payers' names | `q1_2a` `q1_2b` `q1_3a` `q1_3b` `q1_3c` `q1_3d` `q1_3e` `q4_7a` `q4_7b` `q4_7c` `q4_7d` `q4_7e` `q4_7f` `q4_8g` `q4_8a` `q4_8b` `q4_8c` `q4_8d` `q4_8e` `q4_8f` `q4_8h` `q4_8i` `q6_5c` `q6_6` `q6_6b` `q6_6c` `q6_6d` `q6_6e` `q6_6f` `q6_6g` |
+| Employer details other than the placeholder; earlier employer; how they are supported | `q5_5` `q5_9` `q5_1k` `q5_1l` |
+| Public funds received | `q6_8` `q6_8b` `q6_8c` `q6_8d` `q6_8e` |
+| Other | `q6_7` `q6_1` `q8_1` `q8_2b` |
+
+**Placeholders and free text.** The facts sent use `[NAME]`, `[EMPLOYER]` and `[SCHOOL]`. The model is told to use them verbatim and the server puts the real values in **after** the letter is written (`substitute`). A bracketed token that is not one of the three, or whose value the facts did not supply, or a letter that lacks `[NAME]`, fails the generation (template fallback). Free text that is on the allowlist (1.5, 5.1d, 5.8 and the short 6.7y, 5.6, 5.1h) is cleaned before it is sent: the applicant's own name and the employer's name become the placeholders, emails, links, telephone numbers and markup are removed, it is cut to 500 characters, and it is put inside `<data>` blocks with a statement that anything in them is data, never an instruction. **This does not catch a stranger's name typed into a free-text box** (see 14.5).
+
+**The anti-hallucination check** (`utils/touristVisaCoverLetterChecks.js`), after generation and before saving: every date, number and amount in the letter, and every number written out in words (two to a million), must also be in the facts the model was given, after formatting ("£1,250" is "1250"); a length of 150 to 700 words (the prompt asks for 300 to 450); no link or markup. It checks the **set** of numbers, not their place: a figure that appears somewhere in the facts passes anywhere in the letter. A failure returns a fixed code and none of the text.
+
+**The prompt** is in one file, `backend/config/touristVisaCoverLetterPrompt.js`: a formal first-person British English cover letter for a UK Standard Visitor visa application, 300 to 450 words, only from the facts, no invented details, no promises about the outcome, no legal advice, placeholders verbatim.
+
+**The template** (`utils/touristVisaCoverLetterTemplate.js`) is built only from the facts: the same facts give the same letter, a sentence appears only when its fact exists, and a missing essential fact (arrival, departure, reason, nationality, the applicant's name) leaves a visible `[not provided: ...]` gap. **A letter with a gap cannot be approved.**
+
+**The AI adapter** (`backend/services/aiService.js`, with `aiProviders/groq.js` and the settings in `backend/config/ai.js`) is generic: it takes `{ system, user }` and returns `{ text, model, provider }` or throws an error that is one fixed code. **The step for the itinerary reuses it**: add a prompt and a service, not a new adapter.
+
+- Groq's API is OpenAI-compatible: a plain HTTPS `POST https://api.groq.com/openai/v1/chat/completions` with a Bearer key and `fetch`, no SDK. **The address is a constant**; no input of any user reaches it, and a redirect is an error.
+- 20-second timeout per request. One retry on a `429` (after the `Retry-After` wait if it is 5 seconds or less, otherwise no retry; 1 second if the header is missing) and one retry on a `5xx`; nothing else is retried. The answer is read with a 256 KB cap.
+- **Circuit breaker**: after 3 failed generations in a row the AI is skipped for 5 minutes. It is kept in memory per server process.
+- The API key is only ever in the Authorization header. **Nothing from a prompt, an answer, an error body or the key is logged or returned**: the log lines are `AI request failed` with the provider name and a code. Tests capture the logger and the console and look for the key, prompts, bodies and letter text.
+- The model: `GROQ_MODEL`, default **`openai/gpt-oss-120b`**, written once, in `backend/config/ai.js`. It was chosen from Groq's model documentation (console.groq.com/docs/models) on 2026-11-03: a **production** (not preview) model, not on a deprecation notice, the flagship open model on Groq, strong at following instructions and at short formal writing. The same page lists `llama-3.3-70b-versatile` and `llama-3.1-8b-instant` as production but the deprecations page gives both a shutdown on 2026-08-16, so they were not used. **Groq changes this list often: before launch, check the current list (`GET https://api.groq.com/openai/v1/models` with your key, or the documentation) and set `GROQ_MODEL` if needed.** The model is a reasoning model: its thinking counts towards the output limit (4000 tokens), which is far more than a 450-word letter needs.
+- No real AI call was made while building this: the request follows Groq's OpenAI-compatible documentation and is tested against a fake. The **first real call is the manual test** below.
+
+**Environment variables (names only; none has a value in the repository, they are listed in `backend/.env.example`):**
+
+| Variable | Notes |
+| --- | --- |
+| `AI_ENABLED` | The AI is on only when this is exactly `true`. Anything else, or unset, keeps it off (letters are then template letters). |
+| `AI_PROVIDER` | `groq` (the only provider built). |
+| `GROQ_API_KEY` | The provider's key. Keep it in the host's secret store. |
+| `GROQ_MODEL` | Optional; the default is in `backend/config/ai.js`. |
+| `AI_DAILY_LIMIT` | Optional; AI letters per day in total (UTC), default 200. Counted from the database, so it holds across restarts and several instances. |
+| `AI_ADMIN_HOURLY_LIMIT` | Optional; AI letters one administrator can ask for per hour, default 15. Counted from the database. |
+| `AI_DATA_TERMS_CONFIRMED` | **Required in production**, exactly `true`. See the production guard. |
+
+**The production guard.** If `NODE_ENV` is `production`, the AI is **not used** (every letter is a template letter, code `AI_TERMS_NOT_CONFIRMED`) unless `AI_DATA_TERMS_CONFIRMED` is exactly `true`. Setting it means someone has (a) confirmed in the Groq console (Data Controls) that **Zero Data Retention** is switched on for the account, and (b) read Groq's terms about whether customer data is used for training. This matters because the letter sends **real trip, employment and money details** (never names, contact details or identifiers) to a third party. Locally, with dummy data, it works without the confirmation.
+
+**Limits.** Per day in total and per administrator per hour, both counted from `touristvisacoverletters` (requests that asked the provider; template letters, hand-written letters and skipped requests do not count). Over a limit the request is not refused: it becomes a template letter.
+
+**Data: collection `touristvisacoverletters`** (model `TouristVisaCoverLetter`), one row per **version**, admin only, append only like the audit log (the model refuses every update and delete). Fields: `applicationId`, `version` (1, 2, ...; unique with the application), `text` (**encrypted** with the field cipher, bound to the application and the version: `touristvisacoverletters:<applicationId>:<version>:text`), `source` (`ai`, `template` or `admin`), `model` (the model's name, for `ai`), `fallbackReason` (the fixed code, for a template written when the AI was wanted), `aiAttempted` (whether the provider was asked), `factsHash`, `basedOnRevision`, `createdBy`, `createdAt`, `status` (`draft` or `approved`), `approvedBy`, `approvedAt`. `factsHash` is an **HMAC-SHA-256** (keyed with the field encryption key) of the facts the version was made from, so a stored hash cannot be used to guess an answer. **The only change ever made to a row is its one-time approval** (`status`, `approvedBy`, `approvedAt`), made by the repository with the database driver and only while the row is still a draft; the model refuses everything else. **On a deployment where automatic index building is switched off, create the indexes once by hand**: `db.touristvisacoverletters.createIndex({ applicationId: 1, version: -1 }, { unique: true })` and `db.touristvisacoverletters.createIndex({ aiAttempted: 1, createdAt: -1 })`.
+
+**Routes** (admin only: behind the feature switch, `isAuthorized` and `isAdmin`, with `Cache-Control: no-store`):
+
+| Route | What it does |
+| --- | --- |
+| `GET /admin/applications/:id/cover-letter` | The versions (newest first, decrypted), `latest`, `stale`, whether the AI would be used (`ai`) and the limit (`maxLength`, 8000). Audited as `cover_letter_view`. |
+| `POST /admin/applications/:id/cover-letter/generate` | Writes a new version, by the AI or the template. The answer is the same view plus `created` (`version`, `source`, `model`, `fallbackReason`). Audited as `cover_letter_generate` with the version, the source and the model. |
+| `PUT /admin/applications/:id/cover-letter` | Body `{ text, basedOnVersion }`: saves the administrator's text (at most 8000 characters) as a **new** version with source `admin`. `basedOnVersion` must be the newest version (0 when there is none), otherwise 409 `LETTER_CHANGED`. Audited as `cover_letter_edit`. |
+| `POST /admin/applications/:id/cover-letter/approve` | Body `{ version }`: approves the **latest version only** (409 `LETTER_NOT_LATEST`), once (`ALREADY_APPROVED`), not while stale (`LETTER_STALE`) and not while it has `[not provided: ...]` gaps (`LETTER_HAS_PLACEHOLDERS`). Audited as `cover_letter_approve`. |
+
+Only `submitted` and `in_review` applications can have a letter; a completed one answers **409 `LETTER_NOT_AVAILABLE`** on all four routes (reopen it first), and a draft or an unknown id the same 404 as everywhere. Earlier versions are never changed or deleted, and a hand-edited version stays in the history when a newer version is added. The audit rows hold ids and fixed words only (the version, the source, the model's name), **never any text**.
+
+**The stale rule.** The view compares the current facts with the latest version's: if they differ, `stale` is true and the page shows "Answers used by the letter have changed." with a "Generate new version" button. A change to an answer the letter does not use (a telephone number) does not make it stale. **Nothing is ever regenerated automatically.** Saving a hand-edited text counts as having checked it against the current answers and clears the flag. An approved version stays approved in the history; if the answers change afterwards it is flagged stale like any other.
+
+**The page.** On the Overview (`/admin/tourist-visa/<id>`, after the notes), a **Cover letter** panel (`CoverLetterPanel.tsx`): none yet (a Generate button and a line saying whether the AI will be used); a draft (an editable text area with a words and characters counter, **Save as new version**, **Approve this version** through the site's own dialog, **Generate new version**, a badge reading **AI draft**, **Template draft** or **Edited by admin**, "Not approved" or "Approved", and a notice that the administrator must check every fact against the answers before approving); the stale banner; and **Earlier versions**, which can be viewed or copied into the box. Generating with unsaved text asks first. Every failure has a plain sentence. 375 px and up, light and dark, keyboard and screen-reader use (a live region, focus to the text box after an action and to the heading after approving), no native dialog, and the letter is kept nowhere in the browser.
+
+**Rule for step 8h (the PDF).** The PDF uses **the approved version** of the letter: the latest version with `status: "approved"` that is not stale, read with the same cipher and audit. If the newest version is not approved, or the answers have changed since, the PDF step must say so instead of using it. Admins only, and each download is logged.
+
+**Tests.** `shared/tourist-visa/coverLetterFacts.test.js` (the allowlist, its exclusions and the failure when an id is added, what a built set of facts holds and does not hold, placeholders, free text, counts, hidden answers, the medical case), `backend/tests/touristVisaCoverLetterLogic.test.js` (the checks, the template, the settings and the production guard, the adapter with a fake fetch and a fake clock: success, timeout, retry with and without `Retry-After`, the breaker, bad answers, no secret in any error or log line; the prompt file; every fallback and the limits), `backend/tests/touristVisaCoverLetter.test.js` (the real routes with an in-memory replica set: the authorization matrix, the feature gate, the status gates, the template and AI letters, every kind of AI failure, the limits, the production guard, versions, edits, approval, the stale rule, append only, audit rows, privacy) and `client/src/utils/touristVisaCoverLetter.test.mjs` (the panel's words and rules, the four calls, the component's source). A mutation check broke 72 rules in turn and every break was caught.
+
+**Browser check** (a throwaway database, a fake AI put into the adapter by a wrapper script outside the repository, no network, 375 px light and dark): the panel and its jump link; Generate (an AI draft with the real name put in, the text box focused, and the prompt the AI was sent holding no name, email, telephone, passport number, address, parent, Part 9 or 10A text); editing and saving a version; the history; the unsaved-changes question; the approve dialog (Go back changes nothing, Escape, focus to the heading); the stale banner after a correction; a wrong key, a made-up number and no connection each giving a template letter and a friendly sentence; the AI switched off; a completed application; the Activity lines; ciphertext in the database; nothing in the console, the browser's storage or a native dialog.
+
 ## 3. What is NOT built
 
 - **Part 10D, the documents** of the spec (the passport copy and the proof of funds) is built (steps 8c-1 and 8c-2). Everything still to build is planned in order in section 14.
 - **Real Cloudinary has not been exercised.** The upload page and its backend are built (steps 8c-1 and 8c-2) and tested with a fake storage; the first real upload, signed download, expiry and delete are still to be checked by hand (section 14.4).
-- **Withdrawing or reopening** a submitted application for the applicant to edit (admin only, step 8f), **editing answers as an admin** (8f), the **cover letter** (8g), the **PDF export** in the printout's layout (8h) and a **confirmation email**. A submitted application is locked for the applicant for good.
+- **Withdrawing or reopening** a submitted application for the applicant to edit (admin only, step 8f), **editing answers as an admin** (8f), the **PDF export** in the printout's layout (8h) and a **confirmation email**. A submitted application is locked for the applicant for good.
 - **Entry points.** No link to `/tourist-visa` was added to the Footer, the Navbar or the Services pages (the Footer's existing "Tourist Visa" link points at `/services/tourist-visa`, which does not exist). Add links only once the form is ready to open.
 - **Senior review of the drafts: done.** The design was approved as final by the senior on **2026-11-01** (section 10). No `tbc` and no `draft` is left.
 - The **EEA help list** at 8.1 is a fixed list of 30 country codes in the config (27 EU states, Iceland, Liechtenstein and Norway). It is not maintained automatically: update it by hand if membership changes.
@@ -366,6 +506,8 @@ Rules for the key:
 | --- | --- |
 | `NEXT_PUBLIC_TOURIST_VISA_PREVIEW` | Leave unset in production (section 4.2). Listed in `client/.env.example`. |
 
+The AI cover letter (section 2.6) has its own variables (names in section 2.6, listed in `backend/.env.example`): `AI_ENABLED`, `AI_PROVIDER`, `GROQ_API_KEY`, optional `GROQ_MODEL`, `AI_DAILY_LIMIT` and `AI_ADMIN_HOURLY_LIMIT`, and, **required in production**, `AI_DATA_TERMS_CONFIRMED`. Leave `AI_ENABLED` unset to keep the AI off; the feature then writes template letters.
+
 The currency helper (section 2.5) needs **no new variable and no key**. The backend only needs to be allowed to make outgoing HTTPS requests to `api.frankfurter.dev` and `open.er-api.com`; if it cannot, the helper is simply hidden.
 
 Existing variables the feature relies on and does not change: `JWT_SECRET` (sign-in), `MONGODB_URI`, `NEXT_PUBLIC_API_URL`. Do not leave `SESSION_SECRET` unset (see section 11).
@@ -400,6 +542,7 @@ New code lives under: `backend/{config,controllers,middleware,models,repositorie
 - `GET /api/tourist-visa/applications/me/review` returns the application as a readable review (section 2.2).
 - `POST /api/tourist-visa/applications/me/submit` submits the draft (section 2.2).
 - `GET /api/tourist-visa/admin/applications`, `GET .../admin/applications/:id`, `GET .../admin/applications/:id/documents/:docId/link`, `PATCH .../admin/applications/:id/status` and `GET .../admin/applications/:id/activity` are the admin routes (section 2.3). They sit behind the feature switch, `isAuthorized` **and** `isAdmin`, and send `Cache-Control: no-store`.
+- Step 8g adds `GET .../admin/applications/:id/cover-letter`, `POST .../cover-letter/generate`, `PUT .../cover-letter` and `POST .../cover-letter/approve` (section 2.6), behind the same chain.
 - Step 8f adds `GET .../admin/applications/:id/edit-form`, `PUT` and `GET .../admin/applications/:id/changes`, `GET` and `POST .../admin/applications/:id/notes` and `PUT .../admin/applications/:id/flags` (section 2.4), behind the same chain.
 
 **Shared copies.** The client and backend are deployed separately, so each carries a generated copy of `shared/tourist-visa/` (`client/src/shared/tourist-visa/`, `backend/shared/tourist-visa/`, each with a `GENERATED.txt`). Step 8d added `view.js` and `view.d.ts` (the review builder) to the shared set. After editing anything in `shared/tourist-visa/`, run `npm run sync:shared` and commit the copies. A test fails if a copy has drifted.
@@ -407,6 +550,8 @@ New code lives under: `backend/{config,controllers,middleware,models,repositorie
 ## 7. Database
 
 The feature adds **one new collection**, `touristvisaapplications` (model `TouristVisaApplication`), with three indexes: one live draft per applicant (unique, partial), `applicant + createdAt`, and `status + createdAt`. It does not read or change any existing collection except `users` (to identify the signed-in user, as the rest of the site does).
+
+**Step 8g: what is new in the database.** One new collection, **`touristvisacoverletters`** (section 2.6): one row per version of a cover letter, the text encrypted, append only apart from the one-time approval. The audit collection gains four action names (`cover_letter_generate`, `cover_letter_view`, `cover_letter_edit`, `cover_letter_approve`) and three fields (`letterVersion`, `letterSource`, `model`). No existing application is rewritten and no config changes. **On a deployment where automatic index building is switched off, create the indexes once by hand** (section 2.6).
 
 **Step 8f: what is new in the database.** Two new collections, **`touristvisachanges`** (the correction records, index `applicationId + at`) and **`touristvisanotes`** (notes and the call log, index `applicationId + at`), both append only by the application's own rules (section 2.4). Each application gains two optional fields: `revision` (a number; a missing one counts as 0, so nothing needs migrating) and `adminFlags`. The audit collection gains seven action names and the `fromFlags` and `toFlags` fields. **On a deployment where automatic index building is switched off, create them once by hand**: `db.touristvisachanges.createIndex({ applicationId: 1, at: -1 })` and `db.touristvisanotes.createIndex({ applicationId: 1, at: -1 })`. **Correcting an application needs a MongoDB that supports transactions (a replica set).** Atlas does; a standalone local MongoDB cannot (the route answers 503 `TRANSACTIONS_UNAVAILABLE` and writes nothing). No existing application is rewritten by this step.
 
@@ -439,7 +584,7 @@ From the repository root:
 ```
 npm run sync:shared                  # after editing shared/tourist-visa/
 npm run check:shared                 # fails if the client or backend copy has drifted
-npm run test:shared                  # engine, config, review-builder and release-check tests (260)
+npm run test:shared                  # engine, config, review-builder, release-check and cover letter facts tests (275)
 npm run check:tourist-visa-release   # open tbc items and draft lists; exit 1 blocked, 2 drafts only, 0 clear (0 today)
 ```
 
@@ -484,7 +629,7 @@ npx eslint src/utils src/components/tourist-visa src/app/tourist-visa
 npx next build
 ```
 
-`touristVisaRates.test.js` (28 tests) covers the rates route and service (section 2.5); on the client `touristVisaCurrency.test.mjs` (23 tests) covers the currency helper. All of these were green at the time of writing (shared 260 tests, backend 477, client 292). The tests use made-up data only.
+`touristVisaRates.test.js` (28 tests) covers the rates route and service (section 2.5); on the client `touristVisaCurrency.test.mjs` (23 tests) covers the currency helper. All of these were green at the time of writing (shared 275 tests, backend 518, client 306). The tests use made-up data only.
 
 **Browser check of the admin pages (step 8e).** The same fake-storage method, against a throwaway database with a real submitted application (two files), 25 more submitted rows and a draft: a non-admin is sent away and the API says 403; the menu entry appears in preview mode and is absent when the form is closed; the list (20 a page, newest first, no drafts), search by reference, name and email in any case, special characters matching nothing without an error, the status filter, Clear, paging with focus moved to the results, and 375 px as cards with no sideways scroll in light and dark; the Overview (call block with the `tel:` link and Copy number, all sections, files by name and size, a jump list, no link or storage id anywhere in the page, exactly one Overview request and one view row); Open pointing a new tab at the link and writing a row with the document id only, and the blocked-tab fallback; the status dialog (Go back changes nothing and returns focus, then Start review, Mark as completed and Reopen for review, each with its audit row), a status changed behind the page; a draft and an unknown id giving "could not be found" with no row; the keyboard (the dialog keeps focus, Escape cancels) and labelled headings; `no-store` on the answers; audit rows with no value in them; and nothing sensitive in storage, the console or the address bar.
 
@@ -839,6 +984,7 @@ The Tourist Visa pages use the site's own dialog and toast components and no nat
 | The pure form logic (payload, errors, hints) | `client/src/utils/touristVisaForm.ts` |
 | The status route and the one exception to the closed gate | `backend/middleware/touristVisaFeatureGate.js` (`allowingStatus`, `touristVisaStatus`), mounted in `backend/index.js` right after the rate limiter |
 | The currency helper: the flag, the rates route, the providers and the component | `currencyHelper` in `shared/tourist-visa/questions.json` and its check in `validateConfig` (`shared/tourist-visa/engine.js`); `backend/config/touristVisaRates.js` (the allowlist, the provider URLs and the limits, the cache times), `backend/services/touristVisaRatesService.js`, `backend/controllers/touristVisaRatesController.js`, the route in `backend/routes/touristVisaRoutes.js`; `client/src/components/tourist-visa/CurrencyHelper.tsx`, `client/src/utils/touristVisaCurrency.ts`, `client/src/hooks/useTouristVisaRates.ts`, `getRates` in `client/src/services/touristVisaService.ts`, and where it is drawn, `QuestionField.tsx` |
+| The AI cover letter: the allowlist, the AI adapter, the checks, the template, the prompt, the versions and the panel | `shared/tourist-visa/coverLetterFacts.js` (the allowlist and `buildFacts`); `backend/config/ai.js` (settings, the model default, the limits), `backend/services/aiService.js` and `aiProviders/groq.js` (the adapter), `backend/config/touristVisaCoverLetterPrompt.js` (the prompt), `backend/utils/touristVisaCoverLetterChecks.js` and `touristVisaCoverLetterTemplate.js`, `backend/services/touristVisaCoverLetterService.js`, `backend/repositories/touristVisaCoverLetterRepository.js`, `backend/models/TouristVisaCoverLetter.js`, `backend/controllers/touristVisaCoverLetterController.js`, the routes in `backend/routes/touristVisaAdminRoutes.js`; `client/src/components/tourist-visa/CoverLetterPanel.tsx`, `client/src/utils/touristVisaCoverLetter.ts` |
 | How the client follows the server | `client/src/utils/touristVisaOpen.ts` (the checker), `client/src/hooks/useTouristVisaOpen.ts` (`useTouristVisaOpen`, `useTouristVisaAvailability`), `availabilityOf` in `client/src/utils/touristVisaChecklist.ts`, `client/src/components/tourist-visa/ClosedNotice.tsx`, the Tourist Visa layout, the admin pages and the admin menu |
 
 ## 14. Roadmap: what is still to build
@@ -852,7 +998,7 @@ Planned, **not built**. The order below is the agreed order; step names are work
 | 8d | Review page and submit (read-only view and lock after submit). **Built** (section 2.2): the shared review builder, the atomic submit with its checks, the reference and the config snapshot, the review and confirmation pages | 2 |
 | 8e | Admin list and Overview (call details first, view logging). **Built** (section 2.3): the list, the Overview with the call block, files by a 2-minute link, the status moves, the append-only audit log and the activity panel; read only | 2 |
 | 8f | Admin edit with an audit trail (reason required, validated by the same engine, old and new values encrypted). **Built** (section 2.4): the revision rule, the dry run and the single transaction, the encrypted change records, the "corrected by our team" marker for the applicant, notes, a call log and flags | 3 |
-| 8g | **Automatic cover letter** (14.2) | 3 |
+| 8g | **Cover letter**, AI-assisted with a template fallback, admin only. **Built** (section 2.6); the original plan below (14.2) was changed to use an AI, as the senior asked | 3 |
 | 8h | PDF export of the application (Latin text only; no printout is needed as a reference) | 2 |
 | 8i | Entry points: links (the Footer points at `/tourist-visa`), and the **assessment modal change** (14.1). **Depends on the status hook (section 4.2):** the footer link and the popup branch show only when `useTouristVisaAvailability()` is `open` | 2 |
 | 8j | Security review (the list so far is in section 14.5) | 2 |
@@ -882,7 +1028,9 @@ Today the button opens the assessment modal (`client/src/components/AssessmentFo
 - **Decided:** the new branch is active only once the form is open (the same rule as the entry links, so nothing changes before release); until then UK + Tourist Visa keeps the old assessment. **"Open" means the server's answer** (`useTouristVisaOpen()` / `useTouristVisaAvailability()`, section 4.2): show nothing new while it is `loading` and keep the old assessment while it is `closed`.
 - Tests: the routing decision for UK + Tourist Visa and for a few other combinations (unchanged), `next` surviving sign-up, an unsafe `next` ignored, and a browser check of the logged-in and logged-out paths.
 
-### 14.2 Automatic cover letter (step 8g, after the admin edit step and before the PDF export)
+### 14.2 Cover letter (step 8g): the original plan, built differently
+
+**Built as section 2.6.** The senior asked for an AI, so the letter is written by an AI from an allowlisted set of facts with a deterministic template as the fallback (the plan below said "No AI"); it is admin only, on demand, with versions, an approval and a stale flag. The plan below is kept for what is still true of it (the template, the placeholders for a missing answer, versions, the hand edit with a notice, encryption, the PDF in step 8h).
 
 A cover letter is generated from the applicant's answers when the application is submitted.
 
@@ -941,3 +1089,11 @@ Things to look at, collected as the steps were built:
 - **The status route is public** (client follows server): `GET /api/tourist-visa/status` needs no sign-in and tells anyone whether the feature is switched on (it reveals nothing else). It is behind the general rate limiter and may be cached for 60 seconds by a proxy or CDN, so a switch-on or switch-off can take up to a minute to show for a client behind a cache that honours it. Decide whether the on/off state may be public.
 - **Key rotation** (8k) before any real applicant data is stored.
 - **The rates route and its providers** (currency helper): `GET /api/tourist-visa/rates` is authenticated (`isAuthorized`), behind the feature switch and the general limiter, and **sends no applicant data out**: the two providers are asked the same fixed URL whoever calls, no input of the caller reaches a URL, a header or a log line, and a provider's text never reaches a response. Things to look at: (1) the providers are third parties with their own terms: open.er-api.com requires a visible "Rates By Exchange Rate API" link (shown whenever it supplied the data, which with PKR is always), and its free access has fair-use limits that a 12-hour cache keeps us far below; check the terms again before launch and decide whether to move to a paid plan with an agreed service level; (2) the server makes outgoing requests, so its allowed destinations should be the two fixed hosts only (the code follows a redirect only within the same host, but a firewall rule is the stronger control); (3) the cache is per server process, so several instances each ask the providers (still a few requests a day); (4) rates are approximate and for the applicant's convenience only: the stored figure is the pound amount the applicant confirms, and the helper says so on screen.
+- **The AI cover letter: the provider's terms and data** (8g): the letter sends real trip, employment and money details (never names, contact details or identifiers) to Groq. Before launch someone must confirm that **Zero Data Retention** is on for the account (console, Data Controls), read Groq's terms on training with customer data, and then set `AI_DATA_TERMS_CONFIRMED=true` in production (without it the AI is not used). Check the current model list (the default is in `backend/config/ai.js`; Groq retires models, and two production models were due to shut down on 2026-08-16) and decide whether a paid plan with an agreed service level is needed. Decide whether a data processing agreement is needed.
+- **Free text can carry personal data** (8g): the free text on the allowlist (1.5, 5.1d, 5.8 and the short 6.7y, 5.6, 5.1h) goes to the AI after the applicant's own name, the employer, emails, links and telephone numbers are removed, but **a stranger's name or a place typed into a free-text box is not recognised**. Decide whether to keep these free-text facts in the allowlist or to send only the structured ones. A medical visit sends neither the reason nor the free text.
+- **Prompt injection** (8g): an applicant can type instructions into a free-text answer. Defences: the text is cleaned, cut to 500 characters and put in `<data>` blocks that the prompt says are data; the AI never acts (it only writes text); the result is checked (placeholders, no link, no figure that is not in the facts); a human reads and approves every letter. A letter can still say something odd that passes the checks, which is why the administrator must read it.
+- **The figure check is a set check** (8g): a number that appears anywhere in the facts is allowed anywhere in the letter, so the AI could use a real figure in the wrong place. The administrator's check is the real control.
+- **Limits** (8g): the daily limit (default 200 in total) and the per-administrator limit (default 15 an hour) are counted from the database, so they hold across restarts and instances; the **circuit breaker is in memory per server process**, and a serverless host can have many processes. The limits stop a loop, not a determined attacker with an administrator account (see 14.3, MFA).
+- **Retention of cover letter versions** (8g): `touristvisacoverletters` keeps every version (encrypted) and is never deleted. Decide how long, who may read it directly, and what happens on an applicant's request to delete their data. The collection is append only only in the application (use a database role with insert and read only, as for the audit log); the one-time approval uses the driver directly.
+- **The AI request waits for the AI** (8g): the generate route waits up to 20 seconds, plus one retry, so up to about 45 seconds in the worst case. Check that the host's request timeout allows it (a serverless function limit can cut it off, after which the page shows an error and no version is written).
+- **The key and the model's name** (8g): the key is in the host's secret store and only in a header; the model's name is written to the audit log and the letter row (a name, never text).
