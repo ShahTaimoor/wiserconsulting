@@ -1,10 +1,10 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
     "groupMax": 20,
-    "note": "Proposed values from docs/tourist-visa-form-spec.md (Limits row of Gaps to confirm). Not yet confirmed."
+    "note": "Text answers: up to 200 characters for a short answer, up to 5,000 for a long one, and up to 20 entries in a repeating group. Documents: PDF, JPG or PNG, up to 4 MB per file and 40 MB in all; the passport up to 3 files and the evidence of funds up to 10. The values that are enforced for documents are in backend/config/touristVisaDocuments.js."
   },
   "parts": [
     { "id": "1", "title": "Travel information" },

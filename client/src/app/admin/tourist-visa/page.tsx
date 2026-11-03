@@ -9,10 +9,10 @@ import { AdminFlagChips } from "@/components/tourist-visa/AdminFlags";
 import { AdminStatusBadge } from "@/components/tourist-visa/AdminStatusBadge";
 import { useAppDispatch } from "@/redux/hooks";
 import { logout } from "@/redux/slices/auth/authSlice";
-import { config } from "@/shared/tourist-visa/engine";
 import { describeError, touristVisaService, TouristVisaApiError } from "@/services/touristVisaService";
 import type { AdminFlag, AdminList, AdminStatus } from "@/services/touristVisaAdminTypes";
-import { countHeldSections, isFormOpen, isPreviewMode } from "@/utils/touristVisaChecklist";
+import { AvailabilityLoading, ClosedNotice } from "@/components/tourist-visa/ClosedNotice";
+import { useTouristVisaAvailability } from "@/hooks/useTouristVisaOpen";
 import { ADMIN_FLAGS, ADMIN_STATUSES, describeAdminError, emptyListText, flagLabel, formatWhen, listSummaryText, pagerState, statusLabel } from "@/utils/touristVisaAdmin";
 
 const PAGE_SIZE = 20;
@@ -45,10 +45,11 @@ export default function AdminTouristVisaListPage() {
   const lastKey = useRef("");
   const resultsHeading = useRef<HTMLHeadingElement | null>(null);
 
-  const notOpen = !isFormOpen(countHeldSections(config), isPreviewMode());
+  // Whether the feature is open: the server's switch and this build's own hold. Nothing is asked of the API until it is.
+  const availability = useTouristVisaAvailability();
 
   useEffect(() => {
-    if (notOpen) return;
+    if (availability !== "open") return;
     // The server records each list view, so one set of choices is asked for once (React strict mode runs effects twice in development).
     const key = JSON.stringify([q, status, flag, page, attempt]);
     if (lastKey.current === key) return;
@@ -77,7 +78,7 @@ export default function AdminTouristVisaListPage() {
         if (run === latest.current) setLoading(false);
       }
     })();
-  }, [q, status, flag, page, attempt, notOpen, dispatch]);
+  }, [q, status, flag, page, attempt, availability, dispatch]);
 
   const search = (event: React.FormEvent) => {
     event.preventDefault();
@@ -101,6 +102,9 @@ export default function AdminTouristVisaListPage() {
   const pager = data ? pagerState(data.page, data.totalPages) : { hasPrevious: false, hasNext: false };
   const filtered = q !== "" || status !== "" || flag !== "";
 
+  if (availability === "loading") return <AvailabilityLoading />;
+  if (availability === "closed") return <ClosedNotice homeHref="/admin/users" homeLabel="Back to the admin area" />;
+
   return (
     <div className="mx-auto w-full max-w-6xl px-2 py-4 sm:px-4 sm:py-6">
       <header className="mb-6">
@@ -108,11 +112,7 @@ export default function AdminTouristVisaListPage() {
         <p className="mt-1 text-sm text-muted-foreground">Submitted applications, newest first. Opening one is recorded in its activity log.</p>
       </header>
 
-      {notOpen ? (
-        <div role="status" className="rounded-lg border border-border bg-card p-6 text-sm text-card-foreground">
-          The Tourist Visa application isn&apos;t open yet, so there is nothing to show here.
-        </div>
-      ) : (
+      {(
         <>
           <form onSubmit={search} role="search" aria-label="Search applications" className="mb-5 flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-end">
             <div className="min-w-0 flex-1">

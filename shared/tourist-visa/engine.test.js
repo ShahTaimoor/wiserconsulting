@@ -143,8 +143,9 @@ test('config: no option is a [TBC] placeholder or a tbc_ value any more', () => 
   }
 });
 
-test('config 1.0.0: the design was approved as final, so no draft marker is left anywhere', () => {
-  assert.equal(config.version, '1.0.0');
+test('config 1.0.x: the design was approved as final, so no draft marker is left anywhere', () => {
+  assert.equal(config.version, '1.0.1');
+  assert.doesNotMatch(config.version, /draft/);
   assert.deepEqual(config.questions.filter((q) => q.draft).map((q) => q.number), []);
   assert.deepEqual(config.groups.filter((g) => g.draft).map((g) => g.id), []);
   assert.equal(config.declarations.submit.draft, undefined);
@@ -2244,7 +2245,7 @@ test('release check: the approved config exits 0 and says everything is releasab
   const run = spawnSync(process.execPath, [script], { encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
   assert.match(run.stdout, new RegExp(`Tourist Visa config ${config.version.replace(/\./g, '\\.')}`));
-  assert.match(run.stdout, /Tourist Visa config 1\.0\.0/);
+  assert.match(run.stdout, /Tourist Visa config 1\.0\.1/);
   for (const id of ['1', '2A', '3', '9A', '9B', '9C', '10A', '10B', '10C', '10D']) assert.match(run.stdout, new RegExp(`section ${id}: .*: releasable`), id);
   assert.doesNotMatch(run.stdout, /NEEDS SENIOR REVIEW|BLOCKED/);
   assert.match(run.stdout, /23 sections: 0 blocked, 0 need senior review only, 23 clean\./);

@@ -146,6 +146,22 @@ export function countHeldSections(cfg: TouristVisaConfig): number {
   return getHeldSections(cfg).length;
 }
 
+/** What the pages show: a neutral wait, the feature, or the "not available yet" notice. */
+export type Availability = "loading" | "open" | "closed";
+
+/**
+ * Whether the Tourist Visa feature is available, from the two things that decide it:
+ *  - the SERVER's switch (TOURIST_VISA_ENABLED), the single source of truth: "open", "closed" or "unknown" (not answered yet);
+ *  - this build's own hold: no section held by a tbc or draft marker, or the preview flag (isFormOpen).
+ * It is open only when the server says open AND the config hold passes. The config hold can close it at once, without
+ * waiting for the server; an unanswered server is "loading", never open, so nothing is shown before the answer.
+ */
+export function availabilityOf(server: "unknown" | "open" | "closed", heldSectionCount: number, previewMode: boolean): Availability {
+  if (!isFormOpen(heldSectionCount, previewMode)) return "closed";
+  if (server === "unknown") return "loading";
+  return server === "open" ? "open" : "closed";
+}
+
 /** Read at build time by Next.js, so it must stay a literal `process.env.NEXT_PUBLIC_...` expression. */
 export function isPreviewMode(): boolean {
   return process.env.NEXT_PUBLIC_TOURIST_VISA_PREVIEW === "true";

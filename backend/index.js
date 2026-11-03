@@ -66,7 +66,7 @@ app.use(cors(corsOptions));
 // Tourist Visa feature switch (TOURIST_VISA_ENABLED, off unless exactly "true"). It comes right after
 // CORS, so a browser can read the answer, and before everything else: while it is closed no
 // header, body or token is read, nothing is logged and the database is never touched.
-app.use("/api/tourist-visa", touristVisaFeatureGate);
+app.use("/api/tourist-visa", touristVisaFeatureGate.allowingStatus);
 
 // Security headers
 app.use(helmet());
@@ -83,6 +83,10 @@ app.use(skipPaths(["/api/tourist-visa"], sanitize));
 
 // Rate limiting
 app.use("/api", apiLimiter);
+
+// The one Tourist Visa URL that answers while the feature is closed (GET /api/tourist-visa/status, { open }). It sits right after
+// the general rate limiter and before sessions, passport and the router: no sign-in, no session and no database.
+app.get("/api/tourist-visa/status", touristVisaFeatureGate.touristVisaStatus);
 
 // Session middleware
 app.use(

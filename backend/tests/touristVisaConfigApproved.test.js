@@ -112,8 +112,8 @@ async function oldSnapshot() {
   return { sha: sha(json), json, old };
 }
 
-test('the config is 1.0.0 with no draft marker and nothing held, and the release switches are unchanged', () => {
-  assert.equal(engine.config.version, '1.0.0');
+test('the config is 1.0.x with no draft marker and nothing held, and the release switches are unchanged', () => {
+  assert.equal(engine.config.version, '1.0.1');
   assert.equal(JSON.stringify(engine.config).includes('"draft"'), false);
   assert.deepEqual(engine.getHeldSections(engine.config), []);
   // The server switch is read from the environment, exactly true: nothing about it depends on the config.
@@ -148,10 +148,10 @@ test('a draft saved under the old config keeps its answers, statuses and Part 9 
   assert.equal(raw.status, 'submitted');
   assert.equal(raw.declarations.q9_11.wordingSha256, before.declarations.q9_11.wordingSha256, 'the tick record is untouched');
   assert.equal(raw.declarations.submit.wordingSha256, 'ba987cf2b54255d648605386afb9a756f9f8a62dbbe0bbf4a68d045c30dc0e8a', 'the final declaration was accepted for exactly the old words');
-  assert.equal(raw.configVersion, '1.0.0', 'a submit records the config it is submitted under, as it always did');
+  assert.equal(raw.configVersion, engine.config.version, 'a submit records the config it is submitted under, as it always did');
   const snapshot = await TouristVisaConfigSnapshot.findById(raw.configSha256).lean();
-  assert.equal(snapshot.version, '1.0.0', 'what it was submitted under now is the approved config');
-  assert.equal(JSON.parse(snapshot.json).version, '1.0.0');
+  assert.equal(snapshot.version, engine.config.version, 'what it was submitted under now is the approved config');
+  assert.equal(JSON.parse(snapshot.json).version, engine.config.version);
 });
 
 test('an application submitted under the old config is still shown with the snapshot it was submitted under, to the applicant and to an admin', async () => {
@@ -197,5 +197,21 @@ test('the list shows applications submitted under either version; a new draft st
   assert.ok(list.json.data.applications.length >= 2);
   const fresh = await makeUser();
   const created = await api('POST', '/applications', { token: fresh.token });
-  assert.equal(created.json.data.application.configVersion, '1.0.0');
+  assert.equal(created.json.data.application.configVersion, engine.config.version);
+});
+
+test('the limits note in the config states exactly the limits the backend enforces, so the two cannot drift apart unnoticed', () => {
+  const docs = require('../config/touristVisaDocuments');
+  const note = engine.config.limits.note;
+  const MB = 1024 * 1024;
+  assert.match(note, new RegExp(`up to ${docs.MAX_FILE_BYTES / MB} MB per file`));
+  assert.match(note, new RegExp(`${docs.MAX_TOTAL_BYTES / MB} MB in all`));
+  assert.match(note, new RegExp(`passport up to ${docs.SLOTS.passport.max} files`));
+  assert.match(note, new RegExp(`funds up to ${docs.SLOTS.funds.max}`));
+  assert.match(note, /PDF, JPG or PNG/);
+  assert.deepEqual(Object.values(docs.FILE_TYPES).map((t) => t.extension.toUpperCase()).sort(), ['JPG', 'PDF', 'PNG']);
+  // the text limits it also states are the ones in the same object
+  const { txtMax, lngMax, groupMax } = engine.config.limits;
+  assert.match(note, new RegExp(`up to ${txtMax} characters for a short answer, up to ${lngMax.toLocaleString('en-GB')} for a long one, and up to ${groupMax} entries`));
+  assert.equal(/Not yet confirmed|Proposed values/.test(note), false, 'nothing says the limits are unconfirmed');
 });

@@ -250,6 +250,22 @@ export function listQueryString(query: AdminListQuery): string {
   return text ? `?${text}` : "";
 }
 
+/**
+ * Asks the server whether the Tourist Visa feature is open: GET /tourist-visa/status. No token is sent (it needs none, and
+ * answers while the feature is closed). Never cached by the browser: the in-memory checker keeps the answer for a short while.
+ * Rejects on a network error or when aborted; the caller (utils/touristVisaOpen.ts) treats that as "closed".
+ */
+export async function fetchServerStatus(signal?: AbortSignal): Promise<{ status: number; json: unknown }> {
+  const response = await fetch(`${API_URL}/tourist-visa/status`, { method: "GET", cache: "no-store", signal });
+  let json: unknown = null;
+  try {
+    json = await response.json();
+  } catch {
+    // No JSON body: the answer is then "closed".
+  }
+  return { status: response.status, json };
+}
+
 export const touristVisaService = {
   /** The signed-in user's application, or null if they have not started one (the server answers 404). */
   async getMyApplication(token: string): Promise<TouristVisaApplication | null> {

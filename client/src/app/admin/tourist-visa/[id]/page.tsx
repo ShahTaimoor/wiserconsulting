@@ -16,11 +16,11 @@ import { notifyAdminDone, notifyAdminFailed } from "@/components/tourist-visa/no
 import { ReviewSummary } from "@/components/tourist-visa/ReviewSummary";
 import { useAppDispatch } from "@/redux/hooks";
 import { logout } from "@/redux/slices/auth/authSlice";
-import { config } from "@/shared/tourist-visa/engine";
 import type { ReviewRow } from "@/shared/tourist-visa/view";
 import { touristVisaService, TouristVisaApiError } from "@/services/touristVisaService";
 import type { ActivityRow, AdminFlag, AdminOverview, AdminStatus, ChangeRecordView } from "@/services/touristVisaAdminTypes";
-import { countHeldSections, isFormOpen, isPreviewMode } from "@/utils/touristVisaChecklist";
+import { AvailabilityLoading, ClosedNotice } from "@/components/tourist-visa/ClosedNotice";
+import { useTouristVisaAvailability } from "@/hooks/useTouristVisaOpen";
 import { formatBytes } from "@/utils/touristVisaDocuments";
 import { describeActivity, describeAdminError, filesOfRow, formatWhen, jumpLinks, moveWords, statusLabel, toggleFlag } from "@/utils/touristVisaAdmin";
 
@@ -52,7 +52,8 @@ export default function AdminTouristVisaOverviewPage() {
   const params = useParams<{ id: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const dispatch = useAppDispatch();
-  const notOpen = !isFormOpen(countHeldSections(config), isPreviewMode());
+  // Whether the feature is open: the server's switch and this build's own hold. Nothing is asked of the API until it is.
+  const availability = useTouristVisaAvailability();
 
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [loadError, setLoadError] = useState<{ message: string; retry: boolean } | null>(null);
@@ -128,7 +129,7 @@ export default function AdminTouristVisaOverviewPage() {
   // Load the Overview once for each visit. The server records the view, so the guard stops a second request in development
   // (React strict mode runs effects twice) from writing a second row.
   useEffect(() => {
-    if (notOpen) return;
+    if (availability !== "open") return;
     const key = `${id}:${attempt}`;
     if (started.current === key) return;
     started.current = key;
@@ -152,7 +153,7 @@ export default function AdminTouristVisaOverviewPage() {
         setLoadError({ message, retry: !missing });
       }
     })();
-  }, [id, attempt, notOpen, dispatch, fail, loadActivity, loadHistory]);
+  }, [id, attempt, availability, dispatch, fail, loadActivity, loadHistory]);
 
   // After the editor closes, focus goes back to the Edit button of the section that was edited.
   useEffect(() => {
@@ -356,12 +357,10 @@ export default function AdminTouristVisaOverviewPage() {
   );
 
   let content: React.ReactNode;
-  if (notOpen) {
-    content = (
-      <div role="status" className="rounded-lg border border-border bg-card p-6 text-sm text-card-foreground">
-        The Tourist Visa application isn&apos;t open yet, so there is nothing to show here.
-      </div>
-    );
+  if (availability === "loading") {
+    content = <AvailabilityLoading />;
+  } else if (availability === "closed") {
+    content = <ClosedNotice homeHref="/admin/users" homeLabel="Back to the admin area" />;
   } else if (loadError) {
     content = (
       <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
@@ -606,7 +605,7 @@ export default function AdminTouristVisaOverviewPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl px-2 py-4 sm:px-4 sm:py-6">
-      {back}
+      {availability === "open" && back}
       <p key={announcement.n} role="status" aria-live="polite" className="sr-only">
         {announcement.text}
       </p>
