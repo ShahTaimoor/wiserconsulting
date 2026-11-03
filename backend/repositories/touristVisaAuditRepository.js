@@ -32,6 +32,9 @@ class TouristVisaAuditRepository {
       ...(row.toStatus ? { toStatus: row.toStatus } : {}),
       ...(row.fromFlags ? { fromFlags: row.fromFlags } : {}),
       ...(row.toFlags ? { toFlags: row.toFlags } : {}),
+      ...(row.letterVersion ? { letterVersion: row.letterVersion } : {}),
+      ...(row.letterSource ? { letterSource: row.letterSource } : {}),
+      ...(row.model ? { model: row.model } : {}),
     }));
   }
 }

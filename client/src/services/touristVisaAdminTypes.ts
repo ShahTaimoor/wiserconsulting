@@ -88,7 +88,11 @@ export type AuditAction =
   | "changes_view"
   | "notes_view"
   | "notes_add"
-  | "flags_change";
+  | "flags_change"
+  | "cover_letter_generate"
+  | "cover_letter_view"
+  | "cover_letter_edit"
+  | "cover_letter_approve";
 
 export interface ActivityRow {
   id: string;
@@ -99,6 +103,10 @@ export interface ActivityRow {
   toStatus?: AdminStatus;
   fromFlags?: AdminFlag[];
   toFlags?: AdminFlag[];
+  /** cover_letter_* rows: which version and how it was made. Never any text. */
+  letterVersion?: number;
+  letterSource?: LetterSource;
+  model?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -163,4 +171,40 @@ export interface AdminNote {
   text: string;
   outcome?: CallOutcome;
   admin: { id: string; name: string };
+}
+
+// ---------------------------------------------------------------------------
+// The cover letter (step 8g)
+// ---------------------------------------------------------------------------
+
+export type LetterSource = "ai" | "template" | "admin";
+export type LetterStatus = "draft" | "approved";
+
+/** One version of the letter. The text is for the team only. */
+export interface CoverLetterVersion {
+  version: number;
+  text: string;
+  source: LetterSource;
+  /** The model's name, for an AI letter. */
+  model?: string;
+  /** Why a template letter was written when the AI was wanted: a fixed code. */
+  fallbackReason?: string;
+  createdAt: string;
+  createdBy: { id: string; name: string };
+  status: LetterStatus;
+  approvedAt?: string;
+  approvedBy?: { id: string; name: string };
+}
+
+export interface CoverLetterView {
+  /** Newest first. */
+  versions: CoverLetterVersion[];
+  latest: number | null;
+  /** The answers the letter uses have changed since its newest version. */
+  stale: boolean;
+  /** Whether the AI would be used for a new version now (code: why not). */
+  ai: { available: boolean; code?: string };
+  maxLength: number;
+  /** Only in the answer to Generate: what was just made. */
+  created?: { version: number; source: LetterSource; model?: string; fallbackReason?: string };
 }

@@ -135,7 +135,7 @@ export function formatWhen(iso: string | null | undefined, timeZone?: string): s
 }
 
 /** A line of the Activity panel: who did what. */
-export function describeActivity(row: Pick<ActivityRow, "action" | "admin" | "fromStatus" | "toStatus" | "fromFlags" | "toFlags">): { who: string; what: string } {
+export function describeActivity(row: Pick<ActivityRow, "action" | "admin" | "fromStatus" | "toStatus" | "fromFlags" | "toFlags" | "letterVersion" | "letterSource">): { who: string; what: string } {
   const who = row.admin.name || "An administrator";
   switch (row.action) {
     case "list_view":
@@ -163,15 +163,25 @@ export function describeActivity(row: Pick<ActivityRow, "action" | "admin" | "fr
       const to = row.toFlags?.length ? row.toFlags.map(flagLabel).join(", ") : "no flags";
       return { who, what: `changed the flags from ${from} to ${to}` };
     }
+    case "cover_letter_view":
+      return { who, what: "read the cover letter" };
+    case "cover_letter_generate":
+      return { who, what: `created ${row.letterVersion ? `version ${row.letterVersion} of ` : ""}the cover letter${row.letterSource ? ` (${letterSourceWords(row.letterSource)})` : ""}` };
+    case "cover_letter_edit":
+      return { who, what: `saved ${row.letterVersion ? `version ${row.letterVersion} of ` : ""}the cover letter after editing it` };
+    case "cover_letter_approve":
+      return { who, what: `approved ${row.letterVersion ? `version ${row.letterVersion} of ` : ""}the cover letter` };
     default:
       return { who, what: "did something" };
   }
 }
 
+const letterSourceWords = (source: string): string => (source === "ai" ? "written by the AI" : source === "template" ? "from the template" : "written by hand");
+
 /** The jump list at the top of the Overview: Notes, one link for each section, then Changes and Activity. */
 export function jumpLinks(review: Review): Array<{ href: string; label: string }> {
   const links = review.parts.flatMap((part) => part.sections.map((section) => ({ href: `#section-${section.id}`, label: `${section.id} ${section.title}` })));
-  return [{ href: "#notes", label: "Notes and calls" }, ...links, { href: "#changes", label: "Changes" }, { href: "#activity", label: "Activity" }];
+  return [{ href: "#notes", label: "Notes and calls" }, { href: "#cover-letter", label: "Cover letter" }, ...links, { href: "#changes", label: "Changes" }, { href: "#activity", label: "Activity" }];
 }
 
 /** The files of one file question, matched through the slot of that question. */

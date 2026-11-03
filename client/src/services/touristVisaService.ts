@@ -3,6 +3,7 @@ import type { Review } from "../shared/tourist-visa/view.js";
 import type {
   ActivityRow,
   AdminFlag,
+  CoverLetterView,
   AdminList,
   AdminListQuery,
   AdminNote,
@@ -266,6 +267,15 @@ export async function fetchServerStatus(signal?: AbortSignal): Promise<{ status:
   return { status: response.status, json };
 }
 
+/** One cover letter call: the answer is the letter's view, or a failure with the server's code. */
+async function coverLetterCall(path: string, method: "GET" | "POST" | "PUT", token: string, body?: unknown): Promise<CoverLetterView> {
+  const { status, json } = await request(path, method, token, body);
+  if (status < 200 || status >= 300) throw failure(status, json);
+  const data = json?.data as unknown as CoverLetterView | undefined;
+  if (!data || !Array.isArray(data.versions) || typeof data.stale !== "boolean") throw new TouristVisaApiError(502, "The server sent an unexpected response.");
+  return data;
+}
+
 export const touristVisaService = {
   /** The signed-in user's application, or null if they have not started one (the server answers 404). */
   async getMyApplication(token: string): Promise<TouristVisaApplication | null> {
@@ -464,6 +474,26 @@ export const touristVisaService = {
     const data = json?.data as unknown as { note?: AdminNote } | undefined;
     if (!data || !data.note || typeof data.note.id !== "string") throw new TouristVisaApiError(502, "The server sent an unexpected response.");
     return data.note;
+  },
+
+  /** The cover letter and its versions (the team only). Recorded in the activity log by the server. */
+  async adminCoverLetter(token: string, id: string): Promise<CoverLetterView> {
+    return coverLetterCall(`/admin/applications/${encodeURIComponent(id)}/cover-letter`, "GET", token);
+  },
+
+  /** Writes a new version, by the AI or (when it is off or fails) by the template. */
+  async adminGenerateCoverLetter(token: string, id: string): Promise<CoverLetterView> {
+    return coverLetterCall(`/admin/applications/${encodeURIComponent(id)}/cover-letter/generate`, "POST", token);
+  },
+
+  /** Saves the administrator's text as a new version. `basedOnVersion` is the version it started from. */
+  async adminSaveCoverLetter(token: string, id: string, body: { text: string; basedOnVersion: number }): Promise<CoverLetterView> {
+    return coverLetterCall(`/admin/applications/${encodeURIComponent(id)}/cover-letter`, "PUT", token, body);
+  },
+
+  /** Approves the newest version. `version` must be the newest one. */
+  async adminApproveCoverLetter(token: string, id: string, version: number): Promise<CoverLetterView> {
+    return coverLetterCall(`/admin/applications/${encodeURIComponent(id)}/cover-letter/approve`, "POST", token, { version });
   },
 
   /** Replaces the flags. Returns the flags as stored (always in the fixed order). */

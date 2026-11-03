@@ -18,7 +18,10 @@ const ACTIONS = [
     'list_view', 'overview_view', 'document_link', 'status_change',
     // Step 8f: the admin edit, the notes and the flags
     'edit_open', 'changes_preview', 'changes_apply', 'changes_view', 'notes_view', 'notes_add', 'flags_change',
+    // Step 8g: the cover letter (ids, the version, the source and the model's name; never any text)
+    'cover_letter_generate', 'cover_letter_view', 'cover_letter_edit', 'cover_letter_approve',
 ];
+const LETTER_SOURCES = ['ai', 'template', 'admin'];
 // Fixed words an admin can put on an application. Never shown to the applicant.
 const FLAGS = ['needs_call', 'called', 'awaiting_applicant', 'verified', 'concern'];
 
@@ -36,6 +39,10 @@ const auditSchema = new mongoose.Schema(
         // flags_change only: the flag names before and after
         fromFlags: { type: [{ type: String, enum: FLAGS }], default: undefined, immutable: true },
         toFlags: { type: [{ type: String, enum: FLAGS }], default: undefined, immutable: true },
+        // cover_letter_* only: which version, how it was made, and the model's name (a name from the settings, never text)
+        letterVersion: { type: Number, min: 1, immutable: true },
+        letterSource: { type: String, enum: LETTER_SOURCES, immutable: true },
+        model: { type: String, maxlength: 100, match: /^[\w./:-]+$/, immutable: true },
     },
     { collection: 'touristvisaaudit', versionKey: false, minimize: false }
 );

@@ -13,6 +13,7 @@ const express = require('express');
 const router = express.Router();
 const touristVisaAdminController = require('../controllers/touristVisaAdminController');
 const touristVisaAdminEditController = require('../controllers/touristVisaAdminEditController');
+const touristVisaCoverLetterController = require('../controllers/touristVisaCoverLetterController');
 
 // The list of submitted and later applications (never drafts)
 router.get('/applications', touristVisaAdminController.list);
@@ -42,5 +43,11 @@ router.post('/applications/:id/notes', touristVisaAdminEditController.addNote);
 
 // Admin-only flags from a fixed list
 router.put('/applications/:id/flags', touristVisaAdminEditController.setFlags);
+
+// The cover letter (step 8g): generated on demand by an administrator, versions appended and never changed.
+router.get('/applications/:id/cover-letter', touristVisaCoverLetterController.get);
+router.post('/applications/:id/cover-letter/generate', touristVisaCoverLetterController.generate);
+router.put('/applications/:id/cover-letter', touristVisaCoverLetterController.save);
+router.post('/applications/:id/cover-letter/approve', touristVisaCoverLetterController.approve);
 
 module.exports = router;
