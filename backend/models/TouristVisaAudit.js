@@ -44,6 +44,10 @@ const auditSchema = new mongoose.Schema(
         // cover_letter_* and itinerary_* only: which version, how it was made, and the model's name (a name from the settings, never text)
         letterVersion: { type: Number, min: 1, immutable: true },
         letterSource: { type: String, enum: LETTER_SOURCES, immutable: true },
+        // itinerary_* only: the same two facts under their plain names. (The itinerary's rows used letterVersion and letterSource before;
+        // those rows stay valid and every reader accepts both. The cover letter's rows are unchanged.)
+        version: { type: Number, min: 1, immutable: true },
+        source: { type: String, enum: LETTER_SOURCES, immutable: true },
         model: { type: String, maxlength: 100, match: /^[\w./:-]+$/, immutable: true },
         // cover_letter_generate and itinerary_generate only: the version of the prompt that was sent (a number; rows without it stay valid)
         promptVersion: { type: Number, min: 1, immutable: true },

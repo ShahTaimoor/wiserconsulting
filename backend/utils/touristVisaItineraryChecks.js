@@ -48,8 +48,15 @@ const BANNED_PHRASES = Object.freeze([
   { id: 'price', pattern: /\bpric(?:e|es|ed|ing)\b|\bcosts?\b|\bfees?\b|\bfree of charge\b|\bdiscount\w*|\bcheap\b|\bexpensive\b|\bbudget\b|\bafford\w*/i },
   { id: 'opening-times', pattern: /\bopening (?:hours|times)\b|\bopen (?:daily|all day|until|from)\b|\bclosing time\b/i },
   { id: 'marketing', pattern: /\b(?:breathtaking|must[- ]see|must[- ]visit|unforgettable|unmissable|stunning|spectacular|iconic|world[- ]famous|world[- ]renowned|renowned|magical|hidden gems?|bucket[- ]list|once[- ]in[- ]a[- ]lifetime|amazing|incredible|paradise|picture[- ]perfect|fairy[- ]?tale)\b/i },
+  // Scene-setting and feelings: an itinerary says what the traveller will do, in plain words (the marketing words above are banned too).
+  { id: 'scene-setting', pattern: /\b(?:absorb\w*|soak\w*|immers\w*|picturesque|charming|majestic|captivating|breathtaking|stunning|unforgettable|must[- ]see|iconic)\b/i },
+  // The last day is a departure from the United Kingdom: no next destination and no onward travel.
+  { id: 'onward-travel', pattern: /\bnext destinations?\b|\bonward(?:s)?\b/i },
   ...COVER_LETTER_BANNED,
 ]);
+
+/** What the last description must say: the traveller leaves the United Kingdom or goes home. */
+const DEPARTURE = /\b(?:leav\w*|depart\w*|return\w*|home|homeward|set(?:s|ting)? off|head(?:s|ing)? back)\b/i;
 
 // Country names are not "a place the applicant did not name": a description may say that a city is in a country.
 const COUNTRIES = new Set(['England', 'Scotland', 'Wales', 'Northern Ireland']);
@@ -90,9 +97,10 @@ function parseDescriptions(raw, count) {
  *   options.mode     "days" or "weeks" (the length cap)
  *   options.named    the places the applicant named, in order
  *   options.stay     the places of the stay (the city they will stay in), which may be named too
+ *   options.lastDay  when true, the LAST description must say that the traveller leaves the United Kingdom or goes home
  * -> { ok: true, descriptions } with each entry tidied, or { ok: false, code, entry?, rule? }. Never any text.
  */
-function validateDescriptions(descriptions, { mode = 'days', named = [], stay = [] } = {}) {
+function validateDescriptions(descriptions, { mode = 'days', named = [], stay = [], lastDay = false } = {}) {
   const max = MAX_ENTRY[mode] || MAX_ENTRY.days;
   const clean = [];
   for (let i = 0; i < descriptions.length; i += 1) {
@@ -108,6 +116,7 @@ function validateDescriptions(descriptions, { mode = 'days', named = [], stay = 
     if (banned) return { ok: false, code: 'ITINERARY_BANNED_PHRASE', entry: i, rule: banned };
     clean.push(text);
   }
+  if (lastDay && clean.length > 0 && !DEPARTURE.test(clean[clean.length - 1])) return { ok: false, code: 'ITINERARY_BAD_ENTRY', entry: clean.length - 1, rule: 'last-day' };
 
   // Places: only the ones the applicant named (or the city of the stay), and in the order they named them.
   const allowed = new Set([...named, ...stay]);
@@ -140,6 +149,7 @@ module.exports = {
   MAX_ENTRY,
   FORBIDDEN_CONTENT,
   BANNED_PHRASES,
+  DEPARTURE,
   COUNTRIES,
   bannedIn,
   forbiddenIn,

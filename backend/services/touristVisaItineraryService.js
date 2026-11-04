@@ -77,7 +77,7 @@ class TouristVisaItineraryService {
     const at = this.now();
     const model = made.model && SAFE_MODEL.test(made.model) ? made.model : undefined;
 
-    await this.audit.append([{ adminId, applicationId: application._id, action: "itinerary_generate", at, letterVersion: version, letterSource: made.source, ...(model ? { model } : {}), ...(made.promptVersion ? { promptVersion: made.promptVersion } : {}) }]);
+    await this.audit.append([{ adminId, applicationId: application._id, action: "itinerary_generate", at, version, source: made.source, ...(model ? { model } : {}), ...(made.promptVersion ? { promptVersion: made.promptVersion } : {}) }]);
     await this.itineraries.append({
       applicationId: application._id,
       version,
@@ -117,7 +117,7 @@ class TouristVisaItineraryService {
     if (body.basedOnVersion !== current) throw fail(409, "ITINERARY_CHANGED", "The itinerary was changed by someone else. Reload it and try again.");
 
     const at = this.now();
-    await this.audit.append([{ adminId, applicationId: application._id, action: "itinerary_edit", at, letterVersion: current + 1, letterSource: "admin" }]);
+    await this.audit.append([{ adminId, applicationId: application._id, action: "itinerary_edit", at, version: current + 1, source: "admin" }]);
     await this.itineraries.append({
       applicationId: application._id,
       version: current + 1,
@@ -146,7 +146,7 @@ class TouristVisaItineraryService {
     if (latest.factsHash !== factsHash) throw fail(409, "ITINERARY_STALE", "The answers used by the itinerary have changed. Create a new version before approving.");
 
     const at = this.now();
-    await this.audit.append([{ adminId, applicationId: application._id, action: "itinerary_approve", at, letterVersion: latest.version, letterSource: latest.source }]);
+    await this.audit.append([{ adminId, applicationId: application._id, action: "itinerary_approve", at, version: latest.version, source: latest.source }]);
     const approved = await this.itineraries.approve({ applicationId: application._id, version: latest.version, adminId, at });
     if (!approved) throw fail(409, "ALREADY_APPROVED", "This version is already approved.");
     return this.present(await this.itineraries.findVersions(application._id), factsHash, skeleton);
@@ -189,7 +189,7 @@ class TouristVisaItineraryService {
     if (!parsed.ok) return parsed;
     const values = facts.values || {};
     const stay = [...new Set([...[].concat(values.accommodationArea || []), ...placesIn([].concat(values.accommodationTowns || []).join(" "))])];
-    const checked = validateDescriptions(parsed.descriptions, { mode: skeleton.mode, named: facts.places, stay });
+    const checked = validateDescriptions(parsed.descriptions, { mode: skeleton.mode, named: facts.places, stay, lastDay: true });
     if (!checked.ok) return checked;
     const text = assembleItinerary(skeleton.blocks, checked.descriptions);
     if (text.length > MAX_TEXT) return { ok: false, code: "ITINERARY_BAD_ENTRY", rule: "too-long" };

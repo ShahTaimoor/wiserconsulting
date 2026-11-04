@@ -155,10 +155,22 @@ test("a plain sentence for every way an itinerary call can fail, never the code 
 
 test("the Activity panel and the jump list know the itinerary", () => {
   assert.deepEqual(describeActivity({ action: "itinerary_view", admin }), { who: "Alex Auditor", what: "read the itinerary" });
+  // Rows written with the plain names (version, source).
+  assert.deepEqual(describeActivity({ action: "itinerary_generate", admin, version: 2, source: "ai" }), { who: "Alex Auditor", what: "created version 2 of the itinerary (written by the AI)" });
+  assert.deepEqual(describeActivity({ action: "itinerary_generate", admin, version: 1, source: "template" }), { who: "Alex Auditor", what: "created version 1 of the itinerary (from the template)" });
+  assert.deepEqual(describeActivity({ action: "itinerary_edit", admin, version: 3, source: "admin" }), { who: "Alex Auditor", what: "saved version 3 of the itinerary after editing it" });
+  assert.deepEqual(describeActivity({ action: "itinerary_approve", admin, version: 3 }), { who: "Alex Auditor", what: "approved version 3 of the itinerary" });
+  // Rows already in the database, written with the old names (letterVersion, letterSource), read the same.
   assert.deepEqual(describeActivity({ action: "itinerary_generate", admin, letterVersion: 2, letterSource: "ai" }), { who: "Alex Auditor", what: "created version 2 of the itinerary (written by the AI)" });
   assert.deepEqual(describeActivity({ action: "itinerary_generate", admin, letterVersion: 1, letterSource: "template" }), { who: "Alex Auditor", what: "created version 1 of the itinerary (from the template)" });
   assert.deepEqual(describeActivity({ action: "itinerary_edit", admin, letterVersion: 3, letterSource: "admin" }), { who: "Alex Auditor", what: "saved version 3 of the itinerary after editing it" });
   assert.deepEqual(describeActivity({ action: "itinerary_approve", admin, letterVersion: 3 }), { who: "Alex Auditor", what: "approved version 3 of the itinerary" });
+  // The plain names win when a row has both, and a row with neither still has a line.
+  assert.deepEqual(describeActivity({ action: "itinerary_generate", admin, version: 4, source: "admin", letterVersion: 9, letterSource: "ai" }), { who: "Alex Auditor", what: "created version 4 of the itinerary (written by hand)" });
+  assert.deepEqual(describeActivity({ action: "itinerary_generate", admin }), { who: "Alex Auditor", what: "created the itinerary" });
+  // The cover letter's rows are read exactly as they were, by their own names only.
+  assert.deepEqual(describeActivity({ action: "cover_letter_generate", admin, letterVersion: 2, letterSource: "ai" }), { who: "Alex Auditor", what: "created version 2 of the cover letter (written by the AI)" });
+  assert.deepEqual(describeActivity({ action: "cover_letter_generate", admin, version: 2, source: "ai" }), { who: "Alex Auditor", what: "created the cover letter" });
   const links = jumpLinks({ parts: [] }).map((l) => l.href);
   assert.ok(links.indexOf("#itinerary") === links.indexOf("#cover-letter") + 1, "the Itinerary link is right after the Cover letter");
 });

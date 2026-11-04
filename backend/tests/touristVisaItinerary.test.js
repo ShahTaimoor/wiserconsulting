@@ -327,8 +327,8 @@ test('with the AI off a template itinerary is written: version 1, the skeleton f
 
   const generateRows = await auditRows({ applicationId: oid(app.appId), action: 'itinerary_generate' });
   assert.equal(generateRows.length, 1);
-  assert.equal(generateRows[0].letterVersion, 1);
-  assert.equal(generateRows[0].letterSource, 'template');
+  assert.equal(generateRows[0].version, 1);
+  assert.equal(generateRows[0].source, 'template');
   assert.equal(generateRows[0].model, undefined);
 });
 
@@ -385,7 +385,7 @@ test('the dummy application: with the AI on, 19 headings with the right weekdays
   assert.match(row.text, /^enc:v1:/);
   assertNone(JSON.stringify(row), ['Edinburgh', 'Day 19'], 'the stored row');
   const [audit] = await auditRows({ applicationId: oid(app.appId), action: 'itinerary_generate' });
-  assert.equal(audit.letterSource, 'ai');
+  assert.equal(audit.source, 'ai');
   assert.equal(audit.model, DEFAULT_GROQ_MODEL);
   assert.equal(audit.promptVersion, ITINERARY_PROMPT_VERSION);
   assertNone(JSON.stringify(audit), ['Edinburgh', 'London', 'Day 1'], 'the audit row');
@@ -651,7 +651,7 @@ test('approving: only the latest version, once, and the row changes in nothing b
   assert.equal(next.json.data.versions[0].status, 'draft');
   assert.equal(next.json.data.versions[1].status, 'approved');
   const [audit] = await auditRows({ applicationId: oid(app.appId), action: 'itinerary_approve' });
-  assert.equal(audit.letterVersion, 2);
+  assert.equal(audit.version, 2);
 });
 
 // ---------------------------------------------------------------------------
@@ -789,10 +789,10 @@ test('audit rows hold ids and fixed words only: the four actions are recorded be
     assertNone(JSON.stringify(r), ['AUDIT-TEST-TEXT', 'Proposed itinerary', 'Day 1', 'Testfirst', 'Testlast', 'London'], `the ${r.action} audit row`);
   }
   assert.deepEqual(Object.keys(rows[0]).sort(), ['_id', 'action', 'adminId', 'applicationId', 'at'].sort(), 'a view records who and when');
-  assert.equal(rows[1].letterSource, 'template');
-  assert.equal(rows[2].letterSource, 'admin');
-  assert.equal(rows[3].letterVersion, 2);
-  assert.equal(rows[3].letterSource, 'admin');
+  assert.equal(rows[1].source, 'template');
+  assert.equal(rows[2].source, 'admin');
+  assert.equal(rows[3].version, 2);
+  assert.equal(rows[3].source, 'admin');
   // The activity panel can read them.
   const activity = await api('GET', `/admin/applications/${app.appId}/activity`, { token: admin.token });
   const actions = activity.json.data.activity.map((a) => a.action);
@@ -830,4 +830,43 @@ test('the itinerary never reaches an applicant, and no error or log line holds a
     assert.equal(res.status, 200);
     assertNone(res.text, ['ITINERARY-PRIVACY-TEXT', 'Proposed itinerary', 'itinerary', 'Itinerary'], path);
   }
+});
+
+// ---------------------------------------------------------------------------
+// The audit field names: version and source for the itinerary; the old names still read; the cover letter unchanged
+// ---------------------------------------------------------------------------
+
+test('itinerary audit rows are written with version and source; rows written with the old names still read; the cover letter keeps its own names', async () => {
+  aiOff();
+  const admin = await makeAdmin('Audit Names Admin');
+  const app = await submitted();
+  const id = oid(app.appId);
+  assert.equal((await generate(admin.token, app.appId)).status, 201);
+  assert.equal((await save(admin.token, app.appId, { text: 'AUDIT-NAMES-TEXT by hand', basedOnVersion: 1 })).status, 201);
+  assert.equal((await approve(admin.token, app.appId, { version: 2 })).status, 200);
+  const rows = await auditRows({ applicationId: id, action: /^itinerary_/ });
+  for (const row of rows) {
+    assert.equal(row.letterVersion, undefined, `${row.action} has no letterVersion`);
+    assert.equal(row.letterSource, undefined, `${row.action} has no letterSource`);
+  }
+  const byAction = Object.fromEntries(rows.map((r) => [r.action, r]));
+  assert.deepEqual([byAction.itinerary_generate.version, byAction.itinerary_generate.source], [1, 'template']);
+  assert.deepEqual([byAction.itinerary_edit.version, byAction.itinerary_edit.source], [2, 'admin']);
+  assert.deepEqual([byAction.itinerary_approve.version, byAction.itinerary_approve.source], [2, 'admin']);
+
+  // A row written before the change, with the old names, is still valid and still comes out of the activity route.
+  await TouristVisaAudit.collection.insertOne({ adminId: oid(admin.userId), applicationId: id, action: 'itinerary_generate', at: new Date(Date.now() - 86400000), letterVersion: 7, letterSource: 'ai', model: 'openai/gpt-oss-120b', promptVersion: 1 });
+  const activity = await api('GET', `/admin/applications/${app.appId}/activity`, { token: admin.token });
+  assert.equal(activity.status, 200);
+  const items = activity.json.data.activity;
+  const old = items.find((a) => a.action === 'itinerary_generate' && a.letterVersion === 7);
+  assert.deepEqual([old.letterVersion, old.letterSource, old.version, old.source], [7, 'ai', undefined, undefined]);
+  const fresh = items.find((a) => a.action === 'itinerary_generate' && a.version === 1);
+  assert.deepEqual([fresh.version, fresh.source, fresh.letterVersion, fresh.letterSource], [1, 'template', undefined, undefined]);
+  assert.equal(JSON.stringify(items).includes('AUDIT-NAMES-TEXT'), false);
+
+  // The cover letter's rows are exactly as they were.
+  assert.equal((await api('POST', `/admin/applications/${app.appId}/cover-letter/generate`, { token: admin.token })).status, 201);
+  const [letterRow] = await auditRows({ applicationId: id, action: 'cover_letter_generate' });
+  assert.deepEqual([letterRow.letterVersion, letterRow.letterSource, letterRow.version, letterRow.source], [1, 'template', undefined, undefined]);
 });

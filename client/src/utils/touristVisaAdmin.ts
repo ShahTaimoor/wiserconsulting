@@ -135,7 +135,7 @@ export function formatWhen(iso: string | null | undefined, timeZone?: string): s
 }
 
 /** A line of the Activity panel: who did what. */
-export function describeActivity(row: Pick<ActivityRow, "action" | "admin" | "fromStatus" | "toStatus" | "fromFlags" | "toFlags" | "letterVersion" | "letterSource">): { who: string; what: string } {
+export function describeActivity(row: Pick<ActivityRow, "action" | "admin" | "fromStatus" | "toStatus" | "fromFlags" | "toFlags" | "letterVersion" | "letterSource" | "version" | "source">): { who: string; what: string } {
   const who = row.admin.name || "An administrator";
   switch (row.action) {
     case "list_view":
@@ -173,16 +173,25 @@ export function describeActivity(row: Pick<ActivityRow, "action" | "admin" | "fr
       return { who, what: `approved ${row.letterVersion ? `version ${row.letterVersion} of ` : ""}the cover letter` };
     case "itinerary_view":
       return { who, what: "read the itinerary" };
-    case "itinerary_generate":
-      return { who, what: `created ${row.letterVersion ? `version ${row.letterVersion} of ` : ""}the itinerary${row.letterSource ? ` (${letterSourceWords(row.letterSource)})` : ""}` };
-    case "itinerary_edit":
-      return { who, what: `saved ${row.letterVersion ? `version ${row.letterVersion} of ` : ""}the itinerary after editing it` };
-    case "itinerary_approve":
-      return { who, what: `approved ${row.letterVersion ? `version ${row.letterVersion} of ` : ""}the itinerary` };
+    case "itinerary_generate": {
+      const { version, source } = itineraryFacts(row);
+      return { who, what: `created ${version ? `version ${version} of ` : ""}the itinerary${source ? ` (${letterSourceWords(source)})` : ""}` };
+    }
+    case "itinerary_edit": {
+      const { version } = itineraryFacts(row);
+      return { who, what: `saved ${version ? `version ${version} of ` : ""}the itinerary after editing it` };
+    }
+    case "itinerary_approve": {
+      const { version } = itineraryFacts(row);
+      return { who, what: `approved ${version ? `version ${version} of ` : ""}the itinerary` };
+    }
     default:
       return { who, what: "did something" };
   }
 }
+
+/** The version and the source of an itinerary row: the plain names, or the old ones on a row written before them. */
+const itineraryFacts = (row: Pick<ActivityRow, "version" | "source" | "letterVersion" | "letterSource">) => ({ version: row.version ?? row.letterVersion, source: row.source ?? row.letterSource });
 
 const letterSourceWords = (source: string): string => (source === "ai" ? "written by the AI" : source === "template" ? "from the template" : "written by hand");
 

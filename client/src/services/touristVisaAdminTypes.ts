@@ -107,9 +107,12 @@ export interface ActivityRow {
   toStatus?: AdminStatus;
   fromFlags?: AdminFlag[];
   toFlags?: AdminFlag[];
-  /** cover_letter_* and itinerary_* rows: which version and how it was made. Never any text. */
+  /** cover_letter_* rows (and itinerary_* rows written before the itinerary used plain names): which version and how it was made. Never any text. */
   letterVersion?: number;
   letterSource?: LetterSource;
+  /** itinerary_* rows: the same two facts under their plain names. A reader accepts both. */
+  version?: number;
+  source?: LetterSource;
   model?: string;
 }
 
