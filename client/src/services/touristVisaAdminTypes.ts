@@ -92,7 +92,11 @@ export type AuditAction =
   | "cover_letter_generate"
   | "cover_letter_view"
   | "cover_letter_edit"
-  | "cover_letter_approve";
+  | "cover_letter_approve"
+  | "itinerary_generate"
+  | "itinerary_view"
+  | "itinerary_edit"
+  | "itinerary_approve";
 
 export interface ActivityRow {
   id: string;
@@ -103,7 +107,7 @@ export interface ActivityRow {
   toStatus?: AdminStatus;
   fromFlags?: AdminFlag[];
   toFlags?: AdminFlag[];
-  /** cover_letter_* rows: which version and how it was made. Never any text. */
+  /** cover_letter_* and itinerary_* rows: which version and how it was made. Never any text. */
   letterVersion?: number;
   letterSource?: LetterSource;
   model?: string;
@@ -207,4 +211,23 @@ export interface CoverLetterView {
   maxLength: number;
   /** Only in the answer to Generate: what was just made. */
   created?: { version: number; source: LetterSource; model?: string; fallbackReason?: string };
+}
+
+// ---------------------------------------------------------------------------
+// The itinerary: a proposed day-by-day plan, versioned exactly like the cover letter
+// ---------------------------------------------------------------------------
+
+/** One version of the itinerary. The text is for the team only. */
+export type ItineraryVersion = CoverLetterVersion;
+
+/** Why an itinerary cannot be made yet: the dates. A fixed code and the numbers of the questions to fix ("1.6", "1.7"). */
+export interface ItineraryBlocker {
+  code: "ITINERARY_DATES_MISSING" | "ITINERARY_DATES_INVALID";
+  questions: string[];
+}
+
+export interface ItineraryView extends CoverLetterView {
+  versions: ItineraryVersion[];
+  /** Null when the dates allow an itinerary. */
+  blocker: ItineraryBlocker | null;
 }

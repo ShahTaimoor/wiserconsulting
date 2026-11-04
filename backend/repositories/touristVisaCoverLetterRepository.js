@@ -5,7 +5,7 @@
  * encrypted with the field cipher, bound to the application and the version.
  */
 
-const mongoose = require("mongoose");
+const aiUsage = require("./aiUsageRepository");
 const TouristVisaCoverLetter = require("../models/TouristVisaCoverLetter");
 const User = require("../models/User");
 const { getFieldEncryptionKey } = require("../config/fieldEncryption");
@@ -91,12 +91,8 @@ class TouristVisaCoverLetterRepository {
    * request counts as two; a row without `aiAttempts` (written before it existed) counts as one.
    */
   async countAiRequests({ since, adminId }) {
-    const by = adminId ? { createdBy: mongoose.Types.ObjectId.isValid(String(adminId)) ? new mongoose.Types.ObjectId(String(adminId)) : adminId } : {};
-    const rows = await TouristVisaCoverLetter.aggregate([
-      { $match: { aiAttempted: true, createdAt: { $gte: since }, ...by } },
-      { $group: { _id: null, requests: { $sum: { $ifNull: ["$aiAttempts", 1] } } } },
-    ]);
-    return rows.length > 0 ? rows[0].requests : 0;
+    // The allowance is shared with the itinerary, so the count is made over the rows of both (repositories/aiUsageRepository.js).
+    return aiUsage.countAiRequests({ since, adminId });
   }
 
   /**

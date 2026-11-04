@@ -473,3 +473,81 @@ test('through the service\'s own fallback: when the AI fails, the template lette
   assert.ok(made.text.includes(typed));
   assert.match(made.text, /\nYours faithfully,\nTest Person$/);
 });
+
+// ---------------------------------------------------------------------------
+// City and type of stay, never an address; the best-effort scrub of free text, through the real service
+// ---------------------------------------------------------------------------
+
+const WORST_STAY = 'Flat 4, 12 Acacia Road, SW1A 1AA, staying with my host Mr Ahmed Khan, tel 020 7946 0958, ahmed@example.com';
+const STAY_LEAKS = ['Flat 4', 'Acacia', 'SW1A', '1AA', 'Ahmed', 'Khan', 'my host', '020 7946', 'ahmed@', 'example.com'];
+
+test('the worst-case string in 6.7y: the AI is shown only the type of stay, and neither the AI letter nor the template letter has any of it', async () => {
+  const f = build(base({ q6_7: false, q6_7x: 'paid_stay', q6_7y: WORST_STAY }));
+  const { service, prompts } = serviceWith(() => letterUsing([]));
+  const made = await service.compose('admin1', f);
+  assert.equal(made.source, 'ai', made.fallbackReason);
+  const shownToAi = JSON.stringify(prompts[0]);
+  for (const leak of STAY_LEAKS) assert.equal(shownToAi.includes(leak), false, `${leak} was sent to the AI`);
+  assert.match(prompts[0].user, /Where they will stay in the UK:\n- Plans for accommodation: I will book a hotel or other paid stay\n/);
+  assert.equal(/Area or city they expect to stay in/.test(prompts[0].user), false, 'no area line when no listed place is named');
+  for (const leak of STAY_LEAKS) assert.equal(made.text.includes(leak), false, `${leak} is in the AI letter`);
+
+  const template = checks.substitute(buildTemplate(f), f.tokens, f.redactions);
+  for (const leak of STAY_LEAKS) assert.equal(template.includes(leak), false, `${leak} is in the template letter`);
+});
+
+test('a missing place gives "the United Kingdom" wording and never an invented or typed city, in the facts, the template and the prompt', async () => {
+  const f = build(base({ q1_5: 'A holiday.', q6_7: false, q6_7x: 'not_decided', q6_7y: "my cousin's house near the shops" }));
+  assert.equal(f.values.accommodationArea, undefined);
+  const letter = checks.substitute(buildTemplate(f), f.tokens, f.redactions);
+  assert.match(letter, /I plan to arrive in the United Kingdom on 1 March 2027/);
+  assert.equal(/I expect to stay in|I will be staying in/.test(letter), false);
+  assert.match(letter, /I have not yet decided where I will stay\./);
+  for (const city of ['London', 'Manchester', 'Birmingham']) assert.equal(letter.includes(city), false, city);
+  // The prompt tells the model to use only the facts and to leave out a missing one; there is no city in it to copy.
+  assert.match(SYSTEM_PROMPT, /no names, places, dates, numbers, amounts, reasons, relationships or documents that are not in the facts\. If a fact is missing, leave it out/);
+  assert.equal(/London|Manchester|Birmingham/.test(SYSTEM_PROMPT), false);
+  // A listed place is used, from our list, as a place and not as typed.
+  const named = build(base({ q6_7: false, q6_7x: 'not_decided', q6_7y: 'near the river in Bath' }));
+  assert.match(checks.substitute(buildTemplate(named), named.tokens, named.redactions), /I expect to stay in Bath\./);
+});
+
+test('"Other" as the type of stay is "somewhere else" in the facts the AI is shown, and the template says nothing invented about it', async () => {
+  const f = build(base({ q6_7: false, q6_7x: 'other', q6_7y: undefined }));
+  const { service, prompts } = serviceWith(() => letterUsing([]));
+  await service.compose('admin1', f);
+  assert.match(prompts[0].user, /- Plans for accommodation: somewhere else/);
+  assert.equal(/accommodation: Other\b/.test(prompts[0].user), false);
+  assert.equal(/booked|hotel/i.test(checks.substitute(buildTemplate(f), f.tokens, f.redactions)), false);
+});
+
+test('the scrub through the real service: the AI never sees an address, a postcode or a titled name from the trip description, and the final letter has the applicant\'s words exactly', async () => {
+  const typed = 'I would like to see London, then stay at 12 Acacia Road, SW1A 1AA with Mr Ahmed Khan, and I test software on the way.';
+  const f = build(base({ q6_7y: undefined, q1_5: typed }));
+  const { service, prompts } = serviceWith((prompt) => letterUsing([dataBlock(prompt, 'Further information about the visit')]));
+  const made = await service.compose('admin1', f);
+  assert.equal(made.source, 'ai', made.fallbackReason);
+  const shown = JSON.stringify(prompts[0]);
+  for (const leak of ['Acacia', 'SW1A', 'Ahmed', 'Khan']) assert.equal(shown.includes(leak), false, `${leak} was sent to the AI`);
+  assert.ok(made.text.includes(typed), `the applicant's words came back exactly: ${made.text}`);
+
+  // The template letter puts the same words back exactly too.
+  const template = checks.substitute(buildTemplate(f), f.tokens, f.redactions);
+  assert.ok(template.includes(typed), template);
+});
+
+test('a token made from the scrub is a token the facts made: one the AI invents is still refused', async () => {
+  const f = build(base({ q6_7y: undefined, q1_5: 'Stay at 12 Acacia Road.' }));
+  const { service } = serviceWith(() => letterUsing(['[R7] is where I will stay.']));
+  const made = await service.compose('admin1', f);
+  assert.equal(made.source, 'template');
+  assert.equal(made.fallbackReason, 'LETTER_UNKNOWN_TOKEN');
+});
+
+test('several listed places in 6.7y are said as a list in the template letter, in the order written', () => {
+  const f = build(base({ q6_7: false, q6_7x: 'not_decided', q6_7y: 'a week in Edinburgh then Bath and a few days in London' }));
+  assert.deepEqual(f.values.accommodationArea, ['Edinburgh', 'Bath', 'London']);
+  const letter = checks.substitute(buildTemplate(f), f.tokens, f.redactions);
+  assert.match(letter, /I expect to stay in Edinburgh, Bath and London\./);
+  assert.equal(/a week|few days/.test(letter), false, 'only the places, never what was typed around them');
+});

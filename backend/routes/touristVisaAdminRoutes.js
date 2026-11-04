@@ -14,6 +14,7 @@ const router = express.Router();
 const touristVisaAdminController = require('../controllers/touristVisaAdminController');
 const touristVisaAdminEditController = require('../controllers/touristVisaAdminEditController');
 const touristVisaCoverLetterController = require('../controllers/touristVisaCoverLetterController');
+const touristVisaItineraryController = require('../controllers/touristVisaItineraryController');
 
 // The list of submitted and later applications (never drafts)
 router.get('/applications', touristVisaAdminController.list);
@@ -49,5 +50,11 @@ router.get('/applications/:id/cover-letter', touristVisaCoverLetterController.ge
 router.post('/applications/:id/cover-letter/generate', touristVisaCoverLetterController.generate);
 router.put('/applications/:id/cover-letter', touristVisaCoverLetterController.save);
 router.post('/applications/:id/cover-letter/approve', touristVisaCoverLetterController.approve);
+
+// The itinerary: a proposed day-by-day plan, generated on demand by an administrator, versions appended and never changed.
+router.get('/applications/:id/itinerary', touristVisaItineraryController.get);
+router.post('/applications/:id/itinerary/generate', touristVisaItineraryController.generate);
+router.put('/applications/:id/itinerary', touristVisaItineraryController.save);
+router.post('/applications/:id/itinerary/approve', touristVisaItineraryController.approve);
 
 module.exports = router;

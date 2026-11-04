@@ -20,6 +20,8 @@ const ACTIONS = [
     'edit_open', 'changes_preview', 'changes_apply', 'changes_view', 'notes_view', 'notes_add', 'flags_change',
     // Step 8g: the cover letter (ids, the version, the source and the model's name; never any text)
     'cover_letter_generate', 'cover_letter_view', 'cover_letter_edit', 'cover_letter_approve',
+    // The itinerary (same fields as the cover letter's rows: the version, the source, the model's name, the prompt version; never any text)
+    'itinerary_generate', 'itinerary_view', 'itinerary_edit', 'itinerary_approve',
 ];
 const LETTER_SOURCES = ['ai', 'template', 'admin'];
 // Fixed words an admin can put on an application. Never shown to the applicant.
@@ -39,11 +41,11 @@ const auditSchema = new mongoose.Schema(
         // flags_change only: the flag names before and after
         fromFlags: { type: [{ type: String, enum: FLAGS }], default: undefined, immutable: true },
         toFlags: { type: [{ type: String, enum: FLAGS }], default: undefined, immutable: true },
-        // cover_letter_* only: which version, how it was made, and the model's name (a name from the settings, never text)
+        // cover_letter_* and itinerary_* only: which version, how it was made, and the model's name (a name from the settings, never text)
         letterVersion: { type: Number, min: 1, immutable: true },
         letterSource: { type: String, enum: LETTER_SOURCES, immutable: true },
         model: { type: String, maxlength: 100, match: /^[\w./:-]+$/, immutable: true },
-        // cover_letter_generate only: the version of the prompt that was sent (a number; rows without it stay valid)
+        // cover_letter_generate and itinerary_generate only: the version of the prompt that was sent (a number; rows without it stay valid)
         promptVersion: { type: Number, min: 1, immutable: true },
     },
     { collection: 'touristvisaaudit', versionKey: false, minimize: false }

@@ -27,6 +27,7 @@
 
 const engine = require('./engine');
 const view = require('./view');
+const { placesIn } = require('./places');
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MAX_FREE_TEXT = 500;
@@ -34,6 +35,7 @@ const MAX_UK_VISITS = 20;
 const MAX_OTHER_TRIPS = 10;
 const MAX_PAYERS = 5;
 const MAX_TOWNS = 5;
+const NOT_A_TOWN = /\d|,|^.{61,}$/;
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
@@ -43,7 +45,9 @@ const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
 
 /**
  * kind:
- *   value  one answer, in words              text   free text (cleaned, cut short, passed as data)
+ *   value  one answer, in words (optionally `words`: the exact words to use for chosen options)
+ *   text   free text (cleaned, cut short, passed as data)
+ *   places only the well-known places (a fixed list, places.js) that a free-text answer names; never any of the text
  *   part   one part of an address (town or country only)
  *   count  how many entries a repeating group has (when its Yes/No is Yes)
  *   list   a few chosen fields of each entry of a repeating group
@@ -61,8 +65,10 @@ const SPECS = Object.freeze([
   { key: 'companions', section: 'The visit', label: 'Number of travelling companions who are not a partner, spouse or dependant', kind: 'count', id: 'q1_3', group: 'companions' },
   { key: 'purposeDetails', section: 'The visit', label: 'Further information about the visit', kind: 'text', id: 'q1_5', withholdIf: { id: 'q1_1', value: 'medical' } },
 
-  { key: 'accommodationPlan', section: 'Where they will stay in the UK', label: 'Plans for accommodation', kind: 'value', id: 'q6_7x' },
-  { key: 'accommodationArea', section: 'Where they will stay in the UK', label: 'Area or city they expect to stay in', kind: 'text', id: 'q6_7y', inline: true },
+  // "Other" is not sent as the bare word: it is said as "somewhere else".
+  { key: 'accommodationPlan', section: 'Where they will stay in the UK', label: 'Plans for accommodation', kind: 'value', id: 'q6_7x', words: { other: 'somewhere else' } },
+  // Free text that can hold an address, a postcode, a host's name: only the well-known places in it are sent, never the text.
+  { key: 'accommodationArea', section: 'Where they will stay in the UK', label: 'Area or city they expect to stay in', kind: 'places', id: 'q6_7y', oneLine: true },
   { key: 'accommodationTowns', section: 'Where they will stay in the UK', label: 'Town or city of the address where they will stay', kind: 'part', id: 'q6_7b', group: 'accommodation', part: 'town', max: MAX_TOWNS },
 
   { key: 'someonePaying', section: 'Who pays', label: 'Someone else is paying towards the cost of the visit', kind: 'value', id: 'q6_5' },
@@ -153,6 +159,12 @@ const EXCLUDED_FLAT = new Set(Object.values(EXCLUDED_IDS).flat());
 const FORBIDDEN_TYPES = new Set(['EML', 'TEL', 'FILE', 'ACK']);
 const ADDRESS_PARTS = new Set(['town', 'country']);
 
+/**
+ * What can never be a fact, as a set of rules an allowlist is checked against. This is the cover letter's. The itinerary has its own,
+ * smaller allowlist and its own rules (itineraryFacts.js), checked and built by the same code.
+ */
+const COVER_LETTER_RULES = Object.freeze({ forbiddenSections: FORBIDDEN_SECTIONS, excludedIds: EXCLUDED_FLAT, forbiddenTypes: FORBIDDEN_TYPES, addressParts: ADDRESS_PARTS });
+
 /** Every question id an item of SPECS reads (its question, its gate and its fields). */
 function idsOfSpec(spec) {
   const ids = [];
@@ -176,7 +188,8 @@ function allowedIds(specs = SPECS) {
  * question ids and fixed words only. A question is refused when it is in a forbidden section, in the excluded list,
  * stored encrypted, of a type that can only be an identifier, or an address read in any way but town or country.
  */
-function validateAllowlist(specs = SPECS, cfg = engine.config) {
+function validateAllowlist(specs = SPECS, cfg = engine.config, rules = COVER_LETTER_RULES) {
+  const { forbiddenSections, excludedIds, forbiddenTypes, addressParts } = rules;
   const problems = [];
   const keys = new Set();
   for (const spec of specs) {
@@ -184,21 +197,24 @@ function validateAllowlist(specs = SPECS, cfg = engine.config) {
     if (keys.has(spec.key)) problems.push(`${spec.key}: listed twice`);
     keys.add(spec.key);
     if (spec.kind === 'token') {
-      if (!TOKEN_SOURCES[spec.token]) problems.push(`${spec.key}: unknown placeholder ${spec.token}`);
+      // An allowlist that has no use for a person's name (the itinerary's) refuses a placeholder for one outright.
+      if (rules.noTokenSpecs) problems.push(`${spec.key}: this allowlist reads no names or employers`);
+      else if (!TOKEN_SOURCES[spec.token]) problems.push(`${spec.key}: unknown placeholder ${spec.token}`);
       else for (const id of spec.ids || []) if (!TOKEN_SOURCES[spec.token].includes(id)) problems.push(`${id}: not a source of ${spec.token}`);
       continue;
     }
     for (const id of idsOfSpec(spec)) {
       const question = engine.getQuestion(cfg, id);
       if (!question) { problems.push(`${id}: not a question of this config`); continue; }
-      if (FORBIDDEN_SECTIONS.includes(question.section)) problems.push(`${id}: in section ${question.section}, which can never feed the letter`);
-      if (EXCLUDED_FLAT.has(id)) problems.push(`${id}: in the excluded list`);
+      if (forbiddenSections.includes(question.section)) problems.push(`${id}: in section ${question.section}, which can never feed the letter`);
+      if (rules.allowedSections && !rules.allowedSections.includes(question.section)) problems.push(`${id}: in section ${question.section}, which this allowlist never reads`);
+      if (excludedIds.has(id)) problems.push(`${id}: in the excluded list`);
       if (question.sensitive) problems.push(`${id}: stored encrypted`);
-      if (FORBIDDEN_TYPES.has(question.type)) problems.push(`${id}: a ${question.type} question can never be a fact`);
-      if (question.type === 'ADDR' && !(spec.kind === 'part' && spec.id === id && ADDRESS_PARTS.has(spec.part))) problems.push(`${id}: an address can only be read as a town or a country`);
+      if (forbiddenTypes.has(question.type)) problems.push(`${id}: a ${question.type} question can never be a fact`);
+      if (question.type === 'ADDR' && !(spec.kind === 'part' && spec.id === id && addressParts.has(spec.part))) problems.push(`${id}: an address can only be read as a town or a country`);
       if (question.type === 'FIL' || question.type === 'FILE') problems.push(`${id}: documents can never be facts`);
     }
-    if (spec.kind === 'part' && !ADDRESS_PARTS.has(spec.part)) problems.push(`${spec.key}: ${spec.part} is not an allowed part of an address`);
+    if (spec.kind === 'part' && !addressParts.has(spec.part)) problems.push(`${spec.key}: ${spec.part} is not an allowed part of an address`);
   }
   return problems;
 }
@@ -269,12 +285,30 @@ function secretStrings(tokens) {
   return [...found].sort((a, b) => codePoints(b) - codePoints(a));
 }
 
+// A BEST-EFFORT scrub of what a free text may say about a person or an address, in the same round trip as everything else (each match
+// is replaced by its own token and put back exactly as typed). It is NOT a guarantee: it catches the common shapes only (below), so
+// an administrator must still read everything, and the provider terms (the production guard) cover what it misses.
+const B = '(?<![\\p{L}\\p{N}_])';
+const A = '(?![\\p{L}\\p{N}_])';
+const STREET_WORDS = 'road|rd|street|st|avenue|ave|lane|ln|drive|dr|close|way|court|ct|gardens|gdns|place|pl|terrace|crescent|grove|square|sq|mews|parade|boulevard';
+// Words that cannot be part of a street's name between a number and a street word ("Room for 2 in a quiet place" is not an address).
+const NOT_IN_A_STREET_NAME = '(?:in|a|an|on|at|for|to|and|with|near|by|from|of|is|are|was|be|my|our|nights?|days?|weeks?|people|persons?|adults?|children|rooms?)(?![\\p{L}])';
+const TITLES ='Mr|MR|Mrs|MRS|Ms|MS|Miss|MISS|Mx|MX|Dr|DR|Prof|PROF|Professor|PROFESSOR';
+
 const GENERIC_PATTERNS = [
   '\\[[^\\]\\n]{0,60}\\]', // anything in square brackets: it could imitate one of our placeholders
   '(?:https?:\\/\\/|www\\.)\\S*[^\\s.,;:!?)\\]\'"]', // links (a full stop or comma after a link is not part of it)
   '[\\p{L}\\p{N}._%+-]+@[\\p{L}\\p{N}-]+(?:\\.[\\p{L}\\p{N}-]+)+', // email addresses
   '\\+?\\d[\\d\\s().-]{5,}\\d', // telephone numbers and other long runs of digits
+  `${B}[A-Z]{1,2}\\d[A-Z\\d]?\\s*\\d[A-Z]{2}${A}`, // UK postcodes
+  `${B}(?:flat|apartment|apt|unit|suite|room)\\.?\\s+\\d{1,4}[A-Z]?${A}`, // "Flat 4"
+  `${B}\\d{1,4}[A-Z]?(?:\\s*[-/]\\s*\\d{1,4}[A-Z]?)?,?\\s+(?:(?!${NOT_IN_A_STREET_NAME})[\\p{L}'’.-]+\\s+){0,3}(?:${STREET_WORDS})\\.?${A}`, // a house number, up to three words and a street word
 ];
+
+// A title (Mr, Mrs, Ms, Miss, Mx, Dr, Prof) and the one or two capitalised words after it: a person's name. A second pass, after the
+// first, and case-sensitive (the first pass is not): it skips the tokens already made, and a title followed by a word that does not
+// start with a capital letter ("miss the train", "Mr and Mrs") is left alone.
+const TITLE_PASS = new RegExp(`\\[R\\d+\\]|${B}(?:${TITLES})\\.?\\s+\\p{Lu}[\\p{L}'’-]*(?:\\s+\\p{Lu}[\\p{L}'’-]*)?${A}`, 'gu');
 
 /** One pattern for everything to redact, so each place in the text is matched once and nothing is redacted twice. */
 function redactionPattern(secrets) {
@@ -293,6 +327,7 @@ function redactionPattern(secrets) {
 function cleanFreeText(text, tokens, registry = createRedactions()) {
   let out = String(text).replace(/<[^>]*>/g, ' ').replace(/[<>`]/g, ' ').replace(/\s+/g, ' ').trim();
   out = out.replace(redactionPattern(secretStrings(tokens)), (match) => tokenFor(registry, match));
+  out = out.replace(TITLE_PASS, (match) => (match.startsWith('[') ? match : tokenFor(registry, match)));
   if (out.length > MAX_FREE_TEXT) out = `${out.slice(0, MAX_FREE_TEXT).replace(/\s+\S*$/, '')}...`;
   return out;
 }
@@ -390,9 +425,17 @@ const LIST_PREFIX = { payers: 'Payer', ukVisits: 'Earlier visit', otherCountries
  *   canonical a stable string of everything above, for the hash that detects a change
  */
 function buildFacts(cfg, answers, options = {}) {
-  const problems = validateAllowlist(SPECS, cfg);
+  return buildFactsFor(SPECS, COVER_LETTER_RULES, cfg, answers, options);
+}
+
+/**
+ * The same, for any allowlist and its rules (the itinerary uses its own). Refuses to run when the allowlist is not safe against
+ * the rules and the config it is given.
+ */
+function buildFactsFor(specs, rules, cfg, answers, options = {}) {
+  const problems = validateAllowlist(specs, cfg, rules);
   if (problems.length) {
-    const error = new Error('The cover letter allowlist is not safe');
+    const error = new Error('The allowlist is not safe');
     error.code = 'FACTS_UNSAFE';
     error.problems = problems;
     throw error;
@@ -410,12 +453,12 @@ function buildFacts(cfg, answers, options = {}) {
     if (!bySection.has(spec.section)) bySection.set(spec.section, []);
     // `free` marks what the applicant typed (so a check can tell a phrase that is theirs from one the AI added); `data` marks
     // the blocks that are passed as delimited data.
-    bySection.get(spec.section).push({ key: spec.key, label: spec.label, value, ...(spec.kind === 'text' ? { free: true } : {}), ...(spec.kind === 'text' && !spec.inline ? { data: true } : {}) });
+    bySection.get(spec.section).push({ key: spec.key, label: spec.label, value, ...(spec.kind === 'text' ? { free: true } : {}), ...(spec.kind === 'text' && !spec.inline ? { data: true } : {}), ...(spec.oneLine ? { oneLine: true } : {}) });
   };
   const describe = (found, entry) => view.describeValue(cfg, found.question, found.raw, safeAnswers, entry || null);
   const entriesOf = (groupId) => (Array.isArray(safeAnswers[groupId]) ? safeAnswers[groupId].filter(isObject) : []);
 
-  for (const spec of SPECS) {
+  for (const spec of specs) {
     // A medical visit: the reason and the applicant's own words about it (which may describe treatment) are not sent.
     if (spec.withholdIf && safeAnswers[spec.withholdIf.id] === spec.withholdIf.value) continue;
     switch (spec.kind) {
@@ -423,7 +466,14 @@ function buildFacts(cfg, answers, options = {}) {
         if (spec.gate) { const gate = visibleValue(cfg, spec.gate, safeAnswers, null); if (!gate || gate.raw !== true) break; }
         const found = visibleValue(cfg, spec.id, safeAnswers, null);
         // A zero or empty amount (or a count of nothing) is no fact: it is left out, never stated as "£0".
-        if (found && !isEmptyAmount(found.question, found.raw)) { add(spec, describe(found)); rawValues[spec.key] = found.raw; }
+        if (found && !isEmptyAmount(found.question, found.raw)) { add(spec, spec.words && Object.prototype.hasOwnProperty.call(spec.words, found.raw) ? spec.words[found.raw] : describe(found)); rawValues[spec.key] = found.raw; }
+        break;
+      }
+      case 'places': {
+        // The answer is free text, but only the places of the fixed list that it names are facts: nothing of what was typed is sent.
+        const found = visibleValue(cfg, spec.id, safeAnswers, null);
+        const named = found && typeof found.raw === 'string' ? placesIn(found.raw) : [];
+        if (named.length) { add(spec, named); rawValues[spec.key] = named; }
         break;
       }
       case 'text': {
@@ -436,7 +486,8 @@ function buildFacts(cfg, answers, options = {}) {
           const towns = [];
           for (const entry of entriesOf(spec.group)) {
             const found = visibleValue(cfg, spec.id, safeAnswers, entry);
-            if (found && isObject(found.raw) && typeof found.raw[spec.part] === 'string' && found.raw[spec.part].trim()) towns.push(cleanFreeText(found.raw[spec.part], tokens, redactions));
+            // A town is a place name: one with a digit, a comma or a great length is an address typed in the wrong box and is dropped.
+            if (found && isObject(found.raw) && typeof found.raw[spec.part] === 'string' && found.raw[spec.part].trim() && !NOT_A_TOWN.test(found.raw[spec.part].trim())) towns.push(cleanFreeText(found.raw[spec.part], tokens, redactions));
           }
           const unique = [...new Set(towns.filter(Boolean))].slice(0, spec.max || MAX_TOWNS);
           if (unique.length) add(spec, unique);
@@ -500,6 +551,9 @@ function buildFacts(cfg, answers, options = {}) {
     }
   }
 
+  // A caller may add facts it works out from the ones above (the itinerary adds the places the applicant named).
+  if (typeof options.derive === 'function') options.derive({ values, raw: rawValues, add });
+
   const sections = [...bySection.entries()].map(([title, items]) => ({ title, items }));
   const text = renderFacts(sections, tokens);
   // The labels are wording for the model, not facts: leaving them out means rewording a label never makes a letter stale.
@@ -518,7 +572,7 @@ function renderFacts(sections, tokens) {
     for (const item of section.items) {
       if (item.data) { data.push(item); continue; }
       if (Array.isArray(item.value)) {
-        if (item.key === 'accommodationTowns') lines.push(`- ${item.label}: ${item.value.join('; ')}`);
+        if (item.key === 'accommodationTowns' || item.oneLine) lines.push(`- ${item.label}: ${item.value.join('; ')}`);
         else for (const line of item.value) lines.push(`- ${line}`);
       } else lines.push(`- ${item.label}: ${item.value}`);
     }
@@ -544,6 +598,9 @@ module.exports = {
   allowedIds,
   validateAllowlist,
   buildFacts,
+  buildFactsFor,
+  COVER_LETTER_RULES,
+  ADDRESS_PARTS,
   tokenValues,
   cleanFreeText,
   createRedactions,

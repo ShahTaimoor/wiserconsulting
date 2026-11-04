@@ -171,6 +171,14 @@ export function describeActivity(row: Pick<ActivityRow, "action" | "admin" | "fr
       return { who, what: `saved ${row.letterVersion ? `version ${row.letterVersion} of ` : ""}the cover letter after editing it` };
     case "cover_letter_approve":
       return { who, what: `approved ${row.letterVersion ? `version ${row.letterVersion} of ` : ""}the cover letter` };
+    case "itinerary_view":
+      return { who, what: "read the itinerary" };
+    case "itinerary_generate":
+      return { who, what: `created ${row.letterVersion ? `version ${row.letterVersion} of ` : ""}the itinerary${row.letterSource ? ` (${letterSourceWords(row.letterSource)})` : ""}` };
+    case "itinerary_edit":
+      return { who, what: `saved ${row.letterVersion ? `version ${row.letterVersion} of ` : ""}the itinerary after editing it` };
+    case "itinerary_approve":
+      return { who, what: `approved ${row.letterVersion ? `version ${row.letterVersion} of ` : ""}the itinerary` };
     default:
       return { who, what: "did something" };
   }
@@ -181,7 +189,7 @@ const letterSourceWords = (source: string): string => (source === "ai" ? "writte
 /** The jump list at the top of the Overview: Notes, one link for each section, then Changes and Activity. */
 export function jumpLinks(review: Review): Array<{ href: string; label: string }> {
   const links = review.parts.flatMap((part) => part.sections.map((section) => ({ href: `#section-${section.id}`, label: `${section.id} ${section.title}` })));
-  return [{ href: "#notes", label: "Notes and calls" }, { href: "#cover-letter", label: "Cover letter" }, ...links, { href: "#changes", label: "Changes" }, { href: "#activity", label: "Activity" }];
+  return [{ href: "#notes", label: "Notes and calls" }, { href: "#cover-letter", label: "Cover letter" }, { href: "#itinerary", label: "Itinerary" }, ...links, { href: "#changes", label: "Changes" }, { href: "#activity", label: "Activity" }];
 }
 
 /** The files of one file question, matched through the slot of that question. */

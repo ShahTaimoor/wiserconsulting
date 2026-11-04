@@ -164,7 +164,7 @@ class TouristVisaCoverLetterService {
 
   /** A keyed hash (HMAC) of the facts, so a stored hash cannot be used to guess an answer. */
   hash(facts) {
-    return crypto.createHmac("sha256", getFieldEncryptionKey()).update(`touristvisacoverletter:facts:v1:${facts.canonical}`).digest("hex");
+    return crypto.createHmac("sha256", getFieldEncryptionKey()).update(`touristvisacoverletter:facts:v2:${facts.canonical}`).digest("hex");
   }
 
   /** The letter text and how it was made: { text, source, model?, fallbackReason?, aiAttempted }. Never throws for an AI failure. */

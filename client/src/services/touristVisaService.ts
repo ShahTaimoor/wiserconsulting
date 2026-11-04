@@ -4,6 +4,7 @@ import type {
   ActivityRow,
   AdminFlag,
   CoverLetterView,
+  ItineraryView,
   AdminList,
   AdminListQuery,
   AdminNote,
@@ -276,6 +277,15 @@ async function coverLetterCall(path: string, method: "GET" | "POST" | "PUT", tok
   return data;
 }
 
+/** One itinerary call: the answer is the itinerary's view (with `blocker`), or a failure with the server's code. */
+async function itineraryCall(path: string, method: "GET" | "POST" | "PUT", token: string, body?: unknown): Promise<ItineraryView> {
+  const { status, json } = await request(path, method, token, body);
+  if (status < 200 || status >= 300) throw failure(status, json);
+  const data = json?.data as unknown as ItineraryView | undefined;
+  if (!data || !Array.isArray(data.versions) || typeof data.stale !== "boolean") throw new TouristVisaApiError(502, "The server sent an unexpected response.");
+  return { ...data, blocker: data.blocker ?? null };
+}
+
 export const touristVisaService = {
   /** The signed-in user's application, or null if they have not started one (the server answers 404). */
   async getMyApplication(token: string): Promise<TouristVisaApplication | null> {
@@ -494,6 +504,26 @@ export const touristVisaService = {
   /** Approves the newest version. `version` must be the newest one. */
   async adminApproveCoverLetter(token: string, id: string, version: number): Promise<CoverLetterView> {
     return coverLetterCall(`/admin/applications/${encodeURIComponent(id)}/cover-letter/approve`, "POST", token, { version });
+  },
+
+  /** The itinerary (a proposed plan) and its versions (the team only). Recorded in the activity log by the server. */
+  async adminItinerary(token: string, id: string): Promise<ItineraryView> {
+    return itineraryCall(`/admin/applications/${encodeURIComponent(id)}/itinerary`, "GET", token);
+  },
+
+  /** Writes a new version, by the AI or (when it is off or fails) by the template. */
+  async adminGenerateItinerary(token: string, id: string): Promise<ItineraryView> {
+    return itineraryCall(`/admin/applications/${encodeURIComponent(id)}/itinerary/generate`, "POST", token);
+  },
+
+  /** Saves the administrator's text as a new version. `basedOnVersion` is the version it started from. */
+  async adminSaveItinerary(token: string, id: string, body: { text: string; basedOnVersion: number }): Promise<ItineraryView> {
+    return itineraryCall(`/admin/applications/${encodeURIComponent(id)}/itinerary`, "PUT", token, body);
+  },
+
+  /** Approves the newest version. `version` must be the newest one. */
+  async adminApproveItinerary(token: string, id: string, version: number): Promise<ItineraryView> {
+    return itineraryCall(`/admin/applications/${encodeURIComponent(id)}/itinerary/approve`, "POST", token, { version });
   },
 
   /** Replaces the flags. Returns the flags as stored (always in the fixed order). */

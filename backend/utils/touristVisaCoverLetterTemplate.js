@@ -87,7 +87,7 @@ function buildTemplate(facts) {
   // Where they will stay
   add([
     ACCOMMODATION[raw.accommodationPlan] || '',
-    v.accommodationArea ? `I expect to stay in ${v.accommodationArea}.` : '',
+    Array.isArray(v.accommodationArea) && v.accommodationArea.length ? `I expect to stay in ${joinAnd(v.accommodationArea)}.` : '',
     Array.isArray(v.accommodationTowns) && v.accommodationTowns.length ? `I will be staying in ${joinAnd(v.accommodationTowns)}.` : '',
   ]);
 

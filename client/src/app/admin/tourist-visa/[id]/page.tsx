@@ -11,6 +11,7 @@ import { AdminEditor } from "@/components/tourist-visa/AdminEditor";
 import { AdminFlagsEditor } from "@/components/tourist-visa/AdminFlags";
 import { AdminNotesPanel } from "@/components/tourist-visa/AdminNotesPanel";
 import { CoverLetterPanel } from "@/components/tourist-visa/CoverLetterPanel";
+import { ItineraryPanel } from "@/components/tourist-visa/ItineraryPanel";
 import { AdminStatusBadge } from "@/components/tourist-visa/AdminStatusBadge";
 import { ConfirmDialog } from "@/components/tourist-visa/ConfirmDialog";
 import { notifyAdminDone, notifyAdminFailed } from "@/components/tourist-visa/notify";
@@ -500,6 +501,8 @@ export default function AdminTouristVisaOverviewPage() {
         <AdminNotesPanel applicationId={id} readToken={readToken} fail={fail} announce={announce} onRecorded={() => void loadActivity()} />
 
         <CoverLetterPanel applicationId={id} status={application.status} readToken={readToken} fail={fail} announce={announce} onRecorded={() => void loadActivity()} />
+
+        <ItineraryPanel applicationId={id} status={application.status} readToken={readToken} fail={fail} announce={announce} onRecorded={() => void loadActivity()} />
 
         <nav aria-label="Jump to a section" className="rounded-lg border border-border bg-card p-4">
           <h2 className="mb-2 text-sm font-semibold text-foreground">Jump to</h2>
