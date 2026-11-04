@@ -17,7 +17,10 @@ import {
   letterActions,
   letterCounter,
   sourceBadge,
+  checkNoticeFor,
+  savedMessage,
   STALE_BANNER,
+  STALE_HELP,
   versionTitle,
 } from "./touristVisaCoverLetter.ts";
 import { describeActivity, describeAdminError, jumpLinks } from "./touristVisaAdmin.ts";
@@ -33,7 +36,7 @@ test("badges: the three sources read AI draft, Template draft and Edited by admi
 });
 
 test("a plain message for every reason the AI was not used, and none shows what the AI said", () => {
-  const codes = ["AI_DISABLED", "AI_NOT_CONFIGURED", "AI_TERMS_NOT_CONFIRMED", "AI_CIRCUIT_OPEN", "AI_DAILY_LIMIT", "AI_ADMIN_LIMIT", "AI_RATE_LIMITED", "AI_TIMEOUT", "AI_NETWORK", "AI_PROVIDER_REJECTED", "AI_PROVIDER_ERROR", "AI_BAD_RESPONSE", "AI_TRUNCATED", "LETTER_EMPTY", "LETTER_LENGTH", "LETTER_LINK", "LETTER_UNKNOWN_TOKEN", "LETTER_MISSING_TOKEN", "LETTER_NUMBER_NOT_IN_FACTS", "LETTER_DATE_NOT_IN_FACTS"];
+  const codes = ["AI_DISABLED", "AI_NOT_CONFIGURED", "AI_TERMS_NOT_CONFIRMED", "AI_CIRCUIT_OPEN", "AI_DAILY_LIMIT", "AI_ADMIN_LIMIT", "AI_RATE_LIMITED", "AI_TIMEOUT", "AI_NETWORK", "AI_PROVIDER_REJECTED", "AI_PROVIDER_ERROR", "AI_BAD_RESPONSE", "AI_TRUNCATED", "LETTER_EMPTY", "LETTER_LENGTH", "LETTER_LINK", "LETTER_UNKNOWN_TOKEN", "LETTER_MISSING_TOKEN", "LETTER_NUMBER_NOT_IN_FACTS", "LETTER_DATE_NOT_IN_FACTS", "AI_BANNED_PHRASE"];
   for (const code of codes) {
     const words = fallbackMessage(code);
     assert.match(words, /template letter was created/, code);
@@ -42,6 +45,7 @@ test("a plain message for every reason the AI was not used, and none shows what 
   assert.equal(fallbackMessage("AI_NETWORK"), "The AI was not available, so a template letter was created.");
   assert.equal(fallbackMessage(undefined), "The AI was not available, so a template letter was created.");
   assert.match(fallbackMessage("AI_DAILY_LIMIT"), /limit/);
+  assert.equal(fallbackMessage("AI_BANNED_PHRASE"), "The AI's letter used wording that is not allowed, even after a second try, so a template letter was created instead.");
   assert.match(fallbackMessage("LETTER_NUMBER_NOT_IN_FACTS"), /did not match the application's answers/);
 });
 
@@ -222,7 +226,9 @@ test("the panel: states, badges, notices and the site's own dialog for approving
   assert.match(panel, /STALE_BANNER/, "the stale banner");
   assert.match(panel, /Earlier versions/, "the history");
   assert.match(panel, /sourceBadge\(/, "the source badge");
-  assert.match(panel, /latest\.source === "ai" \? CHECK_NOTICE : CHECK_NOTICE_SHORT/, "the notice to check every fact, worded for the source");
+  assert.match(panel, /checkNoticeFor\(latest\.source\)/, "the notice to check every fact, worded for the source");
+  assert.match(panel, /text: savedMessage\(next\.latest\)/, "what is said after saving the administrator's own text");
+  assert.equal(/\bCHECK_NOTICE\b/.test(panel), false, "the panel never picks the notice itself");
   assert.match(panel, /letterCounter\(/, "the character counter");
   assert.equal(/window\.(alert|confirm|prompt)|\balert\(|\bconfirm\(|\bprompt\(/.test(panel), false, "no native dialog");
   assert.equal(/localStorage|sessionStorage|indexedDB|console\./.test(panel), false, "the letter is kept nowhere in the browser");
@@ -250,4 +256,63 @@ test("the Overview mounts the panel for every application and the service sends 
   assert.match(page, /<CoverLetterPanel[^>]*status=\{application\.status\}/);
   const service = source("../services/touristVisaService.ts");
   assert.equal((service.match(/cover-letter/g) || []).length, 4);
+});
+
+// ---------------------------------------------------------------------------
+// The message for each state (polish step): the sentence about the AI making mistakes is only for a letter the AI wrote
+// ---------------------------------------------------------------------------
+
+const MISTAKES = /mistake/i;
+const ALL_CODES = ["AI_DISABLED", "AI_NOT_CONFIGURED", "AI_TERMS_NOT_CONFIRMED", "AI_CIRCUIT_OPEN", "AI_DAILY_LIMIT", "AI_ADMIN_LIMIT", "AI_RATE_LIMITED", "AI_TIMEOUT", "AI_NETWORK", "AI_PROVIDER_REJECTED", "AI_PROVIDER_ERROR", "AI_BAD_RESPONSE", "AI_TRUNCATED", "AI_BANNED_PHRASE", "LETTER_EMPTY", "LETTER_LENGTH", "LETTER_LINK", "LETTER_UNKNOWN_TOKEN", "LETTER_MISSING_TOKEN", "LETTER_NUMBER_NOT_IN_FACTS", "LETTER_DATE_NOT_IN_FACTS"];
+
+test("after saving the administrator's own text the message is plain and says nothing about the AI", () => {
+  assert.equal(savedMessage(3), "Saved as version 3. Check every fact before approving.");
+  assert.equal(savedMessage(null), "Saved as a new version. Check every fact before approving.");
+  assert.equal(MISTAKES.test(savedMessage(3)), false);
+  assert.equal(/\bAI\b/.test(savedMessage(3)), false);
+  // What Generate reports for a letter that came from an administrator is the same plain message.
+  assert.equal(createdMessage({ version: 4, source: "admin" }), "Saved as version 4. Check every fact before approving.");
+});
+
+test("the notice above the text: the AI-mistakes sentence for an AI draft only; a template and an edited letter get the plain one", () => {
+  assert.match(checkNoticeFor("ai"), /A letter written by the AI can contain mistakes\.$/);
+  assert.equal(checkNoticeFor("template"), "Check every fact in this letter against the application's answers before approving.");
+  assert.equal(checkNoticeFor("admin"), "Check every fact in this letter against the application's answers before approving.");
+  for (const source of ["template", "admin"]) {
+    assert.equal(MISTAKES.test(checkNoticeFor(source)), false, source);
+    assert.equal(/\bAI\b/.test(checkNoticeFor(source)), false, source);
+  }
+});
+
+test("every message the panel can show, in every state: only the AI draft's mentions that an AI can make mistakes", () => {
+  const withMistakes = [];
+  const note = (label, text) => { if (MISTAKES.test(text)) withMistakes.push(label); };
+  // After Generate
+  note("created: ai", createdMessage({ version: 2, source: "ai" }));
+  note("created: admin", createdMessage({ version: 2, source: "admin" }));
+  for (const code of ALL_CODES) {
+    note(`created: template, ${code}`, createdMessage({ version: 2, source: "template", fallbackReason: code }));
+    note(`fallback: ${code}`, fallbackMessage(code));
+  }
+  note("created: template, no reason", createdMessage({ version: 2, source: "template" }));
+  // After saving, and the notice above the text
+  note("saved", savedMessage(2));
+  for (const source of ["ai", "template", "admin"]) note(`notice above the text: ${source}`, checkNoticeFor(source));
+  // Before generating, the banners, the hints and every failure
+  for (const ai of [{ available: true }, { available: false, code: "AI_DISABLED" }, { available: false, code: "AI_NOT_CONFIGURED" }, { available: false, code: "AI_TERMS_NOT_CONFIRMED" }, { available: false, code: "AI_CIRCUIT_OPEN" }, { available: false }]) note(`before generating: ${ai.code ?? (ai.available ? "available" : "none")}`, aiLine(ai));
+  note("stale banner", STALE_BANNER);
+  note("stale help", STALE_HELP);
+  const draft = { version: 2, text: "Text", source: "ai", status: "draft" };
+  for (const options of [{ latest: draft, text: "Edited", stale: false }, { latest: draft, text: "Text", stale: true }, { latest: { ...draft, status: "approved" }, text: "Text", stale: false }, { latest: { ...draft, text: "[not provided: x]" }, text: "[not provided: x]", stale: false }]) note("approve hint", letterActions({ ...options, busy: false }).approveHint);
+  for (const code of ["LETTER_NOT_AVAILABLE", "LETTER_CHANGED", "LETTER_NOT_LATEST", "ALREADY_APPROVED", "LETTER_STALE", "LETTER_HAS_PLACEHOLDERS", "LETTER_NOT_FOUND", "LETTER_UNREADABLE", "COVER_LETTER_UNAVAILABLE", "INVALID_TEXT", "INVALID_REQUEST"]) note(`error: ${code}`, describeLetterError({ status: 409, code }, () => ""));
+  assert.deepEqual(withMistakes.sort(), ["created: ai", "notice above the text: ai"], "only the AI draft's two messages mention mistakes");
+});
+
+test("the panel and its words: the only place that says an AI can make mistakes is the AI draft's notice", () => {
+  const util = source("./touristVisaCoverLetter.ts");
+  const panel = source("../components/tourist-visa/CoverLetterPanel.tsx");
+  assert.equal((util.match(/mistake/gi) || []).length, 1, "one sentence, in CHECK_NOTICE");
+  assert.match(util, /export const CHECK_NOTICE = "[^"]*A letter written by the AI can contain mistakes\."/);
+  assert.equal(MISTAKES.test(panel), false, "the component has no such sentence of its own");
+  for (const file of ["../components/tourist-visa/CoverLetterPanel.tsx", "./touristVisaAdmin.ts"]) assert.equal(/can contain mistakes|can make mistakes/i.test(source(file)), false, file);
 });

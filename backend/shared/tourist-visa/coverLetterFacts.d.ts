@@ -25,6 +25,8 @@ export interface FactItem {
   key: string;
   label: string;
   value: string | string[];
+  /** Typed by the applicant (free text). */
+  free?: true;
   /** Free text, sent inside a delimited data block. */
   data?: true;
 }

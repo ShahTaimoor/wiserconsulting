@@ -5,6 +5,7 @@
  * encrypted with the field cipher, bound to the application and the version.
  */
 
+const mongoose = require("mongoose");
 const TouristVisaCoverLetter = require("../models/TouristVisaCoverLetter");
 const User = require("../models/User");
 const { getFieldEncryptionKey } = require("../config/fieldEncryption");
@@ -31,6 +32,8 @@ class TouristVisaCoverLetterRepository {
         ...(row.model ? { model: row.model } : {}),
         ...(row.fallbackReason ? { fallbackReason: row.fallbackReason } : {}),
         aiAttempted: Boolean(row.aiAttempted),
+        ...(row.aiAttempts ? { aiAttempts: row.aiAttempts } : {}),
+        ...(row.promptVersion ? { promptVersion: row.promptVersion } : {}),
         factsHash: row.factsHash,
         basedOnRevision: row.basedOnRevision,
         createdBy: row.createdBy,
@@ -83,9 +86,17 @@ class TouristVisaCoverLetterRepository {
     });
   }
 
-  /** How many requests were made to the AI since a time, in total or by one administrator. */
+  /**
+   * How many requests were made to the AI since a time, in total or by one administrator. A version made after a second
+   * request counts as two; a row without `aiAttempts` (written before it existed) counts as one.
+   */
   async countAiRequests({ since, adminId }) {
-    return TouristVisaCoverLetter.countDocuments({ aiAttempted: true, createdAt: { $gte: since }, ...(adminId ? { createdBy: adminId } : {}) });
+    const by = adminId ? { createdBy: mongoose.Types.ObjectId.isValid(String(adminId)) ? new mongoose.Types.ObjectId(String(adminId)) : adminId } : {};
+    const rows = await TouristVisaCoverLetter.aggregate([
+      { $match: { aiAttempted: true, createdAt: { $gte: since }, ...by } },
+      { $group: { _id: null, requests: { $sum: { $ifNull: ["$aiAttempts", 1] } } } },
+    ]);
+    return rows.length > 0 ? rows[0].requests : 0;
   }
 
   /**

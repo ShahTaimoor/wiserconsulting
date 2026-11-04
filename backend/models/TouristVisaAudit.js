@@ -43,6 +43,8 @@ const auditSchema = new mongoose.Schema(
         letterVersion: { type: Number, min: 1, immutable: true },
         letterSource: { type: String, enum: LETTER_SOURCES, immutable: true },
         model: { type: String, maxlength: 100, match: /^[\w./:-]+$/, immutable: true },
+        // cover_letter_generate only: the version of the prompt that was sent (a number; rows without it stay valid)
+        promptVersion: { type: Number, min: 1, immutable: true },
     },
     { collection: 'touristvisaaudit', versionKey: false, minimize: false }
 );

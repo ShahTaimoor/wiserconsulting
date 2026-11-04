@@ -283,7 +283,7 @@ test('with the AI off a template letter is written: version 1, the real name in 
   assert.equal(letter.status, 'draft');
   assert.equal(letter.version, 1);
   assert.match(letter.text, /^Dear Sir or Madam,/);
-  assert.match(letter.text, /Yours faithfully,\n\nTestfirst Testlast$/);
+  assert.match(letter.text, /Yours faithfully,\nTestfirst Testlast$/);
   assert.match(letter.text, /1 March 2027/);
   assert.equal(letter.factsHash, undefined, 'the hash is not sent');
 
@@ -327,7 +327,7 @@ test('the AI is used when it is on: it is sent the facts with placeholders and n
   const letter = res.json.data.versions[0];
   assert.equal(letter.source, 'ai');
   assert.equal(letter.model, DEFAULT_GROQ_MODEL);
-  assert.match(letter.text, /Yours faithfully,\n\nTestfirst Testlast$/);
+  assert.match(letter.text, /Yours faithfully,\nTestfirst Testlast$/);
   assert.equal(/\[NAME\]/.test(letter.text), false, 'the placeholder was replaced');
 
   const [row] = await letterRows(app.appId);
@@ -355,8 +355,8 @@ test('every way the AI can fail gives a template letter, never an error to the a
       ['an answer that is not JSON', () => new Response('SECRET-PROVIDER-BODY', { status: 200 }), 'AI_BAD_RESPONSE'],
       ['a letter with an invented number', (body) => chatResponse(followingLetter(body).replace(/a stay of [^.]+/, 'a stay of 99 nights')), 'LETTER_NUMBER_NOT_IN_FACTS'],
       ['a letter with an invented date', (body) => chatResponse(followingLetter(body).replace('1 March 2027', '9 May 2027')), 'LETTER_DATE_NOT_IN_FACTS'],
-      ['a letter with a made-up placeholder', (body) => chatResponse(followingLetter(body).replace('[NAME]', '[SIGNATURE]')), 'LETTER_UNKNOWN_TOKEN'],
-      ['a letter that forgot the name', (body) => chatResponse(followingLetter(body).replace('[NAME]', 'The Applicant')), 'LETTER_MISSING_TOKEN'],
+      ['a letter with a made-up placeholder', (body) => chatResponse(followingLetter(body).replace('Dear Sir or Madam,', 'Dear Sir or Madam, [SIGNATURE]')), 'LETTER_UNKNOWN_TOKEN'],
+      ['a letter with a token the facts never made', (body) => chatResponse(followingLetter(body).replace('Dear Sir or Madam,', 'Dear Sir or Madam, [R42]')), 'LETTER_UNKNOWN_TOKEN'],
     ];
     for (const [label, answer, code] of scripts) {
       useAi(AI_ON, answer);
@@ -364,7 +364,7 @@ test('every way the AI can fail gives a template letter, never an error to the a
       assert.equal(res.status, 201, `${label}: ${res.text}`);
       assert.equal(res.json.data.created.source, 'template', label);
       assert.equal(res.json.data.created.fallbackReason, code, label);
-      assert.match(res.json.data.versions[0].text, /Yours faithfully,\n\nTestfirst Testlast$/, label);
+      assert.match(res.json.data.versions[0].text, /Yours faithfully,\nTestfirst Testlast$/, label);
       assert.equal(res.text.includes('SECRET-PROVIDER-BODY'), false, label);
       results.push(code);
     }
@@ -724,4 +724,146 @@ test('the letter never reaches an applicant, and no error or log line holds a le
     assert.equal(res.status, 200);
     assertNone(res.text, ['LETTER-PRIVACY-TEXT', 'Yours faithfully', 'coverLetter', 'cover_letter', 'Standard Visitor visa'], path);
   }
+});
+
+// ---------------------------------------------------------------------------
+// The wording rules (polish step): prompt version, the banned-phrase safety net and its one regeneration, through the routes
+// ---------------------------------------------------------------------------
+
+const { PROMPT_VERSION, RETRY_REMINDER } = require('../config/touristVisaCoverLetterPrompt');
+const bannedLetter = (body) => followingLetter(body).replace('Yours faithfully,', 'This is demonstrating my enthusiasm.\n\nYours faithfully,');
+/** Banned wording the first `bannedTimes` times it is asked, then a good letter. */
+const bannedThenGood = (bannedTimes) => {
+  let n = 0;
+  return (body) => chatResponse(n++ < bannedTimes ? bannedLetter(body) : followingLetter(body));
+};
+
+test('prompt version: stored on a version that asked the AI and written to its audit row, with no text; a letter that never asked the AI has none; older rows stay valid', async () => {
+  const admin = await makeAdmin();
+  const app = await submitted();
+
+  aiOff();
+  assert.equal((await generate(admin.token, app.appId)).status, 201);
+  let [row] = await letterRows(app.appId);
+  assert.equal(row.promptVersion, undefined, 'a template written without asking the AI has no prompt version');
+  assert.equal(row.aiAttempts, undefined);
+  let [audit] = await auditRows({ applicationId: oid(app.appId), action: 'cover_letter_generate' });
+  assert.equal(audit.promptVersion, undefined);
+
+  useAi(AI_ON);
+  assert.equal((await generate(admin.token, app.appId)).json.data.created.source, 'ai');
+  row = (await letterRows(app.appId))[1];
+  assert.equal(row.promptVersion, PROMPT_VERSION);
+  assert.equal(row.promptVersion, 3);
+  assert.equal(row.aiAttempts, 1);
+  assert.deepEqual(Object.keys(row).sort(), ['_id', 'aiAttempted', 'aiAttempts', 'applicationId', 'basedOnRevision', 'createdAt', 'createdBy', 'factsHash', 'model', 'promptVersion', 'source', 'status', 'text', 'version'].sort(), 'the row has the old fields and the two new ones');
+  [, audit] = await auditRows({ applicationId: oid(app.appId), action: 'cover_letter_generate' });
+  assert.equal(audit.promptVersion, 3);
+  assert.equal(audit.letterSource, 'ai');
+  assertNone(JSON.stringify(audit), ['Dear Sir', 'Testfirst', 'demonstrating', 'Yours faithfully'], 'the audit row');
+  const activity = await api('GET', `/admin/applications/${app.appId}/activity`, { token: admin.token });
+  assert.ok(activity.json.data.activity.some((a) => a.action === 'cover_letter_generate' && a.promptVersion === 3));
+  aiOff();
+
+  // A row written before these fields existed is still valid, and counts as one request.
+  await TouristVisaCoverLetter.collection.updateOne({ _id: row._id }, { $unset: { aiAttempts: '', promptVersion: '' } });
+  const legacy = await view(admin.token, app.appId);
+  assert.equal(legacy.status, 200);
+  assert.equal(legacy.json.data.versions.length, 2);
+  assert.equal(await coverLetters.countAiRequests({ since: new Date(Date.now() - 60 * 1000), adminId: admin.userId }), 1);
+});
+
+test('banned wording: the AI is asked once more (with the reminder) and the second letter is kept, counted as two requests', async () => {
+  const admin = await makeAdmin();
+  const app = await submitted();
+  const lines = capture();
+  let res;
+  try {
+    useAi(AI_ON, bannedThenGood(1));
+    res = await generate(admin.token, app.appId);
+  } finally {
+    lines.restore();
+  }
+  assert.equal(res.status, 201, res.text);
+  assert.deepEqual(res.json.data.created, { version: 1, source: 'ai', model: DEFAULT_GROQ_MODEL });
+  assert.equal(aiCalls.length, 2);
+  assert.equal(aiCalls[0].body.messages[1].content.includes(RETRY_REMINDER), false);
+  assert.equal(aiCalls[1].body.messages[1].content.includes(RETRY_REMINDER), true);
+  assertNone(JSON.stringify(aiCalls.map((c) => c.body)), IDENTIFIERS.filter((v) => v !== KEY), 'a request to the AI');
+  const letter = res.json.data.versions[0];
+  assert.equal(letter.source, 'ai');
+  assertNone(letter.text, ['demonstrating', 'enthusiasm'], 'the kept letter');
+  const rows = await letterRows(app.appId);
+  assert.equal(rows.length, 1, 'one version, not two');
+  assert.equal(rows[0].aiAttempts, 2);
+  assert.equal(rows[0].promptVersion, 3);
+  assert.equal(await coverLetters.countAiRequests({ since: new Date(Date.now() - 60 * 1000), adminId: admin.userId }), 2);
+  assertNone(lines.lines.join('\n'), ['demonstrating', 'enthusiasm', 'Testfirst', 'Dear Sir', KEY], 'the log');
+  aiOff();
+});
+
+test('banned wording twice: only one regeneration, then the template with AI_BANNED_PHRASE; the banned letters are kept nowhere', async () => {
+  const admin = await makeAdmin();
+  const app = await submitted();
+  useAi(AI_ON, bannedThenGood(5));
+  const res = await generate(admin.token, app.appId);
+  assert.equal(res.status, 201, res.text);
+  assert.deepEqual(res.json.data.created, { version: 1, source: 'template', fallbackReason: 'AI_BANNED_PHRASE' });
+  assert.equal(aiCalls.length, 2, 'exactly two requests, not three');
+  const [row] = await letterRows(app.appId);
+  assert.equal(row.source, 'template');
+  assert.equal(row.fallbackReason, 'AI_BANNED_PHRASE');
+  assert.equal(row.aiAttempted, true);
+  assert.equal(row.aiAttempts, 2);
+  assert.equal(row.promptVersion, 3);
+  assert.match(res.json.data.versions[0].text, /Yours faithfully,\nTestfirst Testlast$/);
+  assertNone(res.text, ['demonstrating', 'enthusiasm'], 'the response');
+  assertNone(JSON.stringify(await auditRows({ applicationId: oid(app.appId) })), ['demonstrating', 'enthusiasm', 'Dear Sir'], 'the audit rows');
+  aiOff();
+});
+
+test('banned wording: the extra request counts towards the daily limit, and is not made when the limit has no room for it', async () => {
+  const admin = await makeAdmin();
+  const app = await submitted();
+  await TouristVisaCoverLetter.collection.deleteMany({});
+
+  // A limit of 4: two letters that each needed two requests use it up.
+  useAi({ ...AI_ON, AI_DAILY_LIMIT: '4' }, bannedThenGood(0));
+  let n = 0;
+  aiAnswer = (body) => chatResponse(n++ % 2 === 0 ? bannedLetter(body) : followingLetter(body));
+  assert.equal((await generate(admin.token, app.appId)).json.data.created.source, 'ai');
+  assert.equal((await generate(admin.token, app.appId)).json.data.created.source, 'ai');
+  assert.equal(aiCalls.length, 4);
+  assert.deepEqual((await letterRows(app.appId)).map((r) => r.aiAttempts), [2, 2]);
+  assert.equal(await coverLetters.countAiRequests({ since: new Date(Date.now() - 60 * 1000) }), 4, 'four requests, from two versions');
+  const held = await generate(admin.token, app.appId);
+  assert.equal(held.json.data.created.fallbackReason, 'AI_DAILY_LIMIT');
+  assert.equal(aiCalls.length, 4, 'the provider was not asked');
+
+  // A limit of 3: after a two-request letter there is room for one request, which cannot be followed by a second.
+  await TouristVisaCoverLetter.collection.deleteMany({});
+  useAi({ ...AI_ON, AI_DAILY_LIMIT: '3' });
+  let m = 0;
+  aiAnswer = (body) => chatResponse(m++ === 1 ? followingLetter(body) : bannedLetter(body)); // call 1 banned, call 2 good, then banned
+  assert.equal((await generate(admin.token, app.appId)).json.data.created.source, 'ai');
+  const noRoom = await generate(admin.token, app.appId);
+  assert.deepEqual(noRoom.json.data.created, { version: 2, source: 'template', fallbackReason: 'AI_BANNED_PHRASE' });
+  assert.equal(aiCalls.length, 3, 'one request for the second letter, and no regeneration');
+  assert.equal((await letterRows(app.appId))[1].aiAttempts, 1);
+  assert.equal(await coverLetters.countAiRequests({ since: new Date(Date.now() - 60 * 1000) }), 3);
+  aiOff();
+});
+
+test('a signature the AI wrote (or left out) is replaced by ours, so a letter that forgot the name is still a good AI letter, signed with the real name', async () => {
+  const admin = await makeAdmin();
+  const app = await submitted();
+  for (const closing of ['Yours faithfully,\nThe Applicant', '', 'Kind regards,\nJohn Smith']) {
+    useAi(AI_ON, (body) => chatResponse(followingLetter(body).replace(/Yours faithfully,\n\n\[NAME\]$/, closing)));
+    const res = await generate(admin.token, app.appId);
+    assert.equal(res.json.data.created.source, 'ai', `${JSON.stringify(closing)}: ${res.text.slice(0, 200)}`);
+    const text = res.json.data.versions[0].text;
+    assert.match(text, /\n\nYours faithfully,\nTestfirst Testlast$/);
+    assertNone(text, ['The Applicant', 'John Smith'], 'the letter');
+  }
+  aiOff();
 });

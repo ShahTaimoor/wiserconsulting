@@ -11,14 +11,14 @@ import type { AdminStatus, CoverLetterView, LetterSource } from "@/services/tour
 import { describeAdminError, formatWhen } from "@/utils/touristVisaAdmin";
 import {
   aiLine,
-  CHECK_NOTICE,
-  CHECK_NOTICE_SHORT,
+  checkNoticeFor,
   createdMessage,
   DEFAULT_MAX_LETTER,
   describeLetterError,
   letterActions,
   letterCounter,
   normalizeLetter,
+  savedMessage,
   sourceBadge,
   STALE_BANNER,
   STALE_HELP,
@@ -158,7 +158,7 @@ export function CoverLetterPanel({ applicationId, status, readToken, fail, annou
 
   const saveNew = () =>
     run("save", (token) => touristVisaService.adminSaveCoverLetter(token, applicationId, { text, basedOnVersion: latest ? latest.version : 0 }), (next) => ({
-      notice: { tone: "ok", text: `Saved as version ${next.latest}. ${CHECK_NOTICE}` },
+      notice: { tone: "ok", text: savedMessage(next.latest) },
       toast: "Cover letter saved.",
     }));
 
@@ -246,7 +246,7 @@ export function CoverLetterPanel({ applicationId, status, readToken, fail, annou
                 </p>
               )}
 
-              <p className={`rounded-md border p-3 text-sm ${noticeTone.warn}`}>{latest.source === "ai" ? CHECK_NOTICE : CHECK_NOTICE_SHORT}</p>
+              <p className={`rounded-md border p-3 text-sm ${noticeTone.warn}`}>{checkNoticeFor(latest.source)}</p>
 
               <div>
                 <label htmlFor="tv-letter-text" className="mb-1 block text-sm font-medium text-foreground">

@@ -7,7 +7,8 @@
  *    must also be in the facts the model was given (after formatting: "1,250" and "1250" are the same).
  *  - A sensible length, no links, no markup.
  *
- * A failed check returns a FIXED CODE and nothing of the text, so the reason can be recorded and shown safely.
+ * A failed check returns a FIXED CODE and nothing of the text, so the reason can be recorded and shown safely. A letter that
+ * contains a banned phrase (BANNED_PHRASES below) returns AI_BANNED_PHRASE; the service asks the AI once more for that one.
  */
 
 const { MONTH_PATTERN } = require('../shared/tourist-visa/coverLetterFacts');
@@ -87,6 +88,55 @@ function figuresCode(text, facts) {
  * checkLetter(raw, facts) -> { ok: true, text } with the placeholders still in, or { ok: false, code }.
  * `facts` is the result of buildFacts (its `text` is what the model saw and its `tokens` the real values).
  */
+/**
+ * Phrases and patterns an AI letter must not contain: a SAFETY NET for the rules in the prompt (config/touristVisaCoverLetterPrompt.js),
+ * not a guarantee. They cover announcing the applicant's own words, remarks about the form or "details provided", claims of
+ * compliance, enthusiasm, ties, stability, funds, character and intentions, "demonstrating" and the like, and promises.
+ * Each has a fixed id (the id, never the text, is what a test or a log may name). Case-insensitive. A pattern is ignored for
+ * a letter whose applicant's own free text contains it too (they wrote it; the letter may use their words).
+ * Every id needs an example in the tests, so a phrase cannot be added without being tested.
+ */
+const BANNED_PHRASES = Object.freeze([
+  { id: 'own-words', pattern: /\bmy own words\b/i },
+  { id: 'as-expressed', pattern: /\bas i (have )?(expressed|stated|explained|described|mentioned)\b|\bi (have )?(described|expressed)\b/i },
+  { id: 'details-provided', pattern: /\bdetails (have been|were|are) (provided|given|supplied|stated)\b/i },
+  { id: 'given-on-form', pattern: /\b(provided|given|stated|supplied|listed|entered) (on|in) (the|my|this) (application )?(form|application)\b/i },
+  { id: 'the-form', pattern: /\b(application form|the form|my form)\b/i },
+  { id: 'information-given', pattern: /\binformation (that )?(i have |i've )?(given|provided|supplied)\b/i },
+  { id: 'compliance', pattern: /\b(complian(ce|t)|comply|complies|complying) with\b/i },
+  { id: 'meets-requirements', pattern: /\b(meet|meets|meeting|satisf(y|ies|ying)|fulfil(s|ling)?) (all |the |these |those )?(immigration |visa |relevant )?(requirements|rules|criteria|conditions)\b/i },
+  { id: 'immigration-rules', pattern: /\bimmigration rules\b/i },
+  { id: 'enthusiasm', pattern: /\b(enthusias\w*|excited|eager\w*|delighted)\b/i },
+  { id: 'looking-forward', pattern: /\blooking forward to\b/i },
+  { id: 'demonstrating', pattern: /\bdemonstrat\w*/i },
+  { id: 'illustrating', pattern: /\billustrat\w*/i },
+  { id: 'underscoring', pattern: /\bunderscor\w*|\bunderlin(e|es|ing)\b|\btestament\b|\bshowcas\w*/i },
+  { id: 'ties', pattern: /\b(ties|bonds)\b|\bstrong (family |personal |social |economic |financial )?(connections|links)\b/i },
+  { id: 'stability', pattern: /\bstable (situation|life|employment|income|job|circumstances|background|position)\b|\bfinancially (stable|secure|independent|sound)\b/i },
+  { id: 'public-funds', pattern: /\bpublic funds\b|\brecourse\b/i },
+  { id: 'funds-claims', pattern: /\b(sufficient|adequate|ample|enough) (funds|money|means|resources)\b/i },
+  { id: 'promise', pattern: /\b(guarantee\w*|promise\w*|assure\w*|pledge\w*)\b/i },
+  { id: 'return-claim', pattern: /\b(intend|intention|intends)s? to return\b|\bwill return\b|\bwill definitely\b/i },
+  { id: 'no-intention', pattern: /\b(do not|don't|have no|had no) (intend|intention|wish|plan)\b|\bno intention of\b/i },
+  { id: 'genuine', pattern: /\bgenuine\b/i },
+  { id: 'character', pattern: /\b(law-abiding|good character|trustworthy|upstanding|of good standing)\b/i },
+  { id: 'confirm', pattern: /\bi (hereby )?(confirm|declare|certify|affirm)\b/i },
+]);
+
+/** What the applicant typed, as one text (what the facts carry as free text). */
+function freeTextOf(facts) {
+  const items = Array.isArray(facts && facts.sections) ? facts.sections.flatMap((s) => s.items || []) : [];
+  return items.filter((i) => i && i.free).map((i) => (Array.isArray(i.value) ? i.value.join(' ') : String(i.value))).join('\n');
+}
+
+/** The id of the first banned phrase in the text, or null. A phrase the applicant's own free text contains is not counted. */
+function bannedPhraseId(text, freeText = '') {
+  for (const { id, pattern } of BANNED_PHRASES) {
+    if (pattern.test(text) && !pattern.test(freeText)) return id;
+  }
+  return null;
+}
+
 function checkLetter(raw, facts) {
   const text = tidy(raw);
   if (!text) return { ok: false, code: 'LETTER_EMPTY' };
@@ -94,12 +144,23 @@ function checkLetter(raw, facts) {
   if (words < MIN_WORDS || words > MAX_WORDS) return { ok: false, code: 'LETTER_LENGTH' };
   if (/https?:\/\/|www\.|[\w.+-]+@[\w-]+\.\w+|<[a-z/!][^>]*>/i.test(text)) return { ok: false, code: 'LETTER_LINK' };
 
+  // Tokens: [NAME], [EMPLOYER] and [SCHOOL] only when the facts supplied the value, and [R1], [R2]... only when the facts
+  // took that piece of the applicant's text out. Anything else in square brackets is made up.
   const tokens = facts.tokens || {};
+  const redactions = facts.redactions || {};
   for (const match of text.matchAll(/\[([^\]\n]{0,40})\]/g)) {
     const name = match[1];
-    if (!KNOWN_TOKENS.includes(name) || typeof tokens[name] !== 'string' || !tokens[name]) return { ok: false, code: 'LETTER_UNKNOWN_TOKEN' };
+    if (/^R\d+$/.test(name)) {
+      if (!Object.prototype.hasOwnProperty.call(redactions, name)) return { ok: false, code: 'LETTER_UNKNOWN_TOKEN' };
+    } else if (!KNOWN_TOKENS.includes(name) || typeof tokens[name] !== 'string' || !tokens[name]) {
+      return { ok: false, code: 'LETTER_UNKNOWN_TOKEN' };
+    }
   }
   if (tokens.NAME && !text.includes('[NAME]')) return { ok: false, code: 'LETTER_MISSING_TOKEN' };
+
+  // Wording that is not allowed (a fixed code and the id of the phrase, never its text). The service asks the AI once more for this one.
+  const banned = bannedPhraseId(text, freeTextOf(facts));
+  if (banned) return { ok: false, code: 'AI_BANNED_PHRASE', phrase: banned };
 
   const figures = figuresCode(text, facts);
   if (figures) return { ok: false, code: figures };
@@ -107,9 +168,63 @@ function checkLetter(raw, facts) {
   return { ok: true, text };
 }
 
-/** Puts the real values in place of the placeholders. A value is inserted as it is (no pattern characters are special). */
-function substitute(text, tokens) {
-  return text.replace(/\[(NAME|EMPLOYER|SCHOOL)\]/g, (match, name) => (typeof tokens[name] === 'string' && tokens[name] ? tokens[name] : match));
+/**
+ * Puts the real values in place of the tokens, in ONE pass over the letter: [NAME], [EMPLOYER] and [SCHOOL] become the applicant's
+ * name, employer and school; [R1], [R2]... become exactly the text that was taken out of the applicant's own words, as they typed
+ * it (same letters, same case). A value is inserted as it is: it is not searched again, so nothing a value contains can be
+ * mistaken for a token, and no pattern character is special.
+ */
+function substitute(text, tokens, redactions = {}) {
+  return text.replace(/\[(NAME|EMPLOYER|SCHOOL|R\d+)\]/g, (match, key) => {
+    if (/^R\d+$/.test(key)) return Object.prototype.hasOwnProperty.call(redactions, key) ? redactions[key] : match;
+    return typeof tokens[key] === 'string' && tokens[key] ? tokens[key] : match;
+  });
 }
 
-module.exports = { checkLetter, figuresCode, substitute, tidy, wordCount, KNOWN_TOKENS, MIN_WORDS, MAX_WORDS };
+// ---------------------------------------------------------------------------
+// The closing
+// ---------------------------------------------------------------------------
+
+const CLOSING_PHRASE = /\byours\s+(?:faithfully|sincerely|truly)\b[\s,.;:!-]*/i;
+const CLOSING_PHRASE_EVERYWHERE = new RegExp(CLOSING_PHRASE.source, 'gi');
+const SIGN_OFF_LINE = /^(?:kind\s+regards|best\s+regards|with\s+(?:kind|best)\s+regards|warm\s+regards|best\s+wishes|regards|sincerely|respectfully|yours\s+(?:faithfully|sincerely|truly))\s*[,.;:!]?$/i;
+const SIGN_OFF_ON_ITS_OWN_LINE = /(?:^|\n)[ \t]*(?:(?:with\s+)?(?:kind|best|warm)\s+regards|best\s+wishes|sincerely|respectfully)[ \t]*[,.;:!]?[ \t]*(?=\n|$)/i;
+const SIGN_OFF_ENDING = /[\s,]*(?:with\s+)?(?:kind|best|warm)\s+regards[\s,.;:!]*$/i;
+const NAME_GAP = "[not provided: applicant's name]";
+const NAME_LINE = /^(?:\[NAME\]|\[not provided: applicant's name\])\s*[,.]?$/;
+const NAME_ENDING = /(?:[\s,]*(?:\[NAME\]|\[not provided: applicant's name\])[.,]?)+\s*$/;
+
+/**
+ * Makes the end of a letter the same every time, whatever the writer did: the last paragraph, a blank line, "Yours faithfully," on
+ * its own line, and the name on the next line. A closing the model put at the end of a line, written twice, replaced by another
+ * sign-off ("Kind regards"), signed with a name of its own, or left out altogether all end up the same. A closing phrase in the
+ * middle of a long text is only taken out. `name`: "token" signs with [NAME] (the server puts the real name in), "gap" with a visible
+ * [not provided: applicant's name] gap, "none" adds no name line.
+ */
+function normalizeClosing(raw, { name = 'token' } = {}) {
+  let text = String(raw).replace(/\r\n/g, '\n').trim();
+  // The first closing: "Yours faithfully" anywhere (even at the end of a line), or another sign-off on a line of its own.
+  const first = [CLOSING_PHRASE.exec(text), SIGN_OFF_ON_ITS_OWN_LINE.exec(text)].filter(Boolean).sort((a, b) => a.index - b.index)[0];
+  if (first) {
+    const tail = text.slice(first.index);
+    const signatureLines = tail.split('\n').filter((line) => line.trim());
+    // What follows the closing is a signature block (the closing, a name, maybe both again): drop it. A long tail is real text.
+    text = tail.length <= 240 && signatureLines.length <= 6 ? text.slice(0, first.index) : text.replace(CLOSING_PHRASE_EVERYWHERE, ' ');
+  }
+  for (let pass = 0; pass < 4; pass += 1) {
+    const before = text;
+    const lines = text.trimEnd().split('\n');
+    while (lines.length) {
+      const last = lines[lines.length - 1].trim();
+      if (last === '' || SIGN_OFF_LINE.test(last) || NAME_LINE.test(last)) lines.pop();
+      else break;
+    }
+    text = lines.join('\n').replace(NAME_ENDING, '').replace(SIGN_OFF_ENDING, '').trim();
+    if (text === before.trim()) break;
+  }
+  if (!text) return ''; // nothing but a closing is no letter: the checks report it as empty
+  const signature = name === 'token' ? '\n[NAME]' : name === 'gap' ? `\n${NAME_GAP}` : '';
+  return `${text}\n\nYours faithfully,${signature}`;
+}
+
+module.exports = { checkLetter, figuresCode, bannedPhraseId, freeTextOf, BANNED_PHRASES, substitute, normalizeClosing, NAME_GAP, tidy, wordCount, KNOWN_TOKENS, MIN_WORDS, MAX_WORDS };

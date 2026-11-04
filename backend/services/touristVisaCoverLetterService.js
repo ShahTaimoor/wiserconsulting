@@ -24,9 +24,9 @@ const defaultAi = require("./aiService");
 const { AiError } = defaultAi;
 const { getFieldEncryptionKey } = require("../config/fieldEncryption");
 const { buildFacts } = require("../shared/tourist-visa/coverLetterFacts");
-const { SYSTEM_PROMPT, buildUserPrompt } = require("../config/touristVisaCoverLetterPrompt");
+const { PROMPT_VERSION, SYSTEM_PROMPT, buildUserPrompt } = require("../config/touristVisaCoverLetterPrompt");
 const { buildTemplate } = require("../utils/touristVisaCoverLetterTemplate");
-const { checkLetter, substitute } = require("../utils/touristVisaCoverLetterChecks");
+const { checkLetter, substitute, normalizeClosing, tidy, NAME_GAP } = require("../utils/touristVisaCoverLetterChecks");
 const { MAX_TEXT, FALLBACK_REASONS } = require("../models/TouristVisaCoverLetter");
 const { AppError } = require("../middleware/errorHandler");
 const logger = require("../utils/logger");
@@ -66,7 +66,7 @@ class TouristVisaCoverLetterService {
     const at = this.now();
     const model = made.model && SAFE_MODEL.test(made.model) ? made.model : undefined;
 
-    await this.audit.append([{ adminId, applicationId: application._id, action: "cover_letter_generate", at, letterVersion: version, letterSource: made.source, ...(model ? { model } : {}) }]);
+    await this.audit.append([{ adminId, applicationId: application._id, action: "cover_letter_generate", at, letterVersion: version, letterSource: made.source, ...(model ? { model } : {}), ...(made.promptVersion ? { promptVersion: made.promptVersion } : {}) }]);
     await this.letters.append({
       applicationId: application._id,
       version,
@@ -75,6 +75,8 @@ class TouristVisaCoverLetterService {
       model,
       fallbackReason: made.fallbackReason,
       aiAttempted: made.aiAttempted,
+      aiAttempts: made.aiAttempts,
+      promptVersion: made.promptVersion,
       factsHash,
       basedOnRevision: application.revision || 0,
       createdBy: adminId,
@@ -167,33 +169,56 @@ class TouristVisaCoverLetterService {
 
   /** The letter text and how it was made: { text, source, model?, fallbackReason?, aiAttempted }. Never throws for an AI failure. */
   async compose(adminId, facts) {
-    const fallback = (reason, aiAttempted) => ({
-      text: substitute(buildTemplate(facts), facts.tokens),
+    // `requests` is how many times the provider was asked (it counts towards the limits); the prompt version is kept when it was.
+    const fallback = (reason, requests) => ({
+      text: substitute(buildTemplate(facts), facts.tokens, facts.redactions),
       source: "template",
       fallbackReason: FALLBACK_REASONS.includes(reason) ? reason : "AI_PROVIDER_ERROR",
-      aiAttempted: Boolean(aiAttempted),
+      aiAttempted: requests > 0,
+      ...(requests > 0 ? { aiAttempts: requests, promptVersion: PROMPT_VERSION } : {}),
     });
 
     const unavailable = this.ai.unavailable();
-    if (unavailable) return fallback(unavailable, false);
+    if (unavailable) return fallback(unavailable, 0);
 
     const settings = this.ai.settings();
     const now = this.now();
-    if ((await this.letters.countAiRequests({ since: startOfUtcDay(now) })) >= settings.dailyLimit) return fallback("AI_DAILY_LIMIT", false);
-    if ((await this.letters.countAiRequests({ since: new Date(now.getTime() - HOUR), adminId })) >= settings.adminHourlyLimit) return fallback("AI_ADMIN_LIMIT", false);
+    const usedToday = await this.letters.countAiRequests({ since: startOfUtcDay(now) });
+    if (usedToday >= settings.dailyLimit) return fallback("AI_DAILY_LIMIT", 0);
+    const usedByAdmin = await this.letters.countAiRequests({ since: new Date(now.getTime() - HOUR), adminId });
+    if (usedByAdmin >= settings.adminHourlyLimit) return fallback("AI_ADMIN_LIMIT", 0);
 
+    // The end of every letter is made the same before it is checked: the last paragraph, then "Yours faithfully," and the name on their own lines.
+    const tidied = (text) => normalizeClosing(tidy(text), { name: facts.tokens.NAME ? "token" : "none" });
+    const ask = (retry) => this.ai.generate({ system: SYSTEM_PROMPT, user: buildUserPrompt(facts.text, { retry }) });
     let answer;
     try {
-      answer = await this.ai.generate({ system: SYSTEM_PROMPT, user: buildUserPrompt(facts.text) });
+      answer = await ask(false);
     } catch (error) {
-      return error instanceof AiError ? fallback(error.code, error.attempted) : fallback("AI_PROVIDER_ERROR", true);
+      return error instanceof AiError ? fallback(error.code, error.attempted ? 1 : 0) : fallback("AI_PROVIDER_ERROR", 1);
     }
-    const checked = checkLetter(answer.text, facts);
+    let checked = checkLetter(tidied(answer.text), facts);
+    let requests = 1;
+
+    // Wording that is not allowed: ask ONCE more, if the limits have room for the extra request (the first one is not stored yet).
+    if (!checked.ok && checked.code === "AI_BANNED_PHRASE") {
+      logger.warn("Tourist Visa cover letter from the AI was rejected and is asked for again", { code: checked.code });
+      if (usedToday + 1 >= settings.dailyLimit || usedByAdmin + 1 >= settings.adminHourlyLimit) return fallback("AI_BANNED_PHRASE", requests);
+      try {
+        answer = await ask(true);
+      } catch (error) {
+        return error instanceof AiError ? fallback(error.code, requests + (error.attempted ? 1 : 0)) : fallback("AI_PROVIDER_ERROR", requests + 1);
+      }
+      requests += 1;
+      checked = checkLetter(tidied(answer.text), facts);
+    }
     if (!checked.ok) {
       logger.warn("Tourist Visa cover letter from the AI was rejected", { code: checked.code });
-      return fallback(checked.code, true);
+      return fallback(checked.code, requests);
     }
-    return { text: substitute(checked.text, facts.tokens), source: "ai", model: answer.model, aiAttempted: true };
+    // The tokens are replaced in one pass: the name and employer, and the applicant's own words exactly as they typed them.
+    const finished = substitute(checked.text, facts.tokens, facts.redactions);
+    return { text: facts.tokens.NAME ? finished : `${finished}\n${NAME_GAP}`, source: "ai", model: answer.model, aiAttempted: true, aiAttempts: requests, promptVersion: PROMPT_VERSION };
   }
 
   present(versions, factsHash) {

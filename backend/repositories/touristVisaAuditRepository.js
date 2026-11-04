@@ -35,6 +35,7 @@ class TouristVisaAuditRepository {
       ...(row.letterVersion ? { letterVersion: row.letterVersion } : {}),
       ...(row.letterSource ? { letterSource: row.letterSource } : {}),
       ...(row.model ? { model: row.model } : {}),
+      ...(row.promptVersion ? { promptVersion: row.promptVersion } : {}),
     }));
   }
 }

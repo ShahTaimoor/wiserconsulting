@@ -20,6 +20,7 @@ const MAX_TEXT = 8000;
 const FALLBACK_REASONS = [
     'AI_DISABLED', 'AI_NOT_CONFIGURED', 'AI_TERMS_NOT_CONFIRMED', 'AI_CIRCUIT_OPEN', 'AI_DAILY_LIMIT', 'AI_ADMIN_LIMIT',
     'AI_RATE_LIMITED', 'AI_TIMEOUT', 'AI_NETWORK', 'AI_PROVIDER_REJECTED', 'AI_PROVIDER_ERROR', 'AI_BAD_RESPONSE', 'AI_TRUNCATED',
+    'AI_BANNED_PHRASE',
     'LETTER_EMPTY', 'LETTER_LENGTH', 'LETTER_LINK', 'LETTER_UNKNOWN_TOKEN', 'LETTER_MISSING_TOKEN',
     'LETTER_NUMBER_NOT_IN_FACTS', 'LETTER_DATE_NOT_IN_FACTS',
 ];
@@ -37,6 +38,11 @@ const letterSchema = new mongoose.Schema(
         fallbackReason: { type: String, enum: FALLBACK_REASONS, immutable: true },
         // True when the provider was actually asked (counts towards the daily and per-admin limits).
         aiAttempted: { type: Boolean, default: false, immutable: true },
+        // How many requests were made to the provider for this version: 1, or 2 when the first letter used banned wording and
+        // the AI was asked once more. Both count towards the daily and per-administrator limits. A row without it counts as 1.
+        aiAttempts: { type: Number, min: 1, max: 2, immutable: true },
+        // The version of the prompt that was sent (config/touristVisaCoverLetterPrompt.js). Rows written before it existed have none.
+        promptVersion: { type: Number, min: 1, immutable: true },
         // A keyed hash of the facts the letter was made from, to tell when the answers have changed since.
         factsHash: { type: String, required: true, immutable: true },
         basedOnRevision: { type: Number, required: true, immutable: true },

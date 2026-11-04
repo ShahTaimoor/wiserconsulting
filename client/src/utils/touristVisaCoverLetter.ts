@@ -64,16 +64,28 @@ export function fallbackMessage(code: string | undefined): string {
     case "LETTER_NUMBER_NOT_IN_FACTS":
     case "LETTER_DATE_NOT_IN_FACTS":
       return "The AI's letter did not match the application's answers, so a template letter was created instead.";
+    case "AI_BANNED_PHRASE":
+      return "The AI's letter used wording that is not allowed, even after a second try, so a template letter was created instead.";
     default:
       return "The AI was not available, so a template letter was created.";
   }
 }
 
-/** What to say after Generate: an AI letter, or why it is a template. */
+/** What to say after Generate: an AI draft (with the notice that an AI can be wrong) or why it is a template. */
 export function createdMessage(created: { version: number; source: LetterSource; fallbackReason?: string }): string {
   if (created.source === "ai") return `AI draft created (version ${created.version}). ${CHECK_NOTICE}`;
   if (created.source === "template") return `${fallbackMessage(created.fallbackReason)} (Version ${created.version}.)`;
-  return `Version ${created.version} saved.`;
+  return savedMessage(created.version);
+}
+
+/** What to say after the administrator saves their own text: it is their letter, so nothing about the AI. */
+export function savedMessage(version: number | null): string {
+  return `${version === null ? "Saved as a new version" : `Saved as version ${version}`}. Check every fact before approving.`;
+}
+
+/** The notice above the text of the newest version: the sentence about the AI is only for a letter the AI wrote. */
+export function checkNoticeFor(source: LetterSource): string {
+  return source === "ai" ? CHECK_NOTICE : CHECK_NOTICE_SHORT;
 }
 
 /** What the panel tells the administrator before they generate: whether the AI will be used. */
