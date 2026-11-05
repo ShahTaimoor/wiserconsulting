@@ -35,6 +35,7 @@ const { DEFAULT_GROQ_MODEL } = require('../config/ai');
 const { ITINERARY_PROMPT_VERSION, RETRY_REMINDER } = require('../config/touristVisaItineraryPrompt');
 const logger = require('../utils/logger');
 const { SECRET_ID, SECRET_NI, SECRET_DETAILS, FILE_NAME, SECTIONS } = require('./helpers/touristVisaFixtures');
+const { distinctDescriptions } = require('./helpers/itineraryAnswers');
 
 let replSet;
 let server;
@@ -161,19 +162,9 @@ const userOf = (body) => body.messages[1].content;
 /** The headings the prompt lists, and the places it names. */
 const headingsOf = (body) => [...userOf(body).matchAll(/^\d+\. (.+?)(?: \((?:includes|the arrival)[^)]*\))?$/gm)].map((m) => m[1]);
 const placesOf = (body) => ((/Places the applicant named, in order: (.+)/.exec(userOf(body)) || [])[1] || '').split('; ').filter(Boolean);
-/** A good answer: one plain sentence for each heading, the places in the order named. */
+/** A good answer: a distinct description for each heading, the places in the order named. */
 function followingAnswer(body) {
-  const headings = headingsOf(body);
-  const places = placesOf(body);
-  const verbs = ['Wander through', 'Spend the day in', 'Take a slow walk around', 'Explore the streets of', 'Visit the museums of', 'Enjoy the parks of'];
-  return JSON.stringify({
-    descriptions: headings.map((_, i) => {
-      const place = places.length ? places[Math.min(places.length - 1, Math.floor((i / headings.length) * places.length))] : 'the city';
-      if (i === 0) return `Arrive in ${place} and settle in, then take a gentle first look around the area.`;
-      if (i === headings.length - 1) return `Spend a last quiet morning in ${place} before setting off on the journey home.`;
-      return `${verbs[i % verbs.length]} ${place} at an easy pace, with time to rest between visits.`;
-    }),
-  });
+  return JSON.stringify({ descriptions: distinctDescriptions(headingsOf(body).length, placesOf(body)) });
 }
 function useAi(env, answer = (body) => chatResponse(followingAnswer(body))) {
   for (const name of Object.keys(AI_ON)) delete process.env[name];
@@ -869,4 +860,59 @@ test('itinerary audit rows are written with version and source; rows written wit
   assert.equal((await api('POST', `/admin/applications/${app.appId}/cover-letter/generate`, { token: admin.token })).status, 201);
   const [letterRow] = await auditRows({ applicationId: id, action: 'cover_letter_generate' });
   assert.deepEqual([letterRow.letterVersion, letterRow.letterSource, letterRow.version, letterRow.source], [1, 'template', undefined, undefined]);
+});
+
+// ---------------------------------------------------------------------------
+// Prompt version 3 through the routes: repetition falls back to the template; American spellings are stored as British
+// ---------------------------------------------------------------------------
+
+test('a draft that repeats an opening, a sentence or a run of words is asked for once more and then the template is used, with the existing fixed code; the repeated draft is kept nowhere', async () => {
+  const admin = await makeAdmin();
+  const app = await submitted();
+  const describe = (body) => JSON.parse(followingAnswer(body)).descriptions;
+  const kinds = [
+    ['an opening', (body) => describe(body).map((d, i) => (i === 4 ? `${describe(body)[3].split(' ').slice(0, 3).join(' ')} the sandy quay and its lighthouse in London.` : d))],
+    ['a sentence', (body) => describe(body).map((d, i) => (i === 4 ? describe(body)[3] : d))],
+    ['a run of five words', (body) => describe(body).map((d, i) => (i === 4 ? `Then ${describe(body)[7].slice(0, -1).toLowerCase()} again.` : d))],
+  ];
+  for (const [label, make] of kinds) {
+    useAi(AI_ON, (body) => chatResponse(JSON.stringify({ descriptions: make(body) })));
+    const res = await generate(admin.token, app.appId);
+    assert.equal(res.status, 201, `${label}: ${res.text}`);
+    assert.equal(res.json.data.created.source, 'template', label);
+    assert.equal(res.json.data.created.fallbackReason, 'ITINERARY_BAD_ENTRY', label);
+    assert.equal(aiCalls.length, 2, `${label}: one retry`);
+    assert.equal(userOf(aiCalls[1].body).includes(RETRY_REMINDER), true);
+    assert.equal(res.json.data.versions[0].text.includes('sandy quay'), false);
+    const rows = await rowsOf(app.appId);
+    assert.equal(rows[rows.length - 1].aiAttempts, 2);
+    assert.equal(rows[rows.length - 1].promptVersion, ITINERARY_PROMPT_VERSION);
+  }
+  // The same draft made distinct on the second request is kept.
+  let n = 0;
+  useAi(AI_ON, (body) => chatResponse(n++ === 0 ? JSON.stringify({ descriptions: describe(body).map((d, i) => (i === 4 ? describe(body)[3] : d)) }) : followingAnswer(body)));
+  const kept = await generate(admin.token, app.appId);
+  assert.equal(kept.json.data.created.source, 'ai');
+  assert.equal(aiCalls.length, 2);
+  aiOff();
+});
+
+test('American spellings in an AI itinerary are stored in British spelling; prompt version 3 is stored on the version', async () => {
+  const admin = await makeAdmin();
+  const app = await submitted();
+  useAi(AI_ON, (body) => {
+    const list = JSON.parse(followingAnswer(body)).descriptions;
+    list[4] = 'Explore the center of the old city and its favorite theater, traveling on foot at an easy pace.';
+    return chatResponse(JSON.stringify({ descriptions: list }));
+  });
+  const res = await generate(admin.token, app.appId);
+  assert.equal(res.status, 201, res.text);
+  assert.equal(res.json.data.created.source, 'ai');
+  const text = res.json.data.versions[0].text;
+  assert.match(text, /Explore the centre of the old city and its favourite theatre, travelling on foot at an easy pace\./);
+  assert.equal(/\b(?:center|favorite|theater|traveling)\b/.test(text), false);
+  const [row] = await rowsOf(app.appId);
+  assert.equal(row.promptVersion, 3);
+  assert.equal(ITINERARY_PROMPT_VERSION, 3);
+  aiOff();
 });

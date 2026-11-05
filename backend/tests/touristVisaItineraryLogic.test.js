@@ -22,6 +22,8 @@ const { TouristVisaItineraryService } = require('../services/touristVisaItinerar
 const { FALLBACK_REASONS, MAX_TEXT } = require('../models/TouristVisaItinerary');
 const { readAiSettings, DEFAULT_GROQ_MODEL } = require('../config/ai');
 
+const { distinctDescriptions, pseudoWord } = require('./helpers/itineraryAnswers');
+
 const SUBMITTED = new Date('2026-11-03T10:00:00Z');
 const ENV = { AI_ENABLED: 'true', AI_PROVIDER: 'groq', GROQ_API_KEY: 'gsk_fake_itinerary_key', NODE_ENV: 'test' };
 
@@ -32,17 +34,9 @@ const base = (extra = {}) => ({
 const build = (answers) => facts.buildItineraryFacts(engine.config, answers, { submittedAt: SUBMITTED });
 const skeletonOf = (f) => buildSkeleton(f.raw.arrival, f.raw.departure);
 
-/** A good answer for a skeleton: one plain sentence per heading, the named places in order, no digits. */
+/** A good answer for a skeleton: a distinct description for each heading, the named places in order, no digits. */
 function goodAnswer(f, skeleton, { places = f.places } = {}) {
-  const n = skeleton.blocks.length;
-  const verbs = ['Wander through', 'Spend the day in', 'Take a slow walk around', 'Explore the streets of', 'Visit the museums of', 'Enjoy the parks of'];
-  const out = skeleton.blocks.map((block, i) => {
-    const place = places.length ? places[Math.min(places.length - 1, Math.floor((i / n) * places.length))] : 'the city';
-    if (block.first) return `Arrive in ${place} and settle in, then take a gentle first look around the area.`;
-    if (block.last) return `Spend a last quiet morning in ${place} before setting off on the journey home.`;
-    return `${verbs[i % verbs.length]} ${place} at an easy pace, with time to rest between visits.`;
-  });
-  return JSON.stringify({ descriptions: out });
+  return JSON.stringify({ descriptions: distinctDescriptions(skeleton.blocks.length, places) });
 }
 
 function serviceWith(answer, { counts = { today: 0, hour: 0 }, env = ENV, unavailable = null } = {}) {
@@ -523,10 +517,13 @@ test('an itinerary over the size an administrator may save is not accepted from 
   // Nineteen entries under the cap each still fit; a made-up longer skeleton does not.
   const long = { ...s, blocks: Array.from({ length: 60 }, (_, i) => ({ ...s.blocks[1], heading: `Day ${i + 1}, Tuesday 16 March 2027` })) };
   const { service } = serviceWith(() => '');
-  const answer = JSON.stringify({ descriptions: Array.from({ length: 60 }, () => 'A'.repeat(0) + 'Spend the day in London with a walk through its parks and a quiet rest. '.repeat(3).trim()) });
+  // Sixty entries that share nothing with each other (so the repetition checks pass) but are long, and the last one leaves.
+  const entry = (i) => `Visit ${Array.from({ length: 25 }, (_, j) => pseudoWord(i, j)).join(' ')} in London${i === 59 ? ', then set off for home' : ''}.`;
+  const answer = JSON.stringify({ descriptions: Array.from({ length: 60 }, (_, i) => entry(i)) });
   const result = service.evaluate(answer, f, long);
   assert.equal(result.ok, false);
   assert.equal(result.code, 'ITINERARY_BAD_ENTRY');
+  assert.equal(result.rule, 'too-long');
 });
 
 // ---------------------------------------------------------------------------
@@ -741,8 +738,8 @@ test('the facts hash is version 2 for the cover letter and the itinerary: a vers
 
 const PLAIN_WORDS = ['absorbing', 'soaking', 'immersing', 'breathtaking', 'stunning', 'picturesque', 'charming', 'unforgettable', 'must-see', 'iconic', 'majestic', 'captivating'];
 
-test('prompt version 2: the last heading is a departure from the United Kingdom, with no next destination, onward travel or place outside it', () => {
-  assert.equal(ITINERARY_PROMPT_VERSION, 2);
+test('the last heading (rules of prompt version 2, kept in version 3) is a departure from the United Kingdom, with no next destination, onward travel or place outside it', () => {
+  assert.ok(ITINERARY_PROMPT_VERSION >= 2);
   assert.match(SYSTEM_PROMPT, /The last heading is the traveller's departure from the United Kingdom\. It says that the traveller leaves the United Kingdom or sets off on the journey home, in your own words\./);
   assert.match(SYSTEM_PROMPT, /It never mentions a next destination, onward travel or any place outside the United Kingdom\./);
   const user = buildUserPrompt('FACTS', buildSkeleton('2027-03-15', '2027-03-17'));
@@ -845,4 +842,157 @@ test('the template never uses the banned wording of the polish step, ends every 
   // Every sentence the template can write, from its own pools.
   const { DAYS } = require('../utils/touristVisaItineraryTemplate');
   for (const pool of Object.values(DAYS)) for (const sentence of pool) assert.equal(banned.test(sentence), false, sentence);
+});
+
+// ---------------------------------------------------------------------------
+// Prompt version 3: specific but safe days; the repetition checks; British spelling
+// ---------------------------------------------------------------------------
+
+test('prompt version 3: one or two specific, well-known sights a day, a landmark only when certain, never booked, ticketed, timed or priced', () => {
+  assert.equal(ITINERARY_PROMPT_VERSION, 3);
+  assert.match(SYSTEM_PROMPT, /each ordinary day describes one or two specific, well-known sights or activities in that day's city, naming real landmarks \(such as a famous museum, castle, abbey, cathedral, park, market or historic street\), in plain factual wording/);
+  assert.match(SYSTEM_PROMPT, /Name a landmark only if you are certain that it exists in that city; if you are not sure, describe the kind of place instead/);
+  assert.match(SYSTEM_PROMPT, /Never present anything as booked, ticketed, timed or priced\./);
+  assert.match(SYSTEM_PROMPT, /A day in a place you do not know, or cannot name a landmark for, stays general/);
+  // The rules of the earlier versions are all still there.
+  assert.match(SYSTEM_PROMPT, /The last heading is the traveller's departure from the United Kingdom/);
+  assert.match(SYSTEM_PROMPT, /Plain, factual wording only/);
+  assert.match(SYSTEM_PROMPT, /nothing about flights, trains, tickets, reservations, prices, opening times, clock times/);
+});
+
+test('prompt version 3: no landmark repeated, no repeated sentence or opening, varied verbs, at most one or two quieter days, travel days say the route, British English', () => {
+  assert.match(SYSTEM_PROMPT, /no landmark appears on more than one day; no two days use the same sentence or begin with the same words; vary the verbs/);
+  assert.match(SYSTEM_PROMPT, /Have at most one or two quieter days in the whole stay, and a quieter day still says what the traveller does/);
+  assert.match(SYSTEM_PROMPT, /A travel day says the route \(from where to where\) and one short activity on arrival, and does not say how the traveller travels/);
+  assert.match(SYSTEM_PROMPT, /Write in British English throughout \(centre, colour, organise, travelling, favourite\)/);
+  assert.match(RETRY_REMINDER, /no landmark, sentence or run of words is repeated on another day and that no two days begin with the same words/);
+  assert.match(RETRY_REMINDER, /the spelling is British/);
+});
+
+test('prompt version 3 names no landmark and has no example: the model chooses the sights from the places, and nothing is there to copy', () => {
+  for (const landmark of ['Tower of London', 'British Museum', 'Buckingham', 'Hyde Park', 'Borough Market', 'Roman Baths', 'Bath Abbey', 'Royal Crescent', 'Edinburgh Castle', 'Royal Mile', 'Holyrood', 'Arthur', 'St Paul', 'Tate', 'Stonehenge', 'Westminster']) {
+    assert.equal(SYSTEM_PROMPT.includes(landmark), false, landmark);
+  }
+  assert.equal(/\bexample\b|\be\.g\.|\bfor instance\b/i.test(SYSTEM_PROMPT), false);
+  assert.equal((SYSTEM_PROMPT.match(/journey home/g) || []).length, 1);
+  for (const place of ['London', 'Bath', 'Edinburgh', 'Oxford', 'York', 'Cardiff']) assert.equal(SYSTEM_PROMPT.includes(place), false, place);
+});
+
+test('repetition: two descriptions with the same sentence, the same run of five words, or the same first three words are refused, whatever the case or punctuation', () => {
+  const asked = (list, mode = 'days') => checks.validateDescriptions(list, { mode, named: [], stay: [], distinct: true });
+  const A = 'Visit the cathedral and the quiet close around it in the afternoon.';
+  const B = 'Walk along the river path and cross the old bridge to the market.';
+  const C = 'Spend time in the city park and its small lake with the ducks.';
+  assert.equal(asked([A, B, C]).ok, true);
+  // The same sentence (in a description with another sentence too).
+  for (const copy of [`Explore the harbour first. ${B}`, `Explore the harbour first. ${B.toUpperCase()}`, `Explore the harbour first. ${B.replace(/\.$/, '')}!`, `Explore the harbour first.   ${B.replace(/ /g, '  ')}`]) {
+    const result = asked([A, B, copy]);
+    assert.equal(result.ok, false, copy);
+    assert.equal(result.code, 'ITINERARY_BAD_ENTRY');
+    assert.ok(['repeat-sentence', 'repeat-sequence'].includes(result.rule), result.rule);
+    assert.equal(result.entry, 2, 'the later of the two');
+  }
+  const sameSentence = asked([A, 'Stroll by the harbour. Rest on a bench nearby.', 'Browse the stalls at the market hall. Rest on a bench nearby.']);
+  assert.equal(sameSentence.rule, 'repeat-sentence', 'a short sentence of its own, shared');
+  assert.equal(sameSentence.entry, 2);
+  // The same five words in a row, in different sentences.
+  const sequence = asked([A, B, 'Then the old castle walls rise above the cathedral and the quiet lawns behind them.']);
+  assert.equal(sequence.rule, 'repeat-sequence');
+  assert.equal(sequence.entry, 2);
+  assert.equal(asked([A, B, 'A cathedral and the quiet lawns are a short stroll from the market square.']).ok, true, 'four shared words are not five');
+  // The same first three words.
+  const opening = asked([A, B, 'Walk along the canal towpath and look at the locks and boats.']);
+  assert.equal(opening.rule, 'same-opening');
+  assert.equal(opening.entry, 2);
+  assert.equal(asked([A, B, "WALK ALONG, THE canal path then look at the locks and the boats."]).rule, 'same-opening', 'case and punctuation do not hide it');
+  assert.equal(asked([A, B, "Walk along the canal towpath and look at the locks and boats."]).ok, false);
+  assert.equal(asked([A, B, 'Walk beside the canal towpath and look at the locks and boats.']).ok, true, 'a different third word is a different opening');
+  // Weeks are held to the same rules; a repeat inside one description is not looked for; only asked for when asked.
+  assert.equal(asked([A, B, `${C} ${C}`], 'weeks').ok, true);
+  assert.equal(asked([A, A], 'weeks').ok, false);
+  assert.equal(checks.validateDescriptions([A, A, A], { mode: 'days', named: [], stay: [] }).ok, true);
+  // No text in the answer.
+  assert.equal(JSON.stringify(opening).includes('canal'), false);
+});
+
+test('repetition through the service: a draft that repeats is asked for once more and then the template, with the existing fixed code; a distinct second draft is kept', async () => {
+  const f = build(base());
+  const s = skeletonOf(f);
+  const list = JSON.parse(goodAnswer(f, s)).descriptions;
+  const withEntry = (i, text) => JSON.stringify({ descriptions: list.map((d, n) => (n === i ? text : d)) });
+  for (const [label, text, rules] of [
+    ['the same sentence', `${list[3]} ${list[4]}`, ['repeat-sentence', 'repeat-sequence']],
+    ['the same five words', `Then ${list[6].slice(0, -1).toLowerCase()} again.`, ['repeat-sequence']],
+    ['the same opening', `${list[2].split(' ').slice(0, 3).join(' ')} the sandy quay and its lighthouse in London.`, ['same-opening']],
+  ]) {
+    const twice = await run(() => withEntry(8, text));
+    assert.equal(twice.prompts.length, 2, `${label}: one retry`);
+    assert.equal(twice.result.source, 'template', label);
+    assert.equal(twice.result.fallbackReason, 'ITINERARY_BAD_ENTRY', label);
+    assert.equal(twice.result.aiAttempts, 2);
+    const direct = checks.validateDescriptions(JSON.parse(withEntry(8, text)).descriptions, { mode: 'days', named: f.places, stay: ['London'], lastDay: true, distinct: true });
+    assert.ok(rules.includes(direct.rule), `${label}: ${direct.rule}`);
+    const second = await run((prompt, n) => (n === 1 ? withEntry(8, text) : goodAnswer(f, s)));
+    assert.equal(second.result.source, 'ai', label);
+    assert.equal(second.result.aiAttempts, 2);
+  }
+});
+
+test('British spelling: the common American spellings become British ones, whole words only, case kept, and nothing else is touched', () => {
+  const b = checks.britishSpelling;
+  assert.equal(b('We will finalize and organize it, recognize the center, visit a theater, a favorite color, traveling as travelers.'), 'We will finalise and organise it, recognise the centre, visit a theatre, a favourite colour, travelling as travellers.');
+  // Case: lower, Capitalised and UPPER.
+  assert.equal(b('Center. center. CENTER. Color, COLOR, Theater, THEATERS, Favorite, Traveling, TRAVELING.'), 'Centre. centre. CENTRE. Colour, COLOUR, Theatre, THEATRES, Favourite, Travelling, TRAVELLING.');
+  // Every form of the verbs.
+  assert.equal(b('finalizes finalized finalizing; organizes organized organizing organizer organizers; recognizes recognized recognizing; realize realized; emphasize emphasized; summarize; specialize; apologize; criticize; memorize; customize; popularize; visualize'), 'finalises finalised finalising; organises organised organising organiser organisers; recognises recognised recognising; realise realised; emphasise emphasised; summarise; specialise; apologise; criticise; memorise; customise; popularise; visualise');
+  assert.equal(b('centers centered centering; colors colored colorful; favorites; traveled traveler; harbor harbors; neighbor neighbors neighborhood neighborhoods; organization organizations organizational'), 'centres centred centring; colours coloured colourful; favourites; travelled traveller; harbour harbours; neighbour neighbours neighbourhood neighbourhoods; organisation organisations organisational');
+  // Tricky words: whole words only, so these are never altered.
+  for (const word of ['Colorado', 'recolor', 'discolor', 'Centerville', 'centerpiece', 'epicenter', 'decentered', 'theatergoer', 'favoritism', 'unfavorable', 'travelogue', 'organism', 'organic', 'organist', 'realism', 'real', 'finalist', 'finally', 'recognition', 'colonial', 'color_code', 'Rockefeller', 'meter', 'metre', 'program', 'license', 'defense', 'gray', 'Gray\'s Inn', 'color1']) {
+    assert.equal(b(`A ${word} here.`), `A ${word} here.`, word);
+  }
+  // Punctuation, apostrophes and hyphens next to a word are not part of it.
+  assert.equal(b("The theater's roof, (color-coded) and re-organize; \"favorite\"; center-stage."), "The theatre's roof, (colour-coded) and re-organise; \"favourite\"; centre-stage.");
+  // British forms are left alone, so it can be applied twice.
+  for (const text of ['The centre, the colour, a theatre, travelling, organised and recognised in a favourite way.', 'Nothing American here at all.', '']) {
+    assert.equal(b(text), text);
+    assert.equal(b(b("center color theater")), 'centre colour theatre');
+  }
+  // A name that is spelled the American way in the United Kingdom is kept as written.
+  assert.equal(b('A day at Center Parcs, then the center of town; CENTER PARCS and center parcs.'), 'A day at Center Parcs, then the centre of town; CENTER PARCS and center parcs.');
+  assert.deepEqual([...checks.KEEP_AS_WRITTEN], ['Center Parcs']);
+  // Not a string: returned as it is.
+  assert.equal(b(undefined), undefined);
+  assert.equal(b(42), 42);
+});
+
+test('British spelling: one constant, every form listed on its own, every British form different from the American, no British form is itself listed', () => {
+  const map = checks.AMERICAN_TO_BRITISH;
+  assert.ok(Object.isFrozen(map));
+  for (const [american, british] of Object.entries({ finalize: 'finalise', organize: 'organise', recognize: 'recognise', center: 'centre', theater: 'theatre', favorite: 'favourite', traveling: 'travelling', color: 'colour' })) {
+    assert.equal(map[american], british, american);
+  }
+  for (const [american, british] of Object.entries(map)) {
+    assert.equal(american, american.toLowerCase(), `${american} is listed in lower case (the case is kept from the text)`);
+    assert.notEqual(american, british);
+    assert.equal(Object.prototype.hasOwnProperty.call(map, british), false, `${british} is itself listed`);
+    assert.match(american, /^[a-z]+$/);
+  }
+  assert.ok(Object.keys(map).length > 60);
+});
+
+test('British spelling through the service: an AI answer with American spellings is stored in British spelling (and checked in it); the template text is already British and is passed through the same function', async () => {
+  const f = build(base());
+  const s = skeletonOf(f);
+  const list = JSON.parse(goodAnswer(f, s)).descriptions;
+  list[4] = 'Explore the center of London and its favorite theater, traveling on foot at an easy pace.';
+  const made = await run(() => JSON.stringify({ descriptions: list }));
+  assert.equal(made.result.source, 'ai', made.result.fallbackReason);
+  assert.match(made.result.text, /Explore the centre of London and its favourite theatre, travelling on foot at an easy pace\./);
+  assert.equal(/\b(?:center|favorite|theater|traveling)\b/.test(made.result.text), false);
+  // A spelling that is only a banned word once it is British is still judged: British first, then every check.
+  const template = buildTemplateDescriptions(f, s);
+  assert.deepEqual(template.map(checks.britishSpelling), template, 'the template says nothing American');
+  const source = require('node:fs').readFileSync(require.resolve('../services/touristVisaItineraryService'), 'utf8');
+  assert.match(source, /parsed\.descriptions\.map\(britishSpelling\)/, 'the AI answer is made British');
+  assert.match(source, /buildTemplateDescriptions\(facts, skeleton\)\.map\(britishSpelling\)/, 'and so is the template');
 });

@@ -8,13 +8,15 @@
  *
  * ITINERARY_PROMPT_VERSION goes up whenever the wording changes. It is stored on every AI version and written to the audit row.
  * Versions: 1 = the first prompt. 2 = the last heading is a departure from the United Kingdom (never onward travel or a place outside
- * it), and plain, factual wording: what the traveller will do, with no scene-setting, feelings or sales language.
+ * it), and plain, factual wording: what the traveller will do, with no scene-setting, feelings or sales language. 3 = specific but safe
+ * days: one or two well-known sights or activities in that day's city, a landmark named only when the model is certain it exists there,
+ * no landmark or sentence or opening repeated across days, travel days say the route, British English.
  *
  * There is deliberately NO sample itinerary, model day or stock phrasing in this prompt: every itinerary is to be written freshly from
  * the facts. The few quoted phrases are ones the model must NOT write.
  */
 
-const ITINERARY_PROMPT_VERSION = 2;
+const ITINERARY_PROMPT_VERSION = 3;
 
 const SYSTEM_PROMPT = [
   'You write the day-by-day descriptions of a proposed itinerary for a visit to the United Kingdom. The headings are fixed and are given to you with the facts: you write exactly one short description for each heading, in the same order, and nothing else.',
@@ -25,8 +27,14 @@ const SYSTEM_PROMPT = [
   '',
   'Plain, factual wording only: say what the traveller will do and where. No scene-setting, no feelings, no descriptions of atmosphere, architecture, culture or beauty, and no sales language. Never write words such as "absorbing", "soaking in", "immersing", "picturesque", "charming", "majestic" or "captivating", or anything like them.',
   '',
+  'Specific but safe days: each ordinary day describes one or two specific, well-known sights or activities in that day\'s city, naming real landmarks (such as a famous museum, castle, abbey, cathedral, park, market or historic street), in plain factual wording. Name a landmark only if you are certain that it exists in that city; if you are not sure, describe the kind of place instead (a local market, a city park, a cathedral). Never present anything as booked, ticketed, timed or priced.',
+  '',
+  'Variety: no landmark appears on more than one day; no two days use the same sentence or begin with the same words; vary the verbs. Have at most one or two quieter days in the whole stay, and a quieter day still says what the traveller does. A travel day says the route (from where to where) and one short activity on arrival, and does not say how the traveller travels. A day in a place you do not know, or cannot name a landmark for, stays general: the kind of place and the kind of activity.',
+  '',
+  'Write in British English throughout (centre, colour, organise, travelling, favourite).',
+  '',
   'What to suggest:',
-  '- Only well-known, general sightseeing and activities, for the places the applicant named, in the order they named them, so that the days follow that order. If they named no places, use the city they will stay in and the purpose of the visit. If nothing usable is known, keep the suggestions general.',
+  '- Only well-known sightseeing and activities, for the places the applicant named, in the order they named them, so that the days follow that order. If they named no places, use the city they will stay in and the purpose of the visit. If nothing usable is known, keep the suggestions general.',
   '- The arrival day is for arriving and settling in. Where the facts suggest it (a move from one place to the next, a long stay), a day can be a travel day or a quieter day of rest.',
   '- The last heading is the traveller\'s departure from the United Kingdom. It says that the traveller leaves the United Kingdom or sets off on the journey home, in your own words. It never mentions a next destination, onward travel or any place outside the United Kingdom.',
   '- Never name a place the applicant did not name, other than the city of the stay.',
@@ -43,7 +51,7 @@ const SYSTEM_PROMPT = [
 ].join('\n');
 
 /** The reminder added to the user message when the descriptions are asked for a second time (the first answer was not acceptable). */
-const RETRY_REMINDER = 'The previous answer was rejected. Check the shape (a JSON object with one key, "descriptions", holding exactly one plain string for each heading), that no description has a digit, a date, a weekday, a month, a currency symbol, a bracket or a link, that nothing sounds booked, priced or promised, that the wording is plain and factual with no scene-setting or sales language, that only the places the applicant named (or the city of the stay) are mentioned, in the order the applicant named them, and that the last heading says the traveller leaves the United Kingdom or returns home, with no next destination or onward travel. Then answer again.';
+const RETRY_REMINDER = 'The previous answer was rejected. Check the shape (a JSON object with one key, "descriptions", holding exactly one plain string for each heading), that no description has a digit, a date, a weekday, a month, a currency symbol, a bracket or a link, that nothing sounds booked, priced or promised, that the wording is plain and factual with no scene-setting or sales language, that only the places the applicant named (or the city of the stay) are mentioned, in the order the applicant named them, that no landmark, sentence or run of words is repeated on another day and that no two days begin with the same words, that each ordinary day names one or two well-known sights only if you are certain they exist in that city (otherwise the kind of place), that the spelling is British, and that the last heading says the traveller leaves the United Kingdom or returns home, with no next destination or onward travel. Then answer again.';
 
 /** The user message: the headings (how many, and which are the arrival and departure days), the facts, and the task. */
 function buildUserPrompt(factsText, skeleton, { retry = false } = {}) {

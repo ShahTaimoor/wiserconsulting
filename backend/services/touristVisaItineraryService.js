@@ -32,7 +32,7 @@ const { placesIn } = require("../shared/tourist-visa/places");
 const { ITINERARY_PROMPT_VERSION, SYSTEM_PROMPT, buildUserPrompt } = require("../config/touristVisaItineraryPrompt");
 const { buildSkeleton } = require("../utils/touristVisaItinerarySkeleton");
 const { buildTemplateDescriptions } = require("../utils/touristVisaItineraryTemplate");
-const { parseDescriptions, validateDescriptions, assembleItinerary } = require("../utils/touristVisaItineraryChecks");
+const { parseDescriptions, validateDescriptions, assembleItinerary, britishSpelling } = require("../utils/touristVisaItineraryChecks");
 const { MAX_TEXT, FALLBACK_REASONS } = require("../models/TouristVisaItinerary");
 const { AppError } = require("../middleware/errorHandler");
 const logger = require("../utils/logger");
@@ -189,7 +189,8 @@ class TouristVisaItineraryService {
     if (!parsed.ok) return parsed;
     const values = facts.values || {};
     const stay = [...new Set([...[].concat(values.accommodationArea || []), ...placesIn([].concat(values.accommodationTowns || []).join(" "))])];
-    const checked = validateDescriptions(parsed.descriptions, { mode: skeleton.mode, named: facts.places, stay, lastDay: true });
+    // Common American spellings are made British first (the checks and the stored text both see the British form).
+    const checked = validateDescriptions(parsed.descriptions.map(britishSpelling), { mode: skeleton.mode, named: facts.places, stay, lastDay: true, distinct: true });
     if (!checked.ok) return checked;
     const text = assembleItinerary(skeleton.blocks, checked.descriptions);
     if (text.length > MAX_TEXT) return { ok: false, code: "ITINERARY_BAD_ENTRY", rule: "too-long" };
@@ -200,7 +201,7 @@ class TouristVisaItineraryService {
   async compose(adminId, facts, skeleton) {
     // `requests` is how many times the provider was asked (it counts towards the limits); the prompt version is kept when it was.
     const fallback = (reason, requests) => ({
-      text: assembleItinerary(skeleton.blocks, buildTemplateDescriptions(facts, skeleton)),
+      text: assembleItinerary(skeleton.blocks, buildTemplateDescriptions(facts, skeleton).map(britishSpelling)),
       source: "template",
       fallbackReason: FALLBACK_REASONS.includes(reason) ? reason : "AI_PROVIDER_ERROR",
       aiAttempted: requests > 0,

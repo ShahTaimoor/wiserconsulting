@@ -98,9 +98,10 @@ function parseDescriptions(raw, count) {
  *   options.named    the places the applicant named, in order
  *   options.stay     the places of the stay (the city they will stay in), which may be named too
  *   options.lastDay  when true, the LAST description must say that the traveller leaves the United Kingdom or goes home
+ *   options.distinct when true, no two descriptions may share a sentence or a run of five words, or begin with the same three words
  * -> { ok: true, descriptions } with each entry tidied, or { ok: false, code, entry?, rule? }. Never any text.
  */
-function validateDescriptions(descriptions, { mode = 'days', named = [], stay = [], lastDay = false } = {}) {
+function validateDescriptions(descriptions, { mode = 'days', named = [], stay = [], lastDay = false, distinct = false } = {}) {
   const max = MAX_ENTRY[mode] || MAX_ENTRY.days;
   const clean = [];
   for (let i = 0; i < descriptions.length; i += 1) {
@@ -117,6 +118,10 @@ function validateDescriptions(descriptions, { mode = 'days', named = [], stay = 
     clean.push(text);
   }
   if (lastDay && clean.length > 0 && !DEPARTURE.test(clean[clean.length - 1])) return { ok: false, code: 'ITINERARY_BAD_ENTRY', entry: clean.length - 1, rule: 'last-day' };
+  if (distinct) {
+    const repeat = repeatedIn(clean);
+    if (repeat) return { ok: false, code: 'ITINERARY_BAD_ENTRY', entry: repeat.entry, rule: repeat.rule };
+  }
 
   // Places: only the ones the applicant named (or the city of the stay), and in the order they named them.
   const allowed = new Set([...named, ...stay]);
@@ -137,6 +142,92 @@ function validateDescriptions(descriptions, { mode = 'days', named = [], stay = 
   return { ok: true, descriptions: clean };
 }
 
+// ---------------------------------------------------------------------------
+// Repetition: every day says something of its own
+// ---------------------------------------------------------------------------
+
+const SEQUENCE_WORDS = 5;
+const OPENING_WORDS = 3;
+
+/** Lower case, letters and spaces only, in single spaces: the form in which two pieces of text are compared. */
+const comparable = (text) => text.toLowerCase().replace(/[^\p{L}\p{M}'’\s-]/gu, ' ').replace(/['’]/g, '').replace(/\s+/g, ' ').trim();
+const sentencesOf = (text) => text.split(/(?<=[.!?])\s+/).map(comparable).filter(Boolean);
+
+/**
+ * The first repeat across the descriptions, as { entry, rule } (the later of the two), or null:
+ *   repeat-sentence   the same sentence as an earlier description
+ *   repeat-sequence   the same run of five words as an earlier description
+ *   same-opening      the same first three words as an earlier description
+ * Case, punctuation and apostrophes do not hide a repeat. A repeat inside one description is not looked for.
+ */
+function repeatedIn(descriptions) {
+  const sentences = new Map();
+  const sequences = new Map();
+  const openings = new Map();
+  for (let i = 0; i < descriptions.length; i += 1) {
+    const words = comparable(descriptions[i]).split(' ');
+    const mine = { sentences: new Set(sentencesOf(descriptions[i])), sequences: new Set(), opening: words.length >= OPENING_WORDS ? words.slice(0, OPENING_WORDS).join(' ') : null };
+    for (let w = 0; w + SEQUENCE_WORDS <= words.length; w += 1) mine.sequences.add(words.slice(w, w + SEQUENCE_WORDS).join(' '));
+    for (const sentence of mine.sentences) if (sentences.has(sentence) && sentences.get(sentence) !== i) return { entry: i, rule: 'repeat-sentence' };
+    for (const sequence of mine.sequences) if (sequences.has(sequence) && sequences.get(sequence) !== i) return { entry: i, rule: 'repeat-sequence' };
+    if (mine.opening && openings.has(mine.opening) && openings.get(mine.opening) !== i) return { entry: i, rule: 'same-opening' };
+    for (const sentence of mine.sentences) if (!sentences.has(sentence)) sentences.set(sentence, i);
+    for (const sequence of mine.sequences) if (!sequences.has(sequence)) sequences.set(sequence, i);
+    if (mine.opening && !openings.has(mine.opening)) openings.set(mine.opening, i);
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// British spelling
+// ---------------------------------------------------------------------------
+
+/**
+ * Common American spellings and their British forms: ONE list, used by britishSpelling. Whole words only (so "Colorado", "centerpiece"
+ * and "recolor" are not touched), and each form is listed on its own so nothing else is ever altered.
+ */
+// The verbs that end in -ize in American English and -ise in British English, by their root ("finalize" -> "final"), with every form of each.
+const IZE_ROOTS = ['final', 'organ', 'recogn', 'real', 'emphas', 'summar', 'special', 'apolog', 'critic', 'memor', 'custom', 'popular', 'visual'];
+const IZE_FORMS = ['ize', 'izes', 'ized', 'izing', 'izer', 'izers'];
+const ISE_FORMS = ['ise', 'ises', 'ised', 'ising', 'iser', 'isers'];
+
+const AMERICAN_TO_BRITISH = Object.freeze({
+  ...Object.fromEntries(IZE_ROOTS.flatMap((root) => IZE_FORMS.map((form, i) => [root + form, root + ISE_FORMS[i]]))),
+  organization: 'organisation', organizations: 'organisations', organizational: 'organisational',
+  center: 'centre', centers: 'centres', centered: 'centred', centering: 'centring',
+  theater: 'theatre', theaters: 'theatres',
+  favorite: 'favourite', favorites: 'favourites',
+  traveling: 'travelling', traveled: 'travelled', traveler: 'traveller', travelers: 'travellers',
+  color: 'colour', colors: 'colours', colored: 'coloured', colorful: 'colourful',
+  harbor: 'harbour', harbors: 'harbours',
+  neighbor: 'neighbour', neighbors: 'neighbours', neighborhood: 'neighbourhood', neighborhoods: 'neighbourhoods',
+});
+
+/** Names that are spelled the American way in the United Kingdom, and are left exactly as they are. */
+const KEEP_AS_WRITTEN = Object.freeze(['Center Parcs']);
+
+const AMERICAN_WORD = new RegExp(`(?<![\\p{L}\\p{N}_])(?:${Object.keys(AMERICAN_TO_BRITISH).sort((a, b) => b.length - a.length).join('|')})(?![\\p{L}\\p{N}_])`, 'giu');
+const KEPT = new RegExp(`(${KEEP_AS_WRITTEN.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
+
+/** The word in the case of the one it replaces: lower, Capitalised or UPPER. */
+function inCaseOf(original, replacement) {
+  if (original.length > 1 && original === original.toUpperCase() && original !== original.toLowerCase()) return replacement.toUpperCase();
+  if (original[0] !== original[0].toLowerCase()) return replacement[0].toUpperCase() + replacement.slice(1);
+  return replacement;
+}
+
+/** The text with the common American spellings of AMERICAN_TO_BRITISH changed to British ones (whole words, case kept); nothing else changes. */
+function britishSpelling(text) {
+  if (typeof text !== 'string') return text;
+  return text
+    .split(KEPT)
+    .map((part, i) => (i % 2 === 1 ? part : part.replace(AMERICAN_WORD, (word) => {
+      const british = AMERICAN_TO_BRITISH[word.toLowerCase()];
+      return british ? inCaseOf(word, british) : word;
+    })))
+    .join('');
+}
+
 /** The text of an itinerary: the title, one neutral sentence, then each heading with its description. */
 function assembleItinerary(blocks, descriptions) {
   return [TITLE, NOTE, ...blocks.map((block, i) => `${block.heading}\n${descriptions[i]}`)].join('\n\n');
@@ -150,10 +241,14 @@ module.exports = {
   FORBIDDEN_CONTENT,
   BANNED_PHRASES,
   DEPARTURE,
+  AMERICAN_TO_BRITISH,
+  KEEP_AS_WRITTEN,
   COUNTRIES,
   bannedIn,
   forbiddenIn,
   parseDescriptions,
   validateDescriptions,
+  repeatedIn,
+  britishSpelling,
   assembleItinerary,
 };
