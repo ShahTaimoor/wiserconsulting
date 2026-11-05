@@ -172,6 +172,7 @@ const LINE_SPACE = 1.5;
 class AnswersRenderer {
   constructor(model) {
     this.model = model;
+    this.itemIndent = 0;
     this.b = new PdfBuilder({ reference: model.reference, applicantName: model.applicantName });
     const g = this.b.geometry;
     this.questionWidth = Math.floor(g.contentWidth * QUESTION_SHARE);
@@ -344,6 +345,72 @@ class AnswersRenderer {
     }
   }
 
+  // ---- keeping rows together (step 8h-2) --------------------------------------
+  //
+  //  - A follow-up row (the "Please give details" kind: the same question number as the row before it) stays with the question it follows.
+  //  - The last two rows of a section (or of an entry) stay together, so a page never starts with one row that has lost its company.
+  //  - A repeat entry stays whole on one page when it fits on a page; when it does not, its title stays with at least its first two rows.
+  //  - The row that counts the entries stays with the first entry's title and rows.
+  //  What cannot fit on one page (a very long run) still breaks between rows, never inside one.
+
+  entryTitleHeight() {
+    return this.b.lineHeight({ font: 'SansBold', size: 9, lineGap: 0 }) + 8;
+  }
+
+  /** The height of an item drawn whole: a row, or a group with its count row and every entry. */
+  itemHeight(item, indent = 0) {
+    if (item.type !== 'group') return this.rowHeight(item, indent);
+    return this.rowHeight(item, indent) + item.entries.reduce((sum, entry) => sum + this.entryHeight(entry), 0);
+  }
+
+  entryHeight(entry) {
+    return this.entryTitleHeight() + entry.items.reduce((sum, item) => sum + this.itemHeight(item, 10), 0);
+  }
+
+  /** What must stay together at the start of an item: a row, or a group's count row with its first entry's lead. */
+  leadHeight(item, indent = 0) {
+    if (item.type !== 'group') return this.rowHeight(item, indent);
+    return this.rowHeight(item, indent) + (item.entries[0] ? this.entryLead(item.entries[0]) : 0);
+  }
+
+  /** The room an entry needs to start: all of it when it fits on a page, otherwise its title and its first two rows. */
+  entryLead(entry) {
+    const whole = this.entryHeight(entry);
+    if (whole <= this.b.pageContentHeight) return whole;
+    return this.entryTitleHeight() + entry.items.slice(0, 2).reduce((sum, item) => sum + this.leadHeight(item, 10), 0);
+  }
+
+  /**
+   * The run of items from `i` that must stay together: the item, the follow-ups after it, and the last item of the list when it would
+   * otherwise be left alone. Returns the index of the run's last item and the room the run needs at its start.
+   */
+  unitOf(items, i) {
+    let end = i;
+    while (items[end + 1] && items[end + 1].base !== null && items[end + 1].base === items[end].base) end += 1;
+    if (items.length - 1 - end === 1) end += 1;
+    // Every item of the run is counted whole, except that a group at the end of it only needs its start (its count row and the first
+    // entry's lead): the other entries may flow on to the next page.
+    let whole = 0;
+    for (let k = i; k <= end; k += 1) {
+      const last = k === end && items[k].type === 'group';
+      whole += last ? this.leadHeight(items[k], 0) : this.itemHeight(items[k], items[k].type === 'group' ? 0 : this.itemIndent);
+    }
+    const page = this.b.pageContentHeight;
+    if (whole <= page) return { end, need: whole };
+    // Too long for one page: keep the first two items together, at least.
+    const lead = this.leadHeight(items[i], this.itemIndent) + (end > i ? this.leadHeight(items[i + 1], this.itemIndent) : 0);
+    return { end, need: Math.min(lead, page) };
+  }
+
+  /** What a heading keeps with: the first run of rows, and never fewer than the first two rows (a heading with one row at the foot of a page looks lost). */
+  sectionLead(items) {
+    if (!items.length) return 0;
+    this.itemIndent = 0;
+    const unit = this.unitOf(items, 0);
+    if (unit.end >= 1 || items.length < 2) return unit.need;
+    return Math.min(unit.need + this.leadHeight(items[1], 0), this.b.pageContentHeight);
+  }
+
   /** A repeating group: its row, then each entry with a tinted title and its own rows. */
   drawGroup(item, { rule }) {
     const b = this.b;
@@ -351,9 +418,8 @@ class AnswersRenderer {
     const hasEntries = item.entries.length > 0;
     this.drawRow(item, { rule: hasEntries ? 'none' : rule });
     item.entries.forEach((entry, e) => {
-      const titleHeight = b.lineHeight({ font: 'SansBold', size: 9, lineGap: 0 }) + 8;
-      const first = entry.items[0];
-      b.ensureSpace(titleHeight + (first ? Math.min(this.rowHeight(first, 10), 70) : 0));
+      const titleHeight = this.entryTitleHeight();
+      b.ensureSpace(this.entryLead(entry));
       b.fill(g.left, b.y + 2, g.contentWidth, titleHeight - 2, PALETTE.tint);
       b.text(entry.title, g.left + 6, b.y + 5, { font: 'SansBold', size: 9, color: PALETTE.greenDark, width: g.contentWidth - 12, lineGap: 0, lineBreak: false });
       b.y += titleHeight;
@@ -363,19 +429,29 @@ class AnswersRenderer {
 
   /** The items of a section or of one entry. A heavier rule separates groups of questions (a new question number); a hairline, a follow-up. */
   drawItems(items, { indent = 0, last = 'none' } = {}) {
-    items.forEach((item, i) => {
-      const next = items[i + 1];
-      const rule = !next ? last : next.base !== null && item.base === next.base ? 'hairline' : 'heavy';
-      if (item.type === 'group') this.drawGroup(item, { rule });
-      else this.drawRow(item, { indent, rule });
-    });
+    const outer = this.itemIndent;
+    this.itemIndent = indent;
+    let i = 0;
+    while (i < items.length) {
+      const unit = this.unitOf(items, i);
+      this.b.ensureSpace(unit.need);
+      for (let k = i; k <= unit.end; k += 1) {
+        const item = items[k];
+        const next = items[k + 1];
+        const rule = !next ? last : next.base !== null && item.base === next.base ? 'hairline' : 'heavy';
+        if (item.type === 'group') this.drawGroup(item, { rule });
+        else this.drawRow(item, { indent, rule });
+        this.itemIndent = indent;
+      }
+      i = unit.end + 1;
+    }
+    this.itemIndent = outer;
   }
 
   drawSection(section, { heading = true } = {}) {
     const b = this.b;
-    const first = section.items[0];
-    const firstHeight = first ? Math.min(this.rowHeight(first), 70) : 0;
-    b.ensureSpace((heading ? this.sectionHeadingHeight(section) : 0) + firstHeight);
+    const lead = this.sectionLead(section.items);
+    b.ensureSpace((heading ? this.sectionHeadingHeight(section) : 0) + lead);
     if (heading) this.drawSectionHeading(section);
     this.drawItems(section.items, { last: 'none' });
   }
@@ -387,11 +463,10 @@ class AnswersRenderer {
       // A part with one section of the same name (Part 1 and its section 1, both "Travel information") has one heading, not two.
       const single = part.sections.length === 1 && part.sections[0].title.toLowerCase() === part.title.toLowerCase();
       part.sections.forEach((section, s) => {
-        const first = section.items[0];
-        const firstHeight = first ? Math.min(this.rowHeight(first), 70) : 0;
+        const lead = this.sectionLead(section.items);
         if (s === 0) {
-          // The part heading stays with its first section heading and that section's first row.
-          this.b.ensureSpace(this.partHeadingHeight() + (single ? 0 : this.sectionHeadingHeight(section)) + firstHeight);
+          // The part heading stays with its first section heading and the first run of rows (a question and its follow-ups).
+          this.b.ensureSpace(this.partHeadingHeight() + (single ? 0 : this.sectionHeadingHeight(section)) + lead);
           this.drawPartHeading(part);
         }
         this.drawSection(section, { heading: !single });

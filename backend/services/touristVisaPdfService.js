@@ -19,27 +19,36 @@
 const defaultApplications = require('./touristVisaApplicationService');
 const defaultAdmin = require('./touristVisaAdminService');
 const defaultAudit = require('../repositories/touristVisaAuditRepository');
+const defaultLetters = require('../repositories/touristVisaCoverLetterRepository');
+const defaultItineraries = require('../repositories/touristVisaItineraryRepository');
+const { buildItineraryFacts } = require('../shared/tourist-visa/itineraryFacts');
 const { buildReview } = require('../shared/tourist-visa/view');
 const { buildHeaderRows, buildAnswersModel, unprintableSection, renderAnswersPdf } = require('../utils/touristVisaAnswersPdf');
+const { senderOf, letterDate, buildLetterModel, unprintableIn, renderCoverLetterPdf } = require('../utils/touristVisaCoverLetterPdf');
+const itineraryPdf = require('../utils/touristVisaItineraryPdf');
 const { FILE_SUFFIX } = require('../config/touristVisaPdf');
 const { AppError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
 
 const fail = (status, code, message, details) => new AppError(message, status, code, details);
 
-/** "TV-X42GYXPS-application-summary.pdf": built only from the reference (never from a name). */
-function fileNameFor(reference, type) {
+/** "TV-X42GYXPS-application-summary.pdf": built only from the reference (never from a name). A letter that is not approved ends "-draft". */
+function fileNameFor(reference, type, { draft = false } = {}) {
   const safe = typeof reference === 'string' && /^[A-Z0-9][A-Z0-9-]{2,39}$/.test(reference) ? `${reference}-` : '';
-  return `${safe}${FILE_SUFFIX[type]}.pdf`;
+  return `${safe}${FILE_SUFFIX[type]}${draft ? '-draft' : ''}.pdf`;
 }
 
 class TouristVisaPdfService {
-  constructor({ applications = defaultApplications, admin = defaultAdmin, audit = defaultAudit, now = () => new Date(), render = renderAnswersPdf } = {}) {
+  constructor({ applications = defaultApplications, admin = defaultAdmin, audit = defaultAudit, letters = defaultLetters, itineraries = defaultItineraries, now = () => new Date(), render = renderAnswersPdf, renderLetter = renderCoverLetterPdf, renderItinerary = itineraryPdf.renderItineraryPdf } = {}) {
     this.applications = applications;
     this.admin = admin;
     this.audit = audit;
+    this.letters = letters;
+    this.itineraries = itineraries;
     this.now = now;
     this.render = render;
+    this.renderLetter = renderLetter;
+    this.renderItinerary = renderItinerary;
   }
 
   /** The application summary of any submitted application, for an administrator. A draft or an unknown id is the same 404 as everywhere. */
@@ -81,16 +90,91 @@ class TouristVisaPdfService {
 
     await this.audit.append([{ adminId: actorId, applicationId: application._id, action: 'pdf_export', at: this.now(), pdfType: 'answers', pdfBy: by }]);
 
-    let buffer;
+    const buffer = await this.draw(this.render, model, application, 'application');
+    return { buffer, filename: fileNameFor(application.reference, 'answers') };
+  }
+
+  /**
+   * The cover letter of any submitted, in-review or completed application, as a PDF, for an administrator only. It is the NEWEST version
+   * of the letter: when that version is approved the letter is printed clean; when it is not, it is still printed, with a DRAFT watermark
+   * and banner on every page and "-draft" in the file name, and the audit row says it was not approved. No letter: 404 LETTER_NOT_FOUND.
+   * The letter's words are never changed; the sender block (name and home address) comes from the answers and the date from the stored
+   * version (the day it was written, or failing that the day it was approved).
+   */
+  async coverLetterForAdmin(adminId, id) {
+    const application = await this.admin.load(id);
+    const version = await this.letters.findLatestWithText(application._id);
+    if (!version) throw fail(404, 'LETTER_NOT_FOUND', 'There is no cover letter to download yet. Write one first.');
+    const draft = version.status !== 'approved';
+    const when = letterDate(version);
+    const model = buildLetterModel({ text: version.text, reference: application.reference, sender: senderOf(application.answers), date: when ? when.date : null, draft });
+
+    // Refused before anything is recorded or drawn; the character itself is never in the message.
+    const unprintable = unprintableIn(model);
+    if (unprintable) {
+      const message = unprintable === 'sender'
+        ? "The applicant's name or address, printed at the top of the letter, has characters that the PDF cannot print, because it prints Latin letters only. Correct that answer and try again."
+        : 'The text of the cover letter has characters that the PDF cannot print, because it prints Latin letters only. Edit the letter, save it as a new version and try again.';
+      throw fail(422, 'PDF_UNSUPPORTED_CHARACTERS', message, { section: unprintable === 'sender' ? 'sender' : 'letter' });
+    }
+
+    await this.audit.append([{ adminId, applicationId: application._id, action: 'pdf_export', at: this.now(), pdfType: 'cover_letter', pdfBy: 'admin', version: version.version, pdfApproved: !draft }]);
+
+    const buffer = await this.draw(this.renderLetter, model, application, 'letter');
+    return { buffer, filename: fileNameFor(application.reference, 'cover_letter', { draft }) };
+  }
+
+  /**
+   * The itinerary of any submitted, in-review or completed application, as a PDF, for an administrator only: the same rules as the cover letter. It is
+   * the NEWEST version; approved, it is printed clean; not approved, it is still printed with the DRAFT watermark and banner and "-draft" in the file
+   * name. The itinerary's words are never changed. The grid of details at the top is taken from the answers (only the fields the data has).
+   * No itinerary: 404 ITINERARY_NOT_FOUND.
+   */
+  async itineraryForAdmin(adminId, id) {
+    const application = await this.admin.load(id);
+    const version = await this.itineraries.findLatestWithText(application._id);
+    if (!version) throw fail(404, 'ITINERARY_NOT_FOUND', 'There is no itinerary to download yet. Write one first.');
+    const draft = version.status !== 'approved';
+    const sender = senderOf(application.answers);
+    const model = itineraryPdf.buildItineraryModel({ text: version.text, reference: application.reference, applicantName: sender.name, details: await this.itineraryDetails(application, sender.name), draft });
+
+    // Refused before anything is recorded or drawn; the character itself is never in the message.
+    const unprintable = itineraryPdf.unprintableIn(model);
+    if (unprintable) {
+      const message = unprintable === 'details'
+        ? "The traveller's name or an answer shown in the details at the top of the itinerary has characters that the PDF cannot print, because it prints Latin letters only. Correct that answer and try again."
+        : 'The text of the itinerary has characters that the PDF cannot print, because it prints Latin letters only. Edit the itinerary, save it as a new version and try again.';
+      throw fail(422, 'PDF_UNSUPPORTED_CHARACTERS', message, { section: unprintable === 'details' ? 'details' : 'itinerary' });
+    }
+
+    await this.audit.append([{ adminId, applicationId: application._id, action: 'pdf_export', at: this.now(), pdfType: 'itinerary', pdfBy: 'admin', version: version.version, pdfApproved: !draft }]);
+
+    const buffer = await this.draw(this.renderItinerary, model, application, 'itinerary');
+    return { buffer, filename: fileNameFor(application.reference, 'itinerary', { draft }) };
+  }
+
+  /** The grid of details: the facts the itinerary is built on (the answers, under the config the application was submitted under). Never fails the PDF. */
+  async itineraryDetails(application, name) {
     try {
-      buffer = await this.render(model);
+      const cfg = await this.applications.configOf(application);
+      const facts = buildItineraryFacts(cfg, application.answers || {}, { submittedAt: application.submittedAt });
+      return itineraryPdf.detailsOf(facts, name);
     } catch (error) {
-      if (error && error.code === 'PDF_TOO_LARGE') throw fail(422, 'PDF_TOO_LARGE', 'This application is too long to print as one PDF. Please contact support.');
-      // Nothing of the answers or the error's text is logged: the id of the application and a fixed word.
+      // Only the id of the application and a fixed word: never an answer.
+      logger.error('Tourist Visa itinerary details could not be built', { applicationId: String(application._id) });
+      return itineraryPdf.detailsOf(null, name);
+    }
+  }
+
+  /** Draws the file. Nothing of the content or of the error's text is logged: the id of the application and a fixed word. */
+  async draw(render, model, application, subject) {
+    try {
+      return await render(model);
+    } catch (error) {
+      if (error && error.code === 'PDF_TOO_LARGE') throw fail(422, 'PDF_TOO_LARGE', `This ${subject} is too long to print as one PDF. Please contact support.`);
       logger.error('Tourist Visa PDF could not be made', { applicationId: String(application._id) });
       throw fail(500, 'PDF_FAILED', 'The PDF could not be made. Please try again, or contact support.');
     }
-    return { buffer, filename: fileNameFor(application.reference, 'answers') };
   }
 }
 

@@ -21,7 +21,7 @@ async function pageItems(page) {
         const loaded = page.commonObjs.get(item.fontName);
         if (loaded && loaded.name) font = loaded.name;
       } catch { /* a font that is not loaded keeps its internal name */ }
-      return { str: item.str, x: item.transform[4], y: item.transform[5], width: item.width, height: item.height, size: Math.hypot(item.transform[0], item.transform[1]), font };
+      return { str: item.str, x: item.transform[4], y: item.transform[5], width: item.width, height: item.height, size: Math.hypot(item.transform[0], item.transform[1]), angle: Math.round((Math.atan2(item.transform[1], item.transform[0]) * 180) / Math.PI), font };
     });
 }
 
@@ -68,4 +68,22 @@ const pageOf = (pdf, needle) => {
   return found ? found.number : 0;
 };
 
-module.exports = { inspectPdf, linesOf, pageOf };
+/** The drawing instructions of every page of a file, as text (the content streams, inflated): for what the text reader cannot see, such as lines and rectangles. */
+function contentStreams(buffer) {
+  const inflate = require('node:zlib').inflateSync;
+  const raw = buffer.toString('latin1');
+  const out = [];
+  const re = /stream\r?\n/g;
+  let m;
+  while ((m = re.exec(raw))) {
+    const start = m.index + m[0].length;
+    const end = raw.indexOf('endstream', start);
+    try {
+      const text = inflate(Buffer.from(raw.slice(start, end), 'latin1')).toString('latin1');
+      if (/\bBT\b|\bre\b|\bl\b/.test(text)) out.push(text);
+    } catch { /* not a deflate stream (a font or an image) */ }
+  }
+  return out;
+}
+
+module.exports = { inspectPdf, linesOf, pageOf, contentStreams };

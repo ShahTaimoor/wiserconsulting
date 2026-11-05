@@ -298,8 +298,9 @@ test("the Overview mounts the itinerary panel right after the cover letter panel
   assert.match(page, /<ItineraryPanel[^>]*status=\{application\.status\}/);
   assert.ok(page.indexOf("<CoverLetterPanel") < page.indexOf("<ItineraryPanel") && page.indexOf("<ItineraryPanel") < page.indexOf('aria-label="Jump to a section"'));
   const service = source("../services/touristVisaService.ts");
-  assert.equal((service.match(/\/itinerary/g) || []).length, 4);
-  assert.equal((service.match(/cover-letter/g) || []).length, 4, "the cover letter calls are unchanged");
+  // The four itinerary calls, and the PDF call of step 8h-3 (GET .../pdf/itinerary), the fifth path.
+  assert.equal((service.match(/\/itinerary/g) || []).length, 5);
+  assert.equal((service.match(/cover-letter/g) || []).length, 5, "the four cover letter calls are unchanged; the fifth path is the PDF call of step 8h-2");
 });
 
 // ---------------------------------------------------------------------------

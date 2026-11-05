@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/tourist-visa/ConfirmDialog";
 import { notifyAdminDone, notifyAdminFailed } from "@/components/tourist-visa/notify";
+import { PdfDownloadButton } from "@/components/tourist-visa/PdfDownloadButton";
 import { touristVisaService } from "@/services/touristVisaService";
+import { coverLetterPdfState } from "@/utils/touristVisaPdf";
 import type { AdminStatus, CoverLetterView, LetterSource } from "@/services/touristVisaAdminTypes";
 import { describeAdminError, formatWhen } from "@/utils/touristVisaAdmin";
 import {
@@ -27,6 +29,8 @@ import {
 
 interface CoverLetterPanelProps {
   applicationId: string;
+  /** The application's reference, used only for the name of the PDF file. */
+  reference: string | null;
   status: AdminStatus;
   readToken: () => string | null;
   /** Turns a failure into a sentence (and signs the user out for a 401). */
@@ -58,7 +62,7 @@ type Busy = "generate" | "save" | "approve" | null;
  * the AI is off or fails), checked and edited by the administrator, saved as a new version, and approved. Versions are
  * never changed; the newest can be approved. Reading, creating, saving and approving are recorded by the server.
  */
-export function CoverLetterPanel({ applicationId, status, readToken, fail, announce, onRecorded }: CoverLetterPanelProps) {
+export function CoverLetterPanel({ applicationId, reference, status, readToken, fail, announce, onRecorded }: CoverLetterPanelProps) {
   const open = status === "submitted" || status === "in_review";
   const [view, setView] = useState<CoverLetterView | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -113,6 +117,8 @@ export function CoverLetterPanel({ applicationId, status, readToken, fail, annou
   const actions = useMemo(() => letterActions({ latest, text, stale: Boolean(view?.stale), busy: busy !== null, max }), [latest, text, view?.stale, busy, max]);
   const counter = letterCounter(text, max);
   const dirty = latest !== null && normalizeLetter(text) !== normalizeLetter(latest.text);
+  // The PDF holds the saved newest version (a draft is marked as one by the server); the button is off until a letter exists.
+  const pdf = coverLetterPdfState({ latest, dirty });
 
   const focusText = () => window.setTimeout(() => textRef.current?.focus(), 0);
 
@@ -210,6 +216,12 @@ export function CoverLetterPanel({ applicationId, status, readToken, fail, annou
                 {busy === "generate" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="mr-2 h-4 w-4" aria-hidden />}
                 Generate cover letter
               </Button>
+              <div className="space-y-1 border-t border-border pt-3" data-testid="letter-pdf">
+                <PdfDownloadButton side="admin" kind="cover_letter" applicationId={applicationId} reference={reference} disabled={!pdf.enabled} describedBy="tv-letter-pdf-hint" onDone={onRecorded} className="min-h-11 w-full sm:w-auto" />
+                <p id="tv-letter-pdf-hint" className="text-xs text-muted-foreground">
+                  {pdf.hint}
+                </p>
+              </div>
             </div>
           ) : (
             <>
@@ -295,6 +307,23 @@ export function CoverLetterPanel({ applicationId, status, readToken, fail, annou
                 </p>
               )}
               <p className="text-xs text-muted-foreground">{aiLine(view.ai)}</p>
+
+              <div className="space-y-1 border-t border-border pt-3" data-testid="letter-pdf">
+                <PdfDownloadButton
+                  side="admin"
+                  kind="cover_letter"
+                  applicationId={applicationId}
+                  reference={reference}
+                  draft={pdf.draft}
+                  disabled={!pdf.enabled || busy !== null}
+                  describedBy="tv-letter-pdf-hint"
+                  onDone={onRecorded}
+                  className="min-h-11 w-full sm:w-auto"
+                />
+                <p id="tv-letter-pdf-hint" className="text-xs text-muted-foreground" data-testid="letter-pdf-hint">
+                  {pdf.hint}
+                </p>
+              </div>
 
               {older.length > 0 && (
                 <details className="rounded-md border border-border p-3">

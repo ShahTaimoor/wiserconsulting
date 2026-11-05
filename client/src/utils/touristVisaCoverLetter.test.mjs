@@ -255,7 +255,8 @@ test("the Overview mounts the panel for every application and the service sends 
   const page = source("../app/admin/tourist-visa/[id]/page.tsx");
   assert.match(page, /<CoverLetterPanel[^>]*status=\{application\.status\}/);
   const service = source("../services/touristVisaService.ts");
-  assert.equal((service.match(/cover-letter/g) || []).length, 4);
+  // The four letter calls, and the PDF call of step 8h-2 (GET .../pdf/cover-letter), the fifth path.
+  assert.equal((service.match(/cover-letter/g) || []).length, 5);
 });
 
 // ---------------------------------------------------------------------------

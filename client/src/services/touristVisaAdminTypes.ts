@@ -100,7 +100,7 @@ export type AuditAction =
   | "pdf_export";
 
 /** Which PDF was made, and who asked for it (a pdf_export row holds nothing else). */
-export type PdfType = "answers";
+export type PdfType = "answers" | "cover_letter" | "itinerary";
 export type PdfBy = "admin" | "applicant";
 
 export interface ActivityRow {
@@ -122,6 +122,8 @@ export interface ActivityRow {
   /** pdf_export rows: which PDF, and whether the team or the applicant downloaded it. Never any content. */
   pdfType?: PdfType;
   pdfBy?: PdfBy;
+  /** pdf_export rows of a cover letter (with version): whether the printed version was approved. */
+  pdfApproved?: boolean;
 }
 
 // ---------------------------------------------------------------------------

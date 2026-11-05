@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/tourist-visa/ConfirmDialog";
 import { notifyAdminDone, notifyAdminFailed } from "@/components/tourist-visa/notify";
+import { PdfDownloadButton } from "@/components/tourist-visa/PdfDownloadButton";
 import { touristVisaService } from "@/services/touristVisaService";
+import { itineraryPdfState } from "@/utils/touristVisaPdf";
 import type { AdminStatus, ItineraryView, LetterSource } from "@/services/touristVisaAdminTypes";
 import { describeAdminError, formatWhen } from "@/utils/touristVisaAdmin";
 import {
@@ -29,6 +31,8 @@ import {
 
 interface ItineraryPanelProps {
   applicationId: string;
+  /** The application's reference, used only for the name of the PDF file. */
+  reference: string | null;
   status: AdminStatus;
   readToken: () => string | null;
   /** Turns a failure into a sentence (and signs the user out for a 401). */
@@ -61,7 +65,7 @@ type Busy = "generate" | "save" | "approve" | null;
  * never changed; the newest can be approved. Reading, creating, saving and approving are recorded by the server. The headings (the
  * days and their dates) are written by the server; only the short text under each is the AI's.
  */
-export function ItineraryPanel({ applicationId, status, readToken, fail, announce, onRecorded }: ItineraryPanelProps) {
+export function ItineraryPanel({ applicationId, reference, status, readToken, fail, announce, onRecorded }: ItineraryPanelProps) {
   const open = status === "submitted" || status === "in_review";
   const [view, setView] = useState<ItineraryView | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -120,6 +124,8 @@ export function ItineraryPanel({ applicationId, status, readToken, fail, announc
   );
   const counter = itineraryCounter(text, max);
   const dirty = latest !== null && normalizeItinerary(text) !== normalizeItinerary(latest.text);
+  // The PDF holds the saved newest version (a draft is marked as one by the server); the button is off until an itinerary exists.
+  const pdf = itineraryPdfState({ latest, dirty });
 
   const focusText = () => window.setTimeout(() => textRef.current?.focus(), 0);
 
@@ -223,6 +229,12 @@ export function ItineraryPanel({ applicationId, status, readToken, fail, announc
                 {busy === "generate" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="mr-2 h-4 w-4" aria-hidden />}
                 Generate itinerary
               </Button>
+              <div className="space-y-1 border-t border-border pt-3" data-testid="itinerary-pdf">
+                <PdfDownloadButton side="admin" kind="itinerary" applicationId={applicationId} reference={reference} disabled={!pdf.enabled} describedBy="tv-itinerary-pdf-hint" onDone={onRecorded} className="min-h-11 w-full sm:w-auto" />
+                <p id="tv-itinerary-pdf-hint" className="text-xs text-muted-foreground">
+                  {pdf.hint}
+                </p>
+              </div>
             </div>
           ) : (
             <>
@@ -308,6 +320,23 @@ export function ItineraryPanel({ applicationId, status, readToken, fail, announc
                 </p>
               )}
               <p className="text-xs text-muted-foreground">{aiLine(view.ai)}</p>
+
+              <div className="space-y-1 border-t border-border pt-3" data-testid="itinerary-pdf">
+                <PdfDownloadButton
+                  side="admin"
+                  kind="itinerary"
+                  applicationId={applicationId}
+                  reference={reference}
+                  draft={pdf.draft}
+                  disabled={!pdf.enabled || busy !== null}
+                  describedBy="tv-itinerary-pdf-hint"
+                  onDone={onRecorded}
+                  className="min-h-11 w-full sm:w-auto"
+                />
+                <p id="tv-itinerary-pdf-hint" className="text-xs text-muted-foreground" data-testid="itinerary-pdf-hint">
+                  {pdf.hint}
+                </p>
+              </div>
 
               {older.length > 0 && (
                 <details className="rounded-md border border-border p-3">

@@ -504,9 +504,9 @@ export default function AdminTouristVisaOverviewPage() {
           <>
         <AdminNotesPanel applicationId={id} readToken={readToken} fail={fail} announce={announce} onRecorded={() => void loadActivity()} />
 
-        <CoverLetterPanel applicationId={id} status={application.status} readToken={readToken} fail={fail} announce={announce} onRecorded={() => void loadActivity()} />
+        <CoverLetterPanel applicationId={id} reference={call.reference} status={application.status} readToken={readToken} fail={fail} announce={announce} onRecorded={() => void loadActivity()} />
 
-        <ItineraryPanel applicationId={id} status={application.status} readToken={readToken} fail={fail} announce={announce} onRecorded={() => void loadActivity()} />
+        <ItineraryPanel applicationId={id} reference={call.reference} status={application.status} readToken={readToken} fail={fail} announce={announce} onRecorded={() => void loadActivity()} />
 
         <nav aria-label="Jump to a section" className="rounded-lg border border-border bg-card p-4">
           <h2 className="mb-2 text-sm font-semibold text-foreground">Jump to</h2>

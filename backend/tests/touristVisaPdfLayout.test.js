@@ -120,8 +120,9 @@ test('the PDF does not imitate an official document: no government words, no bar
   }
   assert.match(pdf.pages[0].text, /Application summary/);
   assert.equal(/Image/.test(pdf.raw) ? (pdf.raw.match(/\/Subtype\s*\/Image/g) || []).length <= 2 : true, true, 'only the logo is an image');
-  // The colours are the site's: the navy of the theme and the green of the logo.
-  assert.equal(config.PALETTE.navy, '#101828');
+  // The colours are the shared brand palette (step 8h-3): the deep ink and the green of the logo. The older names are made from it.
+  assert.equal(config.PALETTE.navy, config.BRAND.ink);
+  assert.equal(config.BRAND.ink, '#16201a');
   assert.match(config.PALETTE.green, /^#[0-9a-f]{6}$/);
   assert.equal(config.TEXT.title, 'Application summary');
 });
@@ -170,11 +171,11 @@ test('a missing value in the header block is a dash; the fee, the service option
   const answers = { q2_1: 'Only' };
   const model = modelOf(answers, { reference: 'TV-AAAAAAAA', submittedAt: null });
   assert.deepEqual(model.header.map((r) => [r.label, r.value]), [
-    ['APPLICANT NAME', 'Only'], ['APPLICATION REFERENCE', 'TV-AAAAAAAA'], ['PASSPORT NUMBER', '–'], ['COUNTRY OF NATIONALITY', '–'], ['DATE OF BIRTH', '–'], ['GENDER', '–'],
-    ['DATE OF APPLICATION', '–'], ['TYPE OF VISA', 'UK Standard Visitor'], ['SUBMISSION METHOD', 'Online, Wiser Consulting'], ['CONTACT EMAIL', '–'], ['CONTACT LANGUAGE', '–'],
+    ['APPLICANT NAME', 'Only'], ['APPLICATION REFERENCE', 'TV-AAAAAAAA'], ['PASSPORT NUMBER', '-'], ['COUNTRY OF NATIONALITY', '-'], ['DATE OF BIRTH', '-'], ['GENDER', '-'],
+    ['DATE OF APPLICATION', '-'], ['TYPE OF VISA', 'UK Standard Visitor'], ['SUBMISSION METHOD', 'Online, Wiser Consulting'], ['CONTACT EMAIL', '-'], ['CONTACT LANGUAGE', '-'],
   ]);
   const pdf = await inspectPdf(await render(model));
-  assert.match(pdf.pages[0].text, /PASSPORT NUMBER –/);
+  assert.match(pdf.pages[0].text, /PASSPORT NUMBER -/);
   assert.equal(/FEE|SERVICE OPTION|PAYMENT/i.test(pdf.pages[0].text.split('Part ')[0]), false);
   // "Other" as the language is the language written.
   const other = modelOf({ q10_4: 'other', q10_4a: 'Sindhi' });
@@ -340,6 +341,107 @@ test('a repeating-group entry\'s title stays with its first row', async () => {
   }
 });
 
+// ---- keeping rows together (step 8h-2) ----
+
+const based = (question, text, base) => ({ ...row(question, text), base });
+
+test('a follow-up row ("Please give details") stays on the page of the question it follows, wherever the page ends', async () => {
+  const pages = new Set();
+  for (let n = 0; n <= 60; n += 1) {
+    const items = [...filler(n), based('QUESTIONROW', 'Yes', '5.1'), based('FOLLOWUPONE', 'Details one', '5.1'), based('FOLLOWUPTWO', 'Details two', '5.1'), row('AFTER QUESTION', 'after answer'), row('LAST ONE', 'last answer')];
+    const pdf = await inspectPdf(await render(handModel([{ id: 'A', title: 'Section A', items }])));
+    const page = pageOf(pdf, 'QUESTIONROW');
+    assert.ok(page > 0);
+    assert.equal(pageOf(pdf, 'FOLLOWUPONE'), page, `${n} fillers: the first follow-up is on page ${pageOf(pdf, 'FOLLOWUPONE')}, its question on ${page}`);
+    assert.equal(pageOf(pdf, 'FOLLOWUPTWO'), page, `${n} fillers: the second follow-up`);
+    pages.add(page);
+  }
+  assert.ok(pages.size >= 2, 'the question was tried on more than one page');
+});
+
+test('a follow-up of a question inside a repeat entry stays with it too', async () => {
+  for (let n = 0; n <= 40; n += 1) {
+    const group = { type: 'group', id: 'g', question: 'The group', lines: [{ text: '1 entry', style: 'normal' }], base: null, entries: [
+      { title: 'ONEENTRY', items: [based('ENTRYQUESTION', 'Yes', '4.2'), based('ENTRYFOLLOWUP', 'More details', '4.2'), row('ENTRYLAST', 'last')] },
+    ] };
+    const pdf = await inspectPdf(await render(handModel([{ id: 'A', title: 'Section A', items: [...filler(n), group] }])));
+    assert.equal(pageOf(pdf, 'ENTRYQUESTION'), pageOf(pdf, 'ENTRYFOLLOWUP'), `${n} fillers`);
+  }
+});
+
+test('the last two rows of a section stay together: a page never starts with a single row that lost its company', async () => {
+  const pages = new Set();
+  for (let n = 0; n <= 60; n += 1) {
+    const items = [...filler(n), row('SECONDLASTROW', 'second last answer'), row('LASTROWOFSECTION', 'last answer')];
+    const model = handModel([{ id: 'A', title: 'Section A', items }]);
+    model.parts.push({ id: '2', title: 'NEXTPART', sections: [{ id: 'B', title: 'NEXTSECTION', items: [row('NEXTQUESTION', 'next answer'), row('NEXTSECOND', 'next second')] }] });
+    const pdf = await inspectPdf(await render(model));
+    assert.equal(pageOf(pdf, 'SECONDLASTROW'), pageOf(pdf, 'LASTROWOFSECTION'), `${n} fillers: the last row is on page ${pageOf(pdf, 'LASTROWOFSECTION')} and the one before on ${pageOf(pdf, 'SECONDLASTROW')}`);
+    pages.add(pageOf(pdf, 'LASTROWOFSECTION'));
+  }
+  assert.ok(pages.size >= 2);
+});
+
+test('a section heading is kept with at least its first two rows, not with a single row', async () => {
+  const pages = new Set();
+  for (let n = 0; n <= 60; n += 1) {
+    const model = handModel([
+      { id: 'A', title: 'Section A', items: filler(n) },
+      { id: 'B', title: 'SECTIONTWOHEADING', items: [row('FIRSTROWQUESTION', 'first'), row('SECONDROWQUESTION', 'second'), row('THIRDROWQUESTION', 'third'), row('FOURTHROWQUESTION', 'fourth')] },
+    ]);
+    const pdf = await inspectPdf(await render(model));
+    const heading = pageOf(pdf, 'SECTIONTWOHEADING');
+    assert.equal(pageOf(pdf, 'FIRSTROWQUESTION'), heading, `${n} fillers: the first row`);
+    assert.equal(pageOf(pdf, 'SECONDROWQUESTION'), heading, `${n} fillers: the second row is on page ${pageOf(pdf, 'SECONDROWQUESTION')}, the heading on ${heading}`);
+    pages.add(heading);
+  }
+  assert.ok(pages.size >= 2);
+});
+
+test('a repeat entry that fits on a page is never split: its title and every row are on one page', async () => {
+  const pages = new Set();
+  for (let n = 0; n <= 60; n += 1) {
+    const entry = (name) => ({ title: `${name}TITLE`, items: ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE'].map((k) => row(`${name}${k}`, `answer ${k}`)) });
+    const group = { type: 'group', id: 'g', question: 'The group', lines: [{ text: '2 entries', style: 'normal' }], base: null, entries: [entry('FIRST'), entry('SECOND')] };
+    // The group is the last item of the section: a group followed by exactly one row is kept together with that row, which would hide the entry rule.
+    const pdf = await inspectPdf(await render(handModel([{ id: 'A', title: 'Section A', items: [...filler(n), group] }])));
+    for (const name of ['FIRST', 'SECOND']) {
+      const page = pageOf(pdf, `${name}TITLE`);
+      assert.ok(page > 0);
+      for (const k of ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE']) assert.equal(pageOf(pdf, `${name}${k}`), page, `${n} fillers: ${name}${k} is on page ${pageOf(pdf, `${name}${k}`)}, its title on ${page}`);
+      pages.add(page);
+    }
+  }
+  assert.ok(pages.size >= 3, 'the entries were tried on at least three pages');
+});
+
+test('a repeat entry too tall for a page keeps its title with at least its first two rows; the count row stays with the first entry', async () => {
+  for (let n = 0; n <= 40; n += 1) {
+    const big = { title: 'BIGENTRYTITLE', items: Array.from({ length: 45 }, (_, i) => row(`BIGROW${i + 1}X`, `answer ${i + 1}`)) };
+    const group = { type: 'group', id: 'g', question: 'COUNTROWQUESTION', lines: [{ text: '1 entry', style: 'normal' }], base: null, entries: [big] };
+    const pdf = await inspectPdf(await render(handModel([{ id: 'A', title: 'Section A', items: [...filler(n), group] }])));
+    const page = pageOf(pdf, 'BIGENTRYTITLE');
+    assert.equal(pageOf(pdf, 'BIGROW1X'), page, `${n} fillers: the first row`);
+    assert.equal(pageOf(pdf, 'BIGROW2X'), page, `${n} fillers: the second row`);
+    assert.equal(pageOf(pdf, 'COUNTROWQUESTION'), page, `${n} fillers: the count row is with the first entry`);
+    assert.ok(pageOf(pdf, 'BIGROW45X') >= page);
+  }
+});
+
+test('on the full sample application no page starts with a lone row of a section that continues from the page before', async () => {
+  const pdf = await inspectPdf(await render(modelOf(richAnswers())));
+  assert.ok(pdf.numPages >= 8);
+  // A heading is the only text set in the serif (Playfair Display).
+  const isHeading = (l) => l.items.some((i) => /PlayfairDisplay/.test(i.font));
+  for (const page of pdf.pages.slice(1)) {
+    const body = page.lines.filter((l) => page.height - l.y > PAGE.margin + PAGE.header.height + 4 && l.y > PAGE.margin + PAGE.footer.height + 4);
+    // The lines at the top of the page before the first heading are the rows that continue from the page before: there must be more than one line of them.
+    const idx = body.findIndex(isHeading);
+    const before = idx === -1 ? body : body.slice(0, idx);
+    if (idx > 0) assert.ok(before.length >= 2, `page ${page.number} starts with a single line "${before[0] && before[0].text}" before a heading`);
+  }
+});
+
 test('an answer too long for one page continues on the next page: the question is printed once, nothing is lost, nothing is repeated', async () => {
   const words = Array.from({ length: 1400 }, (_, i) => `word${i}`);
   const longText = words.join(' ');
@@ -435,12 +537,21 @@ test('typographic characters are normalised: the non-breaking hyphen, spaces of 
   assert.equal(n(`a${C(0)}b${C(7)}c${C(0x7f)}d${C(0x85)}e`), 'ab' + 'c' + 'd\ne', 'controls are dropped (the next-line character is a line break)');
   assert.equal(n('a\tb'), 'a b');
   assert.equal(n(`e${C(0x301)}`), `${C(0xe9)}`, 'a combining accent is composed');
-  assert.equal(n(`${C(0x2015)}`), C(0x2014));
   assert.equal(n(undefined), '');
   assert.equal(n(null), '');
   assert.equal(n(42), '42');
-  // It leaves alone what the fonts print: curly quotes, dashes, the ellipsis, the pound sign, accents.
-  const keep = `${C(0x2018)}x${C(0x2019)} ${C(0x201c)}y${C(0x201d)} a${C(0x2013)}b c${C(0x2014)}d e${C(0x2026)} ${C(0xa3)}1,200 ${C(0xe9)}${C(0xfc)}${C(0xf1)}`;
+  // The typographic characters become the closest plain ones (step 8h-2), each kind on its own.
+  assert.equal(n(`a${C(0x2013)}b`), 'a-b', 'en dash');
+  assert.equal(n(`a${C(0x2014)}b`), 'a-b', 'em dash');
+  assert.equal(n(`a${C(0x2015)}b`), 'a-b', 'horizontal bar');
+  assert.equal(n(`${C(0x2018)}x${C(0x2019)}`), "'x'", 'curly single quotes');
+  assert.equal(n(`don${C(0x2019)}t ${C(0x201a)}${C(0x201b)}${C(0x2bc)}${C(0x2032)}`), "don't ''''", 'apostrophe, low and reversed single quotes, modifier apostrophe, prime');
+  assert.equal(n(`${C(0x201c)}y${C(0x201d)}`), '"y"', 'curly double quotes');
+  assert.equal(n(`${C(0x201e)}y${C(0x201f)}${C(0x2033)}`), '"y""', 'low and reversed double quotes, double prime');
+  assert.equal(n(`wait${C(0x2026)} then`), 'wait... then', 'the ellipsis character');
+  assert.equal(n(`10${C(0x2013)}15 ${C(0x2014)} ok`), '10-15 - ok', 'a range and a pause stay readable');
+  // What the fonts print and is plain Latin stays: the pound sign, accents, the bullet and the middle dot.
+  const keep = `${C(0xa3)}1,200 ${C(0xe9)}${C(0xfc)}${C(0xf1)} ${C(0x2022)} item ${C(0xb7)} dot`;
   assert.equal(n(keep), keep);
 });
 

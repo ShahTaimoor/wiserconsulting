@@ -24,18 +24,62 @@ const PAGE = Object.freeze({
   footer: Object.freeze({ height: 46, gapAbove: 10 }),
 });
 
-// The site's own colours: the navy of the theme (tailwind gray-900, the "primary" of the site) and the green of the logo. Light tints only,
-// so the file prints well and reads in black and white.
-const PALETTE = Object.freeze({
-  navy: '#101828',
-  green: '#4c644c',
-  greenDark: '#34483a',
-  tint: '#eef2ee',
-  ink: '#101828',
-  question: '#3a4252',
-  muted: '#5f6877',
+// The cover letter's page (step 8h-2): the same A4, with generous margins of 25 mm (a letter is read and signed, not scanned for data), no logo
+// in the header (the letter is the applicant's), a small continuation header from the second page on, and a quiet footer.
+const LETTER_PAGE = Object.freeze({
+  size: PAGE.size,
+  margin: 25 * MM,
+  minMargin: 18 * MM,
+  header: Object.freeze({ logoHeight: 0, height: 22, gapBelow: 18 }),
+  footer: Object.freeze({ height: 26, gapAbove: 14 }),
+  // The small banner at the top of every page of a draft, and the space it takes.
+  banner: Object.freeze({ height: 16, gapBelow: 8 }),
+});
+
+// The itinerary's page (step 8h-3): A4 with 20 mm margins (a timetable wants more room than a letter), a compact continuation header, the
+// same quiet footer and the same draft banner as the letter.
+const ITINERARY_PAGE = Object.freeze({
+  size: PAGE.size,
+  margin: 20 * MM,
+  minMargin: 18 * MM,
+  header: Object.freeze({ logoHeight: 0, height: 22, gapBelow: 12 }),
+  footer: Object.freeze({ height: 26, gapAbove: 14 }),
+  banner: Object.freeze({ height: 16, gapBelow: 8 }),
+});
+
+/**
+ * THE BRAND PALETTE, defined once for every PDF. The green is the green of the Wiser logo (sampled from it); the ink is a deep green-black
+ * for text; the accent is one warm terracotta. White on the green is 6.6:1 and on the terracotta 5.6:1, ink on either tint is above 14:1,
+ * and the muted grey on white is 6.5:1, so everything prints with good contrast. The two tints are both about 94 percent light in grey
+ * (241 of 255), so they stay quiet on a greyscale printer; the two band colours are both deep greys there (89 and 102), and the day label,
+ * not the colour, carries the meaning. Light tints only, never a full-page fill: the files cost little ink.
+ */
+const BRAND = Object.freeze({
+  green: '#4a634a',
+  greenDeep: '#2f4733',
+  ink: '#16201a',
+  accent: '#9a5632',
+  accentDeep: '#7a4224',
+  muted: '#566056',
+  greenTint: '#eef3ee',
+  accentTint: '#f8efe8',
+  hairline: '#d6ddd6',
   rule: '#a9b6a9',
-  hairline: '#dde3dd',
+  ruleOnTint: '#cbd5cb',
+  white: '#ffffff',
+});
+
+// What the PDFs use by these older names (the application summary uses them): all from the one brand palette above.
+const PALETTE = Object.freeze({
+  navy: BRAND.ink,
+  green: BRAND.green,
+  greenDark: BRAND.greenDeep,
+  tint: BRAND.greenTint,
+  ink: BRAND.ink,
+  question: '#3a4252',
+  muted: BRAND.muted,
+  rule: BRAND.rule,
+  hairline: BRAND.hairline,
 });
 
 const FONT_FILES = Object.freeze({
@@ -48,6 +92,9 @@ const FONT_FILES = Object.freeze({
   SerifBold: path.join(ASSETS, 'fonts', 'SourceSerif4-Bold.ttf'),
   SerifItalic: path.join(ASSETS, 'fonts', 'SourceSerif4-Italic.ttf'),
   SerifBoldItalic: path.join(ASSETS, 'fonts', 'SourceSerif4-BoldItalic.ttf'),
+  // The display face of the letter and the itinerary (step 8h-3): Cormorant Garamond SemiBold, and its italic for the titles of the days.
+  Display: path.join(ASSETS, 'fonts', 'CormorantGaramond-SemiBold.ttf'),
+  DisplayItalic: path.join(ASSETS, 'fonts', 'CormorantGaramond-SemiBoldItalic.ttf'),
 });
 
 const LOGO_FILE = path.join(ASSETS, 'pdf', 'wiser-logo.png');
@@ -57,7 +104,28 @@ const TEXT = Object.freeze({
   disclaimer: "Prepared by Wiser Consulting from the applicant's answers. This is not an official UK Government document.",
   visaType: 'UK Standard Visitor',
   submissionMethod: 'Online, Wiser Consulting',
-  missing: '–',
+  missing: '-',
+  // The cover letter (step 8h-2): the quiet footer, the mark of a draft (on every page, as a watermark and in a banner) and the metadata.
+  letterFooter: 'Prepared by Wiser Consulting',
+  draftMark: 'DRAFT - NOT APPROVED',
+  letterInfo: Object.freeze({
+    Title: 'Cover letter',
+    Author: 'Wiser Consulting',
+    Subject: 'Tourist Visa cover letter',
+    Keywords: 'cover letter',
+    Creator: 'Wiser Consulting',
+    Producer: 'Wiser Consulting',
+  }),
+  // The itinerary (step 8h-3): its title, and the metadata (fixed words, no personal data).
+  itineraryTitle: 'Travel itinerary',
+  itineraryInfo: Object.freeze({
+    Title: 'Travel itinerary',
+    Author: 'Wiser Consulting',
+    Subject: 'Tourist Visa travel itinerary',
+    Keywords: 'travel itinerary',
+    Creator: 'Wiser Consulting',
+    Producer: 'Wiser Consulting',
+  }),
   // The PDF metadata. No personal data, ever: nothing from an application goes in it.
   info: Object.freeze({
     Title: 'Application summary',
@@ -82,4 +150,4 @@ const LIMITS = Object.freeze({
   rate: Object.freeze({ windowMs: 10 * 60 * 1000, max: 20 }),
 });
 
-module.exports = { PAGE, MM, PALETTE, FONT_FILES, LOGO_FILE, TEXT, PDF_TYPES, FILE_SUFFIX, LIMITS };
+module.exports = { PAGE, LETTER_PAGE, ITINERARY_PAGE, MM, BRAND, PALETTE, FONT_FILES, LOGO_FILE, TEXT, PDF_TYPES, FILE_SUFFIX, LIMITS };

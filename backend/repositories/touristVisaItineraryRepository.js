@@ -52,6 +52,25 @@ class TouristVisaItineraryRepository {
     return row ? { version: row.version, status: row.status, factsHash: row.factsHash } : null;
   }
 
+  /**
+   * The newest version with its text decrypted, or null (the PDF of step 8h-3 reads only this): { version, text, status, createdAt, approvedAt? }.
+   * No names are looked up. Reading changes nothing.
+   */
+  async findLatestWithText(applicationId) {
+    const row = await TouristVisaItinerary.findOne({ applicationId }).sort({ version: -1 }).lean();
+    if (!row) return null;
+    const key = getFieldEncryptionKey();
+    let text;
+    try {
+      text = fieldCipher.decrypt(key, row.text, aad(applicationId, row.version));
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      logger.error("Tourist Visa itinerary could not be decrypted", { applicationId: String(applicationId), version: row.version });
+      throw new AppError("The itinerary could not be read. Please contact support.", 500, "ITINERARY_UNREADABLE");
+    }
+    return { version: row.version, text, status: row.status, createdAt: row.createdAt, ...(row.approvedAt ? { approvedAt: row.approvedAt } : {}) };
+  }
+
   /** Every version, newest first, decrypted, with the name of who made it. For admins only. */
   async findVersions(applicationId) {
     const rows = await TouristVisaItinerary.find({ applicationId }).sort({ version: -1 }).limit(MAX_VERSIONS).lean();

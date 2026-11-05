@@ -61,5 +61,9 @@ router.post('/applications/:id/itinerary/approve', touristVisaItineraryControlle
 
 // The application summary as a PDF: made in memory, never stored, rate limited, audited as pdf_export (the type and who, never any content).
 router.get('/applications/:id/pdf/answers', pdfLimiter, touristVisaPdfController.adminAnswers);
+// The newest version of the cover letter as a PDF (administrators only; a version that is not approved is watermarked as a draft). Same limiter, same rules.
+router.get('/applications/:id/pdf/cover-letter', pdfLimiter, touristVisaPdfController.adminCoverLetter);
+// The newest version of the itinerary as a PDF (administrators only; a version that is not approved is watermarked as a draft). Same limiter, same rules.
+router.get('/applications/:id/pdf/itinerary', pdfLimiter, touristVisaPdfController.adminItinerary);
 
 module.exports = router;

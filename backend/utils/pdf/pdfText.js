@@ -24,8 +24,14 @@ const REPLACEMENTS = Object.freeze([
   [anyOf([0x2028, 0x2029, 0x85]), '\n'],
   // Hyphens of every kind (the non-breaking hyphen, U+2011, prints as a box in many fonts) and the minus sign become a normal hyphen.
   [anyOf([0x2010, 0x2011, 0x2012, 0x2043, 0x2212, 0xfe63, 0xff0d]), '-'],
-  // The horizontal bar is an em dash.
-  [anyOf([0x2015]), String.fromCodePoint(0x2014)],
+  // The en dash, the em dash and the horizontal bar become a plain hyphen (the closest plain character; a range or a pause still reads).
+  [anyOf([0x2013, 0x2014, 0x2015]), '-'],
+  // Curly and low single quotes, the modifier apostrophe and the prime become a straight apostrophe; curly, low and reversed double
+  // quotes and the double prime become a straight double quote.
+  [anyOf([0x2018, 0x2019, 0x201a, 0x201b, 0x2032, 0x2bc]), "'"],
+  [anyOf([0x201c, 0x201d, 0x201e, 0x201f, 0x2033]), '"'],
+  // The ellipsis character becomes three full stops.
+  [anyOf([0x2026]), '...'],
   // Spaces of every width, and tabs, become one ordinary space.
   [anyOf([0x09, 0xa0, 0x1680, [0x2000, 0x200a], 0x202f, 0x205f, 0x3000]), ' '],
   // Invisible characters (zero-width spaces and joiners, direction marks, the byte-order mark, the soft hyphen) are dropped.

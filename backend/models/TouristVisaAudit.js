@@ -59,6 +59,8 @@ const auditSchema = new mongoose.Schema(
         // for an applicant it is the applicant's own user id.)
         pdfType: { type: String, enum: PDF_TYPES, immutable: true },
         pdfBy: { type: String, enum: PDF_BY, immutable: true },
+        // pdf_export of a cover letter only (together with version): whether the version that was printed was approved. A fixed yes or no, never any text.
+        pdfApproved: { type: Boolean, immutable: true },
     },
     { collection: 'touristvisaaudit', versionKey: false, minimize: false }
 );

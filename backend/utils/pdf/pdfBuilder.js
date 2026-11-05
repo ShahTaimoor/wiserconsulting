@@ -21,7 +21,7 @@ const { PAGE, PALETTE, FONT_FILES, LOGO_FILE, TEXT, LIMITS } = require('../../co
 const { normalizePdfText } = require('./pdfText');
 
 // Playfair Display has old-style figures by default (a 1 looks like a small capital I): its titles use lining figures.
-const featuresOf = (font) => (font === 'Title' || font === 'TitleRegular' ? { features: ['lnum'] } : {});
+const featuresOf = (font) => (font === 'Title' || font === 'TitleRegular' || font === 'Display' || font === 'DisplayItalic' ? { features: ['lnum'] } : {});
 
 /** An error with a fixed code, for a refusal the caller can word for a person. */
 class PdfError extends Error {
@@ -37,12 +37,18 @@ class PdfBuilder {
    * @param {object} options
    * @param {string} options.reference     printed on the right of every header and in every footer (plain text)
    * @param {string} options.applicantName printed in every footer
+   * @param {object} [options.profile]     the page: size, margin, header and footer sizes (config PAGE for the summary, LETTER_PAGE for the letter)
+   * @param {object} [options.info]        the PDF metadata (fixed words only; never personal data)
+   * Any other option is kept in this.options for a subclass (the cover letter keeps its draft flag there).
    */
-  constructor({ reference, applicantName }) {
+  constructor(options) {
+    const { reference, applicantName, profile = PAGE, info = TEXT.info } = options;
+    this.options = options;
+    this.profile = profile;
     this.reference = normalizePdfText(reference);
     this.applicantName = normalizePdfText(applicantName);
-    const [width, height] = PAGE.size;
-    const margin = PAGE.margin;
+    const [width, height] = profile.size;
+    const margin = profile.margin;
     this.geometry = Object.freeze({
       width,
       height,
@@ -51,20 +57,20 @@ class PdfBuilder {
       right: width - margin,
       contentWidth: width - 2 * margin,
       // The content starts below the header and ends above the footer; the header and the footer are inside the margins, never outside.
-      top: margin + PAGE.header.height + PAGE.header.gapBelow,
-      bottom: height - margin - PAGE.footer.height - PAGE.footer.gapAbove,
-      headerRuleY: margin + PAGE.header.height,
-      footerTop: height - margin - PAGE.footer.height,
+      top: margin + profile.header.height + profile.header.gapBelow,
+      bottom: height - margin - profile.footer.height - profile.footer.gapAbove,
+      headerRuleY: margin + profile.header.height,
+      footerTop: height - margin - profile.footer.height,
     });
     const g = this.geometry;
     // font: null so that no standard font (and nothing that is not embedded) is ever referred to by the file.
     this.doc = new PDFDocument({
-      size: PAGE.size,
+      size: profile.size,
       font: null,
       autoFirstPage: false,
       bufferPages: true,
       margins: { top: g.top, bottom: height - g.bottom, left: margin, right: margin },
-      info: { ...TEXT.info },
+      info: { ...info },
     });
     for (const [name, file] of Object.entries(FONT_FILES)) this.doc.registerFont(name, file);
     this.chunks = [];
@@ -84,8 +90,18 @@ class PdfBuilder {
     if (this.pages >= LIMITS.maxPages) throw new PdfError('PDF_TOO_LARGE', 'This document is too long to print as one PDF.');
     this.doc.addPage();
     this.pages += 1;
-    this.y = this.geometry.top;
+    this.top = this.topFor(this.pages);
+    this.y = this.top;
+    this.onNewPage(this.pages);
   }
+
+  /** Where the content of a page starts (a subclass can start the first page higher than the others). */
+  topFor() {
+    return this.geometry.top;
+  }
+
+  /** Called as each page starts, before anything is drawn on it (the cover letter draws its draft watermark here, behind the text). */
+  onNewPage() {}
 
   /** How much of the page is left below the cursor. */
   remaining() {
@@ -94,7 +110,7 @@ class PdfBuilder {
 
   /** A new page if `height` does not fit below the cursor (and is not taller than a whole page, which would never fit anyway). */
   ensureSpace(height) {
-    if (height > this.remaining() && this.y > this.geometry.top) this.newPage();
+    if (height > this.remaining() && this.y > this.top) this.newPage();
   }
 
   /** The height of a whole page of content. */
@@ -130,13 +146,16 @@ class PdfBuilder {
     return this.doc.widthOfString(normalizePdfText(text));
   }
 
-  /** Draws text at a place and returns its height. Never moves the cursor: the caller does. */
-  text(text, x, y, { font = 'Sans', size = 9.5, color = PALETTE.ink, width = this.geometry.contentWidth, align = 'left', lineGap = 1.5, characterSpacing = 0, lineBreak = true } = {}) {
+  /**
+   * Draws text at a place and returns its height. Never moves the cursor: the caller does. With plain: true a left-aligned line is drawn as one
+   * piece, with no width (pdfkit then does no line breaking of its own: a caller that wraps by itself, such as the letter, uses it).
+   */
+  text(text, x, y, { font = 'Sans', size = 9.5, color = PALETTE.ink, width = this.geometry.contentWidth, align = 'left', lineGap = 1.5, characterSpacing = 0, lineBreak = true, plain = false } = {}) {
     const value = normalizePdfText(text);
     if (value === '') return 0;
     this.doc.font(font).fontSize(size).fillColor(color);
-    const options = { width, align, lineGap, characterSpacing, lineBreak, ...featuresOf(font) };
-    const height = this.doc.heightOfString(value, options);
+    const options = { ...(plain ? {} : { width }), align, lineGap, characterSpacing, lineBreak, ...featuresOf(font) };
+    const height = this.doc.heightOfString(value, plain ? { ...options, width } : options);
     this.doc.text(value, x, y, options);
     return height;
   }
@@ -187,9 +206,10 @@ class PdfBuilder {
 
   drawHeader() {
     const g = this.geometry;
-    this.doc.image(LOGO_FILE, g.left, g.margin, { height: PAGE.header.logoHeight });
+    const logoHeight = this.profile.header.logoHeight;
+    this.doc.image(LOGO_FILE, g.left, g.margin, { height: logoHeight });
     const size = 11;
-    const y = g.margin + (PAGE.header.logoHeight - this.lineHeight({ font: 'SansBold', size, lineGap: 0 })) / 2;
+    const y = g.margin + (logoHeight - this.lineHeight({ font: 'SansBold', size, lineGap: 0 })) / 2;
     this.text(this.reference, g.left, y, { font: 'SansBold', size, color: PALETTE.navy, align: 'right', lineGap: 0, lineBreak: false });
     this.rule(g.headerRuleY, { weight: 0.9, color: PALETTE.green });
   }
@@ -225,7 +245,7 @@ class PdfBuilder {
       // The header and the footer are in the margins, where pdfkit would otherwise start another page.
       this.doc.page.margins.top = 0;
       this.doc.page.margins.bottom = 0;
-      this.drawHeader();
+      this.drawHeader(i + 1, count);
       this.drawFooter(i + 1, count);
     }
     this.doc.end();

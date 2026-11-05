@@ -316,6 +316,16 @@ export const touristVisaService = {
     return pdfCall(`/admin/applications/${encodeURIComponent(id)}/pdf/answers`, token, signal);
   },
 
+  /** The newest version of the cover letter as a PDF (the team only); a version that is not approved is marked as a draft by the server. */
+  adminCoverLetterPdf(token: string, id: string, signal?: AbortSignal): Promise<Blob> {
+    return pdfCall(`/admin/applications/${encodeURIComponent(id)}/pdf/cover-letter`, token, signal);
+  },
+
+  /** The newest version of the itinerary as a PDF (the team only); a version that is not approved is marked as a draft by the server. */
+  adminItineraryPdf(token: string, id: string, signal?: AbortSignal): Promise<Blob> {
+    return pdfCall(`/admin/applications/${encodeURIComponent(id)}/pdf/itinerary`, token, signal);
+  },
+
   /** The applicant's own copy of the application summary, once it is submitted. */
   myAnswersPdf(token: string, signal?: AbortSignal): Promise<Blob> {
     return pdfCall("/applications/me/pdf/answers", token, signal);

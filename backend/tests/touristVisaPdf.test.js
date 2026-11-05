@@ -22,6 +22,9 @@ const TouristVisaApplication = require('../models/TouristVisaApplication');
 const TouristVisaAudit = require('../models/TouristVisaAudit');
 const TouristVisaChange = require('../models/TouristVisaChange');
 const TouristVisaNote = require('../models/TouristVisaNote');
+const TouristVisaCoverLetter = require('../models/TouristVisaCoverLetter');
+const TouristVisaItinerary = require('../models/TouristVisaItinerary');
+const { formatDate } = require('../shared/tourist-visa/view');
 const documentService = require('../services/touristVisaDocumentService');
 const touristVisaRoutes = require('../routes/touristVisaRoutes');
 const touristVisaBodyParser = require('../middleware/touristVisaBodyParser');
@@ -39,7 +42,7 @@ let userCounter = 0;
 before(async () => {
   replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   await mongoose.connect(replSet.getUri());
-  for (const model of [TouristVisaApplication, TouristVisaAudit, TouristVisaChange, TouristVisaNote]) await model.init();
+  for (const model of [TouristVisaApplication, TouristVisaAudit, TouristVisaChange, TouristVisaNote, TouristVisaCoverLetter, TouristVisaItinerary]) await model.init();
   const app = express();
   app.use('/api/tourist-visa', touristVisaBodyParser);
   app.use(express.json());
@@ -472,14 +475,14 @@ test('the rate limit: each signed-in user has one shared budget for the PDF rout
 test('both PDF routes carry the one shared limiter, and no other route does', () => {
   const adminRoutes = require('../routes/touristVisaAdminRoutes');
   const found = [];
-  for (const [router, path] of [[adminRoutes, '/applications/:id/pdf/answers'], [touristVisaRoutes, '/applications/me/pdf/answers']]) {
+  for (const [router, path] of [[adminRoutes, '/applications/:id/pdf/answers'], [adminRoutes, '/applications/:id/pdf/cover-letter'], [adminRoutes, '/applications/:id/pdf/itinerary'], [touristVisaRoutes, '/applications/me/pdf/answers']]) {
     const layer = router.stack.find((l) => l.route && l.route.path === path);
     assert.ok(layer, `${path} is registered`);
     assert.deepEqual(Object.keys(layer.route.methods), ['get']);
     assert.ok(layer.route.stack.some((s) => s.handle === pdfLimiter), `${path} is rate limited`);
     found.push(path);
   }
-  assert.equal(found.length, 2);
+  assert.equal(found.length, 4);
   // Nothing else uses it (a limit on the overview would turn the page away).
   for (const router of [adminRoutes, touristVisaRoutes]) {
     for (const layer of router.stack.filter((l) => l.route && !/pdf/.test(l.route.path))) assert.equal(layer.route.stack.some((s) => s.handle === pdfLimiter), false, layer.route.path);
@@ -502,4 +505,516 @@ test('the limiter is per user and takes its numbers as arguments: a small one is
   } finally {
     await new Promise((resolve) => srv.close(resolve));
   }
+});
+
+// ---------------------------------------------------------------------------
+// The cover letter PDF (step 8h-2): GET /admin/applications/:id/pdf/cover-letter
+// ---------------------------------------------------------------------------
+
+const letterPdf = (token, appId) => getPdf(`/admin/applications/${appId}/pdf/cover-letter`, token);
+async function makeLetter(token, appId) {
+  const res = await api('POST', `/admin/applications/${appId}/cover-letter/generate`, { token });
+  assert.equal(res.status, 201, res.text);
+  return res.json.data.versions[0];
+}
+const approveLetter = (token, appId, version) => api('POST', `/admin/applications/${appId}/cover-letter/approve`, { token, body: { version } });
+const saveLetter = (token, appId, text, basedOnVersion) => api('PUT', `/admin/applications/${appId}/cover-letter`, { token, body: { text, basedOnVersion } });
+const DRAFT_MARK = 'DRAFT - NOT APPROVED';
+const letterRows = (appId) => auditRows({ applicationId: oid(appId), action: 'pdf_export', pdfType: 'cover_letter' });
+
+test('the cover letter route: anonymous 401, a non-administrator (the applicant included) 403, the applicant has no letter route of their own; nothing is recorded for a refusal', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  await makeLetter(admin.token, app.appId);
+  const before = await auditRows();
+  for (const token of [undefined, 'not-a-token']) {
+    const res = await letterPdf(token, app.appId);
+    assert.equal(res.status, 401);
+    assert.equal(res.buffer, null);
+  }
+  const owner = await letterPdf(app.token, app.appId);
+  assert.equal(owner.status, 403);
+  assert.equal(owner.buffer, null);
+  assert.equal((await letterPdf((await makeUser(0)).token, app.appId)).status, 403);
+  assert.equal((await getPdf('/applications/me/pdf/cover-letter', app.token)).status, 404, 'the letter is for the team only');
+  assert.equal((await auditRows()).length, before.length);
+  assert.equal((await letterPdf(admin.token, app.appId)).status, 200);
+});
+
+test('no letter yet: 404 LETTER_NOT_FOUND in plain words; a draft application or an unknown id: the same 404 as everywhere; nothing is recorded', async () => {
+  const app = await submitted();
+  const draft = await readyApplicant();
+  const admin = await makeAdmin();
+  const before = (await auditRows()).length;
+  const none = await letterPdf(admin.token, app.appId);
+  assert.equal(none.status, 404);
+  assert.equal(none.json.code, 'LETTER_NOT_FOUND');
+  assert.match(none.json.message, /no cover letter to download yet/);
+  assert.equal(none.buffer, null);
+  const notYet = await letterPdf(admin.token, draft.appId);
+  assert.equal(notYet.status, 404);
+  assert.equal(notYet.json.code, 'APPLICATION_NOT_FOUND');
+  assert.equal((await letterPdf(admin.token, 'not-an-id')).status, 404);
+  assert.equal((await auditRows()).length, before);
+});
+
+test('the feature gate: while Tourist Visa is closed the letter route answers the fixed 404 and records nothing', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  await makeLetter(admin.token, app.appId);
+  const before = (await auditRows()).length;
+  process.env.TOURIST_VISA_ENABLED = 'false';
+  try {
+    const res = await letterPdf(admin.token, app.appId);
+    assert.equal(res.status, 404);
+    assert.equal(res.json.code, 'FEATURE_CLOSED');
+  } finally {
+    process.env.TOURIST_VISA_ENABLED = 'true';
+  }
+  assert.equal((await auditRows()).length, before);
+});
+
+test('a letter that is not approved is still exported, marked as a draft: the watermark and banner on every page, "-draft" in the file name, and the audit row says so', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  const version = await makeLetter(admin.token, app.appId);
+  assert.equal(version.status, 'draft');
+  const res = await letterPdf(admin.token, app.appId);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('content-type'), 'application/pdf');
+  assert.equal(res.headers.get('content-disposition'), `attachment; filename="${app.reference}-cover-letter-draft.pdf"`);
+  assert.equal(res.headers.get('cache-control'), 'no-store');
+  assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(Number(res.headers.get('content-length')), res.buffer.length);
+  assertNone(res.headers.get('content-disposition'), ['Testfirst', 'Testlast'], 'the file name');
+  const pdf = await inspectPdf(res.buffer);
+  for (const page of pdf.pages) assert.equal(page.items.filter((i) => i.str === DRAFT_MARK).length, 2, `page ${page.number}: the watermark and the banner`);
+  const rows = await letterRows(app.appId);
+  assert.equal(rows.length, 1);
+  assert.deepEqual([String(rows[0].adminId), rows[0].pdfBy, rows[0].version, rows[0].pdfApproved], [admin.userId, 'admin', 1, false]);
+});
+
+test('an approved letter is exported clean: no watermark, no banner, no "-draft"; the file holds the stored letter, the sender block from the answers and the date of the version; the audit row has the version and "approved"', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  const version = await makeLetter(admin.token, app.appId);
+  assert.equal((await approveLetter(admin.token, app.appId, version.version)).status, 200);
+  const res = await letterPdf(admin.token, app.appId);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('content-disposition'), `attachment; filename="${app.reference}-cover-letter.pdf"`);
+  const pdf = await inspectPdf(res.buffer);
+  assert.equal(/DRAFT|NOT APPROVED/i.test(pdf.text), false);
+  assert.equal(pdf.pages.some((p) => p.items.some((i) => i.angle !== 0)), false);
+  // The letter is the stored text (decrypted on the server), word for word.
+  const text = pdf.pages.flatMap((p) => p.lines).map((l) => l.text).join(' ').replace(/\s+/g, ' ');
+  for (const sentence of version.text.split(/\n+/).filter(Boolean)) assert.ok(text.includes(sentence.replace(/\s+/g, ' ')), `the sentence "${sentence.slice(0, 40)}" is in the file`);
+  // The sender block comes from the answers; the date from the stored version; the reference as its own line.
+  const first = pdf.pages[0];
+  assert.ok(first.items.some((i) => i.str === 'Testfirst Testlast' && /CormorantGaramond/.test(i.font)), 'the letterhead name in the display face');
+  assert.ok(first.items.some((i) => i.str === '1 Test Street, Testville, United Kingdom'), 'the address in the contact row');
+  assert.ok(first.items.some((i) => i.str === 'test.pdf.applicant@example.com'), 'the email from the answers');
+  assert.ok(first.items.some((i) => i.str === '+44 7700 900123'), 'the telephone from the answers');
+  const stored = await TouristVisaCoverLetter.collection.findOne({ applicationId: oid(app.appId), version: 1 });
+  assert.ok(first.items.some((i) => i.str === formatDate(stored.createdAt.toISOString().slice(0, 10))), 'the date of the version');
+  assert.ok(first.items.some((i) => i.str === app.reference) && first.items.some((i) => i.str === 'REFERENCE'), 'the reference line');
+  // The audit row: ids and fixed facts only, never the text.
+  const rows = await letterRows(app.appId);
+  assert.equal(rows.length, 1);
+  assert.deepEqual([rows[0].version, rows[0].pdfApproved, rows[0].pdfBy], [1, true, 'admin']);
+  assert.deepEqual(Object.keys(rows[0]).sort(), ['_id', 'action', 'adminId', 'applicationId', 'at', 'pdfApproved', 'pdfBy', 'pdfType', 'version'].sort());
+  assertNone(JSON.stringify(rows[0]), ['Testfirst', 'Testlast', 'Dear Sir', 'Yours faithfully', app.reference, '.pdf'], 'the audit row');
+  // The Activity route shows it with the same fixed facts.
+  const activity = await api('GET', `/admin/applications/${app.appId}/activity`, { token: admin.token });
+  const line = activity.json.data.activity.find((a) => a.action === 'pdf_export' && a.pdfType === 'cover_letter');
+  assert.deepEqual([line.pdfBy, line.version, line.pdfApproved], ['admin', 1, true]);
+  assertNone(activity.text, ['Dear Sir', 'Yours faithfully'], 'the activity');
+});
+
+test('the NEWEST version is the one exported: a newer draft after an approval is a draft again (watermarked), and the audit row names that version', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  const v1 = await makeLetter(admin.token, app.appId);
+  assert.equal((await approveLetter(admin.token, app.appId, v1.version)).status, 200);
+  assert.equal((await saveLetter(admin.token, app.appId, `${v1.text}\n\nA NEWER LINE ADDED BY HAND`, 1)).status, 201);
+  const res = await letterPdf(admin.token, app.appId);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-disposition'), /-cover-letter-draft\.pdf"/);
+  const pdf = await inspectPdf(res.buffer);
+  assert.ok(pdf.text.includes('A NEWER LINE ADDED BY HAND'));
+  assert.equal(pdf.text.includes(DRAFT_MARK), true);
+  const rows = await letterRows(app.appId);
+  assert.deepEqual([rows[0].version, rows[0].pdfApproved], [2, false]);
+});
+
+test('every status after submit can export a letter that exists, a completed application included', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  await makeLetter(admin.token, app.appId);
+  for (const status of ['in_review', 'completed']) {
+    assert.equal((await api('PATCH', `/admin/applications/${app.appId}/status`, { token: admin.token, body: { status } })).status, 200);
+    assert.equal((await letterPdf(admin.token, app.appId)).status, 200, status);
+  }
+});
+
+test('text the fonts cannot print: the letter itself, or the name in the sender block, is refused with 422 naming where; nothing is recorded; the text is never in the answer or a log line', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  const v1 = await makeLetter(admin.token, app.appId);
+  assert.equal((await saveLetter(admin.token, app.appId, `${v1.text}\n\nA trip to ${ARABIC} soon.`, 1)).status, 201);
+  const before = (await letterRows(app.appId)).length;
+  const lines = capture();
+  let res;
+  try {
+    res = await letterPdf(admin.token, app.appId);
+  } finally {
+    lines.restore();
+  }
+  assert.equal(res.status, 422);
+  assert.equal(res.json.code, 'PDF_UNSUPPORTED_CHARACTERS');
+  assert.equal(res.json.section, 'letter');
+  assert.match(res.json.message, /text of the cover letter has characters that the PDF cannot print/);
+  assert.match(res.json.message, /Latin letters only/);
+  assertNone(res.text, [ARABIC, 'A trip to', 'Testfirst'], 'the answer');
+  assert.equal(res.headers.get('cache-control'), 'no-store');
+  assertNone(lines.lines.join('\n'), [ARABIC, 'A trip to', 'Testfirst', 'Testlast'], 'the log');
+  assert.equal((await letterRows(app.appId)).length, before, 'a refused letter is not an export');
+  // Saved again without the unsupported text, it exports.
+  assert.equal((await saveLetter(admin.token, app.appId, v1.text, 2)).status, 201);
+  assert.equal((await letterPdf(admin.token, app.appId)).status, 200);
+  // The name in the sender block.
+  assert.equal((await correct(admin.token, app.appId, 0, [{ questionId: 'q2_1', value: ARABIC }])).status, 200);
+  const sender = await letterPdf(admin.token, app.appId);
+  assert.equal(sender.status, 422);
+  assert.equal(sender.json.section, 'sender');
+  assert.match(sender.json.message, /name or address, printed at the top of the letter/);
+  assertNone(sender.text, [ARABIC], 'the answer');
+});
+
+test('the typography of the letter is made plain in the file, and the stored text is not changed', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  const v1 = await makeLetter(admin.token, app.appId);
+  const C = String.fromCodePoint;
+  const curly = `I${C(0x2019)}d like ${C(0x201c)}one${C(0x201d)} ${C(0x2013)} thank you${C(0x2026)}`;
+  assert.equal((await saveLetter(admin.token, app.appId, `${v1.text}\n\n${curly}`, 1)).status, 201);
+  const pdf = await inspectPdf((await letterPdf(admin.token, app.appId)).buffer);
+  assert.ok(pdf.text.includes('I\'d like "one" - thank you...'), pdf.text.slice(-300));
+  const stored = await api('GET', `/admin/applications/${app.appId}/cover-letter`, { token: admin.token });
+  assert.ok(stored.json.data.versions[0].text.includes(curly), 'the stored version keeps the characters as typed');
+});
+
+test('the letter PDF metadata holds no personal data and no script, and the letter appears in no log line, in a success or a refusal', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  const version = await makeLetter(admin.token, app.appId);
+  const lines = capture();
+  let ok;
+  try {
+    ok = await letterPdf(admin.token, app.appId);
+    await letterPdf(app.token, app.appId);
+    await letterPdf(undefined, app.appId);
+  } finally {
+    lines.restore();
+  }
+  const pdf = await inspectPdf(ok.buffer);
+  assert.equal(pdf.info.Title, 'Cover letter');
+  assert.equal(pdf.info.Author, 'Wiser Consulting');
+  for (const value of Object.values(pdf.info).filter((v) => typeof v === 'string')) assertNone(value, ['Testfirst', 'Testlast', app.reference, 'Test Street', SECRET_ID], 'the metadata');
+  for (const script of ['/JavaScript', '/JS ', '/OpenAction', '/Launch']) assert.equal(pdf.raw.includes(script), false, script);
+  assertNone(lines.lines.join('\n'), ['Testfirst', 'Testlast', 'Dear Sir', 'Yours faithfully', version.text.slice(30, 70), SECRET_ID, SECRET_NI, 'Test Street'], 'the log');
+});
+
+test('a letter that cannot be decrypted is a fixed 500 with no content, and nothing is recorded', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  await makeLetter(admin.token, app.appId);
+  const row = await TouristVisaCoverLetter.collection.findOne({ applicationId: oid(app.appId), version: 1 });
+  await TouristVisaCoverLetter.collection.updateOne({ _id: row._id }, { $set: { text: 'enc:v1:bm90LXJlYWwtY2lwaGVydGV4dA==' } });
+  const before = (await letterRows(app.appId)).length;
+  const lines = capture();
+  let res;
+  try {
+    res = await letterPdf(admin.token, app.appId);
+  } finally {
+    lines.restore();
+  }
+  assert.equal(res.status, 500);
+  assert.equal(res.json.code, 'LETTER_UNREADABLE');
+  assertNone(res.text + lines.lines.join('\n'), ['Dear Sir', 'Yours faithfully', 'Testfirst'], 'the answer or the log');
+  assert.equal((await letterRows(app.appId)).length, before);
+  await TouristVisaCoverLetter.collection.updateOne({ _id: row._id }, { $set: { text: row.text } });
+});
+
+test('the letter is made in memory and kept nowhere: the only collection that grows is the audit', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  await makeLetter(admin.token, app.appId);
+  const collections = async () => Object.fromEntries(await Promise.all((await mongoose.connection.db.listCollections().toArray()).map(async (c) => [c.name, await mongoose.connection.db.collection(c.name).countDocuments()])));
+  const before = await collections();
+  assert.equal((await letterPdf(admin.token, app.appId)).status, 200);
+  const after = await collections();
+  assert.deepEqual(Object.keys(after).filter((name) => after[name] !== (before[name] || 0)), ['touristvisaaudit']);
+});
+
+// ---------------------------------------------------------------------------
+// The itinerary PDF (step 8h-3): GET /admin/applications/:id/pdf/itinerary
+// ---------------------------------------------------------------------------
+
+const itineraryPdf = (token, appId) => getPdf(`/admin/applications/${appId}/pdf/itinerary`, token);
+async function makeItinerary(token, appId) {
+  const res = await api('POST', `/admin/applications/${appId}/itinerary/generate`, { token });
+  assert.equal(res.status, 201, res.text);
+  return res.json.data.versions[0];
+}
+const approveItinerary = (token, appId, version) => api('POST', `/admin/applications/${appId}/itinerary/approve`, { token, body: { version } });
+const saveItinerary = (token, appId, text, basedOnVersion) => api('PUT', `/admin/applications/${appId}/itinerary`, { token, body: { text, basedOnVersion } });
+const itineraryRows = (appId) => auditRows({ applicationId: oid(appId), action: 'pdf_export', pdfType: 'itinerary' });
+const plainText = (pdf) => pdf.pages.map((p) => p.items.filter((i) => i.angle === 0 && i.str.trim()).map((i) => i.str).join(' ')).join(' ');
+
+test('the itinerary route: anonymous 401, a non-administrator (the applicant included) 403, the applicant has no itinerary route of their own; nothing is recorded for a refusal', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  await makeItinerary(admin.token, app.appId);
+  const before = await auditRows();
+  for (const token of [undefined, 'not-a-token']) {
+    const res = await itineraryPdf(token, app.appId);
+    assert.equal(res.status, 401);
+    assert.equal(res.buffer, null);
+  }
+  const owner = await itineraryPdf(app.token, app.appId);
+  assert.equal(owner.status, 403);
+  assert.equal(owner.buffer, null);
+  assert.equal((await itineraryPdf((await makeUser(0)).token, app.appId)).status, 403);
+  assert.equal((await getPdf('/applications/me/pdf/itinerary', app.token)).status, 404, 'the itinerary is for the team only');
+  assert.equal((await auditRows()).length, before.length);
+  assert.equal((await itineraryPdf(admin.token, app.appId)).status, 200);
+});
+
+test('no itinerary yet: 404 ITINERARY_NOT_FOUND in plain words; a draft application or an unknown id: the same 404 as everywhere; nothing is recorded', async () => {
+  const app = await submitted();
+  const draft = await readyApplicant();
+  const admin = await makeAdmin();
+  const before = (await auditRows()).length;
+  const none = await itineraryPdf(admin.token, app.appId);
+  assert.equal(none.status, 404);
+  assert.equal(none.json.code, 'ITINERARY_NOT_FOUND');
+  assert.match(none.json.message, /no itinerary to download yet/);
+  assert.equal(none.buffer, null);
+  const notYet = await itineraryPdf(admin.token, draft.appId);
+  assert.equal(notYet.status, 404);
+  assert.equal(notYet.json.code, 'APPLICATION_NOT_FOUND');
+  assert.equal((await itineraryPdf(admin.token, 'not-an-id')).status, 404);
+  assert.equal((await auditRows()).length, before);
+});
+
+test('the feature gate: while Tourist Visa is closed the itinerary route answers the fixed 404 and records nothing', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  await makeItinerary(admin.token, app.appId);
+  const before = (await auditRows()).length;
+  process.env.TOURIST_VISA_ENABLED = 'false';
+  try {
+    const res = await itineraryPdf(admin.token, app.appId);
+    assert.equal(res.status, 404);
+    assert.equal(res.json.code, 'FEATURE_CLOSED');
+  } finally {
+    process.env.TOURIST_VISA_ENABLED = 'true';
+  }
+  assert.equal((await auditRows()).length, before);
+});
+
+test('an itinerary that is not approved is still exported, marked as a draft: the watermark and banner on every page, "-draft" in the file name, and the audit row says so', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  const version = await makeItinerary(admin.token, app.appId);
+  assert.equal(version.status, 'draft');
+  const res = await itineraryPdf(admin.token, app.appId);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('content-type'), 'application/pdf');
+  assert.equal(res.headers.get('content-disposition'), `attachment; filename="${app.reference}-itinerary-draft.pdf"`);
+  assert.equal(res.headers.get('cache-control'), 'no-store');
+  assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(Number(res.headers.get('content-length')), res.buffer.length);
+  assertNone(res.headers.get('content-disposition'), ['Testfirst', 'Testlast'], 'the file name');
+  const pdf = await inspectPdf(res.buffer);
+  for (const page of pdf.pages) assert.equal(page.items.filter((i) => i.str === DRAFT_MARK).length, 2, `page ${page.number}: the watermark and the banner`);
+  const rows = await itineraryRows(app.appId);
+  assert.equal(rows.length, 1);
+  assert.deepEqual([String(rows[0].adminId), rows[0].pdfBy, rows[0].version, rows[0].pdfApproved], [admin.userId, 'admin', 1, false]);
+});
+
+test('an approved itinerary is exported clean, with its details grid from the answers; the file holds the stored text and nothing else of it; the audit row has the version and "approved" and no text', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  const version = await makeItinerary(admin.token, app.appId);
+  assert.equal((await approveItinerary(admin.token, app.appId, version.version)).status, 200);
+  const res = await itineraryPdf(admin.token, app.appId);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('content-disposition'), `attachment; filename="${app.reference}-itinerary.pdf"`);
+  const pdf = await inspectPdf(res.buffer);
+  assert.equal(/DRAFT|NOT APPROVED/i.test(pdf.text), false);
+  assert.equal(pdf.pages.some((p) => p.items.some((i) => i.angle !== 0 && i.angle !== 90)), false, 'no diagonal text');
+  // The itinerary is the stored text (decrypted on the server): every line of it is in the file.
+  const printed = plainText(pdf).replace(/\s+/g, ' ');
+  const lines = version.text.split(/\n+/).filter(Boolean);
+  assert.ok(lines.length >= 15);
+  for (const line of lines) {
+    const part = line.replace(/^Day \d+,\s*/, '').replace(/\s+/g, ' ');
+    assert.ok(printed.includes(part), `"${part.slice(0, 50)}" is in the file`);
+  }
+  for (const n of [1, 8, 15]) assert.ok(pdf.pages.some((p) => p.items.some((i) => i.str === `DAY ${n}` && i.angle === 90)), `the band of day ${n}`);
+  // The details grid comes from the answers, only the fields the data has.
+  const first = pdf.pages[0];
+  assert.ok(first.items.some((i) => i.str === 'Travel itinerary' && /CormorantGaramond/.test(i.font) && i.size >= 30));
+  for (const value of ['Testfirst Testlast', '1 March 2027', '15 March 2027', '14 nights']) assert.ok(first.items.some((i) => i.str === value), value);
+  // The audit row: ids and fixed facts only, never the text.
+  const rows = await itineraryRows(app.appId);
+  assert.equal(rows.length, 1);
+  assert.deepEqual([rows[0].version, rows[0].pdfApproved, rows[0].pdfBy], [1, true, 'admin']);
+  assert.deepEqual(Object.keys(rows[0]).sort(), ['_id', 'action', 'adminId', 'applicationId', 'at', 'pdfApproved', 'pdfBy', 'pdfType', 'version'].sort());
+  assertNone(JSON.stringify(rows[0]), ['Testfirst', 'Testlast', 'Proposed itinerary', 'Arrive', app.reference, '.pdf'], 'the audit row');
+  const activity = await api('GET', `/admin/applications/${app.appId}/activity`, { token: admin.token });
+  const line = activity.json.data.activity.find((a) => a.action === 'pdf_export' && a.pdfType === 'itinerary');
+  assert.deepEqual([line.pdfBy, line.version, line.pdfApproved], ['admin', 1, true]);
+  assertNone(activity.text, ['Proposed itinerary', 'Arrive in'], 'the activity');
+});
+
+test('the NEWEST itinerary version is the one exported: a newer draft after an approval is a draft again (watermarked), and the audit row names that version', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  const v1 = await makeItinerary(admin.token, app.appId);
+  assert.equal((await approveItinerary(admin.token, app.appId, v1.version)).status, 200);
+  assert.equal((await saveItinerary(admin.token, app.appId, `${v1.text}\n\nA NEWER NOTE ADDED BY HAND`, 1)).status, 201);
+  const res = await itineraryPdf(admin.token, app.appId);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-disposition'), /-itinerary-draft\.pdf"/);
+  const pdf = await inspectPdf(res.buffer);
+  assert.ok(plainText(pdf).includes('A NEWER NOTE ADDED BY HAND'));
+  assert.equal(pdf.text.includes(DRAFT_MARK), true);
+  const rows = await itineraryRows(app.appId);
+  assert.deepEqual([rows[0].version, rows[0].pdfApproved], [2, false]);
+});
+
+test('every status after submit can export an itinerary that exists, a completed application included (the itinerary routes themselves refuse a completed one)', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  await makeItinerary(admin.token, app.appId);
+  for (const status of ['in_review', 'completed']) {
+    assert.equal((await api('PATCH', `/admin/applications/${app.appId}/status`, { token: admin.token, body: { status } })).status, 200);
+    assert.equal((await itineraryPdf(admin.token, app.appId)).status, 200, status);
+  }
+});
+
+test('text the fonts cannot print: the itinerary itself, or the traveller\'s name in the details, is refused with 422 naming where; nothing is recorded; the text is never in the answer or a log line', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  const v1 = await makeItinerary(admin.token, app.appId);
+  assert.equal((await saveItinerary(admin.token, app.appId, `${v1.text}\n\nA trip to ${ARABIC} soon.`, 1)).status, 201);
+  const before = (await itineraryRows(app.appId)).length;
+  const lines = capture();
+  let res;
+  try {
+    res = await itineraryPdf(admin.token, app.appId);
+  } finally {
+    lines.restore();
+  }
+  assert.equal(res.status, 422);
+  assert.equal(res.json.code, 'PDF_UNSUPPORTED_CHARACTERS');
+  assert.equal(res.json.section, 'itinerary');
+  assert.match(res.json.message, /text of the itinerary has characters that the PDF cannot print/);
+  assert.match(res.json.message, /Latin letters only/);
+  assertNone(res.text, [ARABIC, 'A trip to', 'Testfirst'], 'the answer');
+  assert.equal(res.headers.get('cache-control'), 'no-store');
+  assertNone(lines.lines.join('\n'), [ARABIC, 'A trip to', 'Testfirst', 'Testlast'], 'the log');
+  assert.equal((await itineraryRows(app.appId)).length, before, 'a refused itinerary is not an export');
+  assert.equal((await saveItinerary(admin.token, app.appId, v1.text, 2)).status, 201);
+  assert.equal((await itineraryPdf(admin.token, app.appId)).status, 200);
+  assert.equal((await correct(admin.token, app.appId, 0, [{ questionId: 'q2_1', value: ARABIC }])).status, 200);
+  const details = await itineraryPdf(admin.token, app.appId);
+  assert.equal(details.status, 422);
+  assert.equal(details.json.section, 'details');
+  assert.match(details.json.message, /name or an answer shown in the details at the top of the itinerary/);
+  assertNone(details.text, [ARABIC], 'the answer');
+});
+
+test('the typography of the itinerary is made plain in the file, and the stored text is not changed', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  const v1 = await makeItinerary(admin.token, app.appId);
+  const C = String.fromCodePoint;
+  const curly = `It${C(0x2019)}s a ${C(0x201c)}free${C(0x201d)} day ${C(0x2013)} ten minutes${C(0x2026)}`;
+  assert.equal((await saveItinerary(admin.token, app.appId, `${v1.text}\n\n${curly}`, 1)).status, 201);
+  const pdf = await inspectPdf((await itineraryPdf(admin.token, app.appId)).buffer);
+  assert.ok(plainText(pdf).includes('It\'s a "free" day - ten minutes...'), plainText(pdf).slice(-300));
+  const stored = await api('GET', `/admin/applications/${app.appId}/itinerary`, { token: admin.token });
+  assert.ok(stored.json.data.versions[0].text.includes(curly), 'the stored version keeps the characters as typed');
+});
+
+test('the itinerary PDF metadata holds no personal data and no script, and the itinerary appears in no log line, in a success or a refusal', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  const version = await makeItinerary(admin.token, app.appId);
+  const lines = capture();
+  let ok;
+  try {
+    ok = await itineraryPdf(admin.token, app.appId);
+    await itineraryPdf(app.token, app.appId);
+    await itineraryPdf(undefined, app.appId);
+  } finally {
+    lines.restore();
+  }
+  const pdf = await inspectPdf(ok.buffer);
+  assert.equal(pdf.info.Title, 'Travel itinerary');
+  assert.equal(pdf.info.Author, 'Wiser Consulting');
+  for (const value of Object.values(pdf.info).filter((v) => typeof v === 'string')) assertNone(value, ['Testfirst', 'Testlast', app.reference, 'March', SECRET_ID], 'the metadata');
+  for (const script of ['/JavaScript', '/JS ', '/OpenAction', '/Launch']) assert.equal(pdf.raw.includes(script), false, script);
+  assertNone(lines.lines.join('\n'), ['Testfirst', 'Testlast', 'Proposed itinerary', version.text.slice(80, 120), SECRET_ID, SECRET_NI, 'Test Street'], 'the log');
+});
+
+test('an itinerary that cannot be decrypted is a fixed 500 with no content, and nothing is recorded', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  await makeItinerary(admin.token, app.appId);
+  const row = await TouristVisaItinerary.collection.findOne({ applicationId: oid(app.appId), version: 1 });
+  await TouristVisaItinerary.collection.updateOne({ _id: row._id }, { $set: { text: 'enc:v1:bm90LXJlYWwtY2lwaGVydGV4dA==' } });
+  const before = (await itineraryRows(app.appId)).length;
+  const lines = capture();
+  let res;
+  try {
+    res = await itineraryPdf(admin.token, app.appId);
+  } finally {
+    lines.restore();
+  }
+  assert.equal(res.status, 500);
+  assert.equal(res.json.code, 'ITINERARY_UNREADABLE');
+  assertNone(res.text + lines.lines.join('\n'), ['Proposed itinerary', 'Arrive in', 'Testfirst'], 'the answer or the log');
+  assert.equal((await itineraryRows(app.appId)).length, before);
+  await TouristVisaItinerary.collection.updateOne({ _id: row._id }, { $set: { text: row.text } });
+});
+
+test('the itinerary is made in memory and kept nowhere: the only collection that grows is the audit', async () => {
+  const app = await submitted();
+  const admin = await makeAdmin();
+  await makeItinerary(admin.token, app.appId);
+  const collections = async () => Object.fromEntries(await Promise.all((await mongoose.connection.db.listCollections().toArray()).map(async (c) => [c.name, await mongoose.connection.db.collection(c.name).countDocuments()])));
+  const before = await collections();
+  assert.equal((await itineraryPdf(admin.token, app.appId)).status, 200);
+  const after = await collections();
+  assert.deepEqual(Object.keys(after).filter((name) => after[name] !== (before[name] || 0)), ['touristvisaaudit']);
+});
+
+test('the answers, the cover letter and the itinerary PDFs share ONE rate limit per signed-in user: 20 in all, then a plain 429; another user is not held up', async () => {
+  const app = await submitted();
+  const other = await makeAdmin();
+  const admin = await makeAdmin();
+  const routes = [`/admin/applications/${app.appId}/pdf/cover-letter`, `/admin/applications/${app.appId}/pdf/itinerary`, `/admin/applications/${app.appId}/pdf/cover-letter`];
+  const statuses = [];
+  // Cheap requests (no letter or itinerary exists: 404 before anything is drawn) still use the budget.
+  for (let i = 0; i < 21; i += 1) statuses.push((await getPdf(routes[i % routes.length], admin.token)).status);
+  assert.deepEqual(statuses.slice(0, 20), Array(20).fill(404));
+  assert.equal(statuses[20], 429);
+  const limited = await itineraryPdf(admin.token, app.appId);
+  assert.equal(limited.status, 429);
+  assert.equal(limited.json.code, 'TOO_MANY_PDFS');
+  assert.equal((await itineraryPdf(other.token, app.appId)).status, 404, 'another user is not held up');
 });

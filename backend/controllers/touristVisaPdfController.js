@@ -31,6 +31,16 @@ class TouristVisaPdfController {
     sendPdf(res, await touristVisaPdfService.answersForAdmin(req.user._id, req.params.id));
   })
 
+  adminCoverLetter = asyncHandler(async (req, res) => {
+    sensitive(res);
+    sendPdf(res, await touristVisaPdfService.coverLetterForAdmin(req.user._id, req.params.id));
+  })
+
+  adminItinerary = asyncHandler(async (req, res) => {
+    sensitive(res);
+    sendPdf(res, await touristVisaPdfService.itineraryForAdmin(req.user._id, req.params.id));
+  })
+
   myAnswers = asyncHandler(async (req, res) => {
     sensitive(res);
     sendPdf(res, await touristVisaPdfService.answersForApplicant(req.user._id));

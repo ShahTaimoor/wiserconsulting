@@ -7,7 +7,7 @@ import { notifyPdfDone, notifyPdfFailed } from "@/components/tourist-visa/notify
 import { useAppDispatch } from "@/redux/hooks";
 import { logout } from "@/redux/slices/auth/authSlice";
 import { touristVisaService, TouristVisaApiError } from "@/services/touristVisaService";
-import { describePdfError, pdfFileName, PDF_WORDS } from "@/utils/touristVisaPdf";
+import { describePdfError, pdfFileName, PDF_WORDS, type PdfKind } from "@/utils/touristVisaPdf";
 
 function readToken(): string | null {
   try {
@@ -18,11 +18,18 @@ function readToken(): string | null {
 }
 
 interface Props {
-  /** "admin": the application summary of any submitted application (needs applicationId). "applicant": the signed-in applicant's own copy. */
+  /** "admin": a document of any submitted application (needs applicationId). "applicant": the signed-in applicant's own copy. */
   side: "admin" | "applicant";
+  /** Which document: the application summary (default), or the cover letter or the itinerary (the team only). */
+  kind?: PdfKind;
   applicationId?: string;
   /** The reference, used only for the name of the saved file. */
   reference: string | null;
+  /** The newest version of the cover letter or the itinerary is not approved: the file is named with "-draft" (the server marks the pages). */
+  draft?: boolean;
+  /** Off, with a reason in the element named by describedBy (for the cover letter before one is written). */
+  disabled?: boolean;
+  describedBy?: string;
   /** Called after a successful download (the Overview reloads its activity log with it). */
   onDone?: () => void;
   className?: string;
@@ -44,14 +51,14 @@ function saveBlob(blob: Blob, fileName: string) {
 }
 
 /**
- * "Export application (PDF)" on the admin Overview and "Download a copy (PDF)" after an application is submitted. The session's
- * token is sent with an ordinary request (a plain link could not carry it), the answer is held in memory as a blob and saved, and
- * nothing is kept. Every failure shows the site's own toast and is announced to screen readers; the button stays focusable
- * while busy (aria-disabled), so keyboard focus is not lost.
+ * "Export application (PDF)" on the admin Overview, "Download a copy (PDF)" after an application is submitted, and "Download PDF" in the cover letter
+ * panel. The session's token is sent with an ordinary request (a plain link could not carry it), the answer is held in memory as a blob and saved,
+ * and nothing is kept. Every failure shows the site's own toast and is announced to screen readers; the button stays focusable while busy
+ * (aria-disabled), so keyboard focus is not lost.
  */
-export function PdfDownloadButton({ side, applicationId, reference, onDone, className }: Props) {
+export function PdfDownloadButton({ side, kind = "answers", applicationId, reference, draft = false, disabled = false, describedBy, onDone, className }: Props) {
   const dispatch = useAppDispatch();
-  const words = PDF_WORDS[side];
+  const words = kind === "cover_letter" ? PDF_WORDS.coverLetter : kind === "itinerary" ? PDF_WORDS.itinerary : PDF_WORDS[side];
   const [busy, setBusy] = useState(false);
   const [announcement, setAnnouncement] = useState({ text: "", n: 0 });
   const alive = useRef(true);
@@ -67,19 +74,23 @@ export function PdfDownloadButton({ side, applicationId, reference, onDone, clas
   const announce = useCallback((text: string) => setAnnouncement((previous) => ({ text, n: previous.n + 1 })), []);
 
   const download = useCallback(async () => {
-    if (working.current) return;
+    if (working.current || disabled) return;
     const token = readToken();
     if (!token) {
       dispatch(logout());
       return;
     }
-    if (side === "admin" && !applicationId) return;
+    if ((side === "admin" || kind !== "answers") && !applicationId) return;
     working.current = true;
     setBusy(true);
     announce(words.start);
     try {
-      const blob = side === "admin" ? await touristVisaService.adminAnswersPdf(token, applicationId as string) : await touristVisaService.myAnswersPdf(token);
-      saveBlob(blob, pdfFileName(reference, "answers"));
+      let blob: Blob;
+      if (kind === "cover_letter") blob = await touristVisaService.adminCoverLetterPdf(token, applicationId as string);
+      else if (kind === "itinerary") blob = await touristVisaService.adminItineraryPdf(token, applicationId as string);
+      else if (side === "admin") blob = await touristVisaService.adminAnswersPdf(token, applicationId as string);
+      else blob = await touristVisaService.myAnswersPdf(token);
+      saveBlob(blob, pdfFileName(reference, kind, { draft }));
       if (alive.current) announce(words.done);
       notifyPdfDone(words.done);
       onDone?.();
@@ -97,11 +108,21 @@ export function PdfDownloadButton({ side, applicationId, reference, onDone, clas
       working.current = false;
       if (alive.current) setBusy(false);
     }
-  }, [side, applicationId, reference, dispatch, announce, onDone, words]);
+  }, [side, kind, applicationId, reference, draft, disabled, dispatch, announce, onDone, words]);
 
   return (
     <>
-      <Button type="button" variant="outline" className={className ?? "min-h-11"} aria-disabled={busy || undefined} aria-busy={busy || undefined} onClick={() => void download()} data-testid="pdf-download">
+      <Button
+        type="button"
+        variant="outline"
+        className={className ?? "min-h-11"}
+        disabled={disabled}
+        aria-disabled={busy || undefined}
+        aria-busy={busy || undefined}
+        aria-describedby={describedBy}
+        onClick={() => void download()}
+        data-testid={kind === "cover_letter" ? "letter-pdf-download" : kind === "itinerary" ? "itinerary-pdf-download" : "pdf-download"}
+      >
         {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <Download className="mr-2 h-4 w-4" aria-hidden />}
         {busy ? words.busy : words.button}
       </Button>
