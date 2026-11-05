@@ -15,6 +15,8 @@ const touristVisaAdminController = require('../controllers/touristVisaAdminContr
 const touristVisaAdminEditController = require('../controllers/touristVisaAdminEditController');
 const touristVisaCoverLetterController = require('../controllers/touristVisaCoverLetterController');
 const touristVisaItineraryController = require('../controllers/touristVisaItineraryController');
+const touristVisaPdfController = require('../controllers/touristVisaPdfController');
+const { pdfLimiter } = require('../middleware/touristVisaPdfLimit');
 
 // The list of submitted and later applications (never drafts)
 router.get('/applications', touristVisaAdminController.list);
@@ -56,5 +58,8 @@ router.get('/applications/:id/itinerary', touristVisaItineraryController.get);
 router.post('/applications/:id/itinerary/generate', touristVisaItineraryController.generate);
 router.put('/applications/:id/itinerary', touristVisaItineraryController.save);
 router.post('/applications/:id/itinerary/approve', touristVisaItineraryController.approve);
+
+// The application summary as a PDF: made in memory, never stored, rate limited, audited as pdf_export (the type and who, never any content).
+router.get('/applications/:id/pdf/answers', pdfLimiter, touristVisaPdfController.adminAnswers);
 
 module.exports = router;

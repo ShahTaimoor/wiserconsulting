@@ -22,7 +22,11 @@ const ACTIONS = [
     'cover_letter_generate', 'cover_letter_view', 'cover_letter_edit', 'cover_letter_approve',
     // The itinerary (same fields as the cover letter's rows: the version, the source, the model's name, the prompt version; never any text)
     'itinerary_generate', 'itinerary_view', 'itinerary_edit', 'itinerary_approve',
+    // A PDF was made (step 8h): the type of document and who asked for it, never any of its content
+    'pdf_export',
 ];
+const PDF_TYPES = ['answers', 'cover_letter', 'itinerary'];
+const PDF_BY = ['admin', 'applicant'];
 const LETTER_SOURCES = ['ai', 'template', 'admin'];
 // Fixed words an admin can put on an application. Never shown to the applicant.
 const FLAGS = ['needs_call', 'called', 'awaiting_applicant', 'verified', 'concern'];
@@ -51,6 +55,10 @@ const auditSchema = new mongoose.Schema(
         model: { type: String, maxlength: 100, match: /^[\w./:-]+$/, immutable: true },
         // cover_letter_generate and itinerary_generate only: the version of the prompt that was sent (a number; rows without it stay valid)
         promptVersion: { type: Number, min: 1, immutable: true },
+        // pdf_export only: which document, and whether the administrator or the applicant downloaded it. (adminId holds the id of whoever did:
+        // for an applicant it is the applicant's own user id.)
+        pdfType: { type: String, enum: PDF_TYPES, immutable: true },
+        pdfBy: { type: String, enum: PDF_BY, immutable: true },
     },
     { collection: 'touristvisaaudit', versionKey: false, minimize: false }
 );
@@ -64,4 +72,6 @@ auditSchema.plugin(appendOnly, REFUSED);
 module.exports = mongoose.model('TouristVisaAudit', auditSchema);
 module.exports.ACTIONS = ACTIONS;
 module.exports.FLAGS = FLAGS;
+module.exports.PDF_TYPES = PDF_TYPES;
+module.exports.PDF_BY = PDF_BY;
 module.exports.REFUSED = REFUSED;

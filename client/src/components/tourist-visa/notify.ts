@@ -62,6 +62,18 @@ export function notifyAdminFailed(message: string) {
   toast.error(message, { id: ADMIN_TOAST_ID, duration: 6000, style: THEMED });
 }
 
+// PDF downloads (both sides): fixed wording, or the server's sentence for text it cannot print (it never repeats an answer).
+const PDF_TOAST_ID = "tourist-visa-pdf";
+
+export function notifyPdfDone(message: string) {
+  toast.success(message, { id: PDF_TOAST_ID, duration: 3500, style: THEMED });
+}
+
+/** `message` is one of the texts of describePdfError. */
+export function notifyPdfFailed(message: string) {
+  toast.error(message, { id: PDF_TOAST_ID, duration: 8000, style: THEMED });
+}
+
 /** `message` is one of the fixed texts of documentErrorMessage. */
 export function notifyDocumentFailed(message: string) {
   toast.error(message, { id: DOCUMENT_TOAST_ID, duration: 6000, style: THEMED });

@@ -15,6 +15,7 @@ import { ItineraryPanel } from "@/components/tourist-visa/ItineraryPanel";
 import { AdminStatusBadge } from "@/components/tourist-visa/AdminStatusBadge";
 import { ConfirmDialog } from "@/components/tourist-visa/ConfirmDialog";
 import { notifyAdminDone, notifyAdminFailed } from "@/components/tourist-visa/notify";
+import { PdfDownloadButton } from "@/components/tourist-visa/PdfDownloadButton";
 import { ReviewSummary } from "@/components/tourist-visa/ReviewSummary";
 import { useAppDispatch } from "@/redux/hooks";
 import { logout } from "@/redux/slices/auth/authSlice";
@@ -409,7 +410,10 @@ export default function AdminTouristVisaOverviewPage() {
                 {call.reference ?? "No reference"}
               </p>
             </div>
-            <AdminStatusBadge status={call.status} />
+            <div className="flex flex-wrap items-center gap-3">
+              <PdfDownloadButton side="admin" applicationId={id} reference={call.reference} onDone={() => void loadActivity()} />
+              <AdminStatusBadge status={call.status} />
+            </div>
           </div>
 
           <div className="mt-5 flex flex-wrap items-center gap-3">

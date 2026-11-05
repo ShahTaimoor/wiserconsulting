@@ -286,7 +286,41 @@ async function itineraryCall(path: string, method: "GET" | "POST" | "PUT", token
   return { ...data, blocker: data.blocker ?? null };
 }
 
+/**
+ * A PDF call: the file as a Blob, or a failure with the server's code. The file is made in memory on the server and only ever
+ * held in memory here until it is saved; nothing is cached (no-store both ways).
+ */
+async function pdfCall(path: string, token: string, signal?: AbortSignal): Promise<Blob> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/tourist-visa${path}`, { method: "GET", headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal });
+  } catch {
+    throw new TouristVisaApiError(0, "Unable to reach the server.");
+  }
+  // (The same check as isPdfContentType in utils/touristVisaPdf.ts, kept here so this file has no value imports.)
+  const isPdf = (response.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase() === "application/pdf";
+  if (response.ok && isPdf) return response.blob();
+  if (response.ok) throw new TouristVisaApiError(502, "The server did not send a PDF.", undefined, "NOT_A_PDF");
+  let json: ApiBody | null = null;
+  try {
+    json = (await response.json()) as ApiBody;
+  } catch {
+    // No JSON body (for example a gateway error page).
+  }
+  throw failure(response.status, json);
+}
+
 export const touristVisaService = {
+  /** The application summary PDF of any submitted application (the team only). Recorded in the activity log by the server. */
+  adminAnswersPdf(token: string, id: string, signal?: AbortSignal): Promise<Blob> {
+    return pdfCall(`/admin/applications/${encodeURIComponent(id)}/pdf/answers`, token, signal);
+  },
+
+  /** The applicant's own copy of the application summary, once it is submitted. */
+  myAnswersPdf(token: string, signal?: AbortSignal): Promise<Blob> {
+    return pdfCall("/applications/me/pdf/answers", token, signal);
+  },
+
   /** The signed-in user's application, or null if they have not started one (the server answers 404). */
   async getMyApplication(token: string): Promise<TouristVisaApplication | null> {
     const { status, json } = await request("/applications/me", "GET", token);

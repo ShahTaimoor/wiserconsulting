@@ -637,7 +637,8 @@ test('the data model of a cover letter is as it was, plus promptVersion and aiAt
   assert.deepEqual(TouristVisaCoverLetter.schema.indexes().map(([spec, opts]) => JSON.stringify([spec, opts && opts.unique ? 'unique' : ''])).sort(),
     [JSON.stringify([{ applicationId: 1, version: -1 }, 'unique']), JSON.stringify([{ aiAttempted: 1, createdAt: -1 }, ''])].sort());
   const auditPaths = Object.keys(TouristVisaAudit.schema.paths).filter((p) => p !== '_id').sort();
-  assert.deepEqual(auditPaths, ['action', 'adminId', 'applicationId', 'at', 'documentId', 'fromFlags', 'fromStatus', 'letterSource', 'letterVersion', 'model', 'promptVersion', 'source', 'toFlags', 'toStatus', 'version'].sort());
+  // (pdfType and pdfBy are the two fields of the pdf_export rows, added in step 8h-1.)
+  assert.deepEqual(auditPaths, ['action', 'adminId', 'applicationId', 'at', 'documentId', 'fromFlags', 'fromStatus', 'letterSource', 'letterVersion', 'model', 'pdfBy', 'pdfType', 'promptVersion', 'source', 'toFlags', 'toStatus', 'version'].sort());
   assert.equal(TouristVisaAudit.ACTIONS.filter((a) => a.startsWith('cover_letter_')).length, 4);
   assert.deepEqual(FALLBACK_REASONS.filter((r) => r.includes('BANNED')), ['AI_BANNED_PHRASE']);
   assert.equal(FALLBACK_REASONS.length, 21, 'the 20 reasons of step 8g and AI_BANNED_PHRASE');

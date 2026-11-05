@@ -96,7 +96,12 @@ export type AuditAction =
   | "itinerary_generate"
   | "itinerary_view"
   | "itinerary_edit"
-  | "itinerary_approve";
+  | "itinerary_approve"
+  | "pdf_export";
+
+/** Which PDF was made, and who asked for it (a pdf_export row holds nothing else). */
+export type PdfType = "answers";
+export type PdfBy = "admin" | "applicant";
 
 export interface ActivityRow {
   id: string;
@@ -114,6 +119,9 @@ export interface ActivityRow {
   version?: number;
   source?: LetterSource;
   model?: string;
+  /** pdf_export rows: which PDF, and whether the team or the applicant downloaded it. Never any content. */
+  pdfType?: PdfType;
+  pdfBy?: PdfBy;
 }
 
 // ---------------------------------------------------------------------------

@@ -8,6 +8,8 @@ const express = require('express');
 const router = express.Router();
 const touristVisaApplicationController = require('../controllers/touristVisaApplicationController');
 const touristVisaDocumentController = require('../controllers/touristVisaDocumentController');
+const touristVisaPdfController = require('../controllers/touristVisaPdfController');
+const { pdfLimiter } = require('../middleware/touristVisaPdfLimit');
 const { isAuthorized, isAdmin } = require('../middleware/authMiddleware');
 const noStore = require('../middleware/noStore');
 const touristVisaAdminRoutes = require('./touristVisaAdminRoutes');
@@ -91,6 +93,9 @@ router.post(
   '/applications/me/submit',
   touristVisaApplicationController.submitApplication.bind(touristVisaApplicationController)
 );
+
+// A copy of my own submitted application as a PDF: made in memory, never stored, rate limited, audited as pdf_export
+router.get('/applications/me/pdf/answers', pdfLimiter, touristVisaPdfController.myAnswers);
 
 // Must stay last: keeps database error details (which can include answers) out of logs
 router.use(touristVisaErrorHandler);

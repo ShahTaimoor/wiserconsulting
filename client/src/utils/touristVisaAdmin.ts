@@ -135,7 +135,7 @@ export function formatWhen(iso: string | null | undefined, timeZone?: string): s
 }
 
 /** A line of the Activity panel: who did what. */
-export function describeActivity(row: Pick<ActivityRow, "action" | "admin" | "fromStatus" | "toStatus" | "fromFlags" | "toFlags" | "letterVersion" | "letterSource" | "version" | "source">): { who: string; what: string } {
+export function describeActivity(row: Pick<ActivityRow, "action" | "admin" | "fromStatus" | "toStatus" | "fromFlags" | "toFlags" | "letterVersion" | "letterSource" | "version" | "source"> & Partial<Pick<ActivityRow, "pdfType" | "pdfBy">>): { who: string; what: string } {
   const who = row.admin.name || "An administrator";
   switch (row.action) {
     case "list_view":
@@ -185,6 +185,9 @@ export function describeActivity(row: Pick<ActivityRow, "action" | "admin" | "fr
       const { version } = itineraryFacts(row);
       return { who, what: `approved ${version ? `version ${version} of ` : ""}the itinerary` };
     }
+    case "pdf_export":
+      // An applicant's own download is recorded under the applicant's name; the team's under the administrator's.
+      return { who, what: row.pdfBy === "applicant" ? "downloaded a copy of their application (PDF)" : "exported the application summary (PDF)" };
     default:
       return { who, what: "did something" };
   }

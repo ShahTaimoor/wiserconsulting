@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/tourist-visa/ConfirmDialog";
 import { notifySubmitFailed, notifySubmitted } from "@/components/tourist-visa/notify";
+import { PdfDownloadButton } from "@/components/tourist-visa/PdfDownloadButton";
 import { ReviewSummary } from "@/components/tourist-visa/ReviewSummary";
 import { useTouristVisa } from "@/context/TouristVisaContext";
 import { config } from "@/shared/tourist-visa/engine";
@@ -231,10 +232,11 @@ export default function TouristVisaReviewPage() {
               <p className="mt-1 text-muted-foreground">{data.declaration.text}</p>
             </div>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex flex-wrap gap-3">
             <Button asChild variant="outline">
               <Link href="/tourist-visa">Back to your application</Link>
             </Button>
+            <PdfDownloadButton side="applicant" reference={data.reference} className="min-h-10" />
           </CardFooter>
         </Card>
 
