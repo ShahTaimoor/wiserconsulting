@@ -50,6 +50,21 @@ const tokens = (s) => s.toLowerCase().replace(/[^\p{L}\p{N}£'-]+/gu, ' ').split
 const top = (page, item) => page.height - item.y; // from the top of the page, in points
 /** The lines of a page without the turned band labels (which the reader would otherwise merge into the text lines they lie beside). */
 const plainLines = (page) => linesOf(page.items.filter((i) => i.angle === 0));
+/** The words of a turned label ("DAY 1", "15 MAR"): each word is a piece of text turned on its side; the items of the words in order, or null if one is missing. */
+const turned = (page, label, inside = () => true) => {
+  const [first, ...rest] = label.split(' ');
+  // The words of one label lie on one vertical line (the same x), one above the other: a word of another label (the same word can be in two) does not count.
+  for (const start of page.items.filter((i) => i.str === first && i.angle === 90 && inside(i))) {
+    const found = [start];
+    for (const word of rest) {
+      const next = page.items.find((i) => i.str === word && i.angle === 90 && Math.abs(i.x - start.x) < 0.6 && i.y > found[found.length - 1].y);
+      if (!next) break;
+      found.push(next);
+    }
+    if (found.length === 1 + rest.length) return found;
+  }
+  return null;
+};
 
 /** A stored itinerary of `days` days, written by hand: the text of each day is `text(i)`. */
 const written = (days, text = (i) => `A short description of the plan for day ${i + 1}.`) => {
@@ -134,7 +149,7 @@ test('the grid of details has only the fields the data has: nothing is invented,
 });
 
 // ---------------------------------------------------------------------------
-// The plan: density, no split block, the fill rule
+// The plan: density, no split block, the page-balancing rule
 // ---------------------------------------------------------------------------
 
 test('a short trip is one complete page and a long one flows: 1 to 3 days are one page, and the type is set by the number of days', () => {
@@ -150,7 +165,7 @@ test('a short trip is one complete page and a long one flows: 1 to 3 days are on
   assert.ok(byDays[14].pages.length >= 2 && byDays[14].pages.length <= 4, `14 days: ${byDays[14].pages.length} pages`);
   assert.equal(byDays[14].density, 'compact', 'a long trip is set compact');
   assert.ok(byDays[20].pages.length > byDays[5].pages.length);
-  assert.ok(byDays[5].pages.length >= 2 && byDays[5].pages.length <= 3);
+  assert.ok(byDays[5].pages.length <= 2, `5 short days: ${byDays[5].pages.length} pages`);
 });
 
 test('no block is split or lost: every day is on exactly one page, in order, whatever the number of days', () => {
@@ -168,32 +183,84 @@ test('no block is split or lost: every day is on exactly one page, in order, wha
   }
 });
 
-test('THE FILL RULE: every page but the last is full (at least 95 percent), a one-page trip is at least 75 percent full, and the last page is never stretched more than the others', () => {
-  for (const days of [1, 2, 3, 4, 5, 6, 8, 10, 14, 18, 25]) {
-    const plan = itinerary.planItinerary(modelOf(written(days, (i) => `A description of the plan for day ${i + 1}, long enough to take more than one line on the page so that the blocks differ in height.`)));
-    const n = plan.pages.length;
-    plan.pages.forEach((page, p) => {
-      if (p < n - 1) assert.ok(page.fill >= 0.95, `${days} days: page ${p + 1} of ${n} is ${page.fill.toFixed(2)} full`);
-      assert.ok(page.fill <= 1.0001, `${days} days: page ${p + 1} overflows (${page.fill})`);
-    });
-    if (n === 1) assert.ok(plan.pages[0].fill >= 0.75, `${days} days on one page: ${plan.pages[0].fill.toFixed(2)} full`);
-    // The blocks are about the same height on every page (the last page takes no more room than the most stretched of the others).
-    if (n > 1) {
-      const extra = plan.pages.map((page) => page.blocks.reduce((sum, slot) => sum + slot.height - slot.m.height, 0) / Math.max(1, page.blocks.length));
-      assert.ok(extra[n - 1] <= Math.max(...extra.slice(0, -1)) + 0.5, `${days} days: the last page is stretched more (${extra.map((e) => e.toFixed(0))})`);
+// A greedy count of the pages, written here on its own (not the module's): the blocks in order, each page holding as many as fit.
+const countPages = ({ heights, gap, room1, room2 }) => {
+  let pages = 1;
+  let room = room1;
+  let used = 0;
+  let count = 0;
+  for (const h of heights) {
+    const add = (count ? gap : 0) + h;
+    if (used + add <= room + 1e-6) { used += add; count += 1; continue; }
+    pages += 1; room = room2; used = h; count = 1;
+  }
+  return pages;
+};
+const LONG_TEXT = (i) => `A description of the plan for day ${i + 1}, long enough to take more than one line on the page so that the blocks differ in height.`;
+
+test('THE PAGE-BALANCING RULE: the fewest pages the blocks can take at their smallest size, and within them the largest block size at which every day still fits', () => {
+  for (const days of [1, 2, 3, 4, 5, 6, 8, 10, 12, 14, 16, 19, 22, 25, 28, 30]) {
+    for (const text of [undefined, LONG_TEXT]) {
+      const plan = itinerary.planItinerary(modelOf(written(days, text)));
+      const label = `${days} days${text ? ' (long)' : ''}`;
+      // 1. No fewer pages is possible: at the smallest size the blocks need exactly this many.
+      assert.equal(countPages(plan.sizesAt(0)), plan.pages.length, `${label}: the smallest number of pages is ${plan.pages.length}`);
+      assert.equal(plan.minPages, plan.pages.length);
+      // 2. The size used fits in those pages, and a little larger would not (unless it is the largest size there is).
+      assert.ok(countPages(plan.sizesAt(plan.scale)) <= plan.pages.length, `${label}: the chosen size fits`);
+      if (plan.scale < 1) assert.ok(countPages(plan.sizesAt(Math.min(1, plan.scale + 0.02))) > plan.pages.length, `${label}: a larger size (${plan.scale.toFixed(2)} + 0.02) would need another page`);
+      assert.ok(plan.scale >= 0 && plan.scale <= 1);
+      // 3. Every page holds whole blocks within its room, and the blocks are one size (the same scale) on every page.
+      plan.pages.forEach((page) => {
+        assert.ok(page.fill <= 1.0001, `${label}: page ${page.index + 1} overflows`);
+        page.blocks.forEach((slot) => assert.equal(slot.sp.u, plan.scale));
+      });
     }
   }
 });
 
-test('the room that is left is taken up by padding, row spacing and gaps, each up to its limit: stretched blocks are taller, never past the limits', () => {
-  const natural = itinerary.planItinerary(modelOf(written(3)));
-  const slot = natural.pages[0].blocks[0];
-  assert.ok(slot.height > slot.m.height, 'a short trip gets airier blocks');
-  const d = itinerary.DENSITIES[natural.density];
-  assert.ok(slot.height - slot.m.height <= d.cap.pad + slot.m.rows.length * d.cap.row + 0.01, 'not past the limit');
-  // A page that is already full is not stretched.
-  const full = itinerary.planItinerary(modelOf(written(14, (i) => `Plan ${i + 1} ${'with a good deal of detail '.repeat(4)}`)));
-  assert.ok(full.pages[0].blocks.every((s) => s.height - s.m.height < 60));
+test('the pages are balanced: no page of a trip that needs several is left mostly empty, and the last page is about as full as the others', () => {
+  for (const days of [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]) {
+    for (const text of [undefined, LONG_TEXT]) {
+      const plan = itinerary.planItinerary(modelOf(written(days, text)));
+      const label = `${days} days${text ? ' (long)' : ''}`;
+      if (plan.pages.length < 2) continue;
+      const fills = plan.pages.map((p) => p.fill);
+      fills.forEach((f, p) => assert.ok(f >= 0.75, `${label}: page ${p + 1} of ${fills.length} is only ${f.toFixed(2)} full`));
+      assert.ok(fills[fills.length - 1] >= 0.8 * Math.max(...fills), `${label}: the last page (${fills[fills.length - 1].toFixed(2)}) is much emptier than the fullest (${Math.max(...fills).toFixed(2)})`);
+      // The days per page differ by at most two from page 2 on (the first page holds fewer, under the title and the details).
+      const counts = plan.pages.slice(1).map((p) => p.count);
+      assert.ok(Math.max(...counts) - Math.min(...counts) <= 2, `${label}: the days per page are ${plan.pages.map((p) => p.count).join('/')}`);
+    }
+  }
+});
+
+test('19 days take 3 well-filled pages, not 4: the real itineraries of 1, 3, 5, 10, 14 and 19 days, with the days on each page', () => {
+  const expected = { 0: [1], 2: [3], 4: [2, 3], 9: [4, 6], 13: [6, 8], 18: [5, 7, 7] };
+  for (const [nights, counts] of Object.entries(expected)) {
+    const { text, details } = made(Number(nights));
+    const plan = itinerary.planItinerary(modelOf(text, { details }));
+    assert.deepEqual(plan.pages.map((p) => p.count), counts, `${Number(nights) + 1} days`);
+    if (plan.pages.length > 1) plan.pages.forEach((p) => assert.ok(p.fill >= 0.8, `${Number(nights) + 1} days: page ${p.index + 1} is ${p.fill.toFixed(2)} full`));
+  }
+  // 28 days, written by hand (the generator writes a week at a time beyond 21 nights): four pages, evenly shared.
+  const plan28 = itinerary.planItinerary(modelOf(written(28, LONG_TEXT)));
+  assert.equal(plan28.pages.length, 4);
+  assert.ok(Math.max(...plan28.pages.map((p) => p.count)) - Math.min(...plan28.pages.slice(1).map((p) => p.count)) <= 2);
+});
+
+test('the block size stays between the smallest and the largest the density allows, and the type sizes of the tiers are kept', () => {
+  for (const days of [1, 2, 3, 5, 9, 10, 14, 19, 28]) {
+    const plan = itinerary.planItinerary(modelOf(written(days, LONG_TEXT)));
+    const d = itinerary.DENSITIES[plan.density];
+    const sp = plan.spacing;
+    assert.ok(sp.pad >= d.tight.pad - 1e-9 && sp.pad <= d.pad + d.cap.pad / 2 + 1e-9, `${days} days: padding ${sp.pad}`);
+    assert.ok(sp.gap >= d.tight.gap - 1e-9 && sp.gap <= d.gap + d.cap.gap + 1e-9, `${days} days: gap ${sp.gap}`);
+    assert.ok(sp.rowPad >= d.tight.rowPad - 1e-9 && sp.rowPad <= d.rowPad + d.cap.row / 2 + 1e-9);
+    // The smallest size is still a clear, readable block: type not under 10 pt, a line at least 1.3 times the size, a band that holds its label.
+    assert.ok(d.text >= 10 && d.pitch / d.text >= 1.3 && d.tight.minBlock >= 50, `${plan.density} type`);
+  }
+  assert.deepEqual([1, 2, 3, 9, 10].map((n) => itinerary.planItinerary(modelOf(written(n))).density), ['grand', 'grand', 'comfortable', 'comfortable', 'compact']);
 });
 
 // ---------------------------------------------------------------------------
@@ -216,9 +283,8 @@ test('a one-day trip is a designed, complete page: the title in the display face
   for (const label of ['Traveller', 'Destination', 'Arrival', 'Departure', 'Staying']) assert.ok(page.items.some((i) => i.str === label && i.size < 9), `grid label ${label}`);
   assert.equal(page.items.some((i) => i.str === 'Length of stay'), false, 'a day trip has no nights');
   assert.ok(page.items.some((i) => i.str === NAME) && page.items.some((i) => i.str === 'London') && page.items.some((i) => i.str === '15 March 2027'));
-  const band = page.items.find((i) => i.str === 'DAY 1');
-  assert.ok(band && band.angle === 90, 'the label is turned on its side');
-  assert.ok(page.items.some((i) => i.str === '15 MAR' && i.angle === 90), 'the date under it');
+  assert.ok(turned(page, 'DAY 1'), 'the label is turned on its side');
+  assert.ok(turned(page, '15 MAR'), 'the date under it');
   const dayTitle = page.items.find((i) => i.str === 'Monday 15 March 2027');
   assert.ok(dayTitle && /SemiBoldItalic/.test(dayTitle.font) && dayTitle.size >= 20, 'the title of the day in the italic display face');
   const row = page.lines.find((l) => /^A single day/.test(l.text));
@@ -244,13 +310,14 @@ test('1, 3, 5 and 14 days: each day\'s band, title and description are on one pa
         day += 1;
         const block = slot.m.block;
         const inside = (item) => top(page, item) >= slot.y - 1 && top(page, item) <= slot.y + slot.height + 1;
-        const label = page.items.find((i) => i.str === block.main && i.angle === 90 && inside(i));
+        const label = turned(page, block.main, inside);
         const title = page.items.find((i) => i.str === block.title && /Italic/.test(i.font) && inside(i));
         assert.ok(label, `day ${day}: the band label is in its block on page ${p + 1}`);
         assert.ok(title, `day ${day}: the title is in its block`);
         for (const row of slot.m.rows) {
-          const line = plainLines(page).find((l) => l.text.startsWith(row.lines[0]) && l.items.every((i) => /SourceSerif4/.test(i.font)));
-          assert.ok(line && top(page, line.items[0]) >= slot.y && top(page, line.items[0]) <= slot.y + slot.height, `day ${day}: the description is in its block`);
+          // (the same sentence can be in several days: the one inside this block is the one that counts)
+          const line = plainLines(page).find((l) => l.text.startsWith(row.lines[0]) && l.items.every((i) => /SourceSerif4/.test(i.font)) && top(page, l.items[0]) >= slot.y && top(page, l.items[0]) <= slot.y + slot.height);
+          assert.ok(line, `day ${day}: the description is in its block`);
         }
       }
       const footer = page.items.filter((i) => i.y < MARGIN + ITINERARY_PAGE.footer.height).map((i) => i.str).join(' ');
@@ -516,4 +583,91 @@ test('the itinerary module is built on the shared foundation and knows nothing o
   const source = fs.readFileSync(path.join(__dirname, '..', 'utils', 'touristVisaItineraryPdf.js'), 'utf8');
   assert.match(source, /require\('\.\/pdf\/documentBuilder'\)/);
   assert.equal(/require\('(fs|http|https|net|mongoose|cloudinary)'\)|require\("(fs|mongoose)"\)|fetch\(/.test(source), false);
+});
+
+// ---------------------------------------------------------------------------
+// The date labels in the band (step 8h-4): the same gap between the day and the month for every date
+// ---------------------------------------------------------------------------
+
+const fontkit = require(require.resolve('fontkit', { paths: [path.join(__dirname, '..'), path.dirname(require.resolve('pdfkit'))] }));
+
+/** The words of a turned label with the ink of each (its first and last glyph's real edges, from the font file), along the line of the text, in points. */
+function labelInk(page, label, inside) {
+  const words = turned(page, label, inside);
+  assert.ok(words, `the label ${label} is in the file`);
+  const font = fontkit.openSync(/Bold/.test(words[0].font) ? config.FONT_FILES.SansBold : config.FONT_FILES.Sans);
+  const unit = words[0].size / font.unitsPerEm;
+  return words.map((item) => {
+    const chars = [...item.str];
+    const first = font.glyphForCodePoint(chars[0].codePointAt(0));
+    const last = font.glyphForCodePoint(chars[chars.length - 1].codePointAt(0));
+    // The label is turned 90 degrees: the text runs up the page, so its start is the item's y and it ends width higher.
+    return { str: item.str, size: item.size, start: item.y + first.bbox.minX * unit, end: item.y + item.width - (last.advanceWidth - last.bbox.maxX) * unit };
+  });
+}
+
+test('the date labels in the band keep the same gap between the day and the month for every date, a single digit or two and wide or narrow letters: 1 MAY, 28 FEB, 31 MAR, 2 APR, 10 JAN', async () => {
+  const days = [
+    'Day 1, Saturday 1 May 2027', 'Day 2, Sunday 28 February 2027', 'Day 3, Wednesday 31 March 2027', 'Day 4, Friday 2 April 2027', 'Day 5, Sunday 10 January 2027',
+    'Day 6, Monday 12 July 2027', 'Day 7, Tuesday 4 September 2027', 'Day 8, Thursday 9 November 2027', 'Day 9, Friday 30 December 2027',
+  ];
+  const text = ['Proposed itinerary', 'This is a proposed plan for the visit, and it may change.', ...days.map((d) => `${d}\nA short description of the plan.`)].join('\n\n');
+  const model = modelOf(text);
+  const plan = itinerary.planItinerary(model);
+  const pdf = await inspectPdf(await render(model));
+  const gaps = [];
+  let checked = 0;
+  plan.pages.forEach((planned, p) => {
+    const page = pdf.pages[p];
+    for (const slot of planned.blocks) {
+      const inside = (item) => top(page, item) >= slot.y - 1 && top(page, item) <= slot.y + slot.height + 1;
+      for (const label of [slot.m.block.main, slot.m.block.sub]) {
+        const words = labelInk(page, label, inside);
+        for (let i = 1; i < words.length; i += 1) {
+          const gap = words[i].start - words[i - 1].end;
+          gaps.push(gap / words[i].size);
+          checked += 1;
+        }
+        // The label's ink is centred on the block.
+        const mid = (words[0].start + words[words.length - 1].end) / 2;
+        assert.ok(Math.abs(page.height - mid - (slot.y + slot.height / 2)) < 1.5, `${label}: centred on its block (${(page.height - mid).toFixed(1)} against ${(slot.y + slot.height / 2).toFixed(1)})`);
+      }
+    }
+  });
+  assert.ok(checked >= 18, `${checked} gaps were measured`);
+  assert.ok(Math.min(...gaps) >= 0.34 && Math.max(...gaps) <= 0.38, `every gap is about a third of the size, from ${Math.min(...gaps).toFixed(3)} to ${Math.max(...gaps).toFixed(3)} em`);
+  assert.ok(Math.max(...gaps) - Math.min(...gaps) < 0.01, `and all alike (${(Math.max(...gaps) - Math.min(...gaps)).toFixed(4)} em apart)`);
+});
+
+test('the date labels of a week (15 MAR, TO 21 MAR) and of a single date (15 MAR, 2027) are spaced the same way, and the words of a label are separate pieces of text, in order', async () => {
+  const text = ['Proposed itinerary', 'This is a proposed plan for the visit, and it may change.',
+    'Monday 15 March 2027 to Sunday 21 March 2027\nA week in the countryside.', 'Monday 22 March 2027\nOne last day.'].join('\n\n');
+  const model = modelOf(text);
+  const plan = itinerary.planItinerary(model);
+  const pdf = await inspectPdf(await render(model));
+  const page = pdf.pages[0];
+  const slot = plan.pages[0].blocks[0];
+  const inside = (item) => top(page, item) >= slot.y - 1 && top(page, item) <= slot.y + slot.height + 1;
+  const to = labelInk(page, 'TO 21 MAR', inside);
+  assert.equal(to.length, 3);
+  const gaps = [to[1].start - to[0].end, to[2].start - to[1].end].map((g) => g / to[0].size);
+  assert.ok(gaps.every((g) => g >= 0.34 && g <= 0.38) && Math.abs(gaps[0] - gaps[1]) < 0.01, `TO 21 MAR gaps ${gaps.map((g) => g.toFixed(3))}`);
+  // The words come one after the other along the line, in reading order, and never overlap.
+  for (let i = 1; i < to.length; i += 1) assert.ok(to[i].start > to[i - 1].end, 'in order and apart');
+  assert.ok(turned(page, '15 MAR'), 'the week starts 15 MAR');
+  const second = plan.pages[0].blocks[1];
+  const insideSecond = (item) => top(page, item) >= second.y - 1 && top(page, item) <= second.y + second.height + 1;
+  assert.ok(turned(page, '22 MAR', insideSecond) && turned(page, '2027', insideSecond), 'a single date: the day and month, and the year');
+});
+
+test('a label of one word is drawn as it was, and an empty label draws nothing', async () => {
+  const { DocumentBuilder } = require('../utils/pdf/documentBuilder');
+  const b = new DocumentBuilder({ reference: REFERENCE, applicantName: NAME });
+  b.rotatedText('', 100, 100);
+  b.rotatedText('   ', 100, 100);
+  b.rotatedText('2027', 100, 100, { font: 'Sans', size: 9 });
+  b.rotatedText('DAY  1', 140, 100, { font: 'SansBold', size: 12 });
+  const pdf = await inspectPdf(await b.finish());
+  const items = pdf.pages[0].items.filter((i) => i.angle === 90 && i.str.trim());
+  assert.deepEqual(items.map((i) => i.str).sort(), ['1', '2027', 'DAY']);
 });

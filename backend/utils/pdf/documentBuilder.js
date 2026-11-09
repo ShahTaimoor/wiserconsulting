@@ -20,6 +20,8 @@ const { normalizePdfText } = require('./pdfText');
 const { LETTER_PAGE, BRAND, TEXT } = require('../../config/touristVisaPdf');
 
 const MIDDLE_DOT = String.fromCodePoint(0xb7);
+// The gap between the words of a turned label (a date such as "31 MAR"), from the ink of one word to the ink of the next, as a part of the size.
+const INK_GAP = 0.36;
 
 class DocumentBuilder extends PdfBuilder {
   /**
@@ -100,16 +102,44 @@ class DocumentBuilder extends PdfBuilder {
    */
   rotatedText(value, cx, cy, { font = 'SansBold', size = 12, color = BRAND.white, angle = -90 } = {}) {
     const doc = this.doc;
-    const textValue = normalizePdfText(value);
-    if (textValue === '') return;
+    const words = normalizePdfText(value).split(' ').filter((word) => word !== '');
+    if (words.length === 0) return;
     doc.font(font).fontSize(size);
-    const width = doc.widthOfString(textValue);
     const height = this.lineHeight({ font, size, lineGap: 0 });
+
+    // The words are set one by one with the same gap between the INK of one word and the ink of the next (INK_GAP of the size), not with the
+    // font's space: a space is a fixed width, so the gap that is seen depends on the shapes on either side of it ("2 APR", whose A leans
+    // away, looked tight beside "15 MAR"). Each word keeps its own kerning.
+    const fontkit = doc._font.font;
+    const unit = size / fontkit.unitsPerEm;
+    const edge = (codePoint) => fontkit.glyphForCodePoint(codePoint);
+    const inks = words.map((word) => {
+      const chars = [...word];
+      const first = edge(chars[0].codePointAt(0));
+      const last = edge(chars[chars.length - 1].codePointAt(0));
+      const advance = doc.widthOfString(word);
+      return { word, left: first.bbox.minX * unit, right: advance - (last.advanceWidth - last.bbox.maxX) * unit };
+    });
+    let origin = 0;
+    let inkLeft = 0;
+    let inkRight = 0;
+    inks.forEach((ink, i) => {
+      if (i === 0) {
+        origin = 0;
+        inkLeft = ink.left;
+      } else {
+        origin = inkRight + INK_GAP * size - ink.left;
+      }
+      ink.origin = origin;
+      inkRight = origin + ink.right;
+    });
+    const shift = -(inkLeft + inkRight) / 2; // the ink of the whole label is centred on the point
+
     doc.save();
     doc.fillColor(color);
     doc.rotate(angle, { origin: [cx, cy] });
     doc.font(font).fontSize(size);
-    doc.text(textValue, cx - width / 2, cy - height / 2, { lineBreak: false });
+    for (const ink of inks) doc.text(ink.word, cx + shift + ink.origin, cy - height / 2, { lineBreak: false });
     doc.restore();
   }
 
@@ -147,4 +177,4 @@ class DocumentBuilder extends PdfBuilder {
   }
 }
 
-module.exports = { DocumentBuilder };
+module.exports = { DocumentBuilder, INK_GAP };
