@@ -13,7 +13,6 @@ const {
   loginSchema,
   updateProfileSchema,
   updateUserRoleSchema,
-  createAdminSchema,
 } = require("../validations/userValidation");
 
 // Signup
@@ -67,11 +66,8 @@ router.put(
   userController.updateUserRole.bind(userController),
 );
 
-// Create admin user
-router.post(
-  "/create-admin",
-  validate(createAdminSchema),
-  userController.createAdmin.bind(userController),
-);
+// There is deliberately NO route that creates an administrator (step 8j-2). The first administrator is made with
+// backend/scripts/create-first-admin.js, run by a person who has access to the server; after that an existing administrator
+// can promote an account with PUT /update-user-role/:userId.
 
 module.exports = router;

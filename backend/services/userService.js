@@ -8,6 +8,19 @@ const jwt = require("jsonwebtoken");
 const userRepository = require("../repositories/userRepository");
 const { AppError } = require("../middleware/errorHandler");
 
+// The only fields of a user that the user may change through their profile.
+const PROFILE_FIELDS = ["name", "phone", "address", "city"];
+
+/** A new object holding only the profile fields that `data` really has as text: nothing else is ever copied. */
+function pickProfileFields(data) {
+  const picked = {};
+  if (data === null || typeof data !== "object") return picked;
+  for (const field of PROFILE_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(data, field) && typeof data[field] === "string") picked[field] = data[field];
+  }
+  return picked;
+}
+
 class UserService {
   /**
    * Sign up a new user
@@ -88,15 +101,19 @@ class UserService {
   }
 
   /**
-   * Update user profile
+   * Update user profile.
+   * Only the fields a person may change about themselves are copied from `data` (PROFILE_FIELDS); anything else it carries
+   * (role, password, email, isDeleted, googleId ...) is ignored here even if a caller passes it, so this method can never be used
+   * to change them. The route's strict validation refuses such a request before it gets here.
    */
-  async updateProfile(userId, updateData) {
+  async updateProfile(userId, data) {
     const user = await userRepository.findById(userId);
     if (!user) {
       throw new AppError("User not found", 404);
     }
 
-    const updatedUser = await userRepository.updateById(userId, updateData);
+    const updateData = pickProfileFields(data);
+    const updatedUser = Object.keys(updateData).length === 0 ? user : await userRepository.updateById(userId, updateData);
     updatedUser.password = undefined;
 
     return {
@@ -150,39 +167,6 @@ class UserService {
    */
   async countAdmins() {
     return await userRepository.countByRole(1);
-  }
-
-  /**
-   * Create admin user
-   */
-  async createAdmin(name, email, password) {
-    // Check if user already exists
-    const existingUser = await userRepository.findByEmailOrName(email, name);
-    if (existingUser) {
-      throw new AppError("User with this email or name already exists", 400);
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create admin user
-    const user = await userRepository.create({
-      name,
-      email,
-      password: hashedPassword,
-      role: 1, // Admin role
-    });
-
-    user.password = undefined;
-
-    return {
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    };
   }
 
   /**
@@ -255,3 +239,5 @@ class UserService {
 }
 
 module.exports = new UserService();
+module.exports.PROFILE_FIELDS = PROFILE_FIELDS;
+module.exports.pickProfileFields = pickProfileFields;
