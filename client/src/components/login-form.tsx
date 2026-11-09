@@ -7,7 +7,8 @@ import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { login, clearError } from "@/redux/slices/auth/authSlice";
 import { cn } from "@/lib/utils";
 import { isAdminRole } from "@/utils/authRole";
-import { postLoginDestination } from "@/utils/safeRedirect";
+import { nextQuery, postLoginDestination } from "@/utils/safeRedirect";
+import { useCarriedNext } from "@/hooks/useTouristVisaEntry";
 import { ArrowLeft } from "lucide-react";
 
 export function LoginForm({
@@ -20,6 +21,8 @@ export function LoginForm({
   const dispatch = useAppDispatch();
   
   const { loading, error, user } = useAppSelector((state) => state.auth);
+  // Step 8i: while the Tourist Visa form is open, a valid ?next=/tourist-visa is carried to the sign-up link.
+  const { next: carried } = useCarriedNext();
 
   useEffect(() => {
     if (user) {
@@ -134,7 +137,7 @@ export function LoginForm({
 
         <p className="text-center text-sm text-slate-500">
           Don&apos;t have an account?{" "}
-          <a href="/register" className="font-semibold text-slate-900 underline underline-offset-4 hover:text-slate-700 cursor-pointer">
+          <a href={`/register${nextQuery(carried)}`} className="font-semibold text-slate-900 underline underline-offset-4 hover:text-slate-700 cursor-pointer">
             Sign up
           </a>
         </p>

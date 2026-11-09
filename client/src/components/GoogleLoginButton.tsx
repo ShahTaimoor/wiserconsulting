@@ -6,11 +6,14 @@ import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { googleAuth } from '@/redux/slices/auth/authSlice';
 import { isAdminRole } from '@/utils/authRole';
+import { useCarriedNext } from '@/hooks/useTouristVisaEntry';
+import { carriedNext } from '@/utils/safeRedirect';
 
 export default function GoogleLoginButton() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { loading, error, user } = useAppSelector((state) => state.auth);
+  const { open } = useCarriedNext();
 
   const login = useGoogleLogin({
     onSuccess: async (response) => {
@@ -24,13 +27,17 @@ export default function GoogleLoginButton() {
   // Redirect on successful login
   useEffect(() => {
     if (user) {
-      if (isAdminRole(user.role)) {
+      // Step 8i: while the Tourist Visa form is open, a valid ?next=/tourist-visa wins over the usual destination.
+      const target = carriedNext(open, window.location.search);
+      if (target) {
+        router.replace(target);
+      } else if (isAdminRole(user.role)) {
         router.replace('/admin/products');
       } else {
         router.replace('/');
       }
     }
-  }, [user, router]);
+  }, [user, router, open]);
 
   return (
     <div className="w-full">
