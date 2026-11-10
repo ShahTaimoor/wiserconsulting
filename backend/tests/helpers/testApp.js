@@ -39,7 +39,6 @@ async function startTestApp() {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   app.use(load('middleware/sanitize')); // as in index.js
-  app.use('/api/auth', load('routes/authRoutes'));
   app.use('/api', load('routes/userRoutes'));
   app.use('/api', load('routes/assessmentRoutes'));
   app.use('/api', load('routes/formSubmissionRoutes'));

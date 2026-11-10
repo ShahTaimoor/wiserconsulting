@@ -119,36 +119,6 @@ class UserController {
 
     return ApiResponse.success(res, result, "User role updated successfully");
   });
-
-  /**
-   * Handle Google OAuth token
-   */
-  handleGoogleToken = asyncHandler(async (req, res) => {
-    const { access_token } = req.body;
-    const result = await userService.handleGoogleAuth(access_token);
-    const token = result.token;
-
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
-      maxAge: 365 * 24 * 60 * 60 * 1000,
-    });
-
-    return ApiResponse.success(
-      res,
-      {
-        user: {
-          id: result.user._id,
-          name: result.user.name,
-          email: result.user.email,
-          role: result.user.role,
-        },
-        token,
-      },
-      "Google authentication successful",
-    );
-  });
 }
 
 module.exports = new UserController();

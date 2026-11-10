@@ -31,11 +31,11 @@ test('every route that uses validate() is covered by a test in this file', () =>
     const text = fs.readFileSync(path.join(routesDir, file), 'utf8');
     for (const match of text.matchAll(/validate\(/g)) using.push(`${file}:${match.index}`);
   }
-  // 20 uses: user 4, auth 1, admin settings 1, site settings 2, approved visas 2, testimonials 2, assessment 2, form submissions 6.
-  assert.equal(using.length, 20);
+  // 19 uses: user 4, admin settings 1, site settings 2, approved visas 2, testimonials 2, assessment 2, form submissions 6.
+  assert.equal(using.length, 19);
   const byFile = {};
   for (const entry of using) byFile[entry.split(':')[0]] = (byFile[entry.split(':')[0]] || 0) + 1;
-  assert.deepEqual(byFile, { 'adminSettingsRoutes.js': 1, 'approvedVisaRoutes.js': 2, 'assessmentRoutes.js': 2, 'authRoutes.js': 1, 'formSubmissionRoutes.js': 6, 'siteSettingsRoutes.js': 2, 'testimonialRoutes.js': 2, 'userRoutes.js': 4 });
+  assert.deepEqual(byFile, { 'adminSettingsRoutes.js': 1, 'approvedVisaRoutes.js': 2, 'assessmentRoutes.js': 2, 'formSubmissionRoutes.js': 6, 'siteSettingsRoutes.js': 2, 'testimonialRoutes.js': 2, 'userRoutes.js': 4 });
 });
 
 // ---------------------------------------------------------------------------------------------- users (strict)
@@ -80,25 +80,6 @@ test('PUT /api/update-user-role/:userId: an administrator can set 0 or 1; an unk
   assert.equal((await app.call('PUT', url, { body: { role: '1' }, token: admin.token })).status, 400);
   assert.equal((await app.call('PUT', url, { body: { role: 1 }, token: person.token })).status, 403);
   assert.equal((await app.models.User.findById(target.user._id).lean()).role, 0);
-});
-
-// ---------------------------------------------------------------------------------------------- Google (strict)
-
-test('POST /api/auth/google/token: works with the token only; an unknown key or no token is a 400', async () => {
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async (url, options) => {
-    if (String(url).startsWith('https://www.googleapis.com/')) return { ok: true, json: async () => ({ id: 'g-1', name: 'Google Person', email: 'google.person@example.com', picture: 'https://example.invalid/p.png' }) };
-    return realFetch(url, options);
-  };
-  try {
-    const ok = await app.call('POST', '/api/auth/google/token', { body: { access_token: 'fake-google-token' } });
-    assert.equal(ok.status, 200);
-    assert.equal(ok.json.data.user.email, 'google.person@example.com');
-    assert.equal((await app.call('POST', '/api/auth/google/token', { body: { access_token: 'x', role: 1 } })).status, 400);
-    assert.equal((await app.call('POST', '/api/auth/google/token', { body: {} })).status, 400);
-  } finally {
-    globalThis.fetch = realFetch;
-  }
 });
 
 // ---------------------------------------------------------------------------------------------- settings

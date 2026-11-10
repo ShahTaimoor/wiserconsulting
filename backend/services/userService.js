@@ -65,17 +65,14 @@ class UserService {
       user = await userRepository.findByName(name);
     }
 
-    if (!user) {
+    // An account with no password (an old Google sign-in account) cannot sign in with a password: it gets the same answer as an
+    // unknown email or a wrong password, so nothing tells a stranger which accounts exist or how they were made.
+    if (!user || typeof user.password !== "string" || user.password === "") {
       throw new AppError("Invalid credentials", 400);
     }
 
-    // Check if user has password (not Google-only user)
-    if (!user.password) {
-      throw new AppError("Please use Google authentication", 400);
-    }
-
     // Verify password
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = typeof password === "string" && (await bcrypt.compare(password, user.password));
     if (!isMatch) {
       throw new AppError("Invalid credentials", 400);
     }
@@ -167,65 +164,6 @@ class UserService {
    */
   async countAdmins() {
     return await userRepository.countByRole(1);
-  }
-
-  /**
-   * Handle Google OAuth user
-   * Fetches user info from Google and handles authentication
-   */
-  async handleGoogleAuth(accessToken) {
-    // Fetch user info from Google
-    const googleResponse = await fetch(
-      `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${accessToken}`,
-    );
-
-    if (!googleResponse.ok) {
-      throw new AppError("Failed to fetch user info from Google", 400);
-    }
-
-    const googleUser = await googleResponse.json();
-
-    if (!googleUser.id) {
-      throw new AppError("Invalid access token", 400);
-    }
-
-    // Check if user exists by Google ID
-    let user = await userRepository.findByGoogleId(googleUser.id);
-
-    if (user) {
-      // User exists, generate token
-      const token = this.generateToken(user._id);
-      user.password = undefined;
-      return { user, token };
-    }
-
-    // Check if user exists with same email
-    user = await userRepository.findByEmail(googleUser.email);
-
-    if (user) {
-      // Link Google account to existing user
-      await userRepository.updateById(user._id, {
-        googleId: googleUser.id,
-        avatar: googleUser.picture,
-      });
-      const updatedUser = await userRepository.findById(user._id);
-      const token = this.generateToken(updatedUser._id);
-      updatedUser.password = undefined;
-      return { user: updatedUser, token };
-    }
-
-    // Create new user
-    user = await userRepository.create({
-      googleId: googleUser.id,
-      name: googleUser.name,
-      email: googleUser.email,
-      avatar: googleUser.picture,
-    });
-
-    const token = this.generateToken(user._id);
-    user.password = undefined;
-
-    return { user, token };
   }
 
   /**

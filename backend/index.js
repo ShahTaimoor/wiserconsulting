@@ -2,16 +2,12 @@
 const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
-const session = require("express-session");
-const passport = require("passport");
 const cookieParser = require("cookie-parser");
 const path = require("path");
 require("dotenv").config();
-require("./config/passport");
 
 const connectDB = require("./config/db");
 const userRoutes = require("./routes/userRoutes");
-const authRoutes = require("./routes/authRoutes");
 const assessmentRoutes = require("./routes/assessmentRoutes");
 const formSubmissionRoutes = require("./routes/formSubmissionRoutes");
 const contactRoutes = require("./routes/contactRoutes");
@@ -22,7 +18,6 @@ const approvedVisaRoutes = require("./routes/approvedVisaRoutes");
 const testimonialRoutes = require("./routes/testimonialRoutes");
 const {
   apiLimiter,
-  authLimiter,
   uploadLimiter,
 } = require("./middleware/rateLimiter");
 const sanitize = require("./middleware/sanitize");
@@ -72,29 +67,10 @@ app.use(sanitize);
 // Rate limiting
 app.use("/api", apiLimiter);
 
-// Session middleware
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "your-secret-key",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === "production",
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000,
-    },
-  }),
-);
-
-// Initialize passport
-app.use(passport.initialize());
-app.use(passport.session());
-
 // Serve static files from uploads directory
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // API Routes with rate limiting
-app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api", userRoutes);
 app.use("/api", assessmentRoutes);
 app.use("/api", formSubmissionRoutes);

@@ -44,16 +44,9 @@ const updateUserRoleSchema = z.object({
   })
 });
 
-const googleTokenSchema = z.object({
-  body: z.strictObject({
-    access_token: z.string().min(1, 'Access token is required')
-  })
-});
-
 module.exports = {
   signupSchema,
   loginSchema,
   updateProfileSchema,
-  updateUserRoleSchema,
-  googleTokenSchema
+  updateUserRoleSchema
 };

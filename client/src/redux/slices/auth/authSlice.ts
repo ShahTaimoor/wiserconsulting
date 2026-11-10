@@ -1,6 +1,6 @@
 // src/features/auth/authSlice.ts
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { loginUser, registerUser, googleLogin, LoginResponse, RegisterResponse, GoogleLoginResponse, User } from "./authService";
+import { loginUser, registerUser, LoginResponse, RegisterResponse, User } from "./authService";
 
 interface AuthState {
   user: User | null;
@@ -39,18 +39,6 @@ export const register = createAsyncThunk<RegisterResponse, { name: string; email
       return await registerUser(name, email, password);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-      return thunkAPI.rejectWithValue(errorMessage);
-    }
-  }
-);
-
-export const googleAuth = createAsyncThunk<GoogleLoginResponse, string, { rejectValue: string }>(
-  "auth/google",
-  async (accessToken, thunkAPI) => {
-    try {
-      return await googleLogin(accessToken);
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Google authentication failed';
       return thunkAPI.rejectWithValue(errorMessage);
     }
   }
@@ -111,23 +99,6 @@ const authSlice = createSlice({
       .addCase(register.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || "Registration failed";
-      });
-
-    // Google Auth
-    builder
-      .addCase(googleAuth.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-        state.success = null;
-      })
-      .addCase(googleAuth.fulfilled, (state, action) => {
-        state.loading = false;
-        state.user = action.payload.user || null;
-        state.success = "Google login successful!";
-      })
-      .addCase(googleAuth.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload || "Google authentication failed";
       });
   },
 });
