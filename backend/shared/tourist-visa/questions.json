@@ -1,0 +1,2511 @@
+{
+  "version": "1.1.0",
+  "limits": {
+    "txtMax": 200,
+    "lngMax": 5000,
+    "groupMax": 20,
+    "note": "Text answers: up to 200 characters for a short answer, up to 5,000 for a long one, and up to 20 entries in a repeating group. Documents: PDF, JPG or PNG, up to 4 MB per file and 40 MB in all; the passport up to 3 files and the evidence of funds up to 10. The values that are enforced for documents are in backend/config/touristVisaDocuments.js."
+  },
+  "parts": [
+    { "id": "1", "title": "Travel information" },
+    { "id": "2", "title": "Personal information" },
+    { "id": "3", "title": "Passport details" },
+    { "id": "4", "title": "Family" },
+    { "id": "5", "title": "Employment" },
+    { "id": "6", "title": "Money, family in the UK and accommodation" },
+    { "id": "7", "title": "Travel history (UK)" },
+    { "id": "8", "title": "Travel history (other countries)" },
+    { "id": "9", "title": "Other history" },
+    { "id": "10", "title": "Penalties and closing questions" }
+  ],
+  "sections": [
+    { "id": "1", "part": "1", "title": "Travel information" },
+    { "id": "2A", "part": "2", "title": "Name, email and contact preferences" },
+    { "id": "2B", "part": "2", "title": "Identity and background" },
+    { "id": "2C", "part": "2", "title": "Address and living situation" },
+    { "id": "2D", "part": "2", "title": "Telephone" },
+    { "id": "3", "part": "3", "title": "Passport details" },
+    { "id": "4A", "part": "4", "title": "Spouse or partner details" },
+    { "id": "4B", "part": "4", "title": "Dependants" },
+    { "id": "4C", "part": "4", "title": "Parent details" },
+    { "id": "5", "part": "5", "title": "Employment" },
+    { "id": "6A", "part": "6", "title": "Income and expenditure" },
+    { "id": "6B", "part": "6", "title": "Family in the UK" },
+    { "id": "6C", "part": "6", "title": "Accommodation details" },
+    { "id": "6D", "part": "6", "title": "Public funds" },
+    { "id": "7", "part": "7", "title": "Travel history (UK)" },
+    { "id": "8", "part": "8", "title": "Travel history (other countries)" },
+    { "id": "9A", "part": "9", "title": "Espionage, sabotage and war crimes" },
+    { "id": "9B", "part": "9", "title": "Terrorism and extremism" },
+    { "id": "9C", "part": "9", "title": "Other conduct and character" },
+    { "id": "10A", "part": "10", "title": "Convictions and other penalties" },
+    { "id": "10B", "part": "10", "title": "Extra information" },
+    { "id": "10C", "part": "10", "title": "Language and National Insurance number" },
+    { "id": "10D", "part": "10", "title": "Documents" }
+  ],
+  "declarations": {
+    "submit": {
+      "text": "I declare that the information I have given in this application is complete and true to the best of my knowledge. I understand that giving false or incomplete information may lead to my application being refused. I agree that Wiser Consulting may call me on the telephone number I gave, to check my answers."
+    }
+  },
+  "afterSubmit": {
+    "steps": [
+      "Our team will review your application.",
+      "We may call you on the telephone number you gave, to check your answers with you.",
+      "Keep your reference number. You can quote it if you contact us.",
+      "Your application can no longer be changed. If something needs correcting, tell us when we call or contact us."
+    ]
+  },
+  "groups": [
+    {
+      "id": "otherNames",
+      "section": "2A",
+      "entryLabel": "Other name",
+      "gate": "q2_3",
+      "max": 10,
+      "questions": ["q2_3a", "q2_3b", "q2_3c"]
+    },
+    {
+      "id": "dependants",
+      "section": "4B",
+      "entryLabel": "Dependant",
+      "gate": "q4_7",
+      "max": 20,
+      "questions": ["q4_7a", "q4_7b", "q4_7c", "q4_7d", "q4_7e", "q4_7f"]
+    },
+    {
+      "id": "parents",
+      "section": "4C",
+      "entryLabel": "Parent",
+      "gate": "q4_8",
+      "min": 1,
+      "max": 4,
+      "questions": ["q4_8a", "q4_8b", "q4_8c", "q4_8d", "q4_8e", "q4_8f", "q4_8h", "q4_8i"]
+    },
+    {
+      "id": "accommodation",
+      "section": "6C",
+      "entryLabel": "Place of stay",
+      "gate": "q6_7",
+      "max": 20,
+      "questions": ["q6_7a", "q6_7b", "q6_7c", "q6_7d"],
+      "noOverlap": { "start": "q6_7c", "end": "q6_7d" }
+    },
+    {
+      "id": "companions",
+      "section": "1",
+      "entryLabel": "Travelling companion",
+      "gate": "q1_3",
+      "max": 10,
+      "questions": ["q1_3a", "q1_3b", "q1_3c", "q1_3d", "q1_3e"]
+    },
+    {
+      "id": "otherNationalities",
+      "section": "2B",
+      "entryLabel": "Other nationality",
+      "gate": "q2_23",
+      "max": 5,
+      "questions": ["q2_23b", "q2_23c", "q2_23d", "q2_23e"]
+    },
+    {
+      "id": "medicalTreatments",
+      "section": "2C",
+      "entryLabel": "Treatment",
+      "gate": "q2_31",
+      "max": 5,
+      "questions": ["q2_31a", "q2_31b", "q2_31c", "q2_31d", "q2_31e"]
+    },
+    {
+      "id": "payers",
+      "section": "6A",
+      "entryLabel": "Payer",
+      "gate": "q6_5",
+      "max": 5,
+      "questions": ["q6_5b", "q6_5c", "q6_5d", "q6_5e", "q6_5f", "q6_5g"]
+    },
+    {
+      "id": "ukFamily",
+      "section": "6B",
+      "entryLabel": "Relative",
+      "gate": "q6_6",
+      "max": 10,
+      "questions": ["q6_6b", "q6_6c", "q6_6d", "q6_6e", "q6_6f", "q6_6g"]
+    },
+    {
+      "id": "publicFunds",
+      "section": "6D",
+      "entryLabel": "Public funds",
+      "gate": "q6_8",
+      "max": 5,
+      "questions": ["q6_8b", "q6_8c", "q6_8d", "q6_8e"]
+    },
+    {
+      "id": "ukVisas",
+      "section": "7",
+      "entryLabel": "Visa",
+      "gate": "q7_1",
+      "max": 10,
+      "questions": ["q7_2a", "q7_2b", "q7_2c"]
+    },
+    {
+      "id": "ukLeaveApplications",
+      "section": "7",
+      "entryLabel": "Application",
+      "gate": "q7_3",
+      "max": 5,
+      "questions": ["q7_3b", "q7_3c", "q7_3d", "q7_3e", "q7_3f"]
+    },
+    {
+      "id": "ukVisits",
+      "section": "7",
+      "entryLabel": "Visit",
+      "gate": "q7_4",
+      "count": "q7_5",
+      "max": 20,
+      "questions": ["q7_5a", "q7_5b", "q7_5c"]
+    },
+    {
+      "id": "breaches",
+      "section": "7",
+      "entryLabel": "Breach",
+      "gate": "q7_6",
+      "max": 5,
+      "questions": ["q7_6b", "q7_6c", "q7_6d"]
+    },
+    {
+      "id": "immigrationProblems",
+      "section": "7",
+      "entryLabel": "Immigration problem",
+      "gate": "q7_7",
+      "max": 20,
+      "questions": ["q7_7a", "q7_7b", "q7_7c", "q7_7d"]
+    },
+    {
+      "id": "otherCountryTrips",
+      "section": "8",
+      "entryLabel": "Trip",
+      "gate": "q8_2",
+      "max": 20,
+      "questions": ["q8_2a", "q8_2b", "q8_2c", "q8_2d"]
+    }
+  ],
+  "questions": [
+    {
+      "id": "q1_1",
+      "number": "1.1",
+      "section": "1",
+      "label": "What is the main reason for your visit to the UK?",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "tourism", "label": "Tourism or holiday" },
+        { "value": "family_friends", "label": "Visiting family or friends" },
+        { "value": "business", "label": "Business" },
+        { "value": "study", "label": "Short course of study" },
+        { "value": "medical", "label": "Medical treatment" },
+        { "value": "transit", "label": "Passing through the UK on the way to another country" },
+        { "value": "other", "label": "Another reason" }
+      ]
+    },
+    {
+      "id": "q1_2",
+      "number": "1.2",
+      "section": "1",
+      "label": "Will you be travelling to the UK as part of an organised group?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q1_2a",
+      "number": "1.2a",
+      "section": "1",
+      "label": "Name of the group or organiser",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q1_2", "eq": true }
+    },
+    {
+      "id": "q1_2b",
+      "number": "1.2b",
+      "section": "1",
+      "label": "What kind of group is it?",
+      "type": "SEL",
+      "required": false,
+      "options": [
+        { "value": "tour", "label": "Tour group" },
+        { "value": "school_college", "label": "School or college" },
+        { "value": "religious", "label": "Religious group" },
+        { "value": "sports_cultural", "label": "Sports or cultural group" },
+        { "value": "business", "label": "Business or professional group" },
+        { "value": "other", "label": "Another kind of group" }
+      ],
+      "showWhen": { "q": "q1_2", "eq": true }
+    },
+    {
+      "id": "q1_3",
+      "number": "1.3",
+      "section": "1",
+      "label": "Will you be travelling to the UK with someone who is not your partner, spouse or dependant?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q1_3a",
+      "number": "1.3a",
+      "section": "1",
+      "label": "What is your relationship to this person?",
+      "type": "SEL",
+      "required": true,
+      "group": "companions",
+      "options": [
+        { "value": "friend", "label": "Friend" },
+        { "value": "family_member", "label": "Family member" },
+        { "value": "colleague", "label": "Colleague or business associate" },
+        { "value": "other", "label": "Other" }
+      ]
+    },
+    {
+      "id": "q1_3b",
+      "number": "1.3b",
+      "section": "1",
+      "label": "Given names",
+      "type": "TXT",
+      "required": true,
+      "group": "companions"
+    },
+    {
+      "id": "q1_3c",
+      "number": "1.3c",
+      "section": "1",
+      "label": "Family name",
+      "type": "TXT",
+      "required": true,
+      "group": "companions"
+    },
+    {
+      "id": "q1_3d",
+      "number": "1.3d",
+      "section": "1",
+      "label": "Date of birth",
+      "type": "DATE",
+      "required": false,
+      "group": "companions",
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q1_3e",
+      "number": "1.3e",
+      "section": "1",
+      "label": "Country of nationality",
+      "type": "CTRY",
+      "required": false,
+      "group": "companions"
+    },
+    {
+      "id": "q1_4",
+      "number": "1.4",
+      "section": "1",
+      "label": "What is the main reason for your holiday visit to the UK?",
+      "type": "SEL",
+      "required": true,
+      "showWhen": { "q": "q1_1", "eq": "tourism" },
+      "options": [
+        { "value": "holiday", "label": "Holiday or sightseeing" },
+        { "value": "event", "label": "Attending an event, for example a concert, festival or sports match" },
+        { "value": "shopping", "label": "A shopping trip" },
+        { "value": "cruise", "label": "Joining or leaving a cruise" },
+        { "value": "other", "label": "Another leisure reason" }
+      ]
+    },
+    {
+      "id": "q1_5",
+      "number": "1.5",
+      "section": "1",
+      "label": "Give details of the main purpose of your visit and anything else you plan to do on your trip.",
+      "type": "LNG",
+      "required": true,
+      "note": "The printout links this question to the tourist and short stays guidance."
+    },
+    {
+      "id": "q1_6",
+      "number": "1.6",
+      "section": "1",
+      "label": "Date you plan to arrive in the UK",
+      "type": "DATE",
+      "required": true
+    },
+    {
+      "id": "q1_7",
+      "number": "1.7",
+      "section": "1",
+      "label": "Date you plan to leave the UK",
+      "type": "DATE",
+      "required": true,
+      "rules": { "after": "q1_6" }
+    },
+
+    {
+      "id": "q2_1",
+      "number": "2.1",
+      "section": "2A",
+      "label": "Given name(s)",
+      "type": "TXT",
+      "required": true
+    },
+    {
+      "id": "q2_2",
+      "number": "2.2",
+      "section": "2A",
+      "label": "Family name",
+      "type": "TXT",
+      "required": true
+    },
+    {
+      "id": "q2_3",
+      "number": "2.3",
+      "section": "2A",
+      "label": "Are you now or have you ever been known by another name?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q2_3a",
+      "number": "2.3a",
+      "section": "2A",
+      "label": "Given name(s)",
+      "type": "TXT",
+      "required": true,
+      "group": "otherNames"
+    },
+    {
+      "id": "q2_3b",
+      "number": "2.3b",
+      "section": "2A",
+      "label": "Family name",
+      "type": "TXT",
+      "required": true,
+      "group": "otherNames"
+    },
+    {
+      "id": "q2_3c",
+      "number": "2.3c",
+      "section": "2A",
+      "label": "Why did you use this name?",
+      "type": "SEL",
+      "required": false,
+      "group": "otherNames",
+      "options": [
+        { "value": "maiden_name", "label": "Maiden name" },
+        { "value": "married_name", "label": "Married name" },
+        { "value": "deed_poll", "label": "Changed by deed poll" },
+        { "value": "nickname", "label": "Nickname or a name I am known by" },
+        { "value": "other", "label": "Another reason" }
+      ]
+    },
+    {
+      "id": "q2_4",
+      "number": "2.4",
+      "section": "2A",
+      "label": "Email address",
+      "type": "EML",
+      "required": true,
+      "prefill": "account.email",
+      "note": "Proposed: pre-filled from the account email, editable."
+    },
+    {
+      "id": "q2_5",
+      "number": "2.5",
+      "section": "2A",
+      "label": "Who does this email address belong to?",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "me", "label": "Me" },
+        { "value": "family_or_friend", "label": "A family member or friend" },
+        { "value": "representative", "label": "A representative or agent helping me apply" },
+        { "value": "other", "label": "Someone else" }
+      ]
+    },
+    {
+      "id": "q2_6",
+      "number": "2.6",
+      "section": "2A",
+      "label": "Do you have another email address?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q2_7",
+      "number": "2.7",
+      "section": "2A",
+      "label": "Additional email address",
+      "type": "EML",
+      "required": true,
+      "showWhen": { "q": "q2_6", "eq": true }
+    },
+    {
+      "id": "q2_8",
+      "number": "2.8",
+      "section": "2A",
+      "label": "Who does this email address belong to?",
+      "type": "SEL",
+      "required": true,
+      "showWhen": { "q": "q2_6", "eq": true },
+      "options": [
+        { "value": "me", "label": "Me" },
+        { "value": "family_or_friend", "label": "A family member or friend" },
+        { "value": "representative", "label": "A representative or agent helping me apply" },
+        { "value": "other", "label": "Someone else" }
+      ]
+    },
+    {
+      "id": "q2_9",
+      "number": "2.9",
+      "section": "2A",
+      "label": "Which email address should we use to contact you with any questions about your application?",
+      "type": "SEL",
+      "required": true,
+      "options": { "from": "answers", "questions": ["q2_4", "q2_7"] }
+    },
+    {
+      "id": "q2_10",
+      "number": "2.10",
+      "section": "2A",
+      "label": "Which email address should we use to send a decision on your application?",
+      "type": "SEL",
+      "required": true,
+      "options": { "from": "answers", "questions": ["q2_4", "q2_7"] }
+    },
+    {
+      "id": "q2_11",
+      "number": "2.11",
+      "section": "2A",
+      "label": "Which email address should we use to communicate with you after your application has been decided?",
+      "type": "SEL",
+      "required": true,
+      "options": { "from": "answers", "questions": ["q2_4", "q2_7"] }
+    },
+
+    {
+      "id": "q2_12",
+      "number": "2.12",
+      "section": "2B",
+      "label": "What is your sex, as shown in your passport or travel document?",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "female", "label": "Female" },
+        { "value": "male", "label": "Male" },
+        { "value": "other", "label": "Another term shown in my passport, for example X" }
+      ]
+    },
+    {
+      "id": "q2_13",
+      "number": "2.13",
+      "section": "2B",
+      "label": "What is your relationship status?",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "single", "label": "Single" },
+        { "value": "married", "label": "Married" },
+        { "value": "civil_partnership", "label": "In a civil partnership" },
+        { "value": "unmarried_partner", "label": "Unmarried partner" },
+        { "value": "separated", "label": "Separated" },
+        { "value": "divorced", "label": "Divorced or civil partnership dissolved" },
+        { "value": "widowed", "label": "Widowed" }
+      ],
+      "note": "The answer decides whether the spouse or partner questions in Part 4 appear."
+    },
+    {
+      "id": "q2_14",
+      "number": "2.14",
+      "section": "2B",
+      "label": "Country of nationality",
+      "type": "CTRY",
+      "required": true
+    },
+    {
+      "id": "q2_15",
+      "number": "2.15",
+      "section": "2B",
+      "label": "Country of birth",
+      "type": "CTRY",
+      "required": true
+    },
+    {
+      "id": "q2_16",
+      "number": "2.16",
+      "section": "2B",
+      "label": "Place of birth",
+      "type": "TXT",
+      "required": true
+    },
+    {
+      "id": "q2_17",
+      "number": "2.17",
+      "section": "2B",
+      "label": "Date of birth",
+      "type": "DATE",
+      "required": true,
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q2_18",
+      "number": "2.18",
+      "section": "2B",
+      "label": "Do you have a valid national identity card?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q2_19",
+      "number": "2.19",
+      "section": "2B",
+      "label": "National identity card number",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q2_18", "eq": true },
+      "sensitive": true
+    },
+    {
+      "id": "q2_20",
+      "number": "2.20",
+      "section": "2B",
+      "label": "Issuing authority",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q2_18", "eq": true }
+    },
+    {
+      "id": "q2_21",
+      "number": "2.21",
+      "section": "2B",
+      "label": "Issue date (if applicable)",
+      "type": "DATE",
+      "required": false,
+      "showWhen": { "q": "q2_18", "eq": true },
+      "rules": { "notFuture": true },
+      "note": "Optional because the label says (if applicable). The spec lists it as C (required when 2.18 is Yes); changed on request."
+    },
+    {
+      "id": "q2_22",
+      "number": "2.22",
+      "section": "2B",
+      "label": "Expiry date (if applicable)",
+      "type": "DATE",
+      "required": false,
+      "showWhen": { "q": "q2_18", "eq": true },
+      "rules": { "after": "q2_21" },
+      "note": "Optional because the label says (if applicable). The after rule runs only when both 2.21 and 2.22 are filled in."
+    },
+    {
+      "id": "q2_23",
+      "number": "2.23",
+      "section": "2B",
+      "label": "Do you currently hold, or have you ever held, any other nationality or citizenship?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q2_23b",
+      "number": "2.23b",
+      "section": "2B",
+      "label": "Country of nationality or citizenship",
+      "type": "CTRY",
+      "required": true,
+      "group": "otherNationalities"
+    },
+    {
+      "id": "q2_23c",
+      "number": "2.23c",
+      "section": "2B",
+      "label": "How did you acquire it?",
+      "type": "SEL",
+      "required": true,
+      "group": "otherNationalities",
+      "options": [
+        { "value": "birth", "label": "By birth" },
+        { "value": "descent", "label": "Through a parent or grandparent (descent)" },
+        { "value": "marriage_or_partnership", "label": "Through marriage or a partnership" },
+        { "value": "naturalisation", "label": "By naturalisation or registration" },
+        { "value": "other", "label": "Another way" }
+      ]
+    },
+    {
+      "id": "q2_23d",
+      "number": "2.23d",
+      "section": "2B",
+      "label": "Do you currently hold it?",
+      "type": "YN",
+      "required": true,
+      "group": "otherNationalities"
+    },
+    {
+      "id": "q2_23e",
+      "number": "2.23e",
+      "section": "2B",
+      "label": "When did you stop holding it?",
+      "type": "MY",
+      "required": false,
+      "group": "otherNationalities",
+      "showWhen": { "q": "q2_23d", "eq": false },
+      "rules": { "notFuture": true }
+    },
+
+    {
+      "id": "q2_24",
+      "number": "2.24",
+      "section": "2C",
+      "label": "Address",
+      "type": "ADDR",
+      "required": true
+    },
+    {
+      "id": "q2_25",
+      "number": "2.25",
+      "section": "2C",
+      "label": "Is this address also your correspondence address?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q2_26",
+      "number": "2.26",
+      "section": "2C",
+      "label": "Address (correspondence)",
+      "type": "ADDR",
+      "required": true,
+      "showWhen": { "q": "q2_25", "eq": false },
+      "note": "The printout shows this block even when 2.25 is Yes, as a copy of 2.24. Proposed: ask only when 2.25 is No, and copy 2.24 into the record when Yes."
+    },
+    {
+      "id": "q2_27",
+      "number": "2.27",
+      "section": "2C",
+      "label": "How long have you lived at this address?",
+      "type": "DUR",
+      "required": true,
+      "rules": { "units": ["years", "months"], "durationMode": "parts" },
+      "note": "Read as two boxes, years and months. The spec only says years and months."
+    },
+    {
+      "id": "q2_28",
+      "number": "2.28",
+      "section": "2C",
+      "label": "What is the ownership status of your home?",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "owned", "label": "I own my home" },
+        { "value": "rented", "label": "I rent my home" },
+        { "value": "with_family_or_friends", "label": "I live with family or friends" },
+        { "value": "employer_provided", "label": "My employer provides my home" },
+        { "value": "other", "label": "Other" }
+      ]
+    },
+    {
+      "id": "q2_29",
+      "number": "2.29",
+      "section": "2C",
+      "label": "Give more details about your living situation, such as who you live with and who owns the property",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q2_28", "in": ["with_family_or_friends", "employer_provided", "other"] }
+    },
+    {
+      "id": "q2_30",
+      "number": "2.30",
+      "section": "2C",
+      "label": "Do you have a UK driving licence?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q2_30a",
+      "number": "2.30a",
+      "section": "2C",
+      "label": "UK driving licence number",
+      "type": "TXT",
+      "required": false,
+      "showWhen": { "q": "q2_30", "eq": true },
+      "rules": { "maxLen": 30 },
+      "sensitive": true
+    },
+    {
+      "id": "q2_31",
+      "number": "2.31",
+      "section": "2C",
+      "label": "Have you ever been given medical treatment in the UK?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q2_31a",
+      "number": "2.31a",
+      "section": "2C",
+      "label": "When did you receive the treatment?",
+      "type": "MY",
+      "required": true,
+      "group": "medicalTreatments",
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q2_31b",
+      "number": "2.31b",
+      "section": "2C",
+      "label": "What treatment did you receive?",
+      "type": "LNG",
+      "required": true,
+      "group": "medicalTreatments",
+      "rules": { "maxLen": 500 },
+      "sensitive": true
+    },
+    {
+      "id": "q2_31c",
+      "number": "2.31c",
+      "section": "2C",
+      "label": "Where did you receive it (hospital or clinic)?",
+      "type": "TXT",
+      "required": false,
+      "group": "medicalTreatments"
+    },
+    {
+      "id": "q2_31d",
+      "number": "2.31d",
+      "section": "2C",
+      "label": "Were the costs paid in full?",
+      "type": "YN",
+      "required": true,
+      "group": "medicalTreatments"
+    },
+    {
+      "id": "q2_31e",
+      "number": "2.31e",
+      "section": "2C",
+      "label": "How much is still owing?",
+      "type": "AMT",
+      "currencyHelper": true,
+      "required": false,
+      "group": "medicalTreatments",
+      "showWhen": { "q": "q2_31d", "eq": false },
+      "rules": { "max": 100000 }
+    },
+
+    {
+      "id": "q2_32",
+      "number": "2.32",
+      "section": "2D",
+      "label": "Provide your telephone number",
+      "type": "TEL",
+      "required": true
+    },
+    {
+      "id": "q2_33",
+      "number": "2.33",
+      "section": "2D",
+      "label": "Where do you use this telephone number?",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "in_home_country", "label": "In my home country" },
+        { "value": "in_uk", "label": "In the UK" },
+        { "value": "in_other_country", "label": "In another country" }
+      ]
+    },
+    {
+      "id": "q2_34",
+      "number": "2.34",
+      "section": "2D",
+      "label": "Select whether this is your home, mobile or work telephone number",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "home", "label": "Home" },
+        { "value": "mobile", "label": "Mobile" },
+        { "value": "work", "label": "Work" }
+      ]
+    },
+    {
+      "id": "q2_35",
+      "number": "2.35",
+      "section": "2D",
+      "label": "Are you able to be contacted by telephone?",
+      "type": "CHK",
+      "required": true,
+      "options": [
+        { "value": "call", "label": "Telephone call" },
+        { "value": "sms", "label": "Text message (SMS)" },
+        { "value": "messaging_app", "label": "Messaging app, for example WhatsApp" }
+      ]
+    },
+
+    {
+      "id": "q3_1",
+      "number": "3.1",
+      "section": "3",
+      "label": "Passport number or travel document reference number",
+      "type": "TXT",
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "id": "q3_2",
+      "number": "3.2",
+      "section": "3",
+      "label": "Issuing authority",
+      "type": "TXT",
+      "required": true
+    },
+    {
+      "id": "q3_3",
+      "number": "3.3",
+      "section": "3",
+      "label": "Issue date",
+      "type": "DATE",
+      "required": true,
+      "rules": { "notFuture": true },
+      "note": "notFuture is a sanity rule added by us, in line with the other issue dates (2.21). The spec does not list it."
+    },
+    {
+      "id": "q3_4",
+      "number": "3.4",
+      "section": "3",
+      "label": "Expiry date",
+      "type": "DATE",
+      "required": true,
+      "rules": { "after": ["q3_3", "q1_7"] },
+      "note": "After the issue date (3.3) and after the planned leave date in section 1 (1.7). The leave-date check is skipped until section 1 has an answer."
+    },
+
+    {
+      "id": "q4_1",
+      "number": "4.1",
+      "section": "4A",
+      "label": "Given names",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q2_13", "in": ["married", "civil_partnership", "unmarried_partner"] }
+    },
+    {
+      "id": "q4_2",
+      "number": "4.2",
+      "section": "4A",
+      "label": "Family name",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q2_13", "in": ["married", "civil_partnership", "unmarried_partner"] }
+    },
+    {
+      "id": "q4_3",
+      "number": "4.3",
+      "section": "4A",
+      "label": "Date of birth",
+      "type": "DATE",
+      "required": true,
+      "showWhen": { "q": "q2_13", "in": ["married", "civil_partnership", "unmarried_partner"] },
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q4_4",
+      "number": "4.4",
+      "section": "4A",
+      "label": "Country of nationality",
+      "type": "CTRY",
+      "required": true,
+      "showWhen": { "q": "q2_13", "in": ["married", "civil_partnership", "unmarried_partner"] }
+    },
+    {
+      "id": "q4_5",
+      "number": "4.5",
+      "section": "4A",
+      "label": "Do they currently live with you?",
+      "type": "YN",
+      "required": true,
+      "showWhen": { "q": "q2_13", "in": ["married", "civil_partnership", "unmarried_partner"] }
+    },
+    {
+      "id": "q4_6",
+      "number": "4.6",
+      "section": "4A",
+      "label": "Will they be travelling with you to the UK?",
+      "type": "YN",
+      "required": true,
+      "showWhen": { "q": "q2_13", "in": ["married", "civil_partnership", "unmarried_partner"] }
+    },
+
+    {
+      "id": "q4_7",
+      "number": "4.7",
+      "section": "4B",
+      "label": "Does anyone rely on you for financial support? Include both those travelling with you and those who are not.",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q4_7a",
+      "number": "4.7a",
+      "section": "4B",
+      "label": "What is this person's relationship to you?",
+      "type": "SEL",
+      "required": true,
+      "group": "dependants",
+      "options": [
+        { "value": "son", "label": "Son" },
+        { "value": "daughter", "label": "Daughter" },
+        { "value": "stepchild", "label": "Stepchild" },
+        { "value": "grandchild", "label": "Grandchild" },
+        { "value": "parent", "label": "Parent" },
+        { "value": "sibling", "label": "Brother or sister" },
+        { "value": "other_relative", "label": "Other relative" },
+        { "value": "other", "label": "Someone else who depends on me" }
+      ]
+    },
+    {
+      "id": "q4_7b",
+      "number": "4.7b",
+      "section": "4B",
+      "label": "Given names",
+      "type": "TXT",
+      "required": true,
+      "group": "dependants"
+    },
+    {
+      "id": "q4_7c",
+      "number": "4.7c",
+      "section": "4B",
+      "label": "Family name",
+      "type": "TXT",
+      "required": true,
+      "group": "dependants"
+    },
+    {
+      "id": "q4_7d",
+      "number": "4.7d",
+      "section": "4B",
+      "label": "Date of birth",
+      "type": "DATE",
+      "required": true,
+      "group": "dependants",
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q4_7e",
+      "number": "4.7e",
+      "section": "4B",
+      "label": "Does this person currently live with you?",
+      "type": "YN",
+      "required": true,
+      "group": "dependants"
+    },
+    {
+      "id": "q4_7f",
+      "number": "4.7f",
+      "section": "4B",
+      "label": "Is this person travelling with you to the UK?",
+      "type": "YN",
+      "required": true,
+      "group": "dependants"
+    },
+
+    {
+      "id": "q4_8",
+      "number": "4.8",
+      "section": "4C",
+      "label": "Are you able to give details of your parents?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q4_8g",
+      "number": "4.8g",
+      "section": "4C",
+      "label": "Why can't you give their details?",
+      "type": "TXT",
+      "required": false,
+      "showWhen": { "q": "q4_8", "eq": false }
+    },
+    {
+      "id": "q4_8a",
+      "number": "4.8a",
+      "section": "4C",
+      "label": "What is this person's relationship to you?",
+      "type": "SEL",
+      "required": true,
+      "group": "parents",
+      "options": [
+        { "value": "mother", "label": "Mother" },
+        { "value": "father", "label": "Father" },
+        { "value": "stepmother", "label": "Stepmother" },
+        { "value": "stepfather", "label": "Stepfather" },
+        { "value": "guardian", "label": "Legal guardian" }
+      ]
+    },
+    {
+      "id": "q4_8b",
+      "number": "4.8b",
+      "section": "4C",
+      "label": "Given names",
+      "type": "TXT",
+      "required": true,
+      "group": "parents"
+    },
+    {
+      "id": "q4_8c",
+      "number": "4.8c",
+      "section": "4C",
+      "label": "Family name",
+      "type": "TXT",
+      "required": true,
+      "group": "parents"
+    },
+    {
+      "id": "q4_8d",
+      "number": "4.8d",
+      "section": "4C",
+      "label": "Date of birth",
+      "type": "DATE",
+      "required": true,
+      "group": "parents",
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q4_8e",
+      "number": "4.8e",
+      "section": "4C",
+      "label": "Country of nationality",
+      "type": "CTRY",
+      "required": true,
+      "group": "parents"
+    },
+    {
+      "id": "q4_8f",
+      "number": "4.8f",
+      "section": "4C",
+      "label": "Have they always had the same nationality?",
+      "type": "YN",
+      "required": true,
+      "group": "parents"
+    },
+    {
+      "id": "q4_8h",
+      "number": "4.8h",
+      "section": "4C",
+      "label": "What was their previous nationality?",
+      "type": "CTRY",
+      "required": true,
+      "group": "parents",
+      "showWhen": { "q": "q4_8f", "eq": false }
+    },
+    {
+      "id": "q4_8i",
+      "number": "4.8i",
+      "section": "4C",
+      "label": "When did it change?",
+      "type": "MY",
+      "required": false,
+      "group": "parents",
+      "showWhen": { "q": "q4_8f", "eq": false },
+      "rules": { "notFuture": true }
+    },
+
+    {
+      "id": "q5_1",
+      "number": "5.1",
+      "section": "5",
+      "label": "What is your employment status?",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "employed", "label": "Employed" },
+        { "value": "self_employed", "label": "Self-employed" },
+        { "value": "retired", "label": "Retired" },
+        { "value": "student", "label": "Student" },
+        { "value": "homemaker", "label": "Homemaker (looking after the home or family)" },
+        { "value": "unemployed", "label": "Not working" },
+        { "value": "other", "label": "Other" }
+      ],
+      "note": "The answer decides which of 5.2 to 5.9 appear."
+    },
+    {
+      "id": "q5_1a",
+      "number": "5.1a",
+      "section": "5",
+      "label": "Business name",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "self_employed" }
+    },
+    {
+      "id": "q5_1b",
+      "number": "5.1b",
+      "section": "5",
+      "label": "When did you start this business?",
+      "type": "MY",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "self_employed" },
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q5_1c",
+      "number": "5.1c",
+      "section": "5",
+      "label": "Business address",
+      "type": "ADDR",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "self_employed" }
+    },
+    {
+      "id": "q5_1d",
+      "number": "5.1d",
+      "section": "5",
+      "label": "What does your business do?",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "self_employed" },
+      "rules": { "maxLen": 2000 }
+    },
+    {
+      "id": "q5_1e",
+      "number": "5.1e",
+      "section": "5",
+      "label": "How much do you earn each month from this business - after tax?",
+      "type": "AMT",
+      "currencyHelper": true,
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "self_employed" },
+      "rules": { "max": 1000000 }
+    },
+    {
+      "id": "q5_1f",
+      "number": "5.1f",
+      "section": "5",
+      "label": "Name of your school, college or university",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "student" }
+    },
+    {
+      "id": "q5_1g",
+      "number": "5.1g",
+      "section": "5",
+      "label": "Address of your school, college or university",
+      "type": "ADDR",
+      "required": false,
+      "showWhen": { "q": "q5_1", "eq": "student" }
+    },
+    {
+      "id": "q5_1h",
+      "number": "5.1h",
+      "section": "5",
+      "label": "What are you studying?",
+      "type": "TXT",
+      "required": false,
+      "showWhen": { "q": "q5_1", "eq": "student" }
+    },
+    {
+      "id": "q5_1i",
+      "number": "5.1i",
+      "section": "5",
+      "label": "When did you retire?",
+      "type": "MY",
+      "required": false,
+      "showWhen": { "q": "q5_1", "eq": "retired" },
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q5_1j",
+      "number": "5.1j",
+      "section": "5",
+      "label": "How much pension do you receive each month?",
+      "type": "AMT",
+      "currencyHelper": true,
+      "required": false,
+      "showWhen": { "q": "q5_1", "eq": "retired" },
+      "rules": { "max": 1000000 }
+    },
+    {
+      "id": "q5_1k",
+      "number": "5.1k",
+      "section": "5",
+      "label": "Who or what supports you financially?",
+      "type": "SEL",
+      "required": false,
+      "options": [
+        { "value": "spouse_partner", "label": "My spouse or partner" },
+        { "value": "parents_family", "label": "My parents or other family" },
+        { "value": "savings", "label": "My savings" },
+        { "value": "benefits_pension", "label": "Benefits or a pension" },
+        { "value": "other", "label": "Something else" }
+      ],
+      "showWhen": { "q": "q5_1", "in": ["homemaker", "unemployed", "other"] }
+    },
+    {
+      "id": "q5_1l",
+      "number": "5.1l",
+      "section": "5",
+      "label": "Please describe how you are supported financially",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q5_1k", "eq": "other" },
+      "rules": { "maxLen": 2000 }
+    },
+    {
+      "id": "q5_2",
+      "number": "5.2",
+      "section": "5",
+      "label": "Date you started working for this employer",
+      "type": "MY",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "employed" },
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q5_3",
+      "number": "5.3",
+      "section": "5",
+      "label": "Employer's name",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "employed" }
+    },
+    {
+      "id": "q5_4",
+      "number": "5.4",
+      "section": "5",
+      "label": "Employer's address",
+      "type": "ADDR",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "employed" }
+    },
+    {
+      "id": "q5_5",
+      "number": "5.5",
+      "section": "5",
+      "label": "Employer's telephone number",
+      "type": "TEL",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "employed" }
+    },
+    {
+      "id": "q5_6",
+      "number": "5.6",
+      "section": "5",
+      "label": "Your job title",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "employed" }
+    },
+    {
+      "id": "q5_7",
+      "number": "5.7",
+      "section": "5",
+      "label": "How much do you earn each month - after tax?",
+      "type": "AMT",
+      "currencyHelper": true,
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "employed" },
+      "rules": { "max": 1000000 }
+    },
+    {
+      "id": "q5_8",
+      "number": "5.8",
+      "section": "5",
+      "label": "Describe your job",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q5_1", "eq": "employed" }
+    },
+    {
+      "id": "q5_9",
+      "number": "5.9",
+      "section": "5",
+      "label": "Previous employment organisation",
+      "type": "TXT",
+      "required": false,
+      "showWhen": { "q": "q5_1", "eq": "employed" },
+      "help": "Leave this blank if you have no previous employment to list."
+    },
+
+    {
+      "id": "q6_1",
+      "number": "6.1",
+      "section": "6A",
+      "label": "Do you have another income or any savings?",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "savings", "label": "I have savings" },
+        { "value": "other_income", "label": "I have another income" },
+        { "value": "savings_and_income", "label": "I have savings and another income" },
+        { "value": "none", "label": "I have neither" }
+      ],
+      "note": "6.2 shows when the answer includes savings."
+    },
+    {
+      "id": "q6_1a",
+      "number": "6.1a",
+      "section": "6A",
+      "label": "How much other income do you receive each month?",
+      "type": "AMT",
+      "currencyHelper": true,
+      "required": false,
+      "showWhen": { "q": "q6_1", "in": ["other_income", "savings_and_income"] },
+      "rules": { "max": 1000000 }
+    },
+    {
+      "id": "q6_2",
+      "number": "6.2",
+      "section": "6A",
+      "label": "How much money do you have in savings?",
+      "type": "AMT",
+      "currencyHelper": true,
+      "required": true,
+      "showWhen": { "q": "q6_1", "in": ["savings", "savings_and_income"] },
+      "rules": { "max": 100000000 }
+    },
+    {
+      "id": "q6_3",
+      "number": "6.3",
+      "section": "6A",
+      "label": "How much money are you personally planning to spend on your visit to the UK?",
+      "type": "AMT",
+      "currencyHelper": true,
+      "required": true,
+      "rules": { "max": 1000000 }
+    },
+    {
+      "id": "q6_4",
+      "number": "6.4",
+      "section": "6A",
+      "label": "What is the total amount of money you spend each month?",
+      "type": "AMT",
+      "currencyHelper": true,
+      "required": true,
+      "rules": { "max": 1000000 }
+    },
+    {
+      "id": "q6_5",
+      "number": "6.5",
+      "section": "6A",
+      "label": "Will anyone be paying towards the cost of your visit?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q6_5b",
+      "number": "6.5b",
+      "section": "6A",
+      "label": "Who is paying?",
+      "type": "SEL",
+      "required": true,
+      "group": "payers",
+      "options": [
+        { "value": "relative", "label": "A relative" },
+        { "value": "friend", "label": "A friend" },
+        { "value": "employer", "label": "My employer" },
+        { "value": "sponsoring_organisation", "label": "A sponsoring organisation" },
+        { "value": "other", "label": "Someone else" }
+      ]
+    },
+    {
+      "id": "q6_5c",
+      "number": "6.5c",
+      "section": "6A",
+      "label": "Name of the person or organisation",
+      "type": "TXT",
+      "required": true,
+      "group": "payers"
+    },
+    {
+      "id": "q6_5d",
+      "number": "6.5d",
+      "section": "6A",
+      "label": "What is their relationship to you?",
+      "type": "SEL",
+      "required": true,
+      "group": "payers",
+      "options": [
+        { "value": "spouse_partner", "label": "Spouse or partner" },
+        { "value": "parent", "label": "Parent" },
+        { "value": "child", "label": "Child" },
+        { "value": "sibling", "label": "Brother or sister" },
+        { "value": "other_relative", "label": "Other relative" },
+        { "value": "friend", "label": "Friend" },
+        { "value": "employer", "label": "My employer or a business" },
+        { "value": "other", "label": "Other" }
+      ]
+    },
+    {
+      "id": "q6_5e",
+      "number": "6.5e",
+      "section": "6A",
+      "label": "Country where they live",
+      "type": "CTRY",
+      "required": true,
+      "group": "payers"
+    },
+    {
+      "id": "q6_5f",
+      "number": "6.5f",
+      "section": "6A",
+      "label": "How much will they pay?",
+      "type": "AMT",
+      "currencyHelper": true,
+      "required": false,
+      "group": "payers",
+      "rules": { "max": 1000000 }
+    },
+    {
+      "id": "q6_5g",
+      "number": "6.5g",
+      "section": "6A",
+      "label": "What will they pay for?",
+      "type": "CHK",
+      "required": false,
+      "group": "payers",
+      "options": [
+        { "value": "travel", "label": "Travel" },
+        { "value": "accommodation", "label": "Accommodation" },
+        { "value": "living_costs", "label": "Living costs" }
+      ]
+    },
+
+    {
+      "id": "q6_6",
+      "number": "6.6",
+      "section": "6B",
+      "label": "Do you have any family in the UK?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q6_6b",
+      "number": "6.6b",
+      "section": "6B",
+      "label": "What is their relationship to you?",
+      "type": "SEL",
+      "required": true,
+      "group": "ukFamily",
+      "options": [
+        { "value": "spouse_partner", "label": "Spouse or partner" },
+        { "value": "parent", "label": "Parent" },
+        { "value": "child", "label": "Child" },
+        { "value": "sibling", "label": "Brother or sister" },
+        { "value": "grandparent", "label": "Grandparent" },
+        { "value": "aunt_uncle", "label": "Aunt or uncle" },
+        { "value": "cousin", "label": "Cousin" },
+        { "value": "other", "label": "Other" }
+      ]
+    },
+    {
+      "id": "q6_6c",
+      "number": "6.6c",
+      "section": "6B",
+      "label": "Given names",
+      "type": "TXT",
+      "required": true,
+      "group": "ukFamily"
+    },
+    {
+      "id": "q6_6d",
+      "number": "6.6d",
+      "section": "6B",
+      "label": "Family name",
+      "type": "TXT",
+      "required": true,
+      "group": "ukFamily"
+    },
+    {
+      "id": "q6_6e",
+      "number": "6.6e",
+      "section": "6B",
+      "label": "Date of birth",
+      "type": "DATE",
+      "required": false,
+      "group": "ukFamily",
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q6_6f",
+      "number": "6.6f",
+      "section": "6B",
+      "label": "Country of nationality",
+      "type": "CTRY",
+      "required": true,
+      "group": "ukFamily"
+    },
+    {
+      "id": "q6_6g",
+      "number": "6.6g",
+      "section": "6B",
+      "label": "What is their immigration status in the UK?",
+      "type": "SEL",
+      "required": true,
+      "group": "ukFamily",
+      "options": [
+        { "value": "british_citizen", "label": "British citizen" },
+        { "value": "settled", "label": "Settled (indefinite leave to remain)" },
+        { "value": "pre_settled", "label": "Pre-settled status" },
+        { "value": "work", "label": "Work visa" },
+        { "value": "student", "label": "Student visa" },
+        { "value": "visitor", "label": "Visitor" },
+        { "value": "protection", "label": "Protection (refugee or humanitarian)" },
+        { "value": "other", "label": "Other" },
+        { "value": "dont_know", "label": "I don't know" }
+      ]
+    },
+
+    {
+      "id": "q6_7",
+      "number": "6.7",
+      "section": "6C",
+      "label": "Do you have an address for where you are going to stay in the UK?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q6_7x",
+      "number": "6.7x",
+      "section": "6C",
+      "label": "What are your plans for accommodation?",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "not_decided", "label": "I have not decided yet" },
+        { "value": "paid_stay", "label": "I will book a hotel or other paid stay" },
+        { "value": "family_friends", "label": "I will stay with family or friends" },
+        { "value": "address_unknown", "label": "I will stay somewhere, but I don't have the address yet" },
+        { "value": "other", "label": "Other" }
+      ],
+      "showWhen": { "q": "q6_7", "eq": false }
+    },
+    {
+      "id": "q6_7y",
+      "number": "6.7y",
+      "section": "6C",
+      "label": "Which area or city do you expect to stay in?",
+      "type": "TXT",
+      "required": false,
+      "showWhen": { "q": "q6_7", "eq": false }
+    },
+    {
+      "id": "q6_7a",
+      "number": "6.7a",
+      "section": "6C",
+      "label": "Where are you planning to stay in the UK?",
+      "type": "TXT",
+      "required": true,
+      "group": "accommodation"
+    },
+    {
+      "id": "q6_7b",
+      "number": "6.7b",
+      "section": "6C",
+      "label": "Enter the address for where you are staying",
+      "type": "ADDR",
+      "required": true,
+      "group": "accommodation"
+    },
+    {
+      "id": "q6_7c",
+      "number": "6.7c",
+      "section": "6C",
+      "label": "When will you arrive there?",
+      "type": "DATE",
+      "required": true,
+      "group": "accommodation",
+      "rules": { "onOrAfter": "q1_6", "onOrBefore": "q1_7" }
+    },
+    {
+      "id": "q6_7d",
+      "number": "6.7d",
+      "section": "6C",
+      "label": "When will you leave there?",
+      "type": "DATE",
+      "required": true,
+      "group": "accommodation",
+      "rules": { "after": "q6_7c", "onOrBefore": "q1_7" }
+    },
+
+    {
+      "id": "q6_8",
+      "number": "6.8",
+      "section": "6D",
+      "label": "Have you received any public funds (money) in the UK?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q6_8b",
+      "number": "6.8b",
+      "section": "6D",
+      "label": "What type of public funds did you receive?",
+      "type": "SEL",
+      "required": true,
+      "group": "publicFunds",
+      "options": [
+        { "value": "housing_benefit", "label": "Housing benefit" },
+        { "value": "universal_credit", "label": "Universal credit" },
+        { "value": "child_benefit", "label": "Child benefit" },
+        { "value": "council_tax_reduction", "label": "Council tax reduction" },
+        { "value": "other", "label": "Other" }
+      ]
+    },
+    {
+      "id": "q6_8c",
+      "number": "6.8c",
+      "section": "6D",
+      "label": "When did you start receiving it?",
+      "type": "MY",
+      "required": true,
+      "group": "publicFunds",
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q6_8d",
+      "number": "6.8d",
+      "section": "6D",
+      "label": "When did it stop?",
+      "type": "MY",
+      "required": false,
+      "group": "publicFunds",
+      "rules": { "onOrAfter": "q6_8c", "notFuture": true }
+    },
+    {
+      "id": "q6_8e",
+      "number": "6.8e",
+      "section": "6D",
+      "label": "How much did you receive?",
+      "type": "AMT",
+      "currencyHelper": true,
+      "required": false,
+      "group": "publicFunds",
+      "rules": { "max": 1000000 }
+    },
+
+    {
+      "id": "q7_1",
+      "number": "7.1",
+      "section": "7",
+      "label": "Have you been issued with a UK visa in the past 10 years?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q7_2a",
+      "number": "7.2a",
+      "section": "7",
+      "label": "Date of application",
+      "type": "MY",
+      "required": true,
+      "group": "ukVisas",
+      "rules": { "notFuture": true, "withinYears": 10 }
+    },
+    {
+      "id": "q7_2b",
+      "number": "7.2b",
+      "section": "7",
+      "label": "What type of visa was it?",
+      "type": "SEL",
+      "required": true,
+      "group": "ukVisas",
+      "options": [
+        { "value": "visitor", "label": "Visitor" },
+        { "value": "student", "label": "Student" },
+        { "value": "work", "label": "Work" },
+        { "value": "family_partner", "label": "Family or partner" },
+        { "value": "transit", "label": "Transit" },
+        { "value": "other", "label": "Other" }
+      ]
+    },
+    {
+      "id": "q7_2c",
+      "number": "7.2c",
+      "section": "7",
+      "label": "Visa reference number",
+      "type": "TXT",
+      "required": false,
+      "group": "ukVisas",
+      "rules": { "maxLen": 50 },
+      "sensitive": true
+    },
+    {
+      "id": "q7_3",
+      "number": "7.3",
+      "section": "7",
+      "label": "Have you applied for leave to remain in the UK in the past 10 years?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q7_3b",
+      "number": "7.3b",
+      "section": "7",
+      "label": "Date you applied",
+      "type": "MY",
+      "required": true,
+      "group": "ukLeaveApplications",
+      "rules": { "notFuture": true, "withinYears": 10 }
+    },
+    {
+      "id": "q7_3c",
+      "number": "7.3c",
+      "section": "7",
+      "label": "What was the application for?",
+      "type": "SEL",
+      "required": true,
+      "group": "ukLeaveApplications",
+      "options": [
+        { "value": "work", "label": "Work" },
+        { "value": "study", "label": "Study" },
+        { "value": "family_partner", "label": "Family or partner" },
+        { "value": "protection", "label": "Protection (refugee or humanitarian)" },
+        { "value": "long_residence", "label": "Long residence" },
+        { "value": "other", "label": "Other" }
+      ]
+    },
+    {
+      "id": "q7_3d",
+      "number": "7.3d",
+      "section": "7",
+      "label": "What was the outcome?",
+      "type": "SEL",
+      "required": true,
+      "group": "ukLeaveApplications",
+      "options": [
+        { "value": "granted", "label": "Granted" },
+        { "value": "refused", "label": "Refused" },
+        { "value": "withdrawn", "label": "Withdrawn" },
+        { "value": "waiting", "label": "Still waiting for a decision" }
+      ]
+    },
+    {
+      "id": "q7_3e",
+      "number": "7.3e",
+      "section": "7",
+      "label": "Date of the decision",
+      "type": "MY",
+      "required": false,
+      "group": "ukLeaveApplications",
+      "rules": { "onOrAfter": "q7_3b", "notFuture": true }
+    },
+    {
+      "id": "q7_3f",
+      "number": "7.3f",
+      "section": "7",
+      "label": "Application reference number",
+      "type": "TXT",
+      "required": false,
+      "group": "ukLeaveApplications",
+      "rules": { "maxLen": 50 },
+      "sensitive": true
+    },
+    {
+      "id": "q7_4",
+      "number": "7.4",
+      "section": "7",
+      "label": "Have you been to the UK in the past 10 years?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q7_5",
+      "number": "7.5",
+      "section": "7",
+      "label": "How many times have you been to the UK in the past 10 years?",
+      "type": "NUM",
+      "required": true,
+      "showWhen": { "q": "q7_4", "eq": true },
+      "rules": { "min": 1, "max": 99 },
+      "help": "Enter the real number of times. Only your 20 most recent visits are listed below: if you have been more than 20 times, give details of the latest 20.",
+      "note": "Sets how many visit entries 7.5a to 7.5c appear."
+    },
+    {
+      "id": "q7_5a",
+      "number": "7.5a",
+      "section": "7",
+      "label": "Select why you were in the UK",
+      "type": "SEL",
+      "required": true,
+      "group": "ukVisits",
+      "options": [
+        { "value": "tourism", "label": "Tourism or holiday" },
+        { "value": "family_friends", "label": "Visiting family or friends" },
+        { "value": "business", "label": "Business" },
+        { "value": "study", "label": "Study" },
+        { "value": "work", "label": "Work" },
+        { "value": "medical", "label": "Medical treatment" },
+        { "value": "transit", "label": "Passing through the UK on the way to another country" },
+        { "value": "other", "label": "Another reason" }
+      ]
+    },
+    {
+      "id": "q7_5b",
+      "number": "7.5b",
+      "section": "7",
+      "label": "Date you arrived in the UK",
+      "type": "MY",
+      "required": true,
+      "group": "ukVisits",
+      "rules": { "notFuture": true, "withinYears": 10 }
+    },
+    {
+      "id": "q7_5c",
+      "number": "7.5c",
+      "section": "7",
+      "label": "Number of days, weeks, months or years",
+      "type": "DUR",
+      "required": true,
+      "group": "ukVisits",
+      "help": "How long that stay lasted."
+    },
+    {
+      "id": "q7_6",
+      "number": "7.6",
+      "section": "7",
+      "label": "Have you ever:",
+      "type": "YN",
+      "required": true,
+      "items": [
+        "entered the UK illegally",
+        "remained in the UK beyond the validity of your visa or permission to stay",
+        "breached the conditions of your leave, for example worked without permission or received public funds when you did not have permission",
+        "given false information when applying for a visa, leave to enter, or leave to remain",
+        "breached UK immigration law in any other way"
+      ]
+    },
+    {
+      "id": "q7_6b",
+      "number": "7.6b",
+      "section": "7",
+      "label": "Which of these applies?",
+      "type": "SEL",
+      "required": true,
+      "group": "breaches",
+      "options": [
+        { "value": "entered_illegally", "label": "I entered the UK illegally" },
+        { "value": "overstayed", "label": "I remained in the UK beyond the validity of my visa or permission to stay" },
+        { "value": "breached_conditions", "label": "I breached the conditions of my leave" },
+        { "value": "false_information", "label": "I gave false information when applying for a visa, leave to enter, or leave to remain" },
+        { "value": "other_breach", "label": "I breached UK immigration law in another way" }
+      ]
+    },
+    {
+      "id": "q7_6c",
+      "number": "7.6c",
+      "section": "7",
+      "label": "When did this happen?",
+      "type": "MY",
+      "required": true,
+      "group": "breaches",
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q7_6d",
+      "number": "7.6d",
+      "section": "7",
+      "label": "Give details",
+      "type": "LNG",
+      "required": true,
+      "group": "breaches",
+      "rules": { "maxLen": 2000 },
+      "sensitive": true
+    },
+    {
+      "id": "q7_7",
+      "number": "7.7",
+      "section": "7",
+      "label": "For either the UK or any other country, have you ever been:",
+      "type": "YN",
+      "required": true,
+      "items": [
+        "refused a visa",
+        "refused entry at the border",
+        "refused permission to stay or remain",
+        "refused asylum",
+        "deported",
+        "removed",
+        "required to leave",
+        "excluded or banned from entry"
+      ]
+    },
+    {
+      "id": "q7_7a",
+      "number": "7.7a",
+      "section": "7",
+      "label": "Give details of what happened",
+      "type": "SEL",
+      "required": true,
+      "group": "immigrationProblems",
+      "options": [
+        { "value": "refused_visa", "label": "Refused a visa" },
+        { "value": "refused_entry", "label": "Refused entry at the border" },
+        { "value": "refused_stay", "label": "Refused permission to stay or remain" },
+        { "value": "refused_asylum", "label": "Refused asylum" },
+        { "value": "deported", "label": "Deported" },
+        { "value": "removed", "label": "Removed" },
+        { "value": "required_to_leave", "label": "Required to leave" },
+        { "value": "excluded_or_banned", "label": "Excluded or banned from entry" }
+      ]
+    },
+    {
+      "id": "q7_7b",
+      "number": "7.7b",
+      "section": "7",
+      "label": "Country",
+      "type": "CTRY",
+      "required": true,
+      "group": "immigrationProblems"
+    },
+    {
+      "id": "q7_7c",
+      "number": "7.7c",
+      "section": "7",
+      "label": "When did this immigration problem happen?",
+      "type": "MY",
+      "required": true,
+      "group": "immigrationProblems",
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q7_7d",
+      "number": "7.7d",
+      "section": "7",
+      "label": "Give more details of what happened",
+      "type": "LNG",
+      "required": true,
+      "group": "immigrationProblems"
+    },
+
+    {
+      "id": "q8_1",
+      "number": "8.1",
+      "section": "8",
+      "label": "How many times have you visited the following places in the past 10 years?",
+      "type": "NUM",
+      "required": true,
+      "rules": { "min": 0, "max": 1000 },
+      "items": [
+        "Australia",
+        "Canada",
+        "New Zealand",
+        "USA",
+        "Switzerland",
+        "European Economic Area (do not include travel to the UK)"
+      ],
+      "helpCountries": {
+        "summary": "Which countries are part of the European Economic Area (EEA)?",
+        "countries": ["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE", "IS", "LI", "NO"]
+      },
+      "help": "Give one combined number for all of these places. Enter 0 if you have not been to any."
+    },
+    {
+      "id": "q8_1a",
+      "number": "8.1a",
+      "section": "8",
+      "label": "Which of these places have you visited?",
+      "type": "CHK",
+      "required": false,
+      "options": [
+        { "value": "australia", "label": "Australia" },
+        { "value": "canada", "label": "Canada" },
+        { "value": "new_zealand", "label": "New Zealand" },
+        { "value": "usa", "label": "USA" },
+        { "value": "switzerland", "label": "Switzerland" },
+        { "value": "eea", "label": "European Economic Area" }
+      ],
+      "showWhen": { "q": "q8_1", "gt": 0 }
+    },
+    {
+      "id": "q8_2",
+      "number": "8.2",
+      "section": "8",
+      "label": "Have you been to any other countries in the past 10 years?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q8_2a",
+      "number": "8.2a",
+      "section": "8",
+      "label": "Which country did you visit?",
+      "type": "CTRY",
+      "required": true,
+      "group": "otherCountryTrips"
+    },
+    {
+      "id": "q8_2b",
+      "number": "8.2b",
+      "section": "8",
+      "label": "What was the reason for your visit?",
+      "type": "SEL",
+      "required": true,
+      "group": "otherCountryTrips",
+      "options": [
+        { "value": "tourism", "label": "Tourism or holiday" },
+        { "value": "family_friends", "label": "Visiting family or friends" },
+        { "value": "business", "label": "Business" },
+        { "value": "study", "label": "Study" },
+        { "value": "work", "label": "Work" },
+        { "value": "medical", "label": "Medical treatment" },
+        { "value": "transit", "label": "Passing through the UK on the way to another country" },
+        { "value": "other", "label": "Another reason" }
+      ]
+    },
+    {
+      "id": "q8_2c",
+      "number": "8.2c",
+      "section": "8",
+      "label": "When did you enter this country?",
+      "type": "DATE",
+      "required": true,
+      "group": "otherCountryTrips",
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q8_2d",
+      "number": "8.2d",
+      "section": "8",
+      "label": "When did you leave this country?",
+      "type": "DATE",
+      "required": true,
+      "group": "otherCountryTrips",
+      "rules": { "after": "q8_2c", "notFuture": true, "withinYears": 10 }
+    },
+    {
+      "id": "q9_11",
+      "number": "9.11",
+      "section": "9A",
+      "label": "I have read the information above about espionage and sabotage.",
+      "type": "ACK",
+      "required": true,
+      "help": "Espionage means secretly collecting or passing on sensitive information to help another country or group, against the interests of the country it comes from. Sabotage means deliberately damaging or disrupting property, systems or services in order to harm a country or its people. The question below asks whether you have ever been involved in, suspected of, or convicted of either."
+    },
+    {
+      "id": "q9_1",
+      "number": "9.1",
+      "section": "9A",
+      "label": "Have you ever been involved in, suspected or convicted of sabotage or espionage?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "id": "q9_1a",
+      "number": "9.1a",
+      "section": "9A",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q9_1", "eq": true },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can."
+    },
+    {
+      "id": "q9_12",
+      "number": "9.12",
+      "section": "9A",
+      "label": "I have read the information above about war crimes, crimes against humanity and genocide.",
+      "type": "ACK",
+      "required": true,
+      "help": "War crimes are serious breaches of the rules of war, such as deliberately attacking civilians or mistreating prisoners. Crimes against humanity are widespread or organised attacks on civilians, such as murder, torture or forcing people from their homes. Genocide is acting with the aim of destroying a national, ethnic, racial or religious group. The question below covers both peace time and war time."
+    },
+    {
+      "id": "q9_2",
+      "number": "9.2",
+      "section": "9A",
+      "label": "In either peace or war time have you ever been involved in, or suspected of involvement in, war crimes, crimes against humanity, or genocide?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "id": "q9_2a",
+      "number": "9.2a",
+      "section": "9A",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q9_2", "eq": true },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can."
+    },
+    {
+      "id": "q9_13",
+      "number": "9.13",
+      "section": "9B",
+      "label": "I have read the information above about terrorist activities, organisations and views.",
+      "type": "ACK",
+      "required": true,
+      "help": "Terrorism means using or threatening serious violence, or serious damage to property, to influence a government or frighten the public for a political, religious or ideological cause. Being involved includes planning, carrying out, helping, paying for or encouraging it. Supporting an organisation includes being a member, giving it money or other help, or speaking for it. The three questions below cover activities, organisations, and things you have said or published in any form, including online."
+    },
+    {
+      "id": "q9_3",
+      "number": "9.3",
+      "section": "9B",
+      "label": "Have you ever been involved in, supported or encouraged terrorist activities in any country?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "id": "q9_3a",
+      "number": "9.3a",
+      "section": "9B",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q9_3", "eq": true },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can."
+    },
+    {
+      "id": "q9_4",
+      "number": "9.4",
+      "section": "9B",
+      "label": "Have you ever been a member of, or given support to, an organisation which has been concerned in terrorism?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "id": "q9_4a",
+      "number": "9.4a",
+      "section": "9B",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q9_4", "eq": true },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can."
+    },
+    {
+      "id": "q9_5",
+      "number": "9.5",
+      "section": "9B",
+      "label": "Have you, by any means or medium, expressed views that justify or glorify terrorist violence or that may encourage others to commit terrorist or other serious criminal acts?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "id": "q9_5a",
+      "number": "9.5a",
+      "section": "9B",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q9_5", "eq": true },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can."
+    },
+    {
+      "id": "q9_14",
+      "number": "9.14",
+      "section": "9B",
+      "label": "I have read the information above about extremist organisations and views.",
+      "type": "ACK",
+      "required": true,
+      "help": "Extremism means holding or promoting views that reject basic values such as the rule of law, equal treatment of people and respect for other faiths and beliefs, including by encouraging hatred or violence against others. The two questions below cover organisations you have belonged to or supported, and views you have expressed in any form, including online."
+    },
+    {
+      "id": "q9_6",
+      "number": "9.6",
+      "section": "9B",
+      "label": "Have you ever been a member of, or given support to, an organisation which is or has been concerned with extremism?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "id": "q9_6a",
+      "number": "9.6a",
+      "section": "9B",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q9_6", "eq": true },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can."
+    },
+    {
+      "id": "q9_7",
+      "number": "9.7",
+      "section": "9B",
+      "label": "Have you, by any means or medium, expressed any extremist views?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "id": "q9_7a",
+      "number": "9.7a",
+      "section": "9B",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q9_7", "eq": true },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can."
+    },
+    {
+      "id": "q9_8",
+      "number": "9.8",
+      "section": "9C",
+      "label": "Have you, as a part of your employment or otherwise, undertaken paid or unpaid activity on behalf of a non-UK government which you know to be dangerous to the interests or national security of the UK or its allies?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "id": "q9_8a",
+      "number": "9.8a",
+      "section": "9C",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q9_8", "eq": true },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can."
+    },
+    {
+      "id": "q9_9",
+      "number": "9.9",
+      "section": "9C",
+      "label": "Have you ever engaged in any other activities which might indicate that you may not be considered to be a person of good character?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "id": "q9_9a",
+      "number": "9.9a",
+      "section": "9C",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q9_9", "eq": true },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can."
+    },
+    {
+      "id": "q9_10",
+      "number": "9.10",
+      "section": "9C",
+      "label": "Is there any other information about your character or behaviour which you would like to make us aware of?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "id": "q9_10a",
+      "number": "9.10a",
+      "section": "9C",
+      "label": "Please give details",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q9_10", "eq": true },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can."
+    },
+    {
+      "id": "q10_1",
+      "number": "10.1",
+      "section": "10A",
+      "label": "At any time have you ever had any of the following, in the UK or in another country?",
+      "type": "CHK",
+      "required": true,
+      "options": [
+        { "value": "conviction", "label": "A criminal conviction" },
+        { "value": "driving", "label": "A penalty for a driving offence, for example disqualification for speeding or no motor insurance" },
+        { "value": "arrest_charge", "label": "An arrest or charge for which you are currently on bail or awaiting trial" },
+        { "value": "out_of_court", "label": "A caution, warning, reprimand or other out-of-court penalty" },
+        { "value": "civil_judgment", "label": "A civil court judgment against you, for example for non-payment of debt, bankruptcy proceedings or anti-social behaviour" },
+        { "value": "immigration_penalty", "label": "A civil penalty issued under UK immigration law" },
+        { "value": "none", "label": "None of these", "exclusive": true }
+      ],
+      "sensitive": true,
+      "help": "Tick every one that applies. If none of them applies to you, tick \"None of these\"."
+    },
+    {
+      "id": "q10_1a",
+      "number": "10.1a",
+      "section": "10A",
+      "label": "Please give details of your criminal conviction",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q10_1", "includes": "conviction" },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can."
+    },
+    {
+      "id": "q10_1b",
+      "number": "10.1b",
+      "section": "10A",
+      "label": "Please give details of your penalty for a driving offence",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q10_1", "includes": "driving" },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can."
+    },
+    {
+      "id": "q10_1c",
+      "number": "10.1c",
+      "section": "10A",
+      "label": "Please give details of your arrest or charge",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q10_1", "includes": "arrest_charge" },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can."
+    },
+    {
+      "id": "q10_1d",
+      "number": "10.1d",
+      "section": "10A",
+      "label": "Please give details of your caution, warning, reprimand or other out-of-court penalty",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q10_1", "includes": "out_of_court" },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can."
+    },
+    {
+      "id": "q10_1e",
+      "number": "10.1e",
+      "section": "10A",
+      "label": "Please give details of the civil court judgment against you",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q10_1", "includes": "civil_judgment" },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can."
+    },
+    {
+      "id": "q10_1f",
+      "number": "10.1f",
+      "section": "10A",
+      "label": "Please give details of your civil penalty under UK immigration law",
+      "type": "LNG",
+      "required": true,
+      "showWhen": { "q": "q10_1", "includes": "immigration_penalty" },
+      "rules": { "maxLen": 2000 },
+      "sensitive": true,
+      "help": "Say what happened, when and where, as clearly as you can."
+    },
+    {
+      "id": "q10_2",
+      "number": "10.2",
+      "section": "10B",
+      "label": "If you needed to add more information about your application but were not able to, you can write it here. If there is no further information you want to add, click Save and continue.",
+      "type": "LNG",
+      "required": false,
+      "rules": { "maxLen": 2000 }
+    },
+    {
+      "id": "q10_3",
+      "number": "10.3",
+      "section": "10B",
+      "label": "Add further details",
+      "type": "LNG",
+      "required": false,
+      "rules": { "maxLen": 2000 }
+    },
+    {
+      "id": "q10_4",
+      "number": "10.4",
+      "section": "10C",
+      "label": "We may have to talk to you about your application. Which language would you prefer to use?",
+      "type": "SEL",
+      "required": true,
+      "options": [
+        { "value": "english", "label": "English" },
+        { "value": "urdu", "label": "Urdu" },
+        { "value": "punjabi", "label": "Punjabi" },
+        { "value": "pashto", "label": "Pashto" },
+        { "value": "hindi", "label": "Hindi" },
+        { "value": "arabic", "label": "Arabic" },
+        { "value": "bengali", "label": "Bengali" },
+        { "value": "mandarin", "label": "Chinese (Mandarin)" },
+        { "value": "spanish", "label": "Spanish" },
+        { "value": "french", "label": "French" },
+        { "value": "other", "label": "Other" }
+      ]
+    },
+    {
+      "id": "q10_4a",
+      "number": "10.4a",
+      "section": "10C",
+      "label": "Which language?",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q10_4", "eq": "other" },
+      "rules": { "maxLen": 100 }
+    },
+    {
+      "id": "q10_5",
+      "number": "10.5",
+      "section": "10C",
+      "label": "Do you have a UK National Insurance number?",
+      "type": "YN",
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "id": "q10_5a",
+      "number": "10.5a",
+      "section": "10C",
+      "label": "What is your National Insurance number?",
+      "type": "TXT",
+      "required": true,
+      "showWhen": { "q": "q10_5", "eq": true },
+      "rules": {
+        "maxLen": 30,
+        "normalize": "uppercase_no_spaces",
+        "pattern": {
+          "regex": "^(?!BG|GB|KN|NK|NT|TN|ZZ)[A-CEGHJ-PR-TW-Z][A-CEGHJ-NPR-TW-Z][0-9]{6}[A-D]$",
+          "message": "Enter a National Insurance number in the format AB 12 34 56 C"
+        }
+      },
+      "sensitive": true,
+      "help": "Two letters, six numbers and a last letter A, B, C or D, for example AB 12 34 56 C. You can type it with or without spaces, in capitals or small letters."
+    },
+    {
+      "id": "q10_6",
+      "number": "10.6",
+      "section": "10D",
+      "label": "Your passport or travel document",
+      "type": "FILE",
+      "slot": "passport",
+      "required": true,
+      "help": "A clear scan or photo of the page with your photo and personal details. You can upload up to 3 files, for example if the page does not fit in one picture."
+    },
+    {
+      "id": "q10_7",
+      "number": "10.7",
+      "section": "10D",
+      "label": "Evidence of funds",
+      "type": "FILE",
+      "slot": "funds",
+      "required": true,
+      "help": "Documents that show money available to you which you can clearly access, for example recent bank statements. You can upload up to 10 files."
+    }
+  ]
+}

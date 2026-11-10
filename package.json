@@ -1,0 +1,11 @@
+{
+  "name": "wiserconsulting",
+  "private": true,
+  "description": "Repo-level scripts for the shared Tourist Visa config. client/ and backend/ are separate apps.",
+  "scripts": {
+    "sync:shared": "node scripts/sync-shared.js",
+    "check:shared": "node scripts/sync-shared.js --check",
+    "test:shared": "node --test \"shared/tourist-visa/*.test.js\"",
+    "check:tourist-visa-release": "node scripts/check-tourist-visa-release.js"
+  }
+}

@@ -20,12 +20,16 @@ const siteSettingsRoutes = require("./routes/siteSettingsRoutes");
 const reuploadRoutes = require("./routes/reuploadRoutes");
 const approvedVisaRoutes = require("./routes/approvedVisaRoutes");
 const testimonialRoutes = require("./routes/testimonialRoutes");
+const touristVisaRoutes = require("./routes/touristVisaRoutes");
 const {
   apiLimiter,
   authLimiter,
   uploadLimiter,
 } = require("./middleware/rateLimiter");
 const sanitize = require("./middleware/sanitize");
+const skipPaths = require("./middleware/skipPaths");
+const touristVisaBodyParser = require("./middleware/touristVisaBodyParser");
+const touristVisaFeatureGate = require("./middleware/touristVisaFeatureGate");
 const logger = require("./utils/logger");
 
 connectDB();
@@ -59,18 +63,30 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
+// Tourist Visa feature switch (TOURIST_VISA_ENABLED, off unless exactly "true"). It comes right after
+// CORS, so a browser can read the answer, and before everything else: while it is closed no
+// header, body or token is read, nothing is logged and the database is never touched.
+app.use("/api/tourist-visa", touristVisaFeatureGate.allowingStatus);
+
 // Security headers
 app.use(helmet());
 
+// Tourist Visa requests are parsed first, with log-safe errors (see the middleware).
+app.use("/api/tourist-visa", touristVisaBodyParser);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Input sanitization (must be after body parsing)
-app.use(sanitize);
+// Input sanitization (must be after body parsing).
+// Skipped for the Tourist Visa routes: it strips < and >, and free-text answers must stay as typed.
+app.use(skipPaths(["/api/tourist-visa"], sanitize));
 
 // Rate limiting
 app.use("/api", apiLimiter);
+
+// The one Tourist Visa URL that answers while the feature is closed (GET /api/tourist-visa/status, { open }). It sits right after
+// the general rate limiter and before sessions, passport and the router: no sign-in, no session and no database.
+app.get("/api/tourist-visa/status", touristVisaFeatureGate.touristVisaStatus);
 
 // Session middleware
 app.use(
@@ -95,6 +111,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // API Routes with rate limiting
 app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/tourist-visa", touristVisaRoutes);
 app.use("/api", userRoutes);
 app.use("/api", assessmentRoutes);
 app.use("/api", formSubmissionRoutes);
