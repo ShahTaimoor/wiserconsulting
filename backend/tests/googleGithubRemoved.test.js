@@ -220,6 +220,18 @@ test('the user model keeps its googleId field and the others (no migration)', ()
   for (const field of ['googleId', 'avatar', 'password', 'email', 'name', 'role', 'isDeleted']) assert.ok(paths.includes(field), field);
 });
 
+// The Passport.js library: a require of it, one of its calls, or one of its strategy packages.
+const PASSPORT_JS = /require\(\s*['"]passport|from\s+['"]passport|\bpassport\.(?:use|authenticate|initialize|session|serializeUser|deserializeUser)\b|passport-(?:google|github|oauth)/i;
+
+test('the Passport.js pattern catches real Passport code and ignores the visa passport document', () => {
+  for (const line of ["const passport = require('passport');", "app.use(passport.initialize());", "passport.use(new GoogleStrategy({}));", "const { Strategy } = require('passport-google-oauth20');", "import passport from 'passport';"]) {
+    assert.equal(PASSPORT_JS.test(line), true, line);
+  }
+  for (const line of ["passport: Object.freeze({ max: 3, question: '10.6' }),", "// Uploaded files (passport and funds).", "the passport number is still ciphertext", "slot: 'passport'"]) {
+    assert.equal(PASSPORT_JS.test(line), false, line);
+  }
+});
+
 test('nothing of the removed code is left: files, mounts, packages, schema, environment names', () => {
   assert.equal(fs.existsSync(path.join(BACKEND, 'routes', 'authRoutes.js')), false);
   assert.equal(fs.existsSync(path.join(BACKEND, 'config', 'passport.js')), false);
@@ -255,7 +267,8 @@ test('nothing of the removed code is left: files, mounts, packages, schema, envi
       if (entry.isDirectory()) scan(full);
       else if (entry.name.endsWith('.js') && !/models[\\/]User\.js$/.test(full) && !/scripts[\\/]/.test(full)) {
         const text = fs.readFileSync(full, 'utf8');
-        if (/googleapis|google-auth-library|passport|GOOGLE_CLIENT|GOOGLE_CALLBACK|GITHUB_CLIENT|auth-success|oauth/i.test(text)) offenders.push(path.relative(BACKEND, full));
+        // "passport" alone is not a signal: the Tourist Visa feature has a passport document. Only Passport.js itself counts.
+        if (PASSPORT_JS.test(text) || /googleapis|google-auth-library|GOOGLE_CLIENT|GOOGLE_CALLBACK|GITHUB_CLIENT|auth-success|oauth/i.test(text)) offenders.push(path.relative(BACKEND, full));
       }
     }
   })(BACKEND);

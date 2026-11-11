@@ -1,0 +1,409 @@
+// Run with: npm run test:unit   (from client/)
+
+import test, { afterEach } from "node:test";
+import assert from "node:assert/strict";
+import {
+  touristVisaService,
+  TouristVisaApiError,
+  describeError,
+  FEATURE_CLOSED_CODE,
+  isFeatureClosed,
+  NOT_OPEN_MESSAGE,
+} from "./touristVisaService.ts";
+
+const realFetch = globalThis.fetch;
+afterEach(() => {
+  globalThis.fetch = realFetch;
+});
+
+const application = { id: "a1", status: "draft", currentSection: "1", sectionStatus: {}, answers: {} };
+
+/** Replaces fetch with a stub that records the call and answers with the given status and body. */
+function stubFetch(status, body) {
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url, init });
+    return {
+      status,
+      ok: status >= 200 && status < 300,
+      json: async () => {
+        if (body === undefined) throw new SyntaxError("not json");
+        return body;
+      },
+    };
+  };
+  return calls;
+}
+
+test("getMyApplication sends the Bearer token to GET /applications/me", async () => {
+  const calls = stubFetch(200, { success: true, data: { application } });
+  const result = await touristVisaService.getMyApplication("test-token");
+  assert.deepEqual(result, application);
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].url, /\/tourist-visa\/applications\/me$/);
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.headers.Authorization, "Bearer test-token");
+});
+
+test("a JSON 404 from GET /applications/me means 'not started' and returns null", async () => {
+  stubFetch(404, { success: false, message: "You have not started a Tourist Visa application yet." });
+  assert.equal(await touristVisaService.getMyApplication("t"), null);
+});
+
+test("a bare 404 (no JSON body) is an error, not 'not started'", async () => {
+  stubFetch(404, undefined);
+  await assert.rejects(() => touristVisaService.getMyApplication("t"), (e) => e instanceof TouristVisaApiError && e.status === 404);
+});
+
+test("startApplication POSTs with the Bearer token; 201 means created, 200 means it already existed", async () => {
+  let calls = stubFetch(201, { success: true, data: { application } });
+  assert.deepEqual(await touristVisaService.startApplication("test-token"), { application, created: true });
+  assert.match(calls[0].url, /\/tourist-visa\/applications$/);
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.headers.Authorization, "Bearer test-token");
+
+  stubFetch(200, { success: true, data: { application } });
+  assert.equal((await touristVisaService.startApplication("t")).created, false);
+});
+
+test("error statuses keep their code and the server's message", async () => {
+  stubFetch(401, { success: false, message: "Invalid or expired token." });
+  await assert.rejects(() => touristVisaService.getMyApplication("t"), (e) => e.status === 401 && e.message === "Invalid or expired token.");
+
+  stubFetch(503, { success: false, message: "Secure storage is not configured (FIELD_ENCRYPTION_KEY is missing)." });
+  await assert.rejects(() => touristVisaService.startApplication("t"), (e) => e.status === 503);
+
+  stubFetch(500, undefined);
+  await assert.rejects(() => touristVisaService.startApplication("t"), (e) => e.status === 500 && /status 500/.test(e.message));
+});
+
+test("a success response without an application is treated as an error", async () => {
+  stubFetch(200, { success: true, data: {} });
+  await assert.rejects(() => touristVisaService.getMyApplication("t"), (e) => e.status === 502);
+});
+
+test("a network failure becomes status 0", async () => {
+  globalThis.fetch = async () => {
+    throw new TypeError("Failed to fetch");
+  };
+  await assert.rejects(() => touristVisaService.getMyApplication("t"), (e) => e instanceof TouristVisaApiError && e.status === 0);
+});
+
+test("describeError gives the applicant a clear message and never exposes server internals", () => {
+  const serverDetail = "Secure storage is not configured (FIELD_ENCRYPTION_KEY is missing).";
+  const unavailable = describeError(new TouristVisaApiError(503, serverDetail));
+  assert.match(unavailable, /temporarily unavailable/);
+  assert.equal(unavailable.includes("FIELD_ENCRYPTION_KEY"), false);
+
+  assert.match(describeError(new TouristVisaApiError(0, "x")), /couldn't reach the server/);
+  assert.match(describeError(new TouristVisaApiError(429, "x")), /Too many requests/);
+  assert.match(describeError(new TouristVisaApiError(500, "stack trace")), /Something went wrong on our side/);
+  assert.equal(describeError(new TouristVisaApiError(409, "This application has been submitted.")), "This application has been submitted.");
+  assert.match(describeError(new Error("boom")), /Something went wrong/);
+  assert.match(describeError(undefined), /Something went wrong/);
+});
+
+// ---------------------------------------------------------------------------
+// saveSection
+// ---------------------------------------------------------------------------
+
+test("saveSection PUTs { answers } as JSON with the Bearer token and returns the saved application", async () => {
+  const calls = stubFetch(200, { success: true, data: { application, needsReview: ["2B"], removed: ["q2_7"] } });
+  const answers = { q1_5: "Visit <b>Test</b> City if 2 < 3" };
+  const result = await touristVisaService.saveSection("test-token", "1", answers);
+
+  assert.deepEqual(result, { application, needsReview: ["2B"], removed: ["q2_7"] });
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].url, /\/tourist-visa\/applications\/me\/sections\/1$/);
+  assert.equal(calls[0].init.method, "PUT");
+  assert.equal(calls[0].init.headers.Authorization, "Bearer test-token");
+  assert.equal(calls[0].init.headers["Content-Type"], "application/json");
+  assert.deepEqual(JSON.parse(calls[0].init.body), { answers }, "free text goes through unchanged");
+});
+
+test("saveSection encodes the section id and defaults the optional result fields", async () => {
+  const calls = stubFetch(200, { success: true, data: { application } });
+  const result = await touristVisaService.saveSection("t", "2A/../x", {});
+  assert.match(calls[0].url, /\/sections\/2A%2F\.\.%2Fx$/);
+  assert.deepEqual([result.needsReview, result.removed], [[], []]);
+});
+
+test("a 422 carries the per-question errors from the server", async () => {
+  const errors = { q1_7: "Must be after the date in question 1.6", "q2_24.line1": "This question is required" };
+  stubFetch(422, { success: false, message: "Some answers need attention.", errors });
+  await assert.rejects(
+    () => touristVisaService.saveSection("t", "1", {}),
+    (e) => e instanceof TouristVisaApiError && e.status === 422 && e.message === "Some answers need attention." && JSON.stringify(e.fieldErrors) === JSON.stringify(errors)
+  );
+});
+
+test("only string messages are accepted as field errors", async () => {
+  stubFetch(422, { success: false, message: "x", errors: { q1_7: "ok", q1_6: { nested: true }, q1_5: 5, q1_4: null } });
+  await assert.rejects(() => touristVisaService.saveSection("t", "1", {}), (e) => JSON.stringify(e.fieldErrors) === JSON.stringify({ q1_7: "ok" }));
+
+  stubFetch(422, { success: false, message: "x", errors: ["not", "a map"] });
+  await assert.rejects(() => touristVisaService.saveSection("t", "1", {}), (e) => e.fieldErrors === undefined);
+
+  stubFetch(422, { success: false, message: "x" });
+  await assert.rejects(() => touristVisaService.saveSection("t", "1", {}), (e) => e.fieldErrors === undefined);
+});
+
+test("saveSection maps locked, unavailable, unauthorised and unreachable cases", async () => {
+  stubFetch(409, { success: false, message: "This application has been submitted and can no longer be edited." });
+  await assert.rejects(() => touristVisaService.saveSection("t", "1", {}), (e) => e.status === 409 && describeError(e) === e.message);
+
+  stubFetch(503, { success: false, message: "Secure storage is not configured (FIELD_ENCRYPTION_KEY is missing)." });
+  await assert.rejects(() => touristVisaService.saveSection("t", "1", {}), (e) => e.status === 503 && /temporarily unavailable/.test(describeError(e)));
+
+  stubFetch(401, { success: false, message: "Invalid or expired token." });
+  await assert.rejects(() => touristVisaService.saveSection("t", "1", {}), (e) => e.status === 401);
+
+  globalThis.fetch = async () => { throw new TypeError("Failed to fetch"); };
+  await assert.rejects(() => touristVisaService.saveSection("t", "1", {}), (e) => e.status === 0 && /couldn't reach the server/.test(describeError(e)));
+});
+
+test("the service never writes answers to the console or to storage", async () => {
+  const seen = [];
+  const originals = {};
+  for (const m of ["log", "info", "warn", "error", "debug"]) {
+    originals[m] = console[m];
+    console[m] = (...args) => seen.push(args);
+  }
+  globalThis.localStorage = { setItem: (...a) => seen.push(a), getItem: () => null };
+  try {
+    stubFetch(422, { success: false, message: "x", errors: { q1_5: "bad" } });
+    await assert.rejects(() => touristVisaService.saveSection("t", "1", { q1_5: "SECRET-ANSWER-TEXT" }));
+    stubFetch(200, { success: true, data: { application } });
+    await touristVisaService.saveSection("t", "1", { q1_5: "SECRET-ANSWER-TEXT" });
+  } finally {
+    Object.assign(console, originals);
+    delete globalThis.localStorage;
+  }
+  assert.equal(JSON.stringify(seen).includes("SECRET-ANSWER-TEXT"), false);
+  assert.equal(seen.length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// The server-side feature switch: a closed server answers 404 with code FEATURE_CLOSED.
+// ---------------------------------------------------------------------------
+
+const CLOSED = { success: false, code: "FEATURE_CLOSED", message: "The Tourist Visa application is not open." };
+const NOT_STARTED = { success: false, message: "You have not started a Tourist Visa application yet." };
+
+test("isFeatureClosed: exactly a 404 whose code is FEATURE_CLOSED", () => {
+  assert.equal(FEATURE_CLOSED_CODE, "FEATURE_CLOSED");
+  assert.equal(isFeatureClosed(404, CLOSED), true);
+  for (const [status, json] of [
+    [404, NOT_STARTED], [404, null], [404, {}], [404, { code: "OTHER" }], [404, { code: "feature_closed" }],
+    [200, CLOSED], [403, CLOSED], [500, CLOSED], [401, CLOSED], [503, CLOSED],
+  ]) {
+    assert.equal(isFeatureClosed(status, json), false, `${status} ${JSON.stringify(json)}`);
+  }
+});
+
+test("getMyApplication: the closed answer is an error flagged closed, never 'not started'", async () => {
+  stubFetch(404, CLOSED);
+  await assert.rejects(
+    () => touristVisaService.getMyApplication("t"),
+    (error) => error instanceof TouristVisaApiError && error.closed === true && error.status === 404 && error.message === NOT_OPEN_MESSAGE
+  );
+});
+
+test("getMyApplication: a JSON 404 without the closed code, or with another code, still means not started", async () => {
+  stubFetch(404, NOT_STARTED);
+  assert.equal(await touristVisaService.getMyApplication("t"), null);
+  stubFetch(404, { success: false, code: "SOMETHING_ELSE", message: "x" });
+  assert.equal(await touristVisaService.getMyApplication("t"), null);
+});
+
+test("a bare 404 is neither 'not started' nor 'closed'", async () => {
+  stubFetch(404, undefined);
+  await assert.rejects(
+    () => touristVisaService.getMyApplication("t"),
+    (error) => error instanceof TouristVisaApiError && error.closed === false && error.status === 404
+  );
+});
+
+test("the closed code on any status other than 404 is an ordinary failure", async () => {
+  for (const status of [200, 403, 500, 503]) {
+    stubFetch(status, CLOSED);
+    await assert.rejects(
+      () => touristVisaService.startApplication("t"),
+      (error) => error instanceof TouristVisaApiError && error.closed === false,
+      `status ${status}`
+    );
+  }
+});
+
+test("startApplication and saveSection: the closed answer is flagged closed", async () => {
+  stubFetch(404, CLOSED);
+  await assert.rejects(() => touristVisaService.startApplication("t"), (e) => e.closed === true);
+  await assert.rejects(() => touristVisaService.saveSection("t", "1", { q1_5: "x" }), (e) => e.closed === true);
+});
+
+test("ordinary failures are not flagged closed", async () => {
+  stubFetch(422, { message: "bad", errors: { q1_5: "This question is required" } });
+  await assert.rejects(
+    () => touristVisaService.saveSection("t", "1", {}),
+    (e) => e.status === 422 && e.closed === false && e.fieldErrors.q1_5 === "This question is required"
+  );
+});
+
+test("describeError: the closed error reads as 'not open yet'; other errors are unchanged", () => {
+  const closed = new TouristVisaApiError(404, "anything");
+  closed.closed = true;
+  assert.equal(describeError(closed), NOT_OPEN_MESSAGE);
+  assert.match(NOT_OPEN_MESSAGE, /isn't open yet/);
+  assert.match(describeError(new TouristVisaApiError(503, "x")), /temporarily unavailable/);
+  assert.match(describeError(new TouristVisaApiError(0, "x")), /couldn't reach the server/);
+  assert.equal(describeError(new TouristVisaApiError(404, "Some message")), "Some message");
+});
+
+// ---------------------------------------------------------------------------
+// Step 8c-2: document calls
+// ---------------------------------------------------------------------------
+
+const LIMITS = { maxFileBytes: 4194304, maxTotalBytes: 41943040, allowedTypes: ["application/pdf", "image/jpeg", "image/png"], slots: { passport: { max: 3 }, funds: { max: 10 } } };
+const DOC = { id: "3f2c1a9e-5b7d-4c1e-9a30-1d2e3f4a5b6c", slot: "passport", name: "scan.pdf", size: 64, type: "application/pdf", uploadedAt: "2026-11-01T10:00:00.000Z" };
+
+test("listDocuments: GET /applications/me/documents with the Bearer token, returns the files and the limits", async () => {
+  const calls = stubFetch(200, { success: true, data: { documents: [DOC], limits: LIMITS } });
+  const result = await touristVisaService.listDocuments("test-token");
+  assert.match(calls[0].url, /\/tourist-visa\/applications\/me\/documents$/);
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.headers.Authorization, "Bearer test-token");
+  assert.deepEqual(result, { documents: [DOC], limits: LIMITS });
+});
+
+test("listDocuments: an answer without the files or limits is an error, and a failure keeps the code", async () => {
+  stubFetch(200, { success: true, data: {} });
+  await assert.rejects(() => touristVisaService.listDocuments("t"), (e) => e.status === 502);
+  stubFetch(409, { success: false, code: "DOCUMENTS_LOCKED", message: "locked" });
+  await assert.rejects(() => touristVisaService.listDocuments("t"), (e) => e.status === 409 && e.code === "DOCUMENTS_LOCKED");
+});
+
+test("uploadDocument: POSTs one file as multipart form data, with no JSON content type, and returns its metadata", async () => {
+  const calls = stubFetch(201, { success: true, data: { document: DOC } });
+  const controller = new AbortController();
+  const file = new File([Buffer.from("%PDF-1.7 made-up")], "scan.pdf", { type: "application/pdf" });
+  const result = await touristVisaService.uploadDocument("test-token", "passport", file, controller.signal);
+
+  assert.deepEqual(result, DOC);
+  const { url, init } = calls[0];
+  assert.match(url, /\/tourist-visa\/applications\/me\/documents$/);
+  assert.equal(init.method, "POST");
+  assert.equal(init.headers.Authorization, "Bearer test-token");
+  assert.equal("Content-Type" in init.headers, false, "the browser adds the multipart header with its boundary");
+  assert.ok(init.body instanceof FormData);
+  assert.equal(init.body.get("slot"), "passport");
+  assert.equal(init.body.get("file").name, "scan.pdf");
+  assert.equal(init.signal, controller.signal, "the upload can be cancelled");
+});
+
+test("uploadDocument: a refusal throws an error with the server's code and status", async () => {
+  const file = new File(["x"], "a.txt", { type: "text/plain" });
+  for (const [status, code] of [[415, "WRONG_TYPE"], [413, "FILE_TOO_LARGE"], [409, "TOO_MANY_FILES"], [409, "DOCUMENTS_LOCKED"], [429, "TOO_MANY_UPLOADS"], [503, "STORAGE_UNAVAILABLE"]]) {
+    stubFetch(status, { success: false, code, message: "server text" });
+    await assert.rejects(() => touristVisaService.uploadDocument("t", "passport", file), (e) => e instanceof TouristVisaApiError && e.status === status && e.code === code && e.closed === false, code);
+  }
+  stubFetch(201, { success: true, data: {} });
+  await assert.rejects(() => touristVisaService.uploadDocument("t", "passport", file), (e) => e.status === 502);
+});
+
+test("uploadDocument: the closed answer is flagged closed, and an unreachable server is status 0", async () => {
+  const file = new File(["x"], "a.pdf", { type: "application/pdf" });
+  stubFetch(404, CLOSED);
+  await assert.rejects(() => touristVisaService.uploadDocument("t", "passport", file), (e) => e.closed === true);
+  globalThis.fetch = async () => { throw new TypeError("network"); };
+  await assert.rejects(() => touristVisaService.uploadDocument("t", "passport", file), (e) => e.status === 0);
+});
+
+test("deleteDocument: DELETE with the file id in the path, and a failure keeps the code", async () => {
+  const calls = stubFetch(200, { success: true, message: "File deleted" });
+  await touristVisaService.deleteDocument("test-token", DOC.id);
+  assert.match(calls[0].url, new RegExp(`/tourist-visa/applications/me/documents/${DOC.id}$`));
+  assert.equal(calls[0].init.method, "DELETE");
+  assert.equal(calls[0].init.body, undefined);
+
+  stubFetch(404, { success: false, code: "DOCUMENT_NOT_FOUND", message: "File not found." });
+  await assert.rejects(() => touristVisaService.deleteDocument("t", DOC.id), (e) => e.status === 404 && e.code === "DOCUMENT_NOT_FOUND");
+  const odd = stubFetch(200, { success: true });
+  await touristVisaService.deleteDocument("t", "a/b?c");
+  assert.match(odd[0].url, /documents\/a%2Fb%3Fc$/, "an id is encoded, never pasted into the path");
+});
+
+test("errors from the other calls carry no code unless the server sent one", async () => {
+  stubFetch(422, { message: "bad", errors: {} });
+  await assert.rejects(() => touristVisaService.saveSection("t", "1", {}), (e) => e.code === undefined);
+});
+
+// ---------------------------------------------------------------------------
+// Step 8d: the review and the submit
+// ---------------------------------------------------------------------------
+
+const REVIEW = {
+  review: { parts: [{ id: "1", title: "Travel information", sections: [{ id: "1", title: "Travel information", filesOnly: false, rows: [] }] }] },
+  status: "draft", reference: null, submittedAt: null, configVersion: "0.11.0-draft", documentsComplete: false,
+  declaration: { text: "I declare.", acceptedAt: null },
+};
+
+test("getReview: GET /applications/me/review with the Bearer token, returns the review data", async () => {
+  const calls = stubFetch(200, { success: true, data: REVIEW });
+  const result = await touristVisaService.getReview("test-token");
+  assert.match(calls[0].url, /\/tourist-visa\/applications\/me\/review$/);
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.headers.Authorization, "Bearer test-token");
+  assert.deepEqual(result, REVIEW);
+});
+
+test("getReview: an answer without the review or the declaration is an error, and a failure keeps its status and code", async () => {
+  stubFetch(200, { success: true, data: { status: "draft" } });
+  await assert.rejects(() => touristVisaService.getReview("t"), (e) => e.status === 502);
+  stubFetch(404, { success: false, code: "APPLICATION_NOT_FOUND", message: "none" });
+  await assert.rejects(() => touristVisaService.getReview("t"), (e) => e.status === 404 && e.code === "APPLICATION_NOT_FOUND");
+  stubFetch(404, CLOSED);
+  await assert.rejects(() => touristVisaService.getReview("t"), (e) => e.closed === true);
+});
+
+test("submitApplication: POSTs { declarationAccepted } as JSON and returns the submitted application and its reference", async () => {
+  const submitted = { ...application, status: "submitted", reference: "TV-K7M2QX9P", submittedAt: "2026-11-01T10:00:00.000Z" };
+  const calls = stubFetch(200, { success: true, data: { application: submitted, reference: "TV-K7M2QX9P" } });
+  const result = await touristVisaService.submitApplication("test-token", true);
+  assert.match(calls[0].url, /\/tourist-visa\/applications\/me\/submit$/);
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.headers["Content-Type"], "application/json");
+  assert.deepEqual(JSON.parse(calls[0].init.body), { declarationAccepted: true });
+  assert.equal(result.reference, "TV-K7M2QX9P");
+  assert.equal(result.application.status, "submitted");
+});
+
+test("submitApplication: a 422 carries the sections that need attention and whether the declaration is missing", async () => {
+  stubFetch(422, {
+    success: false, code: "NOT_READY", message: "Your application is not ready to submit yet.",
+    sections: [{ id: "2C", problems: 2 }, { id: "10D", problems: 1 }, { id: 5, problems: "x" }, "junk", { id: "7" }], declarationMissing: true,
+  });
+  await assert.rejects(
+    () => touristVisaService.submitApplication("t", false),
+    (e) => e instanceof TouristVisaApiError && e.status === 422 && e.code === "NOT_READY" && e.declarationMissing === true
+      && JSON.stringify(e.sections) === JSON.stringify([{ id: "2C", problems: 2 }, { id: "10D", problems: 1 }])
+  );
+});
+
+test("submitApplication: sends exactly what the applicant ticked", async () => {
+  for (const ticked of [true, false]) {
+    const calls = stubFetch(422, { success: false, code: "NOT_READY", message: "x", sections: [], declarationMissing: !ticked });
+    await assert.rejects(() => touristVisaService.submitApplication("t", ticked));
+    assert.deepEqual(JSON.parse(calls[0].init.body), { declarationAccepted: ticked });
+  }
+});
+
+test("submitApplication: already submitted, a missing reference in the answer, the closed answer and an unreachable server", async () => {
+  stubFetch(409, { success: false, code: "ALREADY_SUBMITTED", message: "x" });
+  await assert.rejects(() => touristVisaService.submitApplication("t", true), (e) => e.status === 409 && e.code === "ALREADY_SUBMITTED" && e.sections === undefined);
+  stubFetch(200, { success: true, data: { application } });
+  await assert.rejects(() => touristVisaService.submitApplication("t", true), (e) => e.status === 502);
+  stubFetch(404, CLOSED);
+  await assert.rejects(() => touristVisaService.submitApplication("t", true), (e) => e.closed === true);
+  globalThis.fetch = async () => { throw new TypeError("network"); };
+  await assert.rejects(() => touristVisaService.submitApplication("t", true), (e) => e.status === 0);
+});

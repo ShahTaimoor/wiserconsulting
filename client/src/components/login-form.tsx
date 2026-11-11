@@ -7,6 +7,7 @@ import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { login, clearError } from "@/redux/slices/auth/authSlice";
 import { cn } from "@/lib/utils";
 import { isAdminRole } from "@/utils/authRole";
+import { postLoginDestination } from "@/utils/safeRedirect";
 import { ArrowLeft } from "lucide-react";
 
 export function LoginForm({
@@ -22,11 +23,10 @@ export function LoginForm({
 
   useEffect(() => {
     if (user) {
-      if (isAdminRole(user.role)) {
-        router.push("/admin/users"); // Redirect admin to admin panel
-      } else {
-        router.push("/"); // Redirect regular user to home
-      }
+      // Back to the page the visitor came from (?next=) if it is a safe same-site path;
+      // otherwise the usual defaults: admins to the admin panel, everyone else home.
+      const next = new URLSearchParams(window.location.search).get("next");
+      router.push(postLoginDestination(isAdminRole(user.role), next));
     }
     return () => {
       dispatch(clearError());

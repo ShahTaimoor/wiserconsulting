@@ -1,0 +1,1117 @@
+/* eslint-disable */
+'use strict';
+
+/**
+ * Tourist Visa form engine.
+ *
+ * Canonical source: shared/tourist-visa/. Do not edit the copies in
+ * client/src/shared/tourist-visa/ or backend/shared/tourist-visa/; run
+ * `node scripts/sync-shared.js` after changing the canonical files.
+ *
+ * Pure functions only: no I/O, no logging. Answers are never written anywhere
+ * by this module. Zod is passed in by the caller (`z`) so the same file works
+ * in the Next.js client and the Express backend with their own zod install.
+ */
+
+const config = require('./questions.json');
+const countries = require('./countries.json');
+
+const TYPES = [
+  'TXT', 'LNG', 'DATE', 'MY', 'NUM', 'DUR', 'AMT', 'YN',
+  'SEL', 'CTRY', 'CHK', 'ADDR', 'TEL', 'EML', 'ACK', 'FILE',
+];
+const DURATION_UNITS = ['years', 'months', 'weeks', 'days'];
+const DURATION_MAX = { years: 150, months: 1800, weeks: 7800, days: 54750 };
+// Largest amount an AMT question accepts unless it sets its own rules.max.
+const AMOUNT_MAX = 1e9;
+const REQUIRED_MSG = 'This question is required';
+const COUNTRY_CODES = new Set(countries.map((c) => c.code));
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+// rules.normalize: how a TXT answer is tidied before its pattern is checked and before it is stored.
+const NORMALIZERS = {
+  uppercase_no_spaces: (s) => s.replace(/\s+/g, '').toUpperCase(),
+};
+
+// ---------------------------------------------------------------------------
+// Indexing
+// ---------------------------------------------------------------------------
+
+function buildIndex(cfg) {
+  const byId = new Map();
+  const order = new Map();
+  cfg.questions.forEach((q, i) => {
+    byId.set(q.id, q);
+    order.set(q.id, i);
+  });
+  return {
+    byId,
+    order,
+    groups: new Map((cfg.groups || []).map((g) => [g.id, g])),
+    sections: new Map(cfg.sections.map((s) => [s.id, s])),
+  };
+}
+
+const indexCache = new WeakMap();
+function indexOf(cfg) {
+  let idx = indexCache.get(cfg);
+  if (!idx) {
+    idx = buildIndex(cfg);
+    indexCache.set(cfg, idx);
+  }
+  return idx;
+}
+
+function getQuestion(cfg, id) {
+  return indexOf(cfg).byId.get(id);
+}
+
+function getCountries() {
+  return countries;
+}
+
+// ---------------------------------------------------------------------------
+// Value helpers
+// ---------------------------------------------------------------------------
+
+function isPlainObject(v) {
+  return Object.prototype.toString.call(v) === '[object Object]';
+}
+
+/** Treats '', null, undefined, [] and empty objects as "not answered". */
+function cleanEmpty(v) {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v === 'string') return v.trim() === '' ? undefined : v;
+  if (Array.isArray(v)) return v.length ? v : undefined;
+  if (isPlainObject(v)) {
+    const out = {};
+    for (const k of Object.keys(v)) {
+      if (UNSAFE_KEYS.has(k)) continue;
+      const c = cleanEmpty(v[k]);
+      if (c !== undefined) out[k] = c;
+    }
+    return Object.keys(out).length ? out : undefined;
+  }
+  return v;
+}
+
+function valueAt(input, path) {
+  let cur = input;
+  for (const key of path) {
+    if (cur === null || cur === undefined) return undefined;
+    cur = cur[key];
+  }
+  return cur;
+}
+
+function isRealDate(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return false;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (y < 1900 || y > 2100) return false;
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d;
+}
+
+function isRealMonth(s) {
+  const m = /^(\d{4})-(\d{2})$/.exec(s);
+  if (!m) return false;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  return y >= 1900 && y <= 2100 && mo >= 1 && mo <= 12;
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** The date `years` before an ISO date, keeping the month and clamping the day (29 Feb -> 28 Feb). */
+function yearsBefore(iso, years) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const year = y - years;
+  const daysInMonth = new Date(Date.UTC(year, m, 0)).getUTCDate();
+  return `${String(year).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(Math.min(d, daysInMonth)).padStart(2, '0')}`;
+}
+
+function scopeGet(flat, entry, id) {
+  if (entry && Object.prototype.hasOwnProperty.call(entry, id)) return entry[id];
+  return flat[id];
+}
+
+// ---------------------------------------------------------------------------
+// Visibility
+// ---------------------------------------------------------------------------
+
+/**
+ * Is the repeating group open? A group with a gate is open when its Yes/No
+ * question is shown and answered Yes. A group without a gate is always open.
+ */
+function groupGateOpen(cfg, group, flat) {
+  if (!group) return false;
+  if (!group.gate) return true;
+  const gate = indexOf(cfg).byId.get(group.gate);
+  return !!gate && isVisibleIn(cfg, gate, flat, null) && flat[group.gate] === true;
+}
+
+function evalCondition(cfg, c, flat, entry) {
+  if (c.all) return c.all.every((x) => evalCondition(cfg, x, flat, entry));
+  if (c.any) return c.any.some((x) => evalCondition(cfg, x, flat, entry));
+  if (c.not) return !evalCondition(cfg, c.not, flat, entry);
+  const target = indexOf(cfg).byId.get(c.q);
+  // A condition on a hidden or unknown question is never met.
+  if (!target || !isVisibleIn(cfg, target, flat, entry)) return false;
+  const value = scopeGet(flat, entry, c.q);
+  if ('eq' in c) return value === c.eq;
+  if ('in' in c) return c.in.includes(value);
+  if ('gt' in c) return typeof value === 'number' && value > c.gt;
+  // A CHK answer (a list of ticked values) that contains this value.
+  if ('includes' in c) return Array.isArray(value) && value.includes(c.includes);
+  return false;
+}
+
+function isVisibleIn(cfg, q, flat, entry) {
+  if (q.group) {
+    const g = indexOf(cfg).groups.get(q.group);
+    if (!groupGateOpen(cfg, g, flat)) return false;
+  }
+  if (q.showWhen && !evalCondition(cfg, q.showWhen, flat, entry)) return false;
+  return true;
+}
+
+/**
+ * Is the question shown, given the answers so far? For a question inside a
+ * repeating group pass the entry being edited as `entry`.
+ */
+function isVisible(cfg, questionId, answers, entry) {
+  const q = getQuestion(cfg, questionId);
+  if (!q) throw new Error(`Unknown question: ${questionId}`);
+  return isVisibleIn(cfg, q, answers || {}, entry || null);
+}
+
+/**
+ * Questions of a section the applicant should see. Members of a repeating
+ * group are included when the group's gate is Yes; their own showWhen is
+ * evaluated per entry with isVisible(..., entry).
+ */
+function getVisibleQuestions(cfg, sectionId, answers) {
+  const flat = answers || {};
+  const idx = indexOf(cfg);
+  return cfg.questions.filter((q) => {
+    if (q.section !== sectionId) return false;
+    if (q.group) return groupGateOpen(cfg, idx.groups.get(q.group), flat);
+    return isVisibleIn(cfg, q, flat, null);
+  });
+}
+
+/**
+ * Is the section shown at all? A section is hidden when none of its questions
+ * is visible (for example 4A when 2.13 does not indicate a spouse or partner).
+ * Its answers are pruned by pruneAnswers like any other hidden answer.
+ */
+function isSectionVisible(cfg, sectionId, answers) {
+  if (!indexOf(cfg).sections.has(sectionId)) throw new Error(`Unknown section: ${sectionId}`);
+  return getVisibleQuestions(cfg, sectionId, answers).length > 0;
+}
+
+/** The sections the applicant has to complete, in form order. */
+function getVisibleSections(cfg, answers) {
+  return cfg.sections.filter((s) => isSectionVisible(cfg, s.id, answers));
+}
+
+function resolveOptionsIn(cfg, q, flat, entry) {
+  const o = q.options;
+  if (Array.isArray(o)) return o;
+  if (q.type === 'CTRY' || (o && o.from === 'countries')) {
+    return countries.map((c) => ({ value: c.code, label: c.name }));
+  }
+  if (o && o.from === 'answers') {
+    const idx = indexOf(cfg);
+    const seen = new Set();
+    const out = [];
+    for (const id of o.questions) {
+      const src = idx.byId.get(id);
+      if (!src || !isVisibleIn(cfg, src, flat, entry)) continue;
+      const v = scopeGet(flat, entry, id);
+      if (typeof v === 'string' && v && !seen.has(v)) {
+        seen.add(v);
+        out.push({ value: v, label: v });
+      }
+    }
+    return out;
+  }
+  return [];
+}
+
+/** Option list for a SEL/CHK/CTRY question given the answers so far. */
+function resolveOptions(cfg, questionId, answers, entry) {
+  const q = getQuestion(cfg, questionId);
+  if (!q) throw new Error(`Unknown question: ${questionId}`);
+  return resolveOptionsIn(cfg, q, answers || {}, entry || null);
+}
+
+/** Every question id a condition looks at. */
+function conditionRefs(cond, out = []) {
+  if (!cond || typeof cond !== 'object') return out;
+  if (Array.isArray(cond.all) || Array.isArray(cond.any)) (cond.all || cond.any).forEach((c) => conditionRefs(c, out));
+  else if (cond.not) conditionRefs(cond.not, out);
+  else if (typeof cond.q === 'string') out.push(cond.q);
+  return out;
+}
+
+/**
+ * Is this question hidden only because the answer that controls it has never been given? That
+ * happens to an application saved before a Yes/No was put in front of its questions: the old
+ * answers are still there, but the new gate is unanswered. They are not hidden by a gate that
+ * somebody changed, so they must not be removed; they wait until the gate is answered.
+ */
+function waitingForGate(cfg, q, flat, entry) {
+  return conditionRefs(q.showWhen).some((id) => scopeGet(flat, entry, id) === undefined);
+}
+
+/**
+ * Drops answers to hidden or unknown questions across the whole application,
+ * including whole repeating groups whose gate is no longer Yes.
+ * Exception: an answer that is hidden only because its gate has not been answered yet is kept
+ * (see waitingForGate), so adding a new Yes/No in front of saved answers never deletes them.
+ * Returns { answers, removed } where removed lists question and group ids.
+ */
+function pruneAnswers(cfg, answers) {
+  const flat = answers || {};
+  const idx = indexOf(cfg);
+  const out = {};
+  const removed = [];
+
+  for (const q of cfg.questions) {
+    if (q.group) continue;
+    const has = flat[q.id] !== undefined;
+    if (isVisibleIn(cfg, q, flat, null)) {
+      if (has) out[q.id] = flat[q.id];
+    } else if (has && !waitingForGate(cfg, q, flat, null)) {
+      removed.push(q.id);
+    }
+  }
+
+  for (const g of idx.groups.values()) {
+    const has = flat[g.id] !== undefined;
+    if (!has) continue;
+    if (!groupGateOpen(cfg, g, flat)) {
+      const gate = g.gate ? idx.byId.get(g.gate) : null;
+      const waiting = gate ? waitingForGate(cfg, { showWhen: { q: g.gate } }, flat, null) : false;
+      if (!waiting) removed.push(g.id);
+      continue;
+    }
+    const entries = Array.isArray(flat[g.id]) ? flat[g.id] : [];
+    out[g.id] = entries.filter(isPlainObject).map((entry) => {
+      const kept = {};
+      for (const qid of g.questions) {
+        const mq = idx.byId.get(qid);
+        if (entry[qid] !== undefined && isVisibleIn(cfg, mq, flat, entry)) kept[qid] = entry[qid];
+      }
+      return kept;
+    });
+  }
+
+  return { answers: out, removed };
+}
+
+// ---------------------------------------------------------------------------
+// Validation
+// ---------------------------------------------------------------------------
+
+/** Shape check for one answer. Cross-field and option checks run separately. */
+function typeSchema(z, cfg, q) {
+  const lim = cfg.limits || {};
+  const rules = q.rules || {};
+  const str = (max) =>
+    z.string().trim().min(1, REQUIRED_MSG).max(max, `Must be ${max} characters or fewer`);
+
+  switch (q.type) {
+    case 'TXT': {
+      const base = str(rules.maxLen || lim.txtMax || 200);
+      // rules.normalize tidies the answer first (the tidied value is what is stored). rules.pattern:
+      // { regex, message } must then match the whole answer (for example a National Insurance number).
+      const tidy = rules.normalize ? base.transform(NORMALIZERS[rules.normalize]) : base;
+      if (!rules.pattern) return tidy;
+      const matches = z.string().regex(new RegExp(rules.pattern.regex), rules.pattern.message);
+      return rules.normalize ? tidy.pipe(matches) : base.regex(new RegExp(rules.pattern.regex), rules.pattern.message);
+    }
+    case 'LNG':
+      return str(rules.maxLen || lim.lngMax || 5000);
+    case 'DATE':
+      return z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/, 'Enter a full date')
+        .refine(isRealDate, 'Enter a real date');
+    case 'MY':
+      return z
+        .string()
+        .regex(/^\d{4}-\d{2}$/, 'Enter a month and year')
+        .refine(isRealMonth, 'Enter a real month and year');
+    case 'NUM':
+      return z
+        .number()
+        .refine(Number.isInteger, 'Enter a whole number')
+        .min(rules.min !== undefined ? rules.min : 0, 'Number is too small')
+        .max(rules.max !== undefined ? rules.max : 1000, 'Number is too large');
+    case 'DUR': {
+      const mode = rules.durationMode || 'single';
+      const units = rules.units || DURATION_UNITS;
+      const shape = {};
+      units.forEach((u) => {
+        shape[u] = z.number().refine(Number.isInteger, 'Enter a whole number').min(0, 'Cannot be negative')
+          .max(DURATION_MAX[u], 'Number is too large').optional();
+      });
+      return z
+        .strictObject(shape)
+        .refine(
+          (v) => {
+            const n = Object.keys(v).length;
+            return mode === 'parts' ? n === units.length : n === 1;
+          },
+          mode === 'parts' ? `Enter ${units.join(' and ')}` : 'Enter a number and a unit'
+        )
+        .refine((v) => mode === 'parts' || Object.values(v).every((x) => x >= 1), 'Enter a number above zero')
+        .refine(
+          (v) => !(v.years !== undefined && v.months !== undefined && v.months > 11),
+          'Months must be 11 or fewer when years are given'
+        );
+    }
+    case 'AMT': {
+      const currencies = rules.currencies || ['GBP'];
+      const maxAmount = rules.max !== undefined ? rules.max : AMOUNT_MAX;
+      return z.strictObject({
+        amount: z
+          .number()
+          .min(0, 'Cannot be negative')
+          .max(maxAmount, `Amount cannot be more than ${maxAmount.toLocaleString('en-GB')}`)
+          .refine((a) => Math.abs(a * 100 - Math.round(a * 100)) < 1e-6, 'Use at most two decimal places'),
+        currency: z.enum(currencies),
+      });
+    }
+    case 'YN':
+      return z.boolean();
+    case 'CTRY':
+      return z.string().min(1, REQUIRED_MSG).refine((c) => COUNTRY_CODES.has(c), 'Choose a country from the list');
+    case 'SEL':
+      return z.string().min(1, REQUIRED_MSG).max(254);
+    case 'CHK':
+      return z
+        .array(z.string().min(1).max(254))
+        .min(1, REQUIRED_MSG)
+        .max(50)
+        .refine((a) => new Set(a).size === a.length, 'Each choice can only be selected once');
+    case 'ADDR':
+      return z.strictObject({
+        line1: str(100),
+        line2: str(100).optional(),
+        town: str(100),
+        region: str(100).optional(),
+        postcode: str(20).optional(),
+        country: z.string().min(1, REQUIRED_MSG).refine((c) => COUNTRY_CODES.has(c), 'Choose a country from the list'),
+      });
+    case 'TEL':
+      return z.strictObject({
+        countryCode: z.string().trim().regex(/^\+[1-9]\d{0,3}$/, 'Enter a country code such as +44'),
+        number: z
+          .string()
+          .trim()
+          .regex(/^[0-9 ()\-]+$/, 'Use digits, spaces, brackets and hyphens only')
+          .refine((n) => {
+            const digits = n.replace(/\D/g, '').length;
+            return digits >= 4 && digits <= 15;
+          }, 'Enter a valid telephone number'),
+      });
+    case 'EML':
+      return z
+        .string()
+        .trim()
+        .min(1, REQUIRED_MSG)
+        .max(254, 'Email address is too long')
+        .toLowerCase()
+        .pipe(z.email('Enter a valid email address'));
+    case 'ACK':
+      return z.boolean().refine((v) => v === true, 'You must tick this box to continue');
+    default:
+      throw new Error(`No answer schema for question type ${q.type}`);
+  }
+}
+
+/** Option-list, `after` and `notFuture` checks. Returns [{ path, message }]. */
+function relationalIssues(cfg, q, value, flat, entry, today) {
+  const idx = indexOf(cfg);
+  const rules = q.rules || {};
+  const issues = [];
+
+  if (q.type === 'SEL' || q.type === 'CHK') {
+    const allowed = new Set(resolveOptionsIn(cfg, q, flat, entry).map((o) => o.value));
+    const vals = Array.isArray(value) ? value : [value];
+    if (!vals.every((v) => allowed.has(v))) issues.push({ path: [], message: 'Choose from the listed options' });
+    // An exclusive choice (such as "None of these") cannot be ticked together with any other.
+    if (q.type === 'CHK' && vals.length > 1) {
+      const exclusive = resolveOptionsIn(cfg, q, flat, entry).find((o) => o.exclusive && vals.includes(o.value));
+      if (exclusive) issues.push({ path: [], message: `"${exclusive.label}" cannot be chosen together with other options` });
+    }
+  }
+
+  // after is strict; onOrAfter and onOrBefore allow the same day. A reference
+  // is skipped until the other question is shown and answered, so a rule that
+  // points at another section does nothing until that section has been saved.
+  const compareWith = (key, fails, message) => {
+    if (!rules[key]) return;
+    for (const refId of Array.isArray(rules[key]) ? rules[key] : [rules[key]]) {
+      const ref = idx.byId.get(refId);
+      if (!ref || !isVisibleIn(cfg, ref, flat, entry)) continue;
+      const other = scopeGet(flat, entry, refId);
+      if (typeof other === 'string' && typeof value === 'string' && fails(value, other)) {
+        issues.push({ path: [], message: `${message} ${ref.number}` });
+      }
+    }
+  };
+  compareWith('after', (v, o) => v <= o, 'Must be after the date in question');
+  compareWith('onOrAfter', (v, o) => v < o, 'Must be on or after the date in question');
+  compareWith('onOrBefore', (v, o) => v > o, 'Must be on or before the date in question');
+
+  if (rules.notFuture && typeof value === 'string') {
+    const limit = q.type === 'MY' ? today.slice(0, 7) : today;
+    if (value > limit) issues.push({ path: [], message: 'Cannot be in the future' });
+  }
+
+  // A look-back window ("in the past 10 years"), counted from today. A month and year is
+  // accepted from the month `withinYears` ago, so the whole of that month counts.
+  if (rules.withinYears && typeof value === 'string') {
+    const floor = yearsBefore(today, rules.withinYears);
+    if (value < (q.type === 'MY' ? floor.slice(0, 7) : floor)) {
+      issues.push({ path: [], message: `Must be within the past ${rules.withinYears} years` });
+    }
+  }
+
+  return issues;
+}
+
+function addZodErrors(errors, baseKey, zerr, input) {
+  for (const issue of zerr.issues) {
+    const key = [baseKey, ...issue.path.map(String)].join('.');
+    if (errors[key]) continue;
+    if (valueAt(input, issue.path) === undefined) errors[key] = REQUIRED_MSG;
+    else errors[key] = issue.code === 'invalid_type' ? 'Enter a valid answer' : issue.message;
+  }
+}
+
+/**
+ * Validate one section.
+ *
+ * `incoming` is the full new state of the section: any of the section's
+ * questions that are missing from it are treated as unanswered. `existing` is
+ * the application's current answers; the section's own keys in `existing` are
+ * ignored, the rest are used for conditions and cross-section rules.
+ *
+ * Returns { success, data, errors, removed, unknownKeys }.
+ *  - data: normalised answers for the visible questions of this section
+ *    (trimmed, emails lower-cased). Persist it only when success is true.
+ *  - errors: { [questionId or "questionId.field" or "groupId.index.questionId"]: message }
+ *  - removed: ids of this section's questions/groups that are hidden and must
+ *    be unset from the stored answers.
+ *  - unknownKeys: keys sent that do not belong to the section.
+ * Answer values are never included in error messages.
+ */
+function validateSection(z, cfg, sectionId, incoming, existing, opts) {
+  const idx = indexOf(cfg);
+  if (!idx.sections.has(sectionId)) throw new Error(`Unknown section: ${sectionId}`);
+
+  const today = (opts && opts.today) || todayIso();
+  const body = isPlainObject(incoming) ? incoming : {};
+  const stored = isPlainObject(existing) ? existing : {};
+
+  const topQs = cfg.questions.filter((q) => q.section === sectionId && !q.group);
+  const groupsHere = (cfg.groups || []).filter((g) => g.section === sectionId);
+  // A FILE question stores nothing in the answers (its files are the application's documents), so its id is not
+  // an answer key: a request that sends one is refused like any other key that does not belong here.
+  const sectionKeys = new Set([...topQs.filter((q) => q.type !== 'FILE').map((q) => q.id), ...groupsHere.map((g) => g.id)]);
+
+  const unknownKeys = Object.keys(body).filter((k) => !sectionKeys.has(k));
+
+  const others = {};
+  for (const k of Object.keys(stored)) if (!sectionKeys.has(k) && !UNSAFE_KEYS.has(k)) others[k] = stored[k];
+  const cleaned = {};
+  for (const k of sectionKeys) {
+    const v = cleanEmpty(body[k]);
+    if (v !== undefined) cleaned[k] = v;
+  }
+  const merged = Object.assign({}, others, cleaned);
+
+  const errors = {};
+  const data = {};
+  const removed = [];
+
+  const checkField = (q, raw, store, key) => {
+    const res = typeSchema(z, cfg, q).safeParse(raw);
+    if (res.success) store[q.id] = res.data;
+    else addZodErrors(errors, key, res.error, raw);
+  };
+
+  // Pass 1: shape of each visible answer.
+  for (const q of topQs) {
+    if (!isVisibleIn(cfg, q, merged, null)) {
+      if (cleaned[q.id] !== undefined || stored[q.id] !== undefined) removed.push(q.id);
+      continue;
+    }
+    if (q.type === 'FILE') continue; // uploads are handled by the document endpoints
+    if (cleaned[q.id] === undefined) {
+      if (q.required) errors[q.id] = REQUIRED_MSG;
+      continue;
+    }
+    checkField(q, cleaned[q.id], data, q.id);
+  }
+
+  for (const g of groupsHere) {
+    if (!groupGateOpen(cfg, g, merged)) {
+      if (cleaned[g.id] !== undefined || stored[g.id] !== undefined) removed.push(g.id);
+      continue;
+    }
+    const raw = cleaned[g.id];
+    const max = Math.min(g.max || Infinity, (cfg.limits && cfg.limits.groupMax) || Infinity);
+    const min = g.min || 1;
+    if (g.count) {
+      // The number of entries is whatever the count question says. When that question has no
+      // valid answer it shows its own error, so the group stays quiet.
+      const n = data[g.count];
+      if (!Number.isInteger(n)) continue;
+      // The count may be larger than the group allows (7.5 takes up to 99 visits, 20 are listed):
+      // then exactly `max` entries are asked for, the most recent ones.
+      const expected = Math.min(n, max);
+      if (!Array.isArray(raw) || raw.length !== expected) {
+        const label = String(g.entryLabel || 'entry').toLowerCase();
+        errors[g.id] = n > expected
+          ? `Give details for your ${expected} most recent ${label}s`
+          : `Give details for exactly ${n} ${n === 1 ? label : `${label}s`}`;
+        continue;
+      }
+    } else if (!Array.isArray(raw) || raw.length < min) {
+      errors[g.id] = min === 1 ? 'Add at least one entry' : `Add at least ${min} entries`;
+      continue;
+    }
+    if (raw.length > max) {
+      errors[g.id] = `You can add up to ${max} entries`;
+      continue;
+    }
+    data[g.id] = [];
+    raw.forEach((rawEntry, i) => {
+      const entryData = {};
+      data[g.id].push(entryData);
+      if (!isPlainObject(rawEntry)) {
+        errors[`${g.id}.${i}`] = 'Enter a valid answer';
+        return;
+      }
+      const entry = {};
+      for (const k of Object.keys(rawEntry)) {
+        if (UNSAFE_KEYS.has(k)) continue;
+        if (!g.questions.includes(k)) {
+          unknownKeys.push(`${g.id}.${i}.${k}`);
+          continue;
+        }
+        const v = cleanEmpty(rawEntry[k]);
+        if (v !== undefined) entry[k] = v;
+      }
+      for (const qid of g.questions) {
+        const mq = idx.byId.get(qid);
+        if (!isVisibleIn(cfg, mq, merged, entry)) continue;
+        if (entry[qid] === undefined) {
+          if (mq.required) errors[`${g.id}.${i}.${qid}`] = REQUIRED_MSG;
+          continue;
+        }
+        checkField(mq, entry[qid], entryData, `${g.id}.${i}.${qid}`);
+      }
+    });
+  }
+
+  // Pass 2: options, countries, date ordering, using the normalised values.
+  const merged2 = Object.assign({}, others, data);
+  for (const q of topQs) {
+    if (data[q.id] === undefined) continue;
+    for (const issue of relationalIssues(cfg, q, data[q.id], merged2, null, today)) {
+      const key = [q.id, ...issue.path].join('.');
+      if (!errors[key]) errors[key] = issue.message;
+    }
+  }
+  for (const g of groupsHere) {
+    if (!Array.isArray(data[g.id])) continue;
+    data[g.id].forEach((entryData, i) => {
+      for (const qid of g.questions) {
+        if (entryData[qid] === undefined) continue;
+        const mq = idx.byId.get(qid);
+        for (const issue of relationalIssues(cfg, mq, entryData[qid], merged2, entryData, today)) {
+          const key = [`${g.id}.${i}.${qid}`, ...issue.path].join('.');
+          if (!errors[key]) errors[key] = issue.message;
+        }
+      }
+    });
+
+    // Entries that each cover a date range must not overlap. Touching is fine
+    // (one stay ends the day the next begins). The error goes on the later entry.
+    const span = g.noOverlap;
+    if (span) {
+      const entries = data[g.id];
+      entries.forEach((entryData, j) => {
+        const key = `${g.id}.${j}.${span.start}`;
+        const startJ = entryData[span.start];
+        const endJ = entryData[span.end];
+        if (errors[key] || typeof startJ !== 'string' || typeof endJ !== 'string') return;
+        for (let i = 0; i < j; i++) {
+          const startI = entries[i][span.start];
+          const endI = entries[i][span.end];
+          if (typeof startI === 'string' && typeof endI === 'string' && startJ < endI && startI < endJ) {
+            errors[key] = `Overlaps the dates of ${g.entryLabel} ${i + 1}`;
+            return;
+          }
+        }
+      });
+    }
+  }
+
+  return {
+    success: Object.keys(errors).length === 0 && unknownKeys.length === 0,
+    data,
+    errors,
+    removed,
+    unknownKeys,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Release gate and config check
+// ---------------------------------------------------------------------------
+
+/**
+ * Sections that still carry a `tbc` flag on a question or group. A section
+ * with any blocker must not be released to applicants.
+ * Returns [{ sectionId, items: [{ id, number, tbc }] }].
+ */
+function getReleaseBlockers(cfg) {
+  const bySection = new Map();
+  const add = (sectionId, item) => {
+    if (!bySection.has(sectionId)) bySection.set(sectionId, []);
+    bySection.get(sectionId).push(item);
+  };
+  for (const g of cfg.groups || []) if (g.tbc) add(g.section, { id: g.id, number: null, tbc: g.tbc });
+  for (const q of cfg.questions) if (q.tbc) add(q.section, { id: q.id, number: q.number, tbc: q.tbc });
+  return cfg.sections
+    .filter((s) => bySection.has(s.id))
+    .map((s) => ({ sectionId: s.id, items: bySection.get(s.id) }));
+}
+
+/**
+ * Questions and repeating groups whose answer list, follow-up questions or rule is a default
+ * chosen by us that still needs senior review (the `draft` marker, with a short note saying what
+ * the default is). The form works with the draft, and the senior signs it off or changes it by
+ * editing the config only and removing the `draft` line. Nothing is ever confirmed silently.
+ * A draft does not make a section "blocked" in the release check, but it does hold the section
+ * back (see getHeldSections).
+ * Returns [{ sectionId, items: [{ id, number, draft }] }]; number is null for a group.
+ */
+function getDraftItems(cfg) {
+  const bySection = new Map();
+  const add = (sectionId, item) => {
+    if (!bySection.has(sectionId)) bySection.set(sectionId, []);
+    bySection.get(sectionId).push(item);
+  };
+  for (const g of cfg.groups || []) if (g.draft) add(g.section, { id: g.id, number: null, draft: g.draft });
+  for (const q of cfg.questions) if (q.draft) add(q.section, { id: q.id, number: q.number, draft: q.draft });
+  return cfg.sections
+    .filter((s) => bySection.has(s.id))
+    .map((s) => ({ sectionId: s.id, items: bySection.get(s.id) }));
+}
+
+/**
+ * The sections that are not yet signed off: they still carry a `tbc` flag (a real unknown) or
+ * a `draft` marker (a default awaiting senior review), in form order.
+ * Returns [{ sectionId, tbc, draft }] with the number of items of each kind.
+ * The client opens the form to applicants only when this list is empty (preview mode excepted).
+ */
+function getHeldSections(cfg) {
+  const tbc = new Map(getReleaseBlockers(cfg).map((b) => [b.sectionId, b.items.length]));
+  const draft = new Map(getDraftItems(cfg).map((d) => [d.sectionId, d.items.length]));
+  const held = cfg.sections
+    .filter((s) => tbc.has(s.id) || draft.has(s.id))
+    .map((s) => ({ sectionId: s.id, tbc: tbc.get(s.id) || 0, draft: draft.get(s.id) || 0 }));
+  // Declaration wording awaiting approval holds the form back too, as one more entry that is not a section.
+  const wording = getWordingDrafts(cfg);
+  if (wording.length) held.push({ sectionId: 'declarations', tbc: 0, draft: wording.length });
+  return held;
+}
+
+/**
+ * The exact words an applicant agrees to for a declaration: the tick's text and the guidance shown with
+ * it (the question's label and help), whitespace-normalised. The server records its hash, so a later
+ * change of wording is detectable. Returns '' for a question that is not found.
+ */
+function wordingOf(cfg, questionId) {
+  const clean = (t) => String(t || '').replace(/\s+/g, ' ').trim();
+  // A declaration of the config's top-level `declarations` (the final submit declaration) is its text alone.
+  if (typeof questionId === 'string' && questionId.startsWith('declarations.')) {
+    const d = (cfg.declarations || {})[questionId.slice('declarations.'.length)];
+    return d ? clean(d.text) : '';
+  }
+  const q = getQuestion(cfg, questionId);
+  if (!q) return '';
+  return [clean(q.label), clean(q.help)].filter(Boolean).join('\n');
+}
+
+/**
+ * Declaration wording that is still a draft: the config's top-level `declarations` (the final submit
+ * declaration, step 8d). The tick questions of Part 9 carry their own draft markers.
+ * Returns [{ id, draft }].
+ */
+function getWordingDrafts(cfg) {
+  const drafts = Object.entries(cfg.declarations || {})
+    .filter(([, d]) => d && d.draft)
+    .map(([id, d]) => ({ id: `declarations.${id}`, draft: d.draft }));
+  // The text shown after submitting is wording too, and waits for approval the same way.
+  if (cfg.afterSubmit && cfg.afterSubmit.draft) drafts.push({ id: 'afterSubmit', draft: cfg.afterSubmit.draft });
+  return drafts;
+}
+
+function isSectionReleasable(cfg, sectionId) {
+  return !getReleaseBlockers(cfg).some((b) => b.sectionId === sectionId);
+}
+
+/** Structural check of a config. Returns a list of problems (empty = valid). */
+function validateConfig(cfg) {
+  const errs = [];
+  const err = (m) => errs.push(m);
+  if (!cfg || typeof cfg !== 'object') return ['Config must be an object'];
+
+  if (typeof cfg.version !== 'string' || !cfg.version) err('version must be a non-empty string');
+  const lim = cfg.limits || {};
+  for (const k of ['txtMax', 'lngMax', 'groupMax']) {
+    if (!Number.isInteger(lim[k]) || lim[k] < 1) err(`limits.${k} must be a positive integer`);
+  }
+  if (!Array.isArray(cfg.parts) || !Array.isArray(cfg.sections) || !Array.isArray(cfg.questions)) {
+    return errs.concat('parts, sections and questions must be arrays');
+  }
+
+  if (cfg.afterSubmit !== undefined) {
+    const a = cfg.afterSubmit;
+    if (!a || typeof a !== 'object' || Array.isArray(a)) err('afterSubmit must be an object');
+    else {
+      if (!Array.isArray(a.steps) || a.steps.length === 0 || !a.steps.every((t) => typeof t === 'string' && t.trim())) err('afterSubmit.steps must be a list of non-empty texts');
+      if (a.draft !== undefined && (typeof a.draft !== 'string' || !a.draft.trim())) err('afterSubmit.draft must be a non-empty string');
+    }
+  }
+  if (cfg.declarations !== undefined) {
+    if (!cfg.declarations || typeof cfg.declarations !== 'object' || Array.isArray(cfg.declarations)) err('declarations must be an object');
+    else {
+      // The review page (step 8d) cannot submit without the final declaration.
+      if (!cfg.declarations.submit) err('declarations.submit is required');
+      for (const [id, d] of Object.entries(cfg.declarations)) {
+        if (!d || typeof d.text !== 'string' || !d.text.trim()) err(`declarations.${id}: text is required`);
+        if (d && d.draft !== undefined && (typeof d.draft !== 'string' || !d.draft.trim())) err(`declarations.${id}: draft must be a non-empty string`);
+      }
+    }
+  }
+
+  const partIds = new Set();
+  for (const p of cfg.parts) {
+    if (!p.id || !p.title) err(`Part needs id and title: ${JSON.stringify(p)}`);
+    if (partIds.has(p.id)) err(`Duplicate part id ${p.id}`);
+    partIds.add(p.id);
+  }
+  const sectionIds = new Set();
+  for (const s of cfg.sections) {
+    if (!s.id || !s.title) err(`Section needs id and title: ${s.id}`);
+    if (sectionIds.has(s.id)) err(`Duplicate section id ${s.id}`);
+    sectionIds.add(s.id);
+    if (!partIds.has(s.part)) err(`Section ${s.id} refers to unknown part ${s.part}`);
+  }
+
+  const order = new Map();
+  const byId = new Map();
+  cfg.questions.forEach((q, i) => {
+    if (byId.has(q.id)) err(`Duplicate question id ${q.id}`);
+    byId.set(q.id, q);
+    order.set(q.id, i);
+  });
+  const groups = new Map();
+  for (const g of cfg.groups || []) {
+    if (groups.has(g.id)) err(`Duplicate group id ${g.id}`);
+    groups.set(g.id, g);
+  }
+
+  const checkCondition = (c, q, where) => {
+    if (!c || typeof c !== 'object') return err(`${where}: condition must be an object`);
+    const forms = ['all', 'any', 'not', 'q'].filter((k) => k in c);
+    if (forms.length !== 1) return err(`${where}: condition needs exactly one of all, any, not, q`);
+    if (c.all || c.any) {
+      const list = c.all || c.any;
+      if (!Array.isArray(list) || !list.length) return err(`${where}: all/any needs a non-empty array`);
+      return list.forEach((x) => checkCondition(x, q, where));
+    }
+    if (c.not) return checkCondition(c.not, q, where);
+    if (['eq', 'in', 'gt', 'includes'].filter((k) => k in c).length !== 1) return err(`${where}: condition on ${c.q} needs exactly one of eq, in, gt, includes`);
+    if ('in' in c && !Array.isArray(c.in)) err(`${where}: "in" must be an array`);
+    if ('gt' in c && (typeof c.gt !== 'number' || !Number.isFinite(c.gt))) err(`${where}: "gt" must be a number`);
+    if (!byId.has(c.q)) return err(`${where}: refers to unknown question ${c.q}`);
+    if ('gt' in c && byId.get(c.q).type !== 'NUM') err(`${where}: "gt" needs a NUM question (${c.q})`);
+    if ('includes' in c) {
+      const target = byId.get(c.q);
+      if (typeof c.includes !== 'string' || !c.includes) err(`${where}: "includes" must be an option value`);
+      else if (target.type !== 'CHK') err(`${where}: "includes" needs a CHK question (${c.q})`);
+      else if (Array.isArray(target.options) && !target.options.some((opt) => opt.value === c.includes)) err(`${where}: "includes" ${c.includes} is not an option of ${c.q}`);
+    }
+    if (order.get(c.q) >= order.get(q.id)) err(`${where}: must refer to an earlier question than itself (${c.q})`);
+  };
+
+  const fileSlots = new Map();
+  for (const q of cfg.questions) {
+    const w = q.id;
+    if (!/^q\d+_\d+[a-z]?$/.test(q.id)) err(`${w}: id must look like q2_3 or q2_3a`);
+    else if (q.number !== q.id.slice(1).replace('_', '.')) err(`${w}: number ${q.number} does not match id`);
+    if (!sectionIds.has(q.section)) err(`${w}: unknown section ${q.section}`);
+    if (!q.label) err(`${w}: label is required`);
+    if (!TYPES.includes(q.type)) err(`${w}: unknown type ${q.type}`);
+    if (typeof q.required !== 'boolean') err(`${w}: required must be true or false`);
+    if (q.sensitive !== undefined && typeof q.sensitive !== 'boolean') err(`${w}: sensitive must be a boolean`);
+    // The currency helper (an inline "enter it in another currency" tool) belongs to money questions only, and fills in pounds.
+    if (q.currencyHelper !== undefined) {
+      if (typeof q.currencyHelper !== 'boolean') err(`${w}: currencyHelper must be true or false`);
+      else if (q.type !== 'AMT') err(`${w}: currencyHelper is only for AMT (money) questions`);
+      else if (q.currencyHelper && Array.isArray(q.rules && q.rules.currencies) && !q.rules.currencies.includes('GBP')) err(`${w}: currencyHelper fills in pounds, so GBP must be an accepted currency`);
+    }
+    if (q.tbc !== undefined && (typeof q.tbc !== 'string' || !q.tbc)) err(`${w}: tbc must be a non-empty string`);
+    if (q.draft !== undefined && (typeof q.draft !== 'string' || !q.draft.trim())) err(`${w}: draft must be a non-empty string`);
+    if (Array.isArray(q.options)) {
+      for (const opt of q.options) {
+        if (/^tbc_/.test(opt.value) || /\[TBC\]/i.test(opt.label || '')) err(`${w}: option ${opt.value} is still a placeholder; use a real value and mark the question draft`);
+      }
+    }
+
+    const o = q.options;
+    if (q.type === 'SEL' || q.type === 'CHK') {
+      if (Array.isArray(o)) {
+        if (!o.length) err(`${w}: options is empty`);
+        if (o.filter((opt) => opt.exclusive).length > 1) err(`${w}: at most one option can be exclusive`);
+        const seen = new Set();
+        for (const opt of o) {
+          if (!opt.value || !opt.label) err(`${w}: every option needs value and label`);
+          if (opt.exclusive !== undefined && typeof opt.exclusive !== 'boolean') err(`${w}: option ${opt.value} exclusive must be true or false`);
+          if (opt.exclusive && q.type !== 'CHK') err(`${w}: an exclusive option is only for CHK questions`);
+          if (seen.has(opt.value)) err(`${w}: duplicate option value ${opt.value}`);
+          seen.add(opt.value);
+        }
+      } else if (o && o.from === 'countries') {
+        // ok
+      } else if (o && o.from === 'answers') {
+        if (!Array.isArray(o.questions) || !o.questions.length) err(`${w}: options.questions is required`);
+        else for (const id of o.questions) {
+          if (!byId.has(id)) err(`${w}: options refer to unknown question ${id}`);
+          else if (order.get(id) >= order.get(q.id)) err(`${w}: options must come from earlier questions (${id})`);
+        }
+      } else {
+        err(`${w}: ${q.type} needs options`);
+      }
+    } else if (o !== undefined && q.type !== 'CTRY') {
+      err(`${w}: options are only allowed on SEL, CHK and CTRY`);
+    }
+
+    if (q.showWhen) checkCondition(q.showWhen, q, `${w}.showWhen`);
+
+    const r = q.rules || {};
+    for (const key of ['after', 'onOrAfter', 'onOrBefore']) {
+      if (r[key] === undefined) continue;
+      if (q.type !== 'DATE' && q.type !== 'MY') err(`${w}: rules.${key} needs a DATE or MY question`);
+      for (const id of Array.isArray(r[key]) ? r[key] : [r[key]]) {
+        const ref = byId.get(id);
+        if (!ref) err(`${w}: rules.${key} refers to unknown question ${id}`);
+        else {
+          if (ref.type !== q.type) err(`${w}: rules.${key} ${id} must have the same type (${q.type})`);
+          if (order.get(id) >= order.get(q.id)) err(`${w}: rules.${key} must refer to an earlier question (${id})`);
+        }
+      }
+    }
+    for (const key of ['min', 'max']) {
+      if (r[key] === undefined) continue;
+      if (q.type !== 'NUM' && q.type !== 'AMT') err(`${w}: rules.${key} is only for NUM and AMT`);
+      else if (typeof r[key] !== 'number' || !Number.isFinite(r[key])) err(`${w}: rules.${key} must be a number`);
+      else if (q.type === 'AMT' && key === 'min') err(`${w}: AMT amounts are never negative, rules.min is not used`);
+      else if (q.type === 'AMT' && (r[key] < 0 || r[key] > AMOUNT_MAX)) err(`${w}: rules.max must be from 0 to ${AMOUNT_MAX}`);
+    }
+    if (typeof r.min === 'number' && typeof r.max === 'number' && r.min > r.max) err(`${w}: rules.min is above rules.max`);
+    if (r.pattern !== undefined) {
+      const p = r.pattern;
+      if (q.type !== 'TXT') err(`${w}: rules.pattern is only for TXT`);
+      else if (!p || typeof p !== 'object' || typeof p.regex !== 'string' || !p.regex || typeof p.message !== 'string' || !p.message.trim()) {
+        err(`${w}: rules.pattern needs a regex and a message`);
+      } else {
+        if (p.regex.length > 200) err(`${w}: rules.pattern.regex is too long`);
+        if (!p.regex.startsWith('^') || !p.regex.endsWith('$')) err(`${w}: rules.pattern.regex must match the whole answer (start with ^ and end with $)`);
+        try { new RegExp(p.regex); } catch { err(`${w}: rules.pattern.regex is not a valid expression`); }
+      }
+    }
+    if (r.normalize !== undefined) {
+      if (q.type !== 'TXT') err(`${w}: rules.normalize is only for TXT`);
+      else if (!Object.prototype.hasOwnProperty.call(NORMALIZERS, r.normalize)) err(`${w}: rules.normalize must be one of ${Object.keys(NORMALIZERS).join(', ')}`);
+    }
+    if (q.type === 'ACK' && q.required !== true) err(`${w}: an ACK question must be required`);
+    if (q.type === 'FILE') {
+      // A FILE question is answered by uploading files into its slot. It stores no answer, is always shown,
+      // and "required" means "needs at least one file before the application can be submitted".
+      if (typeof q.slot !== 'string' || !/^[a-z]+$/.test(q.slot)) err(`${w}: a FILE question needs a slot (lower-case letters)`);
+      else if (fileSlots.has(q.slot)) err(`${w}: slot ${q.slot} is already used by ${fileSlots.get(q.slot)}`);
+      else fileSlots.set(q.slot, q.id);
+      for (const key of ['options', 'rules', 'showWhen', 'group', 'items', 'helpCountries']) {
+        if (q[key] !== undefined) err(`${w}: a FILE question has no ${key}`);
+      }
+      if (q.sensitive) err(`${w}: a FILE question stores no answer, so it cannot be sensitive`);
+    } else if (q.slot !== undefined) {
+      err(`${w}: slot is only for FILE questions`);
+    }
+    if (r.withinYears !== undefined) {
+      if (q.type !== 'DATE' && q.type !== 'MY') err(`${w}: rules.withinYears needs a DATE or MY question`);
+      if (!Number.isInteger(r.withinYears) || r.withinYears < 1 || r.withinYears > 100) err(`${w}: rules.withinYears must be a whole number from 1 to 100`);
+    }
+    if (q.helpCountries !== undefined) {
+      const h = q.helpCountries;
+      const known = new Set(countries.map((c) => c.code));
+      if (!h || typeof h !== 'object' || typeof h.summary !== 'string' || !h.summary.trim()) err(`${w}: helpCountries needs a summary`);
+      else if (!Array.isArray(h.countries) || !h.countries.length) err(`${w}: helpCountries needs a list of country codes`);
+      else {
+        for (const code of h.countries) if (!known.has(code)) err(`${w}: helpCountries has an unknown country code ${code}`);
+        if (new Set(h.countries).size !== h.countries.length) err(`${w}: helpCountries lists a country twice`);
+      }
+    }
+    if (q.items !== undefined && (!Array.isArray(q.items) || !q.items.length || !q.items.every((s) => typeof s === 'string' && s.trim()))) {
+      err(`${w}: items must be a non-empty list of text`);
+    }
+    if (r.notFuture !== undefined && q.type !== 'DATE' && q.type !== 'MY') err(`${w}: rules.notFuture needs a DATE or MY question`);
+    if (r.units !== undefined) {
+      if (q.type !== 'DUR') err(`${w}: rules.units is only for DUR`);
+      else if (!Array.isArray(r.units) || !r.units.length || !r.units.every((u) => DURATION_UNITS.includes(u))) {
+        err(`${w}: rules.units must be a list of ${DURATION_UNITS.join(', ')}`);
+      }
+    }
+    if (r.durationMode !== undefined && !['single', 'parts'].includes(r.durationMode)) err(`${w}: rules.durationMode must be single or parts`);
+
+    if (q.group !== undefined) {
+      const g = groups.get(q.group);
+      if (!g) err(`${w}: unknown group ${q.group}`);
+      else {
+        if (!g.questions.includes(q.id)) err(`${w}: group ${g.id} does not list it as a member`);
+        if (g.section !== q.section) err(`${w}: must be in the same section as group ${g.id}`);
+      }
+    }
+  }
+
+  for (const g of groups.values()) {
+    const w = `group ${g.id}`;
+    if (!sectionIds.has(g.section)) err(`${w}: unknown section ${g.section}`);
+    if (!g.entryLabel) err(`${w}: entryLabel is required`);
+    if (!Number.isInteger(g.max) || g.max < 1 || g.max > (lim.groupMax || 0)) err(`${w}: max must be an integer from 1 to limits.groupMax`);
+    if (!Array.isArray(g.questions) || !g.questions.length) err(`${w}: needs member questions`);
+    if (g.tbc !== undefined && (typeof g.tbc !== 'string' || !g.tbc)) err(`${w}: tbc must be a non-empty string`);
+    if (g.draft !== undefined && (typeof g.draft !== 'string' || !g.draft.trim())) err(`${w}: draft must be a non-empty string`);
+    if (g.min !== undefined && (!Number.isInteger(g.min) || g.min < 1 || g.min > g.max)) err(`${w}: min must be an integer from 1 to max`);
+    if (g.noOverlap !== undefined) {
+      const { start, end } = g.noOverlap || {};
+      for (const [what, id] of [['start', start], ['end', end]]) {
+        const m = byId.get(id);
+        if (!m || m.group !== g.id || m.type !== 'DATE') err(`${w}: noOverlap.${what} must be a DATE member of the group`);
+      }
+      if (start !== undefined && start === end) err(`${w}: noOverlap.start and noOverlap.end must differ`);
+    }
+    if (g.count !== undefined) {
+      // A count-driven group has exactly as many entries as its count question says.
+      const counter = byId.get(g.count);
+      if (!counter) err(`${w}: unknown count question ${g.count}`);
+      else {
+        if (counter.type !== 'NUM') err(`${w}: count question ${g.count} must be a NUM question`);
+        if (counter.section !== g.section || counter.group) err(`${w}: count question must be in the same section and not a group member`);
+        const cr = counter.rules || {};
+        if (!Number.isInteger(cr.min) || cr.min < 1) err(`${w}: count question ${g.count} needs rules.min of at least 1`);
+        // The count may exceed the group limit: the group then lists only that many entries.
+        if (!Number.isInteger(cr.max) || cr.max < cr.min) err(`${w}: count question ${g.count} needs a whole-number rules.max of at least rules.min`);
+        for (const id of g.questions || []) if (order.get(g.count) >= order.get(id)) err(`${w}: count question must come before member ${id}`);
+      }
+      if (g.gate === undefined) err(`${w}: a count-driven group needs a Yes/No gate`);
+      if (g.min !== undefined) err(`${w}: min is not used with count`);
+    }
+    // A group without a gate is always open.
+    const gate = g.gate === undefined ? undefined : byId.get(g.gate);
+    if (g.gate !== undefined && !gate) err(`${w}: unknown gate ${g.gate}`);
+    else if (gate) {
+      if (gate.type !== 'YN') err(`${w}: gate ${g.gate} must be a YN question`);
+      if (gate.section !== g.section) err(`${w}: gate must be in the same section`);
+      if (gate.group) err(`${w}: gate cannot be a group member`);
+    }
+    for (const id of g.questions || []) {
+      const m = byId.get(id);
+      if (!m) err(`${w}: unknown member ${id}`);
+      else {
+        if (m.group !== g.id) err(`${w}: member ${id} does not point back to the group`);
+        if (gate && order.get(gate.id) >= order.get(id)) err(`${w}: gate must come before member ${id}`);
+      }
+    }
+  }
+
+  return errs;
+}
+
+/** The FILE questions of the config, or of one section. */
+function getFileQuestions(cfg, sectionId) {
+  return cfg.questions.filter((q) => q.type === 'FILE' && (sectionId === undefined || q.section === sectionId));
+}
+
+/** A section made only of FILE questions (such as 10D): it has no answers to save; its files are saved as they are uploaded. */
+function isFilesOnlySection(cfg, sectionId) {
+  const questions = cfg.questions.filter((q) => q.section === sectionId);
+  return questions.length > 0 && questions.every((q) => q.type === 'FILE') && !(cfg.groups || []).some((g) => g.section === sectionId);
+}
+
+/**
+ * Where the files stand. `documents` is the application's list (each with a `slot`); only the slot is read.
+ * Per FILE question (of one section when sectionId is given): how many files it has. state is
+ *  - 'not_started': no slot has a file;
+ *  - 'in_progress': some slot has a file, not all;
+ *  - 'complete': every slot has at least one file.
+ * A draft can be saved in any state; `complete` is the rule for submitting (step 8d).
+ */
+function documentsStatus(cfg, documents, sectionId) {
+  const list = Array.isArray(documents) ? documents : [];
+  const slots = getFileQuestions(cfg, sectionId).map((q) => ({
+    questionId: q.id,
+    number: q.number,
+    slot: q.slot,
+    count: list.filter((d) => d && d.slot === q.slot).length,
+  }));
+  const filled = slots.filter((s) => s.count > 0).length;
+  const complete = filled === slots.length;
+  return { slots, state: complete ? 'complete' : filled > 0 ? 'in_progress' : 'not_started', complete };
+}
+
+/** True when every FILE question has at least one file. Step 8d refuses to submit until it is. */
+function documentsComplete(cfg, documents) {
+  return documentsStatus(cfg, documents).complete;
+}
+
+module.exports = {
+  config,
+  getCountries,
+  getQuestion,
+  isVisible,
+  getVisibleQuestions,
+  isSectionVisible,
+  getVisibleSections,
+  resolveOptions,
+  pruneAnswers,
+  validateSection,
+  getReleaseBlockers,
+  getDraftItems,
+  getHeldSections,
+  getWordingDrafts,
+  wordingOf,
+  getFileQuestions,
+  isFilesOnlySection,
+  documentsStatus,
+  documentsComplete,
+  isSectionReleasable,
+  validateConfig,
+};
