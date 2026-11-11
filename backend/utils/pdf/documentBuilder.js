@@ -28,6 +28,7 @@ class DocumentBuilder extends PdfBuilder {
    * @param {string}  options.reference     printed in the footer
    * @param {string}  options.applicantName the name used by the default continuation header
    * @param {boolean} options.draft         a version that is not approved: banner and watermark on every page
+   * @param {boolean} options.stale         the draft was approved once but its answers have changed since: the banner says so (step 8j-3)
    * @param {object}  options.profile       the page (LETTER_PAGE or ITINERARY_PAGE)
    * @param {object}  options.info          the PDF metadata (fixed words)
    * @param {{left?: string, right?: string}} options.continuation  the words of the continuation header
@@ -35,8 +36,8 @@ class DocumentBuilder extends PdfBuilder {
    * @param {'behind'|'over'} options.watermark  where a draft's watermark is drawn: behind the content (the letter), or over it at a low
    *                                         opacity (the itinerary, whose blocks have solid tints that would hide it)
    */
-  constructor({ reference, applicantName, draft = false, profile = LETTER_PAGE, info = TEXT.letterInfo, continuation, edge = false, watermark = 'behind' }) {
-    super({ reference, applicantName, profile, info, draft: Boolean(draft), continuation: continuation || { left: applicantName, right: '' }, edge: Boolean(edge), watermark });
+  constructor({ reference, applicantName, draft = false, stale = false, profile = LETTER_PAGE, info = TEXT.letterInfo, continuation, edge = false, watermark = 'behind' }) {
+    super({ reference, applicantName, profile, info, draft: Boolean(draft), stale: Boolean(draft) && Boolean(stale), continuation: continuation || { left: applicantName, right: '' }, edge: Boolean(edge), watermark });
   }
 
   get draft() {
@@ -153,7 +154,7 @@ class DocumentBuilder extends PdfBuilder {
       const y = g.margin;
       this.doc.save().lineWidth(0.8).strokeColor(BRAND.greenDeep).rect(g.left, y, g.contentWidth, height).stroke().restore();
       const textHeight = this.lineHeight({ font: 'SansBold', size: 8.5, lineGap: 0 });
-      this.text(TEXT.draftMark, g.left, y + (height - textHeight) / 2, { font: 'SansBold', size: 8.5, color: BRAND.greenDeep, align: 'center', lineGap: 0, lineBreak: false });
+      this.text(this.options.stale ? TEXT.staleMark : TEXT.draftMark, g.left, y + (height - textHeight) / 2, { font: 'SansBold', size: 8.5, color: BRAND.greenDeep, align: 'center', lineGap: 0, lineBreak: false });
     }
     if (number > 1) {
       const y = g.margin + this.bannerSpace;

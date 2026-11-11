@@ -68,7 +68,7 @@ class TouristVisaItineraryRepository {
       logger.error("Tourist Visa itinerary could not be decrypted", { applicationId: String(applicationId), version: row.version });
       throw new AppError("The itinerary could not be read. Please contact support.", 500, "ITINERARY_UNREADABLE");
     }
-    return { version: row.version, text, status: row.status, createdAt: row.createdAt, ...(row.approvedAt ? { approvedAt: row.approvedAt } : {}) };
+    return { version: row.version, text, status: row.status, factsHash: row.factsHash, createdAt: row.createdAt, ...(row.approvedAt ? { approvedAt: row.approvedAt } : {}) };
   }
 
   /** Every version, newest first, decrypted, with the name of who made it. For admins only. */

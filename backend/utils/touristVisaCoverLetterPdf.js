@@ -150,9 +150,10 @@ const formatLetterDate = (date) => view.formatDate(date.toISOString().slice(0, 1
  * @param {string} input.reference  the application's reference
  * @param {object} input.sender     senderOf(answers)
  * @param {Date}   [input.date]     the date line
- * @param {boolean} input.draft     the version is not approved
+ * @param {boolean} input.draft     the version is not approved (or was approved and its answers have changed since)
+ * @param {boolean} [input.stale]   the draft was approved once, and the answers changed since: the banner says so
  */
-function buildLetterModel({ text: letterText, reference, sender, date, draft }) {
+function buildLetterModel({ text: letterText, reference, sender, date, draft, stale }) {
   const { blocks, closing } = parseLetter(letterText);
   return {
     reference: norm(reference || ''),
@@ -162,6 +163,7 @@ function buildLetterModel({ text: letterText, reference, sender, date, draft }) 
     blocks,
     closing,
     draft: Boolean(draft),
+    stale: Boolean(draft) && Boolean(stale),
   };
 }
 
@@ -210,7 +212,7 @@ class LetterRenderer {
     this.pgap = step.gap;
     this.closingGap = step.gap + 2; // before the closing, in place of a paragraph gap
     this.head = step.head;
-    this.b = builder || new LetterBuilder({ reference: model.reference, applicantName: model.applicantName, draft: model.draft });
+    this.b = builder || new LetterBuilder({ reference: model.reference, applicantName: model.applicantName, draft: model.draft, stale: model.stale });
     this.bodyWidth = Math.min(BODY_WIDTH, this.b.geometry.contentWidth);
     if (single) {
       this.b.newPage = () => {
@@ -441,7 +443,7 @@ const OVERFLOW = Object.freeze({ overflow: true });
  * it fit (the letter then flows to two pages at the nominal setting). Step 0 is the nominal setting: a letter that already fits is unchanged.
  */
 function fitOf(model, cache = new Map(), from = 0) {
-  const probe = new LetterBuilder({ reference: model.reference, applicantName: model.applicantName, draft: model.draft });
+  const probe = new LetterBuilder({ reference: model.reference, applicantName: model.applicantName, draft: model.draft, stale: model.stale });
   try {
     // The tightest step first: a letter that does not fit even there fits nowhere (smaller type never needs more lines), and is told at once.
     if (!fitsAtStep(model, FIT_STEPS.length - 1, cache, probe)) return null;
@@ -456,7 +458,7 @@ function fitOf(model, cache = new Map(), from = 0) {
 
 /** Whether the whole letter fits on one page at step `index` of FIT_STEPS (on a probe builder if one is given: what is drawn on it is thrown away). */
 function fitsAtStep(model, index, cache = new Map(), probe = null) {
-  const own = probe || new LetterBuilder({ reference: model.reference, applicantName: model.applicantName, draft: model.draft });
+  const own = probe || new LetterBuilder({ reference: model.reference, applicantName: model.applicantName, draft: model.draft, stale: model.stale });
   const renderer = new LetterRenderer(model, FIT_STEPS[index], { single: true, cache, builder: own });
   try {
     renderer.layout();

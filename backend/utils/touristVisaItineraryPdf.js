@@ -151,9 +151,10 @@ function detailsOf(facts, name) {
  * @param {string} input.reference     the application's reference
  * @param {string} input.applicantName the traveller's name (the continuation header)
  * @param {Array<{label: string, value: string}>} [input.details]  the grid of details, from the answers (only the fields the data has)
- * @param {boolean} input.draft        the version is not approved
+ * @param {boolean} input.draft        the version is not approved (or was approved and its answers have changed since)
+ * @param {boolean} [input.stale]      the draft was approved once, and the answers changed since: the banner says so
  */
-function buildItineraryModel({ text, reference, applicantName, details, draft }) {
+function buildItineraryModel({ text, reference, applicantName, details, draft, stale }) {
   const parsed = parseItinerary(text);
   const blocks = parsed.blocks.map((block) => ({ ...block, rows: block.lines.map(splitTime) }));
   return {
@@ -165,6 +166,7 @@ function buildItineraryModel({ text, reference, applicantName, details, draft })
     blocks,
     hasTimes: blocks.some((block) => block.rows.some((row) => row.time)),
     draft: Boolean(draft),
+    stale: Boolean(draft) && Boolean(stale),
   };
 }
 
@@ -225,6 +227,7 @@ class ItineraryRenderer {
       reference: model.reference,
       applicantName: model.applicantName,
       draft: model.draft,
+      stale: model.stale,
       profile: ITINERARY_PAGE,
       info: TEXT.itineraryInfo,
       continuation: { left: TEXT.itineraryTitle, right: model.applicantName },

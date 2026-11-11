@@ -124,6 +124,8 @@ export interface ActivityRow {
   pdfBy?: PdfBy;
   /** pdf_export rows of a cover letter (with version): whether the printed version was approved. */
   pdfApproved?: boolean;
+  /** pdf_export rows of a cover letter or itinerary: true when the version had been approved but its answers changed afterwards, so it was printed as a draft. */
+  pdfStale?: boolean;
 }
 
 // ---------------------------------------------------------------------------

@@ -21,6 +21,8 @@ const defaultAdmin = require('./touristVisaAdminService');
 const defaultAudit = require('../repositories/touristVisaAuditRepository');
 const defaultLetters = require('../repositories/touristVisaCoverLetterRepository');
 const defaultItineraries = require('../repositories/touristVisaItineraryRepository');
+const defaultLetterService = require('./touristVisaCoverLetterService');
+const defaultItineraryService = require('./touristVisaItineraryService');
 const { buildItineraryFacts } = require('../shared/tourist-visa/itineraryFacts');
 const { buildReview } = require('../shared/tourist-visa/view');
 const { buildHeaderRows, buildAnswersModel, unprintableSection, renderAnswersPdf } = require('../utils/touristVisaAnswersPdf');
@@ -39,12 +41,14 @@ function fileNameFor(reference, type, { draft = false } = {}) {
 }
 
 class TouristVisaPdfService {
-  constructor({ applications = defaultApplications, admin = defaultAdmin, audit = defaultAudit, letters = defaultLetters, itineraries = defaultItineraries, now = () => new Date(), render = renderAnswersPdf, renderLetter = renderCoverLetterPdf, renderItinerary = itineraryPdf.renderItineraryPdf } = {}) {
+  constructor({ applications = defaultApplications, admin = defaultAdmin, audit = defaultAudit, letters = defaultLetters, itineraries = defaultItineraries, letterService = defaultLetterService, itineraryService = defaultItineraryService, now = () => new Date(), render = renderAnswersPdf, renderLetter = renderCoverLetterPdf, renderItinerary = itineraryPdf.renderItineraryPdf } = {}) {
     this.applications = applications;
     this.admin = admin;
     this.audit = audit;
     this.letters = letters;
     this.itineraries = itineraries;
+    this.letterService = letterService;
+    this.itineraryService = itineraryService;
     this.now = now;
     this.render = render;
     this.renderLetter = renderLetter;
@@ -97,7 +101,9 @@ class TouristVisaPdfService {
   /**
    * The cover letter of any submitted, in-review or completed application, as a PDF, for an administrator only. It is the NEWEST version
    * of the letter: when that version is approved the letter is printed clean; when it is not, it is still printed, with a DRAFT watermark
-   * and banner on every page and "-draft" in the file name, and the audit row says it was not approved. No letter: 404 LETTER_NOT_FOUND.
+   * and banner on every page and "-draft" in the file name, and the audit row says it was not approved. A version that WAS approved but whose answers have changed since is
+   * treated the same way, with a banner that says the answers changed since approval, and the audit row also has pdfStale true (step 8j-3, A12).
+   * No letter: 404 LETTER_NOT_FOUND.
    * The letter's words are never changed; the sender block (name and home address) comes from the answers and the date from the stored
    * version (the day it was written, or failing that the day it was approved).
    */
@@ -105,9 +111,11 @@ class TouristVisaPdfService {
     const application = await this.admin.load(id);
     const version = await this.letters.findLatestWithText(application._id);
     if (!version) throw fail(404, 'LETTER_NOT_FOUND', 'There is no cover letter to download yet. Write one first.');
-    const draft = version.status !== 'approved';
+    // An approved version whose answers have changed since is NOT printed as approved (step 8j-3, A12): same staleness check as the admin panel.
+    const stale = version.status === 'approved' && (await this.letterService.isStale(application, version));
+    const draft = version.status !== 'approved' || stale;
     const when = letterDate(version);
-    const model = buildLetterModel({ text: version.text, reference: application.reference, sender: senderOf(application.answers), date: when ? when.date : null, draft });
+    const model = buildLetterModel({ text: version.text, reference: application.reference, sender: senderOf(application.answers), date: when ? when.date : null, draft, stale });
 
     // Refused before anything is recorded or drawn; the character itself is never in the message.
     const unprintable = unprintableIn(model);
@@ -118,7 +126,7 @@ class TouristVisaPdfService {
       throw fail(422, 'PDF_UNSUPPORTED_CHARACTERS', message, { section: unprintable === 'sender' ? 'sender' : 'letter' });
     }
 
-    await this.audit.append([{ adminId, applicationId: application._id, action: 'pdf_export', at: this.now(), pdfType: 'cover_letter', pdfBy: 'admin', version: version.version, pdfApproved: !draft }]);
+    await this.audit.append([{ adminId, applicationId: application._id, action: 'pdf_export', at: this.now(), pdfType: 'cover_letter', pdfBy: 'admin', version: version.version, pdfApproved: !draft, ...(stale ? { pdfStale: true } : {}) }]);
 
     const buffer = await this.draw(this.renderLetter, model, application, 'letter');
     return { buffer, filename: fileNameFor(application.reference, 'cover_letter', { draft }) };
@@ -126,7 +134,7 @@ class TouristVisaPdfService {
 
   /**
    * The itinerary of any submitted, in-review or completed application, as a PDF, for an administrator only: the same rules as the cover letter. It is
-   * the NEWEST version; approved, it is printed clean; not approved, it is still printed with the DRAFT watermark and banner and "-draft" in the file
+   * the NEWEST version; approved and current, it is printed clean; not approved, or approved but stale (the answers changed since), it is still printed with the DRAFT watermark and banner and "-draft" in the file
    * name. The itinerary's words are never changed. The grid of details at the top is taken from the answers (only the fields the data has).
    * No itinerary: 404 ITINERARY_NOT_FOUND.
    */
@@ -134,9 +142,11 @@ class TouristVisaPdfService {
     const application = await this.admin.load(id);
     const version = await this.itineraries.findLatestWithText(application._id);
     if (!version) throw fail(404, 'ITINERARY_NOT_FOUND', 'There is no itinerary to download yet. Write one first.');
-    const draft = version.status !== 'approved';
+    // Same rule as the letter (step 8j-3, A12): an approved itinerary whose answers have changed since is printed as a draft.
+    const stale = version.status === 'approved' && (await this.itineraryService.isStale(application, version));
+    const draft = version.status !== 'approved' || stale;
     const sender = senderOf(application.answers);
-    const model = itineraryPdf.buildItineraryModel({ text: version.text, reference: application.reference, applicantName: sender.name, details: await this.itineraryDetails(application, sender.name), draft });
+    const model = itineraryPdf.buildItineraryModel({ text: version.text, reference: application.reference, applicantName: sender.name, details: await this.itineraryDetails(application, sender.name), draft, stale });
 
     // Refused before anything is recorded or drawn; the character itself is never in the message.
     const unprintable = itineraryPdf.unprintableIn(model);
@@ -147,7 +157,7 @@ class TouristVisaPdfService {
       throw fail(422, 'PDF_UNSUPPORTED_CHARACTERS', message, { section: unprintable === 'details' ? 'details' : 'itinerary' });
     }
 
-    await this.audit.append([{ adminId, applicationId: application._id, action: 'pdf_export', at: this.now(), pdfType: 'itinerary', pdfBy: 'admin', version: version.version, pdfApproved: !draft }]);
+    await this.audit.append([{ adminId, applicationId: application._id, action: 'pdf_export', at: this.now(), pdfType: 'itinerary', pdfBy: 'admin', version: version.version, pdfApproved: !draft, ...(stale ? { pdfStale: true } : {}) }]);
 
     const buffer = await this.draw(this.renderItinerary, model, application, 'itinerary');
     return { buffer, filename: fileNameFor(application.reference, 'itinerary', { draft }) };
