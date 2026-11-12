@@ -61,6 +61,9 @@ const auditSchema = new mongoose.Schema(
         pdfBy: { type: String, enum: PDF_BY, immutable: true },
         // pdf_export of a cover letter only (together with version): whether the version that was printed was approved. A fixed yes or no, never any text.
         pdfApproved: { type: Boolean, immutable: true },
+        // pdf_export of a cover letter or itinerary only, and only when true (step 8j-3): the version had been approved but the answers it was written
+        // from changed afterwards, so it was printed as a draft. Written together with pdfApproved false. A fixed yes, never any text.
+        pdfStale: { type: Boolean, immutable: true },
     },
     { collection: 'touristvisaaudit', versionKey: false, minimize: false }
 );

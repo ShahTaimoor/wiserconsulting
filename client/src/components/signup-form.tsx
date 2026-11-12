@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft } from "lucide-react";
+import { useCarriedNext } from "@/hooks/useTouristVisaEntry";
+import { carriedNext, nextQuery } from "@/utils/safeRedirect";
 
 export function SignupForm({
   className,
@@ -26,13 +28,22 @@ export function SignupForm({
   
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { loading, error, success } = useAppSelector((state) => state.auth);
+  const { loading, error, success, user } = useAppSelector((state) => state.auth);
+  // Step 8i: while the Tourist Visa form is open, a valid ?next=/tourist-visa is carried to the sign-in link and used once signed up.
+  const { open, next } = useCarriedNext();
 
   useEffect(() => {
     return () => {
       dispatch(clearError());
     };
   }, [dispatch]);
+
+  // This form never moved on by itself; it still does not, except to carry on to the application while the form is open.
+  useEffect(() => {
+    if (!user) return;
+    const target = carriedNext(open, window.location.search);
+    if (target) router.push(target);
+  }, [user, open, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,7 +155,7 @@ export function SignupForm({
           </Button>
           <div className="px-6 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            <a href="/login" className="font-semibold text-slate-900 underline underline-offset-4 hover:text-slate-700">
+            <a href={`/login${nextQuery(next)}`} className="font-semibold text-slate-900 underline underline-offset-4 hover:text-slate-700">
               Sign in
             </a>
           </div>

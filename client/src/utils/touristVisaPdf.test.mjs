@@ -212,6 +212,7 @@ test("the cover letter panel wires the button from the source: off while there i
   assert.match(panel, /draft=\{pdf\.draft\}/);
   assert.match(panel, /aria-describedby|describedBy="tv-letter-pdf-hint"/);
   assert.match(panel, /id="tv-letter-pdf-hint"/);
+  assert.match(panel, /coverLetterPdfState\(\{ latest, dirty, stale: Boolean\(view\?\.stale\) \}\)/, "the panel's own stale flag reaches the button state (step 8j-3)");
   const button = fs.readFileSync(new URL("../components/tourist-visa/PdfDownloadButton.tsx", import.meta.url), "utf8");
   assert.match(button, /adminCoverLetterPdf/);
   assert.match(button, /aria-busy/);
@@ -293,7 +294,7 @@ test("the itinerary panel wires the button from the source like the cover letter
   assert.match(panel, /disabled=\{!pdf\.enabled \|\| busy !== null\}/, "off while the panel is busy");
   assert.match(panel, /draft=\{pdf\.draft\}/);
   assert.match(panel, /id="tv-itinerary-pdf-hint"/);
-  assert.match(panel, /itineraryPdfState\(\{ latest, dirty \}\)/);
+  assert.match(panel, /itineraryPdfState\(\{ latest, dirty, stale: Boolean\(view\?\.stale\) \}\)/, "the panel's own stale flag reaches the button state (step 8j-3)");
   const page = fs.readFileSync(new URL("../app/admin/tourist-visa/[id]/page.tsx", import.meta.url), "utf8");
   assert.match(page, /<ItineraryPanel applicationId=\{id\} reference=\{call\.reference\}/, "the reference is passed for the file name");
   const button = fs.readFileSync(new URL("../components/tourist-visa/PdfDownloadButton.tsx", import.meta.url), "utf8");

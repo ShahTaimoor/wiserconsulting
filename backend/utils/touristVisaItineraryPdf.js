@@ -24,11 +24,12 @@
  * THE LAYOUT. A4, 20 mm margins. Page 1: the title and the grid of details. Then one block for each day stacked down the page: a rounded block
  * with a soft tint, a band on the left (alternately the brand green and the terracotta, with the day label turned on its side in white and the
  * date under it), the day's title in italic, and the rows with hairlines. A block is NEVER split across pages (a block too tall for a page is
- * the one exception: it carries on in a second block). THE FILL RULE: the blocks are shared out over the pages so that the pages are
- * evenly full (a small dynamic programme, not first come first served); the type size, the padding and the gaps are chosen by the number of
- * days (a short trip is set larger, one band for each range of days); and the room left on a page is then taken up by the padding of the blocks, the row spacing and the gaps
- * between them, each up to a limit, so a page is full and balanced instead of leaving a gap at the foot. A short trip is a designed, complete
- * page; a long one flows to further pages with a compact header and the slim footer.
+ * the one exception: it carries on in a second block). THE PAGE-BALANCING RULE (step 8h-4): the type size is chosen by the number of days (a
+ * short trip is set larger, one tier for each range of days); then the fewest pages the days can take with the blocks at their smallest size
+ * are worked out, and within that many pages the LARGEST block size (the padding, the space round the rows, the gaps; up to the tier's
+ * maximum) at which every day still fits is used, the same on every page; and the days are shared out over those pages as evenly as the block
+ * heights allow (a small dynamic programme), so the last page is not left with a few days. A short trip is a designed, complete page; a long
+ * one flows to further pages with a compact header and the slim footer.
  */
 
 const { DocumentBuilder } = require('./pdf/documentBuilder');
@@ -150,9 +151,10 @@ function detailsOf(facts, name) {
  * @param {string} input.reference     the application's reference
  * @param {string} input.applicantName the traveller's name (the continuation header)
  * @param {Array<{label: string, value: string}>} [input.details]  the grid of details, from the answers (only the fields the data has)
- * @param {boolean} input.draft        the version is not approved
+ * @param {boolean} input.draft        the version is not approved (or was approved and its answers have changed since)
+ * @param {boolean} [input.stale]      the draft was approved once, and the answers changed since: the banner says so
  */
-function buildItineraryModel({ text, reference, applicantName, details, draft }) {
+function buildItineraryModel({ text, reference, applicantName, details, draft, stale }) {
   const parsed = parseItinerary(text);
   const blocks = parsed.blocks.map((block) => ({ ...block, rows: block.lines.map(splitTime) }));
   return {
@@ -164,6 +166,7 @@ function buildItineraryModel({ text, reference, applicantName, details, draft })
     blocks,
     hasTimes: blocks.some((block) => block.rows.some((row) => row.time)),
     draft: Boolean(draft),
+    stale: Boolean(draft) && Boolean(stale),
   };
 }
 
@@ -204,9 +207,9 @@ function unprintableIn(model) {
  */
 const DENSITIES = Object.freeze({
   // The shortest trips (one or two days) are set large: bigger type, a wider band, more air.
-  grand: { title: 34, titleGap: 18, text: 14, pitch: 22, rowPad: 12, pad: 34, gap: 24, bandW: 84, headTitle: 60, minBlock: 130, band: { main: 19, sub: 11 }, cap: { pad: 110, row: 30, gap: 30, header: 60 } },
-  comfortable: { title: 21, titleGap: 10, text: 11, pitch: 16.5, rowPad: 6.5, pad: 17, gap: 13, bandW: 64, headTitle: 46, minBlock: 88, band: { main: 13.2, sub: 8.8 }, cap: { pad: 40, row: 16, gap: 18, header: 24 } },
-  compact: { title: 18, titleGap: 8, text: 10.3, pitch: 14.6, rowPad: 5, pad: 12, gap: 9, bandW: 58, headTitle: 40, minBlock: 80, band: { main: 12, sub: 8.2 }, cap: { pad: 26, row: 9, gap: 13, header: 10 } },
+  grand: { title: 34, titleGap: 18, text: 14, pitch: 22, rowPad: 12, pad: 34, gap: 24, bandW: 84, headTitle: 60, minBlock: 130, band: { main: 19, sub: 11 }, cap: { pad: 110, row: 30, gap: 30, header: 60 }, tight: { pad: 22, titleGap: 12, rowPad: 8, gap: 16, minBlock: 100 } },
+  comfortable: { title: 21, titleGap: 10, text: 11, pitch: 16.5, rowPad: 6.5, pad: 17, gap: 13, bandW: 64, headTitle: 46, minBlock: 88, band: { main: 13.2, sub: 8.8 }, cap: { pad: 40, row: 16, gap: 18, header: 24 }, tight: { pad: 11, titleGap: 6, rowPad: 3.5, gap: 8, minBlock: 62 } },
+  compact: { title: 18, titleGap: 8, text: 10.3, pitch: 14.6, rowPad: 5, pad: 12, gap: 9, bandW: 58, headTitle: 40, minBlock: 80, band: { main: 12, sub: 8.2 }, cap: { pad: 26, row: 9, gap: 13, header: 10 }, tight: { pad: 6.5, titleGap: 4, rowPad: 2.5, gap: 5, minBlock: 54 } },
 });
 // The density is a band of the number of days (so the type never grows as a trip gets longer, and two trips of about the same length look alike):
 // one or two days are set largest, three to nine comfortably, ten or more compactly. The fill rule then takes up the room that is left.
@@ -216,8 +219,6 @@ const TIME_WIDTH = 54;
 const TIME_GAP = 9;
 const PANEL_PAD = 16;
 const RULE_ON_TINT = BRAND.ruleOnTint;
-// The weight of the last page in the share-out: it may be fuller or emptier than the others without much cost.
-const LAST_PAGE_WEIGHT = 0.35;
 
 class ItineraryRenderer {
   constructor(model) {
@@ -226,6 +227,7 @@ class ItineraryRenderer {
       reference: model.reference,
       applicantName: model.applicantName,
       draft: model.draft,
+      stale: model.stale,
       profile: ITINERARY_PAGE,
       info: TEXT.itineraryInfo,
       continuation: { left: TEXT.itineraryTitle, right: model.applicantName },
@@ -353,7 +355,27 @@ class ItineraryRenderer {
 
   // ---- the blocks ---------------------------------------------------------
 
-  /** The measure of one block at its natural size: its title lines, its rows and their wrapped lines, and its height. */
+  /**
+   * The spacing of the blocks at a scale u from 0 to 1: u = 0 is the smallest allowed block size (the `tight` values of the density), u = 1 the
+   * largest (the density's own padding plus the room its caps allow). The type sizes do not change with u (they belong to the density); only the
+   * padding of a block, the space around its rows and its title, the gap between blocks and the space under the header.
+   */
+  spacingAt(u) {
+    const d = this.d;
+    const t = d.tight;
+    const lerp = (low, high) => low + (high - low) * u;
+    return {
+      u,
+      pad: lerp(t.pad, d.pad + d.cap.pad / 2),
+      titleGap: lerp(t.titleGap, d.titleGap),
+      rowPad: lerp(t.rowPad, d.rowPad + d.cap.row / 2),
+      gap: lerp(t.gap, d.gap + d.cap.gap),
+      minBlock: lerp(t.minBlock, d.minBlock),
+      header: d.cap.header * u,
+    };
+  }
+
+  /** What one block holds, wrapped to the page: its title lines and its rows with their lines (independent of the spacing). */
   measureBlock(block, rows) {
     const b = this.b;
     const g = b.geometry;
@@ -366,14 +388,21 @@ class ItineraryRenderer {
     if (block.kind === 'day') m.titleLines = this.wrap(block.title, { font: 'DisplayItalic', size: d.title }, width);
     m.titleHeight = m.titleLines.length * d.title * 1.02;
     m.rows = rows.map((row) => ({ ...row, lines: this.wrap(row.text, { font: 'Serif', size: d.text }, rowWidth) }));
-    const rowsHeight = m.rows.reduce((sum, row) => sum + row.lines.length * d.pitch + 2 * d.rowPad, 0) + Math.max(0, m.rows.length - 1) * 0.5;
-    m.natural = 2 * d.pad + (m.titleLines.length ? m.titleHeight + (m.rows.length ? d.titleGap : 0) : 0) + rowsHeight;
-    m.height = Math.max(d.minBlock, m.natural);
     return m;
   }
 
-  /** The blocks measured; one too tall for a page carries on in a second block (its band and title repeat). */
+  /** The height of a measured block at a spacing. */
+  heightAt(m, sp) {
+    const d = this.d;
+    const rowsHeight = m.rows.reduce((sum, row) => sum + row.lines.length * d.pitch + 2 * sp.rowPad, 0) + Math.max(0, m.rows.length - 1) * 0.5;
+    const natural = 2 * sp.pad + (m.titleLines.length ? m.titleHeight + (m.rows.length ? sp.titleGap : 0) : 0) + rowsHeight;
+    return Math.max(sp.minBlock, natural);
+  }
+
+  /** The blocks measured; one too tall for a page (at the smallest size) carries on in a second block (its band and title repeat). */
   measureAll(pageRoom) {
+    const sp = this.spacingAt(0);
+    const fits = (m) => this.heightAt(m, sp) <= pageRoom;
     const out = [];
     for (const block of this.model.blocks) {
       let rows = block.rows;
@@ -381,24 +410,24 @@ class ItineraryRenderer {
       let guard = 0;
       while (true) {
         let measured = this.measureBlock(block, rows);
-        if (rows.length === 1 && measured.height > pageRoom && guard <= 200) {
+        if (rows.length === 1 && !fits(measured) && guard <= 200) {
           // One row taller than a page (one enormous line): it is cut into rows of a few lines each, so that it can carry on in a second block.
           const lines = measured.rows[0].lines;
-          const per = Math.max(2, Math.floor((pageRoom - 2 * this.d.pad - measured.titleHeight) / this.d.pitch) - 2);
+          const per = Math.max(2, Math.floor((pageRoom - 2 * sp.pad - measured.titleHeight) / this.d.pitch) - 2);
           const chunks = [];
           for (let i = 0; i < lines.length; i += per) chunks.push({ time: i === 0 ? rows[0].time : '', text: lines.slice(i, i + per).join(' ') });
           rows = chunks;
           guard += 1;
           continue;
         }
-        if (measured.height <= pageRoom || rows.length <= 1 || guard > 200) {
+        if (fits(measured) || rows.length <= 1 || guard > 200) {
           measured.continued = !first;
           out.push(measured);
           break;
         }
         // Too tall: take as many rows as fit, the rest goes to a block of its own.
         let take = rows.length - 1;
-        while (take > 1 && this.measureBlock(block, rows.slice(0, take)).height > pageRoom) take -= 1;
+        while (take > 1 && !fits(this.measureBlock(block, rows.slice(0, take)))) take -= 1;
         measured = this.measureBlock(block, rows.slice(0, take));
         measured.continued = !first;
         out.push(measured);
@@ -410,109 +439,149 @@ class ItineraryRenderer {
     return out;
   }
 
-  // ---- the plan: which blocks on which page, and how the room is taken up ----
+  // ---- the plan: how many pages, which blocks on which page, and how large the blocks are ----
 
-  /** The most each kind of spacing may grow on a page of these blocks (the limits of the fill rule). */
-  capsOf(items, first) {
-    const d = this.d;
-    return {
-      pad: items.length * d.cap.pad,
-      row: items.reduce((sum, m) => sum + m.rows.length, 0) * d.cap.row,
-      gap: Math.max(0, items.length - 1) * d.cap.gap,
-      header: first && items.length ? d.cap.header : 0,
-    };
-  }
-
+  /**
+   * THE PAGE-BALANCING RULE (step 8h-4). 1. The smallest number of pages the itinerary can take, with the blocks at their smallest size
+   * (P). 2. Within P pages, the LARGEST block size (the scale u, up to the density's own maximum) at which every day still fits: the same size
+   * on every page, a day block always whole. 3. The days are shared out over the P pages as evenly as the blocks allow (a small dynamic
+   * programme), so the last page is not left with a few days. The type sizes of the density, and the "grand" setting for one or two days, are kept.
+   */
   plan() {
     const b = this.b;
     const g = b.geometry;
-    const d = this.d;
     const header = this.measureHeader();
     const top1 = b.topFor(1);
     const top2 = b.topFor(2);
-    const room1 = g.bottom - top1 - header.height;
     const room2 = g.bottom - top2;
     const measured = this.measureAll(room2);
     const n = measured.length;
-    const h = measured.map((m) => m.height);
-    const span = (i, j) => h.slice(i, j).reduce((sum, v) => sum + v, 0) + d.gap * Math.max(0, j - i - 1);
-    const cost = (used, room, last) => (last ? LAST_PAGE_WEIGHT : 1) * ((room - used) / room) ** 2;
 
-    // The share-out: the first page holds k1 blocks (the room is smaller there), and the dynamic programme shares out the rest.
-    const best = new Array(n + 1).fill(Infinity);
-    const next = new Array(n + 1).fill(n);
-    best[n] = 0;
-    for (let i = n - 1; i >= 0; i -= 1) {
-      for (let j = i + 1; j <= n; j += 1) {
-        const used = span(i, j);
-        if (used > room2 && j > i + 1) break;
-        const total = cost(Math.min(used, room2), room2, j === n) + best[j];
-        if (total < best[i]) {
-          best[i] = total;
-          next[i] = j;
+    const layoutAt = (u) => {
+      const sp = this.spacingAt(u);
+      const h = measured.map((m) => this.heightAt(m, sp));
+      const room1 = g.bottom - top1 - header.height - sp.header;
+      return { sp, h, room1 };
+    };
+    const span = (lay, i, j) => lay.h.slice(i, j).reduce((sum, v) => sum + v, 0) + lay.sp.gap * Math.max(0, j - i - 1);
+    // The greedy count is the smallest number of pages for the blocks in order (and it decides whether a size fits in P pages).
+    const pagesAt = (u) => {
+      const lay = layoutAt(u);
+      let pages = 1;
+      let room = lay.room1;
+      let used = 0;
+      let count = 0;
+      for (let i = 0; i < n; i += 1) {
+        const add = (count ? lay.sp.gap : 0) + lay.h[i];
+        if (used + add <= room + 1e-9) {
+          used += add;
+          count += 1;
+          continue;
+        }
+        if (lay.h[i] > room2 + 1e-9) return Infinity; // a block taller than a page at this size
+        pages += 1;
+        room = room2;
+        used = lay.h[i];
+        count = 1;
+      }
+      return pages;
+    };
+
+    const minPages = pagesAt(0);
+    let u = 1;
+    if (pagesAt(1) > minPages) {
+      let low = 0;
+      let high = 1;
+      for (let k = 0; k < 40; k += 1) {
+        const mid = (low + high) / 2;
+        if (pagesAt(mid) <= minPages) low = mid;
+        else high = mid;
+      }
+      u = low;
+    }
+    const lay = layoutAt(u);
+    const { sp } = lay;
+
+    // The share-out over exactly minPages pages, as evenly full as the blocks allow (the sum of the squared empty parts of the pages).
+    const P = minPages;
+    const roomOf = (p) => (p === 0 ? lay.room1 : room2);
+    const cost = (p, i, j) => {
+      const room = roomOf(p);
+      const used = i === j ? 0 : span(lay, i, j);
+      if (i === j) return p === 0 && n > 0 && lay.h[0] > lay.room1 + 1e-9 ? 1 : Infinity; // only a first page of the header alone, for a first block too tall to go under it
+      if (used > room + 1e-9) return Infinity;
+      return ((room - used) / room) ** 2;
+    };
+    const dp = Array.from({ length: P }, () => new Array(n + 1).fill(Infinity));
+    const from = Array.from({ length: P }, () => new Array(n + 1).fill(-1));
+    for (let j = 0; j <= n; j += 1) {
+      dp[0][j] = cost(0, 0, j);
+      from[0][j] = 0;
+    }
+    for (let p = 1; p < P; p += 1) {
+      for (let j = 0; j <= n; j += 1) {
+        for (let i = 0; i < j; i += 1) {
+          const total = dp[p - 1][i] + cost(p, i, j);
+          if (total < dp[p][j]) {
+            dp[p][j] = total;
+            from[p][j] = i;
+          }
         }
       }
     }
-    let k1 = 0;
-    let bestTotal = Infinity;
-    for (let k = 0; k <= n; k += 1) {
-      // A first page with only the header is for when the first block cannot fit under it.
-      if (k === 0 && n > 0 && h[0] <= room1) continue;
-      const used = span(0, k);
-      if (k >= 1 && used > room1) break;
-      const total = (k === 0 ? 1 : cost(used, room1, k === n)) + (k < n ? best[k] : 0);
-      if (total < bestTotal) {
-        bestTotal = total;
-        k1 = k;
-      }
-    }
     const ranges = [];
-    let at = 0;
-    if (n === 0 || k1 > 0) {
-      ranges.push([0, k1]);
-      at = k1;
-    } else {
+    if (n === 0) {
       ranges.push([0, 0]);
-    }
-    while (at < n) {
-      ranges.push([at, next[at]]);
-      at = next[at];
+    } else if (Number.isFinite(dp[P - 1][n])) {
+      let j = n;
+      for (let p = P - 1; p >= 0; p -= 1) {
+        const i = from[p][j];
+        ranges.unshift([i, j]);
+        j = i;
+      }
+    } else {
+      // (not reached: minPages pages always have a share-out) the greedy one
+      let i = 0;
+      let room = lay.room1;
+      let used = 0;
+      let start = 0;
+      for (; i < n; i += 1) {
+        const add = (i > start ? sp.gap : 0) + lay.h[i];
+        if (used + add > room + 1e-9 && i > start) {
+          ranges.push([start, i]);
+          start = i;
+          used = lay.h[i];
+          room = room2;
+        } else {
+          used += add;
+        }
+      }
+      ranges.push([start, n]);
     }
 
-    // The fill rule: the room left on each page is taken up by the padding of the blocks, the spacing of the rows and the gaps between the
-    // blocks (and, on the first page, the space under the header), each up to its limit, all in the same proportion.
-    // How much of its limits each page needs to be full (0 to 1). The last page is never stretched more than the most stretched of the others,
-    // so the blocks look the same size all the way through; with a single page, that page takes what it needs.
-    const needs = ranges.map(([from, to], p) => {
-      const room = p === 0 ? room1 : room2;
-      const items = measured.slice(from, to);
-      const caps = this.capsOf(items, p === 0);
-      const total = caps.pad + caps.row + caps.gap + caps.header;
-      return total > 0 ? Math.min(1, Math.max(0, room - span(from, to)) / total) : 0;
-    });
-    const others = needs.slice(0, -1);
-    const shares = needs.map((need, p) => (p === needs.length - 1 && others.length ? Math.min(need, Math.max(...others)) : need));
-    const pages = ranges.map(([from, to], p) => {
-      const room = p === 0 ? room1 : room2;
-      const items = measured.slice(from, to);
-      const used = span(from, to);
-      const share = shares[p];
-      const ext = { pad: d.cap.pad * share, row: d.cap.row * share, gap: d.cap.gap * share, header: p === 0 ? d.cap.header * share : 0 };
-      let y = (p === 0 ? top1 + header.height + ext.header : top2);
+    const pages = ranges.map(([fromBlock, toBlock], p) => {
+      const room = roomOf(p);
+      const items = measured.slice(fromBlock, toBlock);
+      const used = items.length ? span(lay, fromBlock, toBlock) : 0;
+      const start = p === 0 ? top1 + header.height + sp.header : top2;
+      let y = start;
       const placed = items.map((m, i) => {
-        const height = Math.max(m.height + ext.pad + m.rows.length * ext.row, m.height);
-        const slot = { m, y, height, ext };
-        y += height + (i < items.length - 1 ? d.gap + ext.gap : 0);
+        const height = lay.h[fromBlock + i];
+        const slot = { m, y, height, sp };
+        y += height + (i < items.length - 1 ? sp.gap : 0);
         return slot;
       });
-      const start = p === 0 ? top1 + header.height + ext.header : top2;
-      const filled = items.length ? y - start : 0;
       // How full the whole page is: the header counts on the first page.
       const whole = p === 0 ? g.bottom - top1 : room2;
-      const fill = ((p === 0 ? header.height + ext.header : 0) + filled) / whole;
-      return { index: p, count: items.length, blocks: placed, header: p === 0 ? header : null, headerExtra: ext.header, room, used, naturalFill: ((p === 0 ? header.height : 0) + used) / whole, fill };
+      const fill = ((p === 0 ? header.height + sp.header : 0) + used) / whole;
+      return { index: p, count: items.length, blocks: placed, header: p === 0 ? header : null, headerExtra: p === 0 ? sp.header : 0, room, used, fill };
     });
-    return { density: this.densityName, header, pages, blocks: measured };
+    // `sizesAt(u)` gives the sizes the plan was worked out from (for the tests, which count the pages again by themselves).
+    const sizesAt = (scale) => {
+      const l = layoutAt(scale);
+      return { heights: l.h, gap: l.sp.gap, room1: l.room1, room2 };
+    };
+    return { density: this.densityName, scale: u, minPages, spacing: sp, header, pages, blocks: measured, sizesAt };
   }
 
   // ---- drawing --------------------------------------------------------------
@@ -521,7 +590,7 @@ class ItineraryRenderer {
     const b = this.b;
     const g = b.geometry;
     const d = this.d;
-    const { m, y, height, ext } = slot;
+    const { m, y, height, sp } = slot;
     const green = index % 2 === 0;
     const band = green ? BRAND.green : BRAND.accent;
     const tint = green ? BRAND.greenTint : BRAND.accentTint;
@@ -548,17 +617,17 @@ class ItineraryRenderer {
       if (sub) b.rotatedText(sub, cx + 5 + d.band.sub, cy, { font: 'Sans', size: d.band.sub });
     }
     // The title in italic, and the rows with hairlines.
-    let cursor = y + d.pad + ext.pad / 2;
+    let cursor = y + sp.pad;
     if (m.titleLines.length) {
       for (const text of m.titleLines) {
         this.line(text, m.textLeft, cursor, { font: 'DisplayItalic', size: d.title, color: deep });
         cursor += d.title * 1.02;
       }
-      if (m.rows.length) cursor += d.titleGap;
+      if (m.rows.length) cursor += sp.titleGap;
     }
     m.rows.forEach((row, i) => {
-      const rowHeight = row.lines.length * d.pitch + 2 * d.rowPad + ext.row;
-      const top = cursor + d.rowPad + ext.row / 2;
+      const rowHeight = row.lines.length * d.pitch + 2 * sp.rowPad;
+      const top = cursor + sp.rowPad;
       const base = b.ascent({ font: 'Serif', size: d.text });
       if (this.model.hasTimes && row.time) this.line(row.time, m.textLeft, top + base - b.ascent({ font: 'SansBold', size: 9.4 }), { font: 'SansBold', size: 9.4, color: deep });
       const x = m.textLeft + (this.model.hasTimes ? TIME_WIDTH + TIME_GAP : 0);

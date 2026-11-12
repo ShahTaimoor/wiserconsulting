@@ -53,8 +53,8 @@ class TouristVisaCoverLetterRepository {
   }
 
   /**
-   * The newest version with its text decrypted, or null (the PDF of step 8h-2 reads only this): { version, text, status, createdAt,
-   * approvedAt? }. No names are looked up. Reading changes nothing.
+   * The newest version with its text decrypted, or null (the PDF of step 8h-2 reads only this): { version, text, status, factsHash,
+   * createdAt, approvedAt? } (factsHash is the keyed hash of the answers it was written from: the PDF compares it, it is never sent out). No names are looked up. Reading changes nothing.
    */
   async findLatestWithText(applicationId) {
     const row = await TouristVisaCoverLetter.findOne({ applicationId }).sort({ version: -1 }).lean();
@@ -68,7 +68,7 @@ class TouristVisaCoverLetterRepository {
       logger.error("Tourist Visa cover letter could not be decrypted", { applicationId: String(applicationId), version: row.version });
       throw new AppError("The cover letter could not be read. Please contact support.", 500, "LETTER_UNREADABLE");
     }
-    return { version: row.version, text, status: row.status, createdAt: row.createdAt, ...(row.approvedAt ? { approvedAt: row.approvedAt } : {}) };
+    return { version: row.version, text, status: row.status, factsHash: row.factsHash, createdAt: row.createdAt, ...(row.approvedAt ? { approvedAt: row.approvedAt } : {}) };
   }
 
   /** Every version, newest first, decrypted, with the name of who made it. For admins only. */

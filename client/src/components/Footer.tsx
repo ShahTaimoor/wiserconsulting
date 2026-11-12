@@ -1,15 +1,20 @@
 import Link from "next/link";
 import { FaFacebookF, FaTwitter, FaLinkedinIn, FaInstagram, FaPhone, FaEnvelope, FaMapMarkerAlt } from "react-icons/fa";
 import { useSettings } from "@/context/SettingsContext";
+import { useTouristVisaEntry } from "@/hooks/useTouristVisaEntry";
+import { ENTRY_TEXT } from "@/utils/safeRedirect";
 
 const Footer = () => {
   const { settings } = useSettings();
   const displayLogo = settings.logoUrl || "/logo.png";
   const currentYear = new Date().getFullYear();
+  // The link to the online application: only while the form is open (the existing status hook), otherwise the column is as it always was.
+  const touristVisaEntry = useTouristVisaEntry();
 
   const services = [
     { name: "Student Visa", href: "/services/student-visa" },
     { name: "Tourist Visa", href: "/services/tourist-visa" },
+    ...(touristVisaEntry.open ? [{ name: ENTRY_TEXT.footer, href: touristVisaEntry.href }] : []),
   ];
 
   const quickLinks = [

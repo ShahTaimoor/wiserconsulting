@@ -20,12 +20,15 @@ const { normalizePdfText } = require('./pdfText');
 const { LETTER_PAGE, BRAND, TEXT } = require('../../config/touristVisaPdf');
 
 const MIDDLE_DOT = String.fromCodePoint(0xb7);
+// The gap between the words of a turned label (a date such as "31 MAR"), from the ink of one word to the ink of the next, as a part of the size.
+const INK_GAP = 0.36;
 
 class DocumentBuilder extends PdfBuilder {
   /**
    * @param {string}  options.reference     printed in the footer
    * @param {string}  options.applicantName the name used by the default continuation header
    * @param {boolean} options.draft         a version that is not approved: banner and watermark on every page
+   * @param {boolean} options.stale         the draft was approved once but its answers have changed since: the banner says so (step 8j-3)
    * @param {object}  options.profile       the page (LETTER_PAGE or ITINERARY_PAGE)
    * @param {object}  options.info          the PDF metadata (fixed words)
    * @param {{left?: string, right?: string}} options.continuation  the words of the continuation header
@@ -33,8 +36,8 @@ class DocumentBuilder extends PdfBuilder {
    * @param {'behind'|'over'} options.watermark  where a draft's watermark is drawn: behind the content (the letter), or over it at a low
    *                                         opacity (the itinerary, whose blocks have solid tints that would hide it)
    */
-  constructor({ reference, applicantName, draft = false, profile = LETTER_PAGE, info = TEXT.letterInfo, continuation, edge = false, watermark = 'behind' }) {
-    super({ reference, applicantName, profile, info, draft: Boolean(draft), continuation: continuation || { left: applicantName, right: '' }, edge: Boolean(edge), watermark });
+  constructor({ reference, applicantName, draft = false, stale = false, profile = LETTER_PAGE, info = TEXT.letterInfo, continuation, edge = false, watermark = 'behind' }) {
+    super({ reference, applicantName, profile, info, draft: Boolean(draft), stale: Boolean(draft) && Boolean(stale), continuation: continuation || { left: applicantName, right: '' }, edge: Boolean(edge), watermark });
   }
 
   get draft() {
@@ -100,16 +103,44 @@ class DocumentBuilder extends PdfBuilder {
    */
   rotatedText(value, cx, cy, { font = 'SansBold', size = 12, color = BRAND.white, angle = -90 } = {}) {
     const doc = this.doc;
-    const textValue = normalizePdfText(value);
-    if (textValue === '') return;
+    const words = normalizePdfText(value).split(' ').filter((word) => word !== '');
+    if (words.length === 0) return;
     doc.font(font).fontSize(size);
-    const width = doc.widthOfString(textValue);
     const height = this.lineHeight({ font, size, lineGap: 0 });
+
+    // The words are set one by one with the same gap between the INK of one word and the ink of the next (INK_GAP of the size), not with the
+    // font's space: a space is a fixed width, so the gap that is seen depends on the shapes on either side of it ("2 APR", whose A leans
+    // away, looked tight beside "15 MAR"). Each word keeps its own kerning.
+    const fontkit = doc._font.font;
+    const unit = size / fontkit.unitsPerEm;
+    const edge = (codePoint) => fontkit.glyphForCodePoint(codePoint);
+    const inks = words.map((word) => {
+      const chars = [...word];
+      const first = edge(chars[0].codePointAt(0));
+      const last = edge(chars[chars.length - 1].codePointAt(0));
+      const advance = doc.widthOfString(word);
+      return { word, left: first.bbox.minX * unit, right: advance - (last.advanceWidth - last.bbox.maxX) * unit };
+    });
+    let origin = 0;
+    let inkLeft = 0;
+    let inkRight = 0;
+    inks.forEach((ink, i) => {
+      if (i === 0) {
+        origin = 0;
+        inkLeft = ink.left;
+      } else {
+        origin = inkRight + INK_GAP * size - ink.left;
+      }
+      ink.origin = origin;
+      inkRight = origin + ink.right;
+    });
+    const shift = -(inkLeft + inkRight) / 2; // the ink of the whole label is centred on the point
+
     doc.save();
     doc.fillColor(color);
     doc.rotate(angle, { origin: [cx, cy] });
     doc.font(font).fontSize(size);
-    doc.text(textValue, cx - width / 2, cy - height / 2, { lineBreak: false });
+    for (const ink of inks) doc.text(ink.word, cx + shift + ink.origin, cy - height / 2, { lineBreak: false });
     doc.restore();
   }
 
@@ -123,7 +154,7 @@ class DocumentBuilder extends PdfBuilder {
       const y = g.margin;
       this.doc.save().lineWidth(0.8).strokeColor(BRAND.greenDeep).rect(g.left, y, g.contentWidth, height).stroke().restore();
       const textHeight = this.lineHeight({ font: 'SansBold', size: 8.5, lineGap: 0 });
-      this.text(TEXT.draftMark, g.left, y + (height - textHeight) / 2, { font: 'SansBold', size: 8.5, color: BRAND.greenDeep, align: 'center', lineGap: 0, lineBreak: false });
+      this.text(this.options.stale ? TEXT.staleMark : TEXT.draftMark, g.left, y + (height - textHeight) / 2, { font: 'SansBold', size: 8.5, color: BRAND.greenDeep, align: 'center', lineGap: 0, lineBreak: false });
     }
     if (number > 1) {
       const y = g.margin + this.bannerSpace;
@@ -147,4 +178,4 @@ class DocumentBuilder extends PdfBuilder {
   }
 }
 
-module.exports = { DocumentBuilder };
+module.exports = { DocumentBuilder, INK_GAP };

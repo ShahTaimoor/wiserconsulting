@@ -108,6 +108,8 @@ const TEXT = Object.freeze({
   // The cover letter (step 8h-2): the quiet footer, the mark of a draft (on every page, as a watermark and in a banner) and the metadata.
   letterFooter: 'Prepared by Wiser Consulting',
   draftMark: 'DRAFT - NOT APPROVED',
+  // The banner of a version that WAS approved but whose answers have changed since (step 8j-3, A12). The watermark stays the draft mark.
+  staleMark: 'DRAFT - ANSWERS CHANGED SINCE APPROVAL',
   letterInfo: Object.freeze({
     Title: 'Cover letter',
     Author: 'Wiser Consulting',

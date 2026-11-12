@@ -158,7 +158,8 @@ test('template: after the real values are put in, the name and employer are in t
 // ---------------------------------------------------------------------------
 
 test('settings: off unless AI_ENABLED is exactly "true"; the model default lives in one place; limits default and parse', () => {
-  const base = { AI_PROVIDER: 'groq', GROQ_API_KEY: 'gsk_test_key_value' };
+  // NODE_ENV is 'test' here on purpose: since step 8j-3 an unset NODE_ENV counts as production (see the production guard test below).
+  const base = { AI_PROVIDER: 'groq', GROQ_API_KEY: 'gsk_test_key_value', NODE_ENV: 'test' };
   for (const value of [undefined, '', 'false', 'TRUE', '1', ' true', 'yes']) {
     assert.equal(aiUnavailableCode(readAiSettings({ ...base, AI_ENABLED: value })), 'AI_DISABLED', String(value));
   }
@@ -185,7 +186,11 @@ test('production guard: in production the AI refuses to run without AI_DATA_TERM
   for (const value of ['', 'false', 'TRUE', '1', ' true', 'yes']) assert.equal(aiUnavailableCode(readAiSettings({ ...env, NODE_ENV: 'production', AI_DATA_TERMS_CONFIRMED: value })), 'AI_TERMS_NOT_CONFIRMED', value);
   assert.equal(aiUnavailableCode(readAiSettings({ ...env, NODE_ENV: 'production', AI_DATA_TERMS_CONFIRMED: 'true' })), null);
   assert.equal(aiUnavailableCode(readAiSettings({ ...env, NODE_ENV: 'development' })), null, 'locally with dummy data it is fine without it');
-  assert.equal(aiUnavailableCode(readAiSettings({ ...env })), null);
+  assert.equal(aiUnavailableCode(readAiSettings({ ...env, NODE_ENV: 'test' })), null, 'and in the tests');
+  // Step 8j-3: production is everything except exactly "development" or "test", so an unset or misspelled NODE_ENV keeps the guard on
+  // (the full table is in touristVisaStartup.test.js).
+  assert.equal(aiUnavailableCode(readAiSettings({ ...env })), 'AI_TERMS_NOT_CONFIRMED', 'NODE_ENV unset');
+  assert.equal(aiUnavailableCode(readAiSettings({ ...env, NODE_ENV: 'prod' })), 'AI_TERMS_NOT_CONFIRMED', 'NODE_ENV misspelled');
 });
 
 // ---------------------------------------------------------------------------
@@ -638,7 +643,7 @@ test('the data model of a cover letter is as it was, plus promptVersion and aiAt
     [JSON.stringify([{ applicationId: 1, version: -1 }, 'unique']), JSON.stringify([{ aiAttempted: 1, createdAt: -1 }, ''])].sort());
   const auditPaths = Object.keys(TouristVisaAudit.schema.paths).filter((p) => p !== '_id').sort();
   // (pdfType and pdfBy are the two fields of the pdf_export rows, added in step 8h-1.)
-  assert.deepEqual(auditPaths, ['action', 'adminId', 'applicationId', 'at', 'documentId', 'fromFlags', 'fromStatus', 'letterSource', 'letterVersion', 'model', 'pdfApproved', 'pdfBy', 'pdfType', 'promptVersion', 'source', 'toFlags', 'toStatus', 'version'].sort());
+  assert.deepEqual(auditPaths, ['action', 'adminId', 'applicationId', 'at', 'documentId', 'fromFlags', 'fromStatus', 'letterSource', 'letterVersion', 'model', 'pdfApproved', 'pdfBy', 'pdfStale', 'pdfType', 'promptVersion', 'source', 'toFlags', 'toStatus', 'version'].sort());
   assert.equal(TouristVisaAudit.ACTIONS.filter((a) => a.startsWith('cover_letter_')).length, 4);
   assert.deepEqual(FALLBACK_REASONS.filter((r) => r.includes('BANNED')), ['AI_BANNED_PHRASE']);
   assert.equal(FALLBACK_REASONS.length, 21, 'the 20 reasons of step 8g and AI_BANNED_PHRASE');

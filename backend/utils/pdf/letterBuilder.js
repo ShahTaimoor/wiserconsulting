@@ -12,9 +12,10 @@ class LetterBuilder extends DocumentBuilder {
    * @param {string}  options.reference     printed in the footer
    * @param {string}  options.applicantName printed in the continuation header
    * @param {boolean} options.draft         a letter that is not approved: banner and watermark on every page
+   * @param {boolean} options.stale         an approved letter whose answers changed since: the banner says so
    */
-  constructor({ reference, applicantName, draft = false }) {
-    super({ reference, applicantName, draft, profile: LETTER_PAGE, info: TEXT.letterInfo, continuation: { left: applicantName, right: '' }, edge: true });
+  constructor({ reference, applicantName, draft = false, stale = false }) {
+    super({ reference, applicantName, draft, stale, profile: LETTER_PAGE, info: TEXT.letterInfo, continuation: { left: applicantName, right: '' }, edge: true });
   }
 }
 

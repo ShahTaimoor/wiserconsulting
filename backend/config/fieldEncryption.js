@@ -17,9 +17,9 @@ const logger = require('../utils/logger');
 
 const KEY_BYTES = 32;
 
-/** Returns { key: Buffer } when usable, otherwise { problem: 'missing' | 'invalid' }. */
-function readFieldEncryptionKey() {
-  const raw = process.env.FIELD_ENCRYPTION_KEY;
+/** Returns { key: Buffer } when usable, otherwise { problem: 'missing' | 'invalid' }. Reads `env` (the process environment by default). */
+function readFieldEncryptionKey(env = process.env) {
+  const raw = env.FIELD_ENCRYPTION_KEY;
   if (typeof raw !== 'string' || raw.trim() === '') return { problem: 'missing' };
 
   const value = raw.trim();
@@ -63,6 +63,7 @@ function warnIfFieldEncryptionNotConfigured() {
 }
 
 module.exports = {
+  readFieldEncryptionKey,
   isFieldEncryptionConfigured,
   getFieldEncryptionKey,
   warnIfFieldEncryptionNotConfigured,

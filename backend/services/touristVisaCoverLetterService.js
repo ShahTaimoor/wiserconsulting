@@ -162,6 +162,23 @@ class TouristVisaCoverLetterService {
     return { application, facts, factsHash: this.hash(facts) };
   }
 
+  /**
+   * Whether the answers the letter uses have changed since `version` was written (step 8j-3, A12): the SAME keyed hash the view compares, but
+   * for an application in any status (the PDF is also made for a completed one, which prepare() refuses). Never throws: when the hash cannot
+   * be worked out the answer is "yes, changed", the safe side (the PDF is then marked as a draft). Logs the application id only.
+   */
+  async isStale(application, version) {
+    try {
+      const cfg = await this.applications.configOf(application);
+      const facts = buildFacts(cfg, application.answers || {}, { submittedAt: application.submittedAt });
+      // (No version is not a case here: reading its hash throws, which the catch below answers with "changed".)
+      return version.factsHash !== this.hash(facts);
+    } catch (error) {
+      logger.error("Tourist Visa cover letter staleness could not be worked out", { applicationId: String(application && application._id) });
+      return true;
+    }
+  }
+
   /** A keyed hash (HMAC) of the facts, so a stored hash cannot be used to guess an answer. */
   hash(facts) {
     return crypto.createHmac("sha256", getFieldEncryptionKey()).update(`touristvisacoverletter:facts:v2:${facts.canonical}`).digest("hex");

@@ -125,7 +125,7 @@ export function ItineraryPanel({ applicationId, reference, status, readToken, fa
   const counter = itineraryCounter(text, max);
   const dirty = latest !== null && normalizeItinerary(text) !== normalizeItinerary(latest.text);
   // The PDF holds the saved newest version (a draft is marked as one by the server); the button is off until an itinerary exists.
-  const pdf = itineraryPdfState({ latest, dirty });
+  const pdf = itineraryPdfState({ latest, dirty, stale: Boolean(view?.stale) });
 
   const focusText = () => window.setTimeout(() => textRef.current?.focus(), 0);
 

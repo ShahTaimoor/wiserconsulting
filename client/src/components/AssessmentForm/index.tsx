@@ -5,6 +5,8 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/redux/store";
 import { clearError, clearSuccess } from "@/redux/slices/formSubmission/formSubmissionSlice";
 import { useAssessmentForm } from "@/hooks/useAssessmentForm";
+import { useTouristVisaEntry } from "@/hooks/useTouristVisaEntry";
+import { shouldOfferFullApplication } from "@/utils/safeRedirect";
 import Image from 'next/image';
 import { motion } from "framer-motion";
 import { X, CheckCircle2, Loader2 } from "lucide-react";
@@ -12,6 +14,7 @@ import { PersonalInfoStep } from "./PersonalInfoStep";
 import { TravelDetailsStep } from "./TravelDetailsStep";
 import { DocumentsStep } from "./DocumentsStep";
 import { StepIndicator } from "./StepIndicator";
+import { FullApplicationPanel } from "./FullApplicationPanel";
 import { Notification } from "./Notification";
 
 const countries = [
@@ -61,17 +64,30 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
     setCurrentStep,
   } = useAssessmentForm(onClose);
 
+  // Step 8i: once a tourist visa assessment for the United Kingdom has been sent, and only while the online application is open (the
+  // existing status hook), the popup stays on a panel with "Continue to your full application" instead of closing by itself.
+  // Otherwise (closed, still loading, failed, or any other visa) nothing here changes: the popup closes after three seconds as it always did.
+  const touristVisaEntry = useTouristVisaEntry();
+  const offerFullApplication = shouldOfferFullApplication({
+    open: touristVisaEntry.open,
+    success,
+    visaType: formData.visaType,
+    destinationCountry: formData.destinationCountry,
+  });
+
   useEffect(() => {
     let successTimeout: NodeJS.Timeout | null = null;
     let errorTimeout: NodeJS.Timeout | null = null;
 
     if (success) {
       setNotification({ type: 'success', message: success });
-      successTimeout = setTimeout(() => {
-        setNotification(null);
-        dispatch(clearSuccess());
-        onClose();
-      }, 3000);
+      if (!offerFullApplication) {
+        successTimeout = setTimeout(() => {
+          setNotification(null);
+          dispatch(clearSuccess());
+          onClose();
+        }, 3000);
+      }
     }
     if (error) {
       setNotification({ type: 'error', message: error });
@@ -85,7 +101,16 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
       if (successTimeout) clearTimeout(successTimeout);
       if (errorTimeout) clearTimeout(errorTimeout);
     };
-  }, [success, error, dispatch, onClose]);
+  }, [success, error, dispatch, onClose, offerFullApplication]);
+
+  // Closing from the panel (or the X) also forgets the success, so the popup opens as a fresh form next time, as it does after the automatic close.
+  const handleClose = () => {
+    if (offerFullApplication) {
+      setNotification(null);
+      dispatch(clearSuccess());
+    }
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -112,7 +137,7 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
             <p className="text-sm text-slate-300">Complete the form to get started</p>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="w-10 h-10 rounded-lg hover:bg-slate-800 transition-colors flex items-center justify-center"
             aria-label="Close"
           >
@@ -121,14 +146,18 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Step Indicator */}
-        <StepIndicator currentStep={currentStep} />
+        {!offerFullApplication && <StepIndicator currentStep={currentStep} />}
 
         {/* Notification */}
         {notification && (
           <Notification type={notification.type} message={notification.message} />
         )}
 
+        {/* The way on to the full application (only while it is open, after a UK tourist visa assessment was sent) */}
+        {offerFullApplication && <FullApplicationPanel href={touristVisaEntry.href} onClose={handleClose} />}
+
         {/* Form */}
+        {!offerFullApplication && (
         <form onSubmit={handleSubmit} id="assessment-form" className="flex flex-col flex-1 min-h-0">
           {/* Form Body - Scrollable Content */}
           <div className="flex-1 overflow-y-auto p-8 space-y-8" style={{ scrollBehavior: 'smooth' }}>
@@ -169,7 +198,7 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
           <div className="px-8 py-6 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="px-6 py-2.5 border border-slate-300 rounded-lg text-slate-700 font-semibold hover:bg-white transition-colors"
             >
               Cancel
@@ -214,6 +243,7 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
             </div>
           </div>
         </form>
+        )}
       </motion.div>
 
       {/* Preview Modal */}

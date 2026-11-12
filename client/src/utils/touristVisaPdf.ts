@@ -89,19 +89,25 @@ export const PDF_WORDS = {
 export interface CoverLetterPdfState {
   /** The button is on only when a letter exists. */
   enabled: boolean;
-  /** The newest version is not approved, so the PDF will be marked as a draft. */
+  /** The newest version is not approved, or it is approved but the answers changed since, so the PDF will be marked as a draft. */
   draft: boolean;
+  /** The newest version was approved but the answers it was written from have changed since (the PDF says so in its banner). */
+  stale: boolean;
   /** The sentence under the button. */
   hint: string;
 }
 
 /** The state of the button of a document that has versions (the cover letter or the itinerary): off until one exists, a draft is marked as one. */
-export function documentPdfState({ latest, dirty, noun }: { latest: { status: string } | null; dirty: boolean; noun: "cover letter" | "itinerary" }): CoverLetterPdfState {
-  if (!latest) return { enabled: false, draft: false, hint: `Write ${noun === "itinerary" ? "an itinerary" : "a cover letter"} first, then you can download it as a PDF.` };
+export function documentPdfState({ latest, dirty, noun, stale = false }: { latest: { status: string } | null; dirty: boolean; noun: "cover letter" | "itinerary"; stale?: boolean }): CoverLetterPdfState {
+  if (!latest) return { enabled: false, draft: false, stale: false, hint: `Write ${noun === "itinerary" ? "an itinerary" : "a cover letter"} first, then you can download it as a PDF.` };
   const saved = dirty ? " It holds the saved version, not your unsaved changes." : "";
-  if (latest.status === "approved") return { enabled: true, draft: false, hint: `Downloads the approved version as a PDF.${saved}` };
-  return { enabled: true, draft: true, hint: `This version is not approved, so the PDF is marked "DRAFT - NOT APPROVED" on every page.${saved}` };
+  // An approved version whose answers have changed since is NOT printed as approved (the server decides the same way): a draft, with a banner that says why.
+  if (latest.status === "approved" && stale) {
+    return { enabled: true, draft: true, stale: true, hint: `The answers changed after this version was approved, so the PDF is marked "DRAFT - ANSWERS CHANGED SINCE APPROVAL" on every page. Create a new version and approve it to download a clean copy.${saved}` };
+  }
+  if (latest.status === "approved") return { enabled: true, draft: false, stale: false, hint: `Downloads the approved version as a PDF.${saved}` };
+  return { enabled: true, draft: true, stale: false, hint: `This version is not approved, so the PDF is marked "DRAFT - NOT APPROVED" on every page.${saved}` };
 }
 
-export const coverLetterPdfState = ({ latest, dirty }: { latest: { status: string } | null; dirty: boolean }): CoverLetterPdfState => documentPdfState({ latest, dirty, noun: "cover letter" });
-export const itineraryPdfState = ({ latest, dirty }: { latest: { status: string } | null; dirty: boolean }): CoverLetterPdfState => documentPdfState({ latest, dirty, noun: "itinerary" });
+export const coverLetterPdfState = ({ latest, dirty, stale = false }: { latest: { status: string } | null; dirty: boolean; stale?: boolean }): CoverLetterPdfState => documentPdfState({ latest, dirty, noun: "cover letter", stale });
+export const itineraryPdfState = ({ latest, dirty, stale = false }: { latest: { status: string } | null; dirty: boolean; stale?: boolean }): CoverLetterPdfState => documentPdfState({ latest, dirty, noun: "itinerary", stale });
