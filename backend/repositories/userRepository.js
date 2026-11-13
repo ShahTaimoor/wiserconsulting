@@ -28,13 +28,6 @@ class UserRepository {
   }
 
   /**
-   * Find user by Google ID (excluding deleted)
-   */
-  async findByGoogleId(googleId) {
-    return await User.findOne({ googleId, isDeleted: false });
-  }
-
-  /**
    * Find user by email or name (excluding deleted)
    */
   async findByEmailOrName(email, name) {

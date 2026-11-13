@@ -103,8 +103,8 @@ class UserController {
    */
   updateProfile = asyncHandler(async (req, res) => {
     const userId = req.user.id;
-    const updateData = req.body;
-    const result = await userService.updateProfile(userId, updateData);
+    // The body has been cleaned by the validation (strict: only the profile fields) and the service copies those fields again.
+    const result = await userService.updateProfile(userId, req.body);
 
     return ApiResponse.success(res, result, "Profile updated successfully");
   });
@@ -118,51 +118,6 @@ class UserController {
     const result = await userService.updateUserRole(userId, role);
 
     return ApiResponse.success(res, result, "User role updated successfully");
-  });
-
-  /**
-   * Create admin user
-   */
-  createAdmin = asyncHandler(async (req, res) => {
-    const { name, email, password } = req.body;
-    const result = await userService.createAdmin(name, email, password);
-
-    return ApiResponse.success(
-      res,
-      result,
-      "Admin user created successfully",
-      201,
-    );
-  });
-
-  /**
-   * Handle Google OAuth token
-   */
-  handleGoogleToken = asyncHandler(async (req, res) => {
-    const { access_token } = req.body;
-    const result = await userService.handleGoogleAuth(access_token);
-    const token = result.token;
-
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
-      maxAge: 365 * 24 * 60 * 60 * 1000,
-    });
-
-    return ApiResponse.success(
-      res,
-      {
-        user: {
-          id: result.user._id,
-          name: result.user.name,
-          email: result.user.email,
-          role: result.user.role,
-        },
-        token,
-      },
-      "Google authentication successful",
-    );
   });
 }
 

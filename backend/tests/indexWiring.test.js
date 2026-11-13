@@ -52,7 +52,6 @@ before(async () => {
       JWT_SECRET,
       FIELD_ENCRYPTION_KEY,
       TOURIST_VISA_ENABLED: 'true',
-      SESSION_SECRET: 'test-only-session-secret',
       FRONTEND_URL: 'http://localhost:3000',
       NODE_ENV: 'test',
     },

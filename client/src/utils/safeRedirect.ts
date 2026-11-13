@@ -19,7 +19,7 @@ const ALLOWED = /^[A-Za-z0-9\-._~!$&'()*+,;=:@%/?#]+$/;
 
 // Pages that must never be a post-login destination: sending a just-signed-in user
 // back to /login would loop.
-const AUTH_PATHS = ["/login", "/login-01", "/register", "/signup", "/auth-success"];
+const AUTH_PATHS = ["/login", "/login-01", "/register", "/signup"];
 
 const MAX_LENGTH = 512;
 

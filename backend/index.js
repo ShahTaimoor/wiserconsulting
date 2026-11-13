@@ -2,8 +2,6 @@
 const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
-const session = require("express-session");
-const passport = require("passport");
 const cookieParser = require("cookie-parser");
 const path = require("path");
 require("dotenv").config();
@@ -15,11 +13,8 @@ if (!require("./config/touristVisaStartup").checkTouristVisaStartup()) {
   process.exit(1);
 }
 
-require("./config/passport");
-
 const connectDB = require("./config/db");
 const userRoutes = require("./routes/userRoutes");
-const authRoutes = require("./routes/authRoutes");
 const assessmentRoutes = require("./routes/assessmentRoutes");
 const formSubmissionRoutes = require("./routes/formSubmissionRoutes");
 const contactRoutes = require("./routes/contactRoutes");
@@ -31,7 +26,6 @@ const testimonialRoutes = require("./routes/testimonialRoutes");
 const touristVisaRoutes = require("./routes/touristVisaRoutes");
 const {
   apiLimiter,
-  authLimiter,
   uploadLimiter,
 } = require("./middleware/rateLimiter");
 const sanitize = require("./middleware/sanitize");
@@ -100,32 +94,13 @@ app.use(skipPaths(["/api/tourist-visa"], sanitize));
 app.use("/api", apiLimiter);
 
 // The one Tourist Visa URL that answers while the feature is closed (GET /api/tourist-visa/status, { open }). It sits right after
-// the general rate limiter and before sessions, passport and the router: no sign-in, no session and no database.
+// the general rate limiter and before the router: no sign-in and no database.
 app.get("/api/tourist-visa/status", touristVisaFeatureGate.touristVisaStatus);
-
-// Session middleware
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "your-secret-key",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === "production",
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000,
-    },
-  }),
-);
-
-// Initialize passport
-app.use(passport.initialize());
-app.use(passport.session());
 
 // Serve static files from uploads directory
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // API Routes with rate limiting
-app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/tourist-visa", touristVisaRoutes);
 app.use("/api", userRoutes);
 app.use("/api", assessmentRoutes);

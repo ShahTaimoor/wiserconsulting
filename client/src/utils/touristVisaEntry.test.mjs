@@ -214,7 +214,7 @@ test("rejects tabs, newlines, spaces and other control and invisible characters,
 });
 
 test("rejects the sign-in and sign-up pages, so nobody is sent in a circle", () => {
-  for (const value of ["/login", "/login?next=/tourist-visa", "/register", "/register?next=/tourist-visa", "/signup", "/login-01", "/auth-success?token=abc"]) rejected(value);
+  for (const value of ["/login", "/login?next=/tourist-visa", "/register", "/register?next=/tourist-visa", "/signup", "/login-01"]) rejected(value);
 });
 
 test("rejects very long values, and accepts one just under the limit", () => {
@@ -332,7 +332,7 @@ test("the next of an address bar is read in ONE place: safeRedirect.ts and the l
   const readers = files.filter((file) => /\.get\(\s*["']next["']\s*\)|searchParams\.next\b/.test(fs.readFileSync(file, "utf8"))).map((file) => path.relative(SRC, file).replace(/\\/g, "/")).sort();
   assert.deepEqual(readers, ["components/login-form.tsx", "utils/safeRedirect.ts"]);
   assert.match(read("components/login-form.tsx"), /postLoginDestination\(isAdminRole\(user\.role\), next\)/);
-  for (const file of ["app/register/page.tsx", "components/signup-form.tsx", "components/GoogleLoginButton.tsx"]) assert.match(read(file), /carriedNext\(open, window\.location\.search\)/, file);
+  for (const file of ["app/register/page.tsx", "components/signup-form.tsx"]) assert.match(read(file), /carriedNext\(open, window\.location\.search\)/, file);
   assert.match(read("hooks/useTouristVisaEntry.ts"), /carriedNext\(open, search\)/);
 });
 
@@ -516,8 +516,7 @@ function page(file, exportName, { availability, user = null, search = "", carrie
     ...fakes(),
     "@/redux/hooks": { useAppSelector: (select) => select({ auth: { user, loading: false, error: null, success: null, ...pageState } }), useAppDispatch: () => () => ({}) },
     "next/navigation": { useRouter: () => router, usePathname: () => "/" },
-    "@/redux/slices/auth/authSlice": { register: thunk, login: thunk, clearError: () => ({ type: "clearError" }), googleAuth: thunk },
-    "@react-oauth/google": { useGoogleLogin: () => () => {} },
+    "@/redux/slices/auth/authSlice": { register: thunk, login: thunk, clearError: () => ({ type: "clearError" }) },
     "framer-motion": { motion: {} },
     // The carried next that the page would hold after it has mounted (the hook reads the address bar in an effect, which a server render does not run).
     "@/hooks/useTouristVisaEntry": { useCarriedNext: () => ({ open: availability === "open", next: carried }) },
@@ -585,15 +584,6 @@ test("LOGIN: the sign-up link carries next only while open; after sign-in a vali
     assert.deepEqual(target(USER, bad), ["/"], `user ${bad}`);
     assert.deepEqual(target({ ...USER, role: 1 }, bad), ["/admin/users"], `admin ${bad}`);
   }
-});
-
-test("GOOGLE BUTTON (not used by any page today, but it moves on after sign-in): a valid carried next while open, otherwise the usual places", () => {
-  const where = (user, search, availability) => page("components/GoogleLoginButton.tsx", "default", { availability, user, search }).replaces;
-  assert.deepEqual(where(USER, "?next=/tourist-visa", "open"), ["/tourist-visa"]);
-  assert.deepEqual(where(USER, "?next=/tourist-visa", "closed"), ["/"]);
-  assert.deepEqual(where(USER, "?next=//evil.example", "open"), ["/"]);
-  assert.deepEqual(where({ ...USER, role: 1 }, "?next=/tourist-visa", "loading"), ["/admin/products"]);
-  assert.deepEqual(where(USER, "", "open"), ["/"]);
 });
 
 test("no page puts anything personal in an address: the only value ever carried is the fixed /tourist-visa path, and the links are built from it alone", () => {

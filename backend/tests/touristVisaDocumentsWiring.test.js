@@ -55,7 +55,6 @@ before(async () => {
       MONGODB_URI: mongod.getUri(),
       PORT: String(port),
       JWT_SECRET,
-      SESSION_SECRET: 'test-only-session-secret',
       FRONTEND_URL: ORIGIN,
       NODE_ENV: 'development',
       TOURIST_VISA_ENABLED: 'true',
