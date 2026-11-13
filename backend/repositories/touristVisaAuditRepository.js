@@ -39,6 +39,7 @@ class TouristVisaAuditRepository {
       ...(row.pdfType ? { pdfType: row.pdfType } : {}),
       ...(row.pdfBy ? { pdfBy: row.pdfBy } : {}),
       ...(typeof row.pdfApproved === 'boolean' ? { pdfApproved: row.pdfApproved } : {}),
+      ...(row.pdfStale === true ? { pdfStale: true } : {}),
       ...(row.model ? { model: row.model } : {}),
       ...(row.promptVersion ? { promptVersion: row.promptVersion } : {}),
     }));

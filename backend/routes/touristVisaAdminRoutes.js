@@ -17,9 +17,14 @@ const touristVisaCoverLetterController = require('../controllers/touristVisaCove
 const touristVisaItineraryController = require('../controllers/touristVisaItineraryController');
 const touristVisaPdfController = require('../controllers/touristVisaPdfController');
 const { pdfLimiter } = require('../middleware/touristVisaPdfLimit');
+const touristVisaNoStore = require('../middleware/touristVisaNoStore');
+const { editLimiter, notesLimiter, listLimiter } = require('../middleware/touristVisaLimits');
+
+// Every answer from here is marked not to be kept in a cache, whoever mounts this router (step 8j-3, B6).
+router.use(touristVisaNoStore);
 
 // The list of submitted and later applications (never drafts)
-router.get('/applications', touristVisaAdminController.list);
+router.get('/applications', listLimiter, touristVisaAdminController.list);
 
 // The Overview of one application
 router.get('/applications/:id', touristVisaAdminController.overview);
@@ -34,18 +39,18 @@ router.get('/applications/:id/documents/:docId/link', touristVisaAdminController
 router.patch('/applications/:id/status', touristVisaAdminController.updateStatus);
 
 // Correcting answers (step 8f). The form needs the config the application was submitted under and its decrypted answers.
-router.get('/applications/:id/edit-form', touristVisaAdminEditController.editForm);
+router.get('/applications/:id/edit-form', editLimiter, touristVisaAdminEditController.editForm);
 // Body { expectedRevision, reason, changes, dryRun? }: a dry run only previews; a real one is a single transaction.
-router.put('/applications/:id/changes', touristVisaAdminEditController.change);
+router.put('/applications/:id/changes', editLimiter, touristVisaAdminEditController.change);
 // What was corrected, by whom, when and why, with the old and new values
 router.get('/applications/:id/changes', touristVisaAdminEditController.history);
 
 // Notes and the call log (append only)
 router.get('/applications/:id/notes', touristVisaAdminEditController.listNotes);
-router.post('/applications/:id/notes', touristVisaAdminEditController.addNote);
+router.post('/applications/:id/notes', notesLimiter, touristVisaAdminEditController.addNote);
 
 // Admin-only flags from a fixed list
-router.put('/applications/:id/flags', touristVisaAdminEditController.setFlags);
+router.put('/applications/:id/flags', notesLimiter, touristVisaAdminEditController.setFlags);
 
 // The cover letter (step 8g): generated on demand by an administrator, versions appended and never changed.
 router.get('/applications/:id/cover-letter', touristVisaCoverLetterController.get);

@@ -232,6 +232,9 @@ export function describeError(error: unknown): string {
     if (error.status === 503) {
       return "The Tourist Visa application is temporarily unavailable. This is a problem on our side, not with your details. Please try again later or contact us.";
     }
+    // The dedicated limits (step 8j-3) have their own sentence; any other 429 keeps the general one.
+    if (error.code === "TOO_MANY_SUBMISSIONS") return "You have tried to submit several times in a short while. Please wait a few minutes and try again.";
+    if (error.code === "ORIGIN_NOT_ALLOWED") return "This request was not accepted. Reload the page and try again.";
     if (error.status === 429) return "Too many requests. Please wait a few minutes and try again.";
     if (error.status >= 500) return "Something went wrong on our side. Please try again in a moment.";
     return error.message;

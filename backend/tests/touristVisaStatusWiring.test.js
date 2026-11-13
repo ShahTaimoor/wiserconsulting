@@ -42,7 +42,7 @@ async function startBackend(value) {
   const state = { output: '', exit: null };
   const child = spawn(process.execPath, [path.join(__dirname, '..', 'index.js')], {
     cwd: os.tmpdir(),
-    env: { ...env, MONGODB_URI: mongod.getUri(), PORT: String(port), JWT_SECRET: 'test-only-jwt-secret', SESSION_SECRET: 'test-only-session-secret', FRONTEND_URL: ORIGIN, NODE_ENV: 'development' },
+    env: { ...env, MONGODB_URI: mongod.getUri(), PORT: String(port), JWT_SECRET: 'test-only-jwt-secret', FRONTEND_URL: ORIGIN, NODE_ENV: 'development' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   child.stdout.on('data', (d) => { state.output += d; });

@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState, FormEvent, useEffect } from "react";
+import React, { useState, FormEvent, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { register, login } from "@/redux/slices/auth/authSlice";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { useCarriedNext } from "@/hooks/useTouristVisaEntry";
+import { carriedNext, nextQuery } from "@/utils/safeRedirect";
 
 const Register: React.FC = () => {
   const [name, setName] = useState("");
@@ -21,12 +23,18 @@ const Register: React.FC = () => {
   const { loading, error, success, user } = useAppSelector((state) => state.auth);
   const router = useRouter();
 
-  // Redirect to home after login
+  // Step 8i: while the Tourist Visa form is open, a valid ?next=/tourist-visa is carried to the sign-in link and used after success.
+  // Closed, still loading or failed: carriedNext is null and the page is exactly as it was.
+  const { open, next } = useCarriedNext();
+  const redirected = useRef(false);
+
+  // Redirect to home (or, while the form is open, to the carried next) after login
   useEffect(() => {
-    if (user && user._id) {
-      router.push("/");
+    if (user && user._id && !redirected.current) {
+      redirected.current = true;
+      router.push(carriedNext(open, window.location.search) ?? "/");
     }
-  }, [user, router]);
+  }, [user, router, open]);
 
   const validateForm = () => {
     const errors: { [key: string]: string } = {};
@@ -192,7 +200,7 @@ const Register: React.FC = () => {
 
               <p className="text-center text-sm text-slate-500">
                 Already have an account?{" "}
-                <Link href="/login" className="font-semibold text-slate-900 underline underline-offset-4 hover:text-slate-700 cursor-pointer">
+                <Link href={`/login${nextQuery(next)}`} className="font-semibold text-slate-900 underline underline-offset-4 hover:text-slate-700 cursor-pointer">
                   Sign in
                 </Link>
               </p>

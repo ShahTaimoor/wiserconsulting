@@ -22,6 +22,10 @@
  * left out: the stored text always opens with its salutation ("Dear Sir or Madam,"), which a drop cap would only break. The closing has a
  * real signature line.
  *
+ * FIT TO ONE PAGE (step 8h-4): a letter that overflows page 1 by a few lines is tightened in small steps (FIT_STEPS: the line and paragraph
+ * spacing, then the space round the letterhead, then the body size by half a point at most) before it flows to a second page, using the least
+ * tightening that makes it fit; one that does not fit even then flows to two pages at the nominal setting.
+ *
  * The page rules: a short letter fits on one page; a longer one flows to the next with a compact continuation header; a paragraph is not left
  * with one line at the foot or the head of a page when it can be avoided; and the closing (the "Yours faithfully," line, the signature space and
  * the name) is never alone on a page: it is kept together with at least the last two lines of the body.
@@ -37,13 +41,35 @@ const norm = normalizePdfText;
 const text = (value) => (typeof value === 'string' ? value.trim() : '');
 
 // The letter's type: Source Serif 4 at 11 pt with a comfortable line (1.64), 12 pt between paragraphs, in a column of about 70 characters.
-const BODY = Object.freeze({ font: 'Serif', size: 11, color: BRAND.ink });
+// These are the NOMINAL values; a letter that overflows the page by a little is tightened in small steps (FIT_STEPS below).
 const BODY_WIDTH = 410;
 const LINE_PITCH = 18;
-const PARAGRAPH_GAP = 12;
-const SIGNATURE_GAP = 46; // the room for a signature between "Yours faithfully," and the name, with its line
+const SIGNATURE_GAP = 46; // the room for a signature between "Yours faithfully," and the name, with its line (never tightened)
+
+/**
+ * FIT TO ONE PAGE (step 8h-4). A letter that overflows page 1 by a few lines would put only its last paragraph and the closing on page 2,
+ * which looks unfinished. So, before flowing to a second page, the letter is tried at these steps in order, from the nominal setting to the
+ * tightest, and the FIRST step that makes the whole letter (the closing and the signature room included) fit on one page is used: the least
+ * tightening that works. The order is: the line and paragraph spacing first, then the space around the letterhead (`head` scales its gaps),
+ * then the size of the body by half a point at most. Nothing goes below the minimums: the body 10.5 pt, the line at least 1.5 times the size.
+ * A letter that does not fit even at the last step flows to two pages exactly as before, at the NOMINAL setting.
+ */
+const FIT_STEPS = Object.freeze([
+  { size: 11, pitch: 18, gap: 12, head: 1 }, // 0: nominal
+  { size: 11, pitch: 17.6, gap: 11, head: 1 },
+  { size: 11, pitch: 17.3, gap: 10, head: 1 },
+  { size: 11, pitch: 17, gap: 9, head: 1 },
+  { size: 11, pitch: 17, gap: 9, head: 0.8 },
+  { size: 11, pitch: 17, gap: 9, head: 0.6 },
+  { size: 11, pitch: 17, gap: 9, head: 0.4 },
+  { size: 10.75, pitch: 16.7, gap: 9, head: 0.4 },
+  { size: 10.5, pitch: 16.4, gap: 9, head: 0.4 },
+]);
+const MIN_BODY_SIZE = 10.5;
+const MIN_LINE_RATIO = 1.5; // the line pitch is never under this times the body size
+// The gaps of the letterhead at the nominal setting (scaled by a step's `head`).
+const HEAD_GAPS = Object.freeze({ nameRule: 7, ruleAfter: 13, contactAfter: 14, hairAfter: 14, dateAfter: 22 });
 const SIGNATURE_LINE = 176; // the length of the signature line
-const CLOSING_GAP = 14; // before the closing, in place of a paragraph gap
 const SENDER_NAME = Object.freeze({ font: 'Display', size: 34, color: BRAND.ink });
 const CONTACT = Object.freeze({ font: 'Sans', size: 8.6, color: BRAND.muted });
 const TAIL_LINES = 2; // the closing keeps at least this many lines of the body with it
@@ -124,9 +150,10 @@ const formatLetterDate = (date) => view.formatDate(date.toISOString().slice(0, 1
  * @param {string} input.reference  the application's reference
  * @param {object} input.sender     senderOf(answers)
  * @param {Date}   [input.date]     the date line
- * @param {boolean} input.draft     the version is not approved
+ * @param {boolean} input.draft     the version is not approved (or was approved and its answers have changed since)
+ * @param {boolean} [input.stale]   the draft was approved once, and the answers changed since: the banner says so
  */
-function buildLetterModel({ text: letterText, reference, sender, date, draft }) {
+function buildLetterModel({ text: letterText, reference, sender, date, draft, stale }) {
   const { blocks, closing } = parseLetter(letterText);
   return {
     reference: norm(reference || ''),
@@ -136,6 +163,7 @@ function buildLetterModel({ text: letterText, reference, sender, date, draft }) 
     blocks,
     closing,
     draft: Boolean(draft),
+    stale: Boolean(draft) && Boolean(stale),
   };
 }
 
@@ -168,14 +196,43 @@ function unprintableIn(model) {
 // ---------------------------------------------------------------------------
 
 class LetterRenderer {
-  constructor(model) {
+  /**
+   * @param {object} model
+   * @param {object} [step]            one of FIT_STEPS: the size, the line pitch, the paragraph gap and the scale of the letterhead's gaps
+   * @param {Map} [options.cache]    wrapped lines already worked out (see fitOf)
+   * @param {object} [options.builder] a builder to draw on (the probe that the attempts of fitOf share: opening the fonts is the slow part)
+   * @param {boolean} [options.single] the letter must fit on one page: a second page is not started, it throws OVERFLOW instead (the step is too loose)
+   */
+  constructor(model, step = FIT_STEPS[0], { single = false, cache = new Map(), builder = null } = {}) {
     this.model = model;
-    this.b = new LetterBuilder({ reference: model.reference, applicantName: model.applicantName, draft: model.draft });
+    this.cache = cache; // the wrapped text of a paragraph at a size, shared by the steps that use the same size
+    this.step = step;
+    this.body = Object.freeze({ font: 'Serif', size: step.size, color: BRAND.ink });
+    this.pitch = step.pitch;
+    this.pgap = step.gap;
+    this.closingGap = step.gap + 2; // before the closing, in place of a paragraph gap
+    this.head = step.head;
+    this.b = builder || new LetterBuilder({ reference: model.reference, applicantName: model.applicantName, draft: model.draft, stale: model.stale });
     this.bodyWidth = Math.min(BODY_WIDTH, this.b.geometry.contentWidth);
+    if (single) {
+      this.b.newPage = () => {
+        throw OVERFLOW;
+      };
+      this.b.y = this.b.top; // a shared probe starts each attempt at the top of its one page
+    }
   }
 
   /** The text cut into lines that fit the width: at spaces, and inside a word that is longer than a line. Hard line breaks are kept. */
-  wrap(value, style = BODY, width = this.bodyWidth) {
+  wrap(value, style = this.body, width = this.bodyWidth) {
+    const key = `${style.font}|${style.size}|${width}|${value}`;
+    const known = this.cache.get(key);
+    if (known) return known.slice();
+    const lines = this.wrapLines(value, style, width);
+    this.cache.set(key, lines);
+    return lines.slice();
+  }
+
+  wrapLines(value, style, width) {
     const b = this.b;
     const lines = [];
     for (const hard of norm(value).split('\n')) {
@@ -208,10 +265,10 @@ class LetterRenderer {
     return lines;
   }
 
-  drawLine(value, style = BODY) {
+  drawLine(value, style = this.body) {
     const b = this.b;
     b.text(value, b.geometry.left, b.y, { ...style, plain: true, lineGap: 0, lineBreak: false });
-    b.y += LINE_PITCH;
+    b.y += this.pitch;
   }
 
   /**
@@ -228,9 +285,9 @@ class LetterRenderer {
         b.text(line, g.left, b.y, { ...SENDER_NAME, plain: true, lineGap: 0, lineBreak: false });
         b.y += lineHeight * 0.96;
       }
-      b.y += 7;
+      b.y += HEAD_GAPS.nameRule * this.head;
       b.fill(g.left, b.y, 46, 2.4, BRAND.accent);
-      b.y += 2.4 + 13;
+      b.y += 2.4 + HEAD_GAPS.ruleAfter * this.head;
     }
     const items = [addressLines.join(', '), email, phone].filter(Boolean);
     if (items.length) {
@@ -267,9 +324,9 @@ class LetterRenderer {
       }
       b.y += rowHeight;
     }
-    b.y += 14;
+    b.y += HEAD_GAPS.contactAfter * this.head;
     b.rule(b.y, { weight: 0.6, color: BRAND.rule });
-    b.y += 14;
+    b.y += HEAD_GAPS.hairAfter * this.head;
   }
 
   /** The date on the left and the reference on the right, on one tidy line. */
@@ -287,12 +344,12 @@ class LetterRenderer {
     const base = b.ascent({ ...dateStyle });
     b.text(this.model.reference, valueX, b.y + base - b.ascent(valueStyle), { ...valueStyle, color: BRAND.greenDeep, plain: true, lineGap: 0, lineBreak: false });
     b.text('REFERENCE', valueX - 8 - labelWidth, b.y + base - b.ascent(labelStyle), { ...labelStyle, color: BRAND.muted, plain: true, lineGap: 0, lineBreak: false });
-    b.y += LINE_PITCH + 22;
+    b.y += this.pitch + HEAD_GAPS.dateAfter * this.head;
   }
 
   /** The room left on this page, in lines. */
   linesLeft(gap = 0) {
-    return Math.floor((this.b.remaining() - gap) / LINE_PITCH);
+    return Math.floor((this.b.remaining() - gap) / this.pitch);
   }
 
   /** At the top of a page no gap is left above a paragraph. */
@@ -309,7 +366,7 @@ class LetterRenderer {
     let index = 0;
     let first = true;
     while (index < lines.length) {
-      const gap = first && !this.atTop() ? PARAGRAPH_GAP : 0;
+      const gap = first && !this.atTop() ? this.pgap : 0;
       const left = lines.length - index;
       let fit = this.linesLeft(gap);
       if (fit >= left) {
@@ -336,7 +393,8 @@ class LetterRenderer {
     }
   }
 
-  render() {
+  /** Draws everything on the pages (the header and the footer are added when the file is finished). */
+  layout() {
     const b = this.b;
     const model = this.model;
     this.letterhead();
@@ -355,28 +413,79 @@ class LetterRenderer {
 
     // The tail of the body and the closing are placed as one group: they never start a page without each other.
     const closingLines = model.closing ? model.closing.map((line) => this.wrap(line)).flat() : [];
-    const closingHeight = closingLines.length ? CLOSING_GAP + closingLines.length * LINE_PITCH + SIGNATURE_GAP : 0;
-    const tailHeight = tail.reduce((sum, part) => sum + (part.startsParagraph ? PARAGRAPH_GAP : 0) + part.lines.length * LINE_PITCH, 0);
+    const closingHeight = closingLines.length ? this.closingGap + closingLines.length * this.pitch + SIGNATURE_GAP : 0;
+    const tailHeight = tail.reduce((sum, part) => sum + (part.startsParagraph ? this.pgap : 0) + part.lines.length * this.pitch, 0);
     b.ensureSpace(tailHeight + closingHeight);
     tail.forEach((part) => {
-      if (part.startsParagraph && !this.atTop()) b.y += PARAGRAPH_GAP;
+      if (part.startsParagraph && !this.atTop()) b.y += this.pgap;
       for (const line of part.lines) this.drawLine(line);
     });
     if (closingLines.length) {
-      if (!this.atTop()) b.y += CLOSING_GAP;
+      if (!this.atTop()) b.y += this.closingGap;
       // "Yours faithfully," then the room for a signature (with a thin line to sign on), then the name.
       this.drawLine(closingLines[0]);
       b.rule(b.y + SIGNATURE_GAP - 9, { weight: 0.6, color: BRAND.ink, x1: b.geometry.left, x2: b.geometry.left + SIGNATURE_LINE });
       b.y += SIGNATURE_GAP;
       for (const line of closingLines.slice(1)) this.drawLine(line);
     }
-    return b.finish();
+  }
+
+  render() {
+    this.layout();
+    return this.b.finish();
+  }
+}
+
+const OVERFLOW = Object.freeze({ overflow: true });
+
+/**
+ * The first step of FIT_STEPS (the least tightening) at which the whole letter fits on one page, as { index, step }; or null when no step makes
+ * it fit (the letter then flows to two pages at the nominal setting). Step 0 is the nominal setting: a letter that already fits is unchanged.
+ */
+function fitOf(model, cache = new Map(), from = 0) {
+  const probe = new LetterBuilder({ reference: model.reference, applicantName: model.applicantName, draft: model.draft, stale: model.stale });
+  try {
+    // The tightest step first: a letter that does not fit even there fits nowhere (smaller type never needs more lines), and is told at once.
+    if (!fitsAtStep(model, FIT_STEPS.length - 1, cache, probe)) return null;
+    for (let index = from; index < FIT_STEPS.length; index += 1) {
+      if (fitsAtStep(model, index, cache, probe)) return { index, step: FIT_STEPS[index] };
+    }
+    return null;
+  } finally {
+    probe.abort();
+  }
+}
+
+/** Whether the whole letter fits on one page at step `index` of FIT_STEPS (on a probe builder if one is given: what is drawn on it is thrown away). */
+function fitsAtStep(model, index, cache = new Map(), probe = null) {
+  const own = probe || new LetterBuilder({ reference: model.reference, applicantName: model.applicantName, draft: model.draft, stale: model.stale });
+  const renderer = new LetterRenderer(model, FIT_STEPS[index], { single: true, cache, builder: own });
+  try {
+    renderer.layout();
+    return true;
+  } catch (error) {
+    if (error !== OVERFLOW) throw error;
+    return false;
+  } finally {
+    if (!probe) own.abort();
   }
 }
 
 /** The PDF of the model, as a Buffer. Rejects (never throws at once) with the builder's PdfError for a document that is too long. */
 async function renderCoverLetterPdf(model) {
-  const renderer = new LetterRenderer(model);
+  const cache = new Map();
+  // The nominal setting is drawn for real first: a letter that fits is exactly as it was, and costs no more than before.
+  const nominal = new LetterRenderer(model, FIT_STEPS[0], { single: true, cache });
+  try {
+    nominal.layout();
+    return await nominal.b.finish();
+  } catch (error) {
+    nominal.b.abort();
+    if (error !== OVERFLOW) throw error;
+  }
+  // It overflows: the least tightening that makes it fit on one page, or the nominal setting on two pages when none does.
+  const fit = fitOf(model, cache, 1);
+  const renderer = new LetterRenderer(model, fit ? fit.step : FIT_STEPS[0], { cache });
   try {
     return await renderer.render();
   } catch (error) {
@@ -385,4 +494,4 @@ async function renderCoverLetterPdf(model) {
   }
 }
 
-module.exports = { parseLetter, senderOf, letterDate, formatLetterDate, buildLetterModel, unprintableIn, renderCoverLetterPdf, LINE_PITCH, SIGNATURE_GAP };
+module.exports = { parseLetter, senderOf, letterDate, formatLetterDate, buildLetterModel, unprintableIn, renderCoverLetterPdf, fitOf, fitsAtStep, FIT_STEPS, MIN_BODY_SIZE, MIN_LINE_RATIO, LINE_PITCH, SIGNATURE_GAP };

@@ -862,7 +862,8 @@ test('an approved itinerary is exported clean, with its details grid from the an
     const part = line.replace(/^Day \d+,\s*/, '').replace(/\s+/g, ' ');
     assert.ok(printed.includes(part), `"${part.slice(0, 50)}" is in the file`);
   }
-  for (const n of [1, 8, 15]) assert.ok(pdf.pages.some((p) => p.items.some((i) => i.str === `DAY ${n}` && i.angle === 90)), `the band of day ${n}`);
+  // The label of a band is turned on its side, its words set one after the other ("DAY" and the number).
+  for (const n of [1, 8, 15]) assert.ok(pdf.pages.some((p) => p.items.some((i, k) => i.str === 'DAY' && i.angle === 90 && p.items.some((j) => j.str === String(n) && j.angle === 90 && Math.abs(j.x - i.x) < 0.6 && j.y > i.y))), `the band of day ${n}`);
   // The details grid comes from the answers, only the fields the data has.
   const first = pdf.pages[0];
   assert.ok(first.items.some((i) => i.str === 'Travel itinerary' && /CormorantGaramond/.test(i.font) && i.size >= 30));

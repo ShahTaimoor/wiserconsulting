@@ -13,6 +13,9 @@
  *   AI_ADMIN_HOURLY_LIMIT    optional; how many AI letters one administrator can ask for per hour, default 15
  *   AI_DATA_TERMS_CONFIRMED  exactly "true" in production: someone has confirmed Zero Data Retention on the provider
  *                            account and read its terms on training with customer data (see the handover)
+ *   NODE_ENV                 "development" or "test" (exactly) means NOT production. Anything else, including unset, "prod",
+ *                            "Production" and " production", counts as production (step 8j-3), so a forgotten or misspelled value can
+ *                            never switch the data-terms guard off.
  */
 
 /** Groq's OpenAI-compatible chat endpoint. A constant: no request, header or setting can change it. */
@@ -44,6 +47,14 @@ const LIMITS = Object.freeze({
 
 const DEFAULTS = Object.freeze({ dailyLimit: 200, adminHourlyLimit: 15 });
 
+/**
+ * Production unless NODE_ENV is explicitly "development" or "test" (compared exactly, no trimming and no case folding: a doubtful value
+ * is production). The safe direction: an unset or misspelled NODE_ENV keeps the AI data-terms guard on.
+ */
+function isProductionEnvironment(env = process.env) {
+  return env.NODE_ENV !== 'development' && env.NODE_ENV !== 'test';
+}
+
 const positiveInteger = (value, fallback) => {
   const n = Number(String(value === undefined ? '' : value).trim());
   return Number.isInteger(n) && n > 0 ? n : fallback;
@@ -59,7 +70,7 @@ function readAiSettings(env = process.env) {
     model: model || DEFAULT_GROQ_MODEL,
     dailyLimit: positiveInteger(env.AI_DAILY_LIMIT, DEFAULTS.dailyLimit),
     adminHourlyLimit: positiveInteger(env.AI_ADMIN_HOURLY_LIMIT, DEFAULTS.adminHourlyLimit),
-    production: env.NODE_ENV === 'production',
+    production: isProductionEnvironment(env),
     termsConfirmed: env.AI_DATA_TERMS_CONFIRMED === 'true',
   };
 }
@@ -76,4 +87,4 @@ function aiUnavailableCode(settings) {
   return null;
 }
 
-module.exports = { GROQ_URL, DEFAULT_GROQ_MODEL, LIMITS, DEFAULTS, readAiSettings, aiUnavailableCode };
+module.exports = { GROQ_URL, DEFAULT_GROQ_MODEL, LIMITS, DEFAULTS, readAiSettings, aiUnavailableCode, isProductionEnvironment };

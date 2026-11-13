@@ -118,7 +118,7 @@ export function CoverLetterPanel({ applicationId, reference, status, readToken, 
   const counter = letterCounter(text, max);
   const dirty = latest !== null && normalizeLetter(text) !== normalizeLetter(latest.text);
   // The PDF holds the saved newest version (a draft is marked as one by the server); the button is off until a letter exists.
-  const pdf = coverLetterPdfState({ latest, dirty });
+  const pdf = coverLetterPdfState({ latest, dirty, stale: Boolean(view?.stale) });
 
   const focusText = () => window.setTimeout(() => textRef.current?.focus(), 0);
 

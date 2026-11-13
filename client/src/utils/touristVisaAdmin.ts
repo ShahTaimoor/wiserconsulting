@@ -92,6 +92,15 @@ export function describeAdminError(failure: AdminFailure): string {
       return "Say how the call went.";
     case "INVALID_FLAGS":
       return "That flag is not one of the available flags.";
+    // The dedicated limits (step 8j-3): the server's own sentence for each, kept here so the page shows it as written.
+    case "TOO_MANY_EDITS":
+      return "Too many corrections or previews in a short time. Please wait a few minutes and try again.";
+    case "TOO_MANY_NOTES":
+      return "Too many notes, calls or flag changes in a short time. Please wait a few minutes and try again.";
+    case "TOO_MANY_LIST_REQUESTS":
+      return "Too many searches or page changes in a short time. Please wait a few minutes and try again.";
+    case "ORIGIN_NOT_ALLOWED":
+      return "This request was not accepted. Reload the page and try again.";
     case "HISTORY_UNREADABLE":
     case "NOTES_UNREADABLE":
       return "That could not be read. Please contact support.";
@@ -135,7 +144,7 @@ export function formatWhen(iso: string | null | undefined, timeZone?: string): s
 }
 
 /** A line of the Activity panel: who did what. */
-export function describeActivity(row: Pick<ActivityRow, "action" | "admin" | "fromStatus" | "toStatus" | "fromFlags" | "toFlags" | "letterVersion" | "letterSource" | "version" | "source"> & Partial<Pick<ActivityRow, "pdfType" | "pdfBy" | "pdfApproved">>): { who: string; what: string } {
+export function describeActivity(row: Pick<ActivityRow, "action" | "admin" | "fromStatus" | "toStatus" | "fromFlags" | "toFlags" | "letterVersion" | "letterSource" | "version" | "source"> & Partial<Pick<ActivityRow, "pdfType" | "pdfBy" | "pdfApproved" | "pdfStale">>): { who: string; what: string } {
   const who = row.admin.name || "An administrator";
   switch (row.action) {
     case "list_view":
@@ -188,7 +197,8 @@ export function describeActivity(row: Pick<ActivityRow, "action" | "admin" | "fr
     case "pdf_export": {
       if (row.pdfType === "cover_letter" || row.pdfType === "itinerary") {
         const which = row.version ? `version ${row.version} of ` : "";
-        const state = row.pdfApproved === true ? " (approved)" : row.pdfApproved === false ? " (a draft, not approved)" : "";
+        // pdfStale: the version had been approved, but the answers changed afterwards, so it was printed as a draft (step 8j-3).
+        const state = row.pdfStale === true ? " (a draft: the answers had changed since it was approved)" : row.pdfApproved === true ? " (approved)" : row.pdfApproved === false ? " (a draft, not approved)" : "";
         return { who, what: `downloaded ${which}the ${row.pdfType === "itinerary" ? "itinerary" : "cover letter"} as a PDF${state}` };
       }
       // An applicant's own download is recorded under the applicant's name; the team's under the administrator's.

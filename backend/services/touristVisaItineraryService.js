@@ -173,6 +173,23 @@ class TouristVisaItineraryService {
     return { application, facts, factsHash: this.hash(facts), skeleton };
   }
 
+  /**
+   * Whether the answers the itinerary uses have changed since `version` was written (step 8j-3, A12): the SAME keyed hash the view compares,
+   * for an application in any status (the PDF is also made for a completed one, which prepare() refuses). Never throws: when the hash cannot
+   * be worked out the answer is "yes, changed", the safe side (the PDF is then marked as a draft). Logs the application id only.
+   */
+  async isStale(application, version) {
+    try {
+      const cfg = await this.applications.configOf(application);
+      const facts = buildItineraryFacts(cfg, application.answers || {}, { submittedAt: application.submittedAt });
+      // (No version is not a case here: reading its hash throws, which the catch below answers with "changed".)
+      return version.factsHash !== this.hash(facts);
+    } catch (error) {
+      logger.error("Tourist Visa itinerary staleness could not be worked out", { applicationId: String(application && application._id) });
+      return true;
+    }
+  }
+
   /** The refusal for dates that cannot make an itinerary: a fixed code and the numbers of the questions to fix. */
   refusal(skeleton) {
     return fail(422, skeleton.code, BLOCKER_MESSAGES[skeleton.code], { questions: skeleton.questions });

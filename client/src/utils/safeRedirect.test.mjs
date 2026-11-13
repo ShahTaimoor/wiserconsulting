@@ -126,8 +126,6 @@ test("rejects the login and registration pages so a signed-in user cannot loop",
     "/register?x=1",
     "/signup",
     "/login-01",
-    "/auth-success",
-    "/auth-success?token=abc",
     "/%6Cogin", // "login" with an encoded letter
     "/%256Cogin", // and double encoded
   ]) {

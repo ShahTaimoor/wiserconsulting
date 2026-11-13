@@ -486,3 +486,151 @@ test('the body is set in a comfortable measure: no line is wider than about 410 
 test('the margins are at least 25 mm, a fixed figure (not read back from the config that is under test)', () => {
   assert.ok(LETTER_PAGE.margin >= 70.8 && LETTER_PAGE.margin <= 72, 'the letter has margins of 25 mm: ' + LETTER_PAGE.margin);
 });
+
+// ---------------------------------------------------------------------------
+// Fit to one page (step 8h-4): a letter that overflows by a little is tightened in small steps before it flows to a second page
+// ---------------------------------------------------------------------------
+
+/** A paragraph of `n` lines (about eleven words a line at 410 pt). */
+const linesOf = (n) => `${Array.from({ length: n * 11 - 1 }, (_, i) => `visit${i % 7}`).join(' ')}.`;
+const letterOf = (paragraphs) => ['Dear Sir or Madam,', ...paragraphs, CLOSING].join('\n\n');
+const baseParagraphs = () => [linesOf(4), linesOf(4), linesOf(4), linesOf(3)];
+/** The letter of the base paragraphs and one more of `extra` lines (each extra line is one more line of overflow once the page is full). */
+const withExtra = (extra) => letterOf([...baseParagraphs(), linesOf(extra)]);
+/** The most extra lines that still fit the page at its nominal setting (so one more line overflows by one line). */
+const nominalLimit = (draft) => {
+  let e = 1;
+  while (letter.fitOf(model(withExtra(e + 1), { draft })).index === 0) e += 1;
+  return e;
+};
+const wordsIn = (pdf) => (pdf.text.match(/visit\d/g) || []).length;
+/** The smallest distance between two body lines of a page: the line pitch of the body. */
+const pitchOf = (page) => {
+  const ys = bodyLines(page).map((l) => l.y).sort((a, b) => b - a);
+  return Math.min(...ys.slice(1).map((y, i) => ys[i] - y));
+};
+const visits = (text) => (text.match(/visit\d/g) || []).length;
+
+test('a letter that fits is not touched: step 0, the body at 11 pt on an 18 pt line', async () => {
+  const text = letterOf([linesOf(5), linesOf(5)]);
+  assert.equal(letter.fitOf(model(text)).index, 0);
+  const pdf = await pdfOf(text);
+  assert.equal(pdf.numPages, 1);
+  assert.ok(Math.abs(pitchOf(pdf.pages[0]) - 18) < 0.05, `the line pitch is ${pitchOf(pdf.pages[0])}`);
+  assert.ok(pdf.pages[0].items.filter((i) => /^visit/.test(i.str)).every((i) => Math.abs(i.size - 11) < 0.01));
+});
+
+test('a letter that overflows by 1 line, by 4 lines or by a whole paragraph is put on ONE page, with its closing and signature room, nothing lost, and no more tightening than needed', async () => {
+  for (const draft of [false, true]) {
+    const limit = nominalLimit(draft);
+    const cases = [
+      ['1 line', withExtra(limit + 1)],
+      ['4 lines', withExtra(limit + 4)],
+      ['a whole paragraph', letterOf([...baseParagraphs(), linesOf(limit), linesOf(5)])],
+    ];
+    let before = 0;
+    for (const [label, text] of cases) {
+      const m = model(text, { draft });
+      const fit = letter.fitOf(m);
+      assert.ok(fit && fit.index > 0, `${label}: overflows at the nominal setting and fits when tightened`);
+      assert.ok(fit.index >= before, `${label}: more overflow, at least as much tightening`);
+      before = fit.index;
+      // The least tightening that works: this step fits, the one before it does not.
+      assert.equal(letter.fitsAtStep(m, fit.index), true);
+      assert.equal(letter.fitsAtStep(m, fit.index - 1), false, `${label}: the step before does not fit`);
+      const buffer = await render(m);
+      const pdf = await inspectPdf(buffer);
+      assert.equal(pdf.numPages, 1, `${label}${draft ? ' (draft)' : ''}: one page`);
+      assert.equal(wordsIn(pdf), visits(text), `${label}: no word is lost`);
+      const page = pdf.pages[0];
+      const yours = page.items.find((i) => i.str === 'Yours faithfully,');
+      const signed = page.items.filter((i) => i.str === SENDER.name && /SourceSerif4/.test(i.font)).pop();
+      assert.ok(yours && signed, `${label}: the closing is on the page`);
+      // The room for a signature is never tightened: 46 pt of room and a line of at least 16.4 pt, as figures (not read from the module under test).
+      assert.ok(yours.y - signed.y >= 62, `${label}: the room for a signature is kept (${yours.y - signed.y})`);
+      assert.equal(hLines(buffer).filter((l) => Math.abs(l.x2 - l.x1 - 176) < 1).length, 1, `${label}: the signature line is there`);
+      assert.ok(signed.y > MARGIN + LETTER_PAGE.footer.height, `${label}: nothing runs into the footer`);
+      if (draft) assert.equal(page.items.filter((i) => i.str === TEXT.draftMark).length, 2, `${label}: a draft keeps its banner and watermark`);
+    }
+  }
+});
+
+test('the tightening goes in the order the design asks for: the line and paragraph spacing, then the space round the letterhead, then the size by at most half a point; and never below the minimums', () => {
+  const steps = letter.FIT_STEPS;
+  assert.deepEqual({ ...steps[0] }, { size: 11, pitch: 18, gap: 12, head: 1 }, 'step 0 is the nominal setting');
+  for (let i = 1; i < steps.length; i += 1) {
+    for (const key of ['size', 'pitch', 'gap', 'head']) assert.ok(steps[i][key] <= steps[i - 1][key], `step ${i}: ${key} never grows`);
+    assert.ok(['size', 'pitch', 'gap', 'head'].some((key) => steps[i][key] < steps[i - 1][key]), `step ${i} tightens something`);
+  }
+  const firstHead = steps.findIndex((s) => s.head < 1);
+  const firstSize = steps.findIndex((s) => s.size < 11);
+  assert.ok(firstHead > 1 && firstSize > firstHead, 'spacing first, then the letterhead, then the size');
+  steps.slice(0, firstSize).forEach((s) => assert.equal(s.size, 11, 'the size is not touched before the letterhead has been'));
+  steps.slice(0, firstHead).forEach((s) => assert.equal(s.head, 1, 'the letterhead is not touched before the spacing has been'));
+  // Before the letterhead is tightened the spacing is at its smallest; before the size is, so is the letterhead.
+  assert.equal(steps[firstHead - 1].pitch, Math.min(...steps.filter((s) => s.size === 11).map((s) => s.pitch)));
+  assert.equal(steps[firstHead - 1].gap, Math.min(...steps.map((s) => s.gap)));
+  assert.equal(steps[firstSize - 1].head, Math.min(...steps.map((s) => s.head)));
+  // The minimums, written here as figures.
+  assert.ok(Math.min(...steps.map((s) => s.size)) >= 10.5 && 11 - Math.min(...steps.map((s) => s.size)) <= 0.5);
+  assert.ok(steps.every((s) => s.pitch >= 1.5 * s.size), 'the line is never under 1.5 times the size');
+  assert.equal(letter.MIN_BODY_SIZE, 10.5);
+  assert.equal(letter.MIN_LINE_RATIO, 1.5);
+});
+
+test('the tightest letter that still fits is set at 10.5 pt or more on a line of at least 1.5 times the size, as the file shows', async () => {
+  const limit = nominalLimit(false);
+  let tightest = null;
+  for (let e = limit + 1; e <= limit + 25; e += 1) {
+    const fit = letter.fitOf(model(withExtra(e)));
+    if (fit && fit.index === letter.FIT_STEPS.length - 1) tightest = e;
+  }
+  assert.ok(tightest, 'some letter needs the last step');
+  const pdf = await pdfOf(withExtra(tightest));
+  assert.equal(pdf.numPages, 1);
+  const sizes = pdf.pages[0].items.filter((i) => /^visit/.test(i.str)).map((i) => i.size);
+  assert.ok(Math.min(...sizes) >= 10.5 - 0.01 && Math.max(...sizes) <= 11.01, `body sizes ${Math.min(...sizes)} to ${Math.max(...sizes)}`);
+  assert.ok(pitchOf(pdf.pages[0]) >= 1.5 * Math.max(...sizes) - 0.3, `the line pitch ${pitchOf(pdf.pages[0])} for ${Math.max(...sizes)} pt`);
+});
+
+test('a letter that does not fit even at the tightest step flows to two pages exactly as before: nominal setting, the closing with body lines, a compact header', async () => {
+  const limit = nominalLimit(false);
+  const text = withExtra(limit + 40);
+  assert.equal(letter.fitOf(model(text)), null);
+  const pdf = await pdfOf(text);
+  assert.ok(pdf.numPages >= 2);
+  assert.ok(Math.abs(pitchOf(pdf.pages[0]) - 18) < 0.05, `the first page is at the nominal 18 pt line, not ${pitchOf(pdf.pages[0])}`);
+  assert.ok(pdf.pages[0].items.filter((i) => /^visit/.test(i.str)).every((i) => Math.abs(i.size - 11) < 0.01));
+  const last = pdf.pages[pdf.numPages - 1];
+  assert.ok(bodyLines(last).length >= 2, 'the closing is not alone: body lines go with it');
+  assert.ok(last.items.some((i) => i.str === 'Yours faithfully,'));
+  assert.ok(last.items.some((i) => DISPLAY.test(i.font) && i.size < 20), 'the compact continuation header');
+  assert.equal(wordsIn(pdf), visits(text), 'no word is lost');
+});
+
+test('a very long letter is still made in a few seconds although each step is tried (the wrapped text is worked out once for each size)', async () => {
+  const text = `Dear Sir or Madam,\n\n${Array.from({ length: 40 }, (_, i) => para(120 + i)).join('\n\n')}\n\n${CLOSING}`;
+  const started = Date.now();
+  await render(model(text, { draft: true }));
+  assert.ok(Date.now() - started < 15000, `${Date.now() - started} ms`);
+});
+
+test('each step wraps the text for its own size: the step found with the wrapped lines shared between the steps is the one found with each size worked out afresh', () => {
+  const probe = new LetterBuilder({ reference: REFERENCE, applicantName: SENDER.name });
+  const vocabulary = ['visa', 'my', 'family', 'return', 'home', 'London', 'museum', 'garden', 'trip', 'plan', 'and', 'the', 'a', 'of', 'holiday', 'accommodation', 'with', 'sightseeing', 'travelling', 'Edinburgh', 'I', 'will', 'be', 'staying'];
+  let seed = 12345;
+  const next = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed; };
+  const prose = (words) => `${Array.from({ length: words }, () => vocabulary[next() % vocabulary.length]).join(' ')}.`;
+  let tightened = 0;
+  for (let total = 330; total <= 560; total += 8) {
+    const paragraphs = [prose(Math.round(total * 0.2)), prose(Math.round(total * 0.3)), prose(Math.round(total * 0.3)), prose(Math.round(total * 0.2))];
+    const m = model(letterOf(paragraphs));
+    const shared = letter.fitOf(m);
+    let fresh = null;
+    for (let i = 0; i < letter.FIT_STEPS.length && fresh === null; i += 1) if (letter.fitsAtStep(m, i, new Map(), probe)) fresh = i;
+    assert.equal(shared ? shared.index : null, fresh, `${total} words`);
+    if (fresh) tightened += 1;
+  }
+  probe.abort();
+  assert.ok(tightened >= 3, 'some of these letters needed tightening');
+});

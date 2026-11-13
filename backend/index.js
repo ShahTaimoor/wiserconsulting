@@ -6,6 +6,13 @@ const cookieParser = require("cookie-parser");
 const path = require("path");
 require("dotenv").config();
 
+// Tourist Visa safe start-up (step 8j-3, A11): while TOURIST_VISA_ENABLED is "true" the server refuses to start (exit code 1, the variable
+// names in the message, never a value) when the encryption key, the token secret or the AI settings are missing or invalid. While the
+// feature is off nothing is checked and nothing is logged. This runs before anything else is loaded, so a bad setting stops it at once.
+if (!require("./config/touristVisaStartup").checkTouristVisaStartup()) {
+  process.exit(1);
+}
+
 const connectDB = require("./config/db");
 const userRoutes = require("./routes/userRoutes");
 const assessmentRoutes = require("./routes/assessmentRoutes");
@@ -25,6 +32,9 @@ const sanitize = require("./middleware/sanitize");
 const skipPaths = require("./middleware/skipPaths");
 const touristVisaBodyParser = require("./middleware/touristVisaBodyParser");
 const touristVisaFeatureGate = require("./middleware/touristVisaFeatureGate");
+const touristVisaNoStore = require("./middleware/touristVisaNoStore");
+const touristVisaOriginGuard = require("./middleware/touristVisaOriginGuard");
+const { getAllowedOrigins } = require("./config/allowedOrigins");
 const logger = require("./utils/logger");
 
 connectDB();
@@ -32,15 +42,7 @@ connectDB();
 const app = express();
 
 // Middlewares
-const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  "http://localhost:3000",
-  "http://127.0.0.1:3000",
-  "http://localhost:3001",
-  "http://127.0.0.1:3001",
-  "https://wiserconsulting.info",
-  "https://www.wiserconsulting.info"
-].filter(Boolean);
+const allowedOrigins = getAllowedOrigins();
 
 const corsOptions = {
   origin: (origin, callback) => {
@@ -56,12 +58,24 @@ const corsOptions = {
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 };
+// Two Tourist Visa protections that run BEFORE CORS and only while the feature is open (step 8j-3). While it is closed they do nothing, so a
+// closed deployment behaves exactly as before (and the feature gate below marks its own fixed answer no-store).
+//  - B6: every answer under /api/tourist-visa (an error, a refusal or a rate-limit answer too) is marked Cache-Control: no-store. The public
+//    status answer is skipped here and keeps its own short caching.
+//  - B3: a state-changing request from a foreign origin, or with no origin and no Authorization header but a cookie, is a clean 403 here,
+//    before CORS would turn it into a generic error.
+const whileTouristVisaIsOpen = (middleware) => (req, res, next) =>
+  touristVisaFeatureGate.isTouristVisaEnabled() ? middleware(req, res, next) : next();
+app.use("/api/tourist-visa", whileTouristVisaIsOpen(touristVisaNoStore));
+app.use("/api/tourist-visa", whileTouristVisaIsOpen(touristVisaOriginGuard));
+
 app.use(cors(corsOptions));
 
 // Tourist Visa feature switch (TOURIST_VISA_ENABLED, off unless exactly "true"). It comes right after
 // CORS, so a browser can read the answer, and before everything else: while it is closed no
 // header, body or token is read, nothing is logged and the database is never touched.
 app.use("/api/tourist-visa", touristVisaFeatureGate.allowingStatus);
+
 
 // Security headers
 app.use(helmet());

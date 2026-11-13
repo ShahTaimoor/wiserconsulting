@@ -11,7 +11,9 @@ const touristVisaDocumentController = require('../controllers/touristVisaDocumen
 const touristVisaPdfController = require('../controllers/touristVisaPdfController');
 const { pdfLimiter } = require('../middleware/touristVisaPdfLimit');
 const { isAuthorized, isAdmin } = require('../middleware/authMiddleware');
-const noStore = require('../middleware/noStore');
+const touristVisaNoStore = require('../middleware/touristVisaNoStore');
+const touristVisaOriginGuard = require('../middleware/touristVisaOriginGuard');
+const { submitLimiter } = require('../middleware/touristVisaLimits');
 const touristVisaAdminRoutes = require('./touristVisaAdminRoutes');
 const touristVisaRatesController = require('../controllers/touristVisaRatesController');
 const touristVisaErrorHandler = require('../middleware/touristVisaErrorHandler');
@@ -30,8 +32,10 @@ if (isTouristVisaEnabled()) {
 // Closed unless TOURIST_VISA_ENABLED is "true". index.js already mounts the same gate first; it is
 // repeated here so the router can never be reached through another mount while the switch is off.
 router.use(touristVisaFeatureGate);
-// Everything under /admin (even a refusal to sign in) is marked not to be kept in a cache.
-router.use('/admin', noStore);
+// Every answer from here (a refusal to sign in and every error included) is marked not to be kept in a cache (step 8j-3, B6).
+router.use(touristVisaNoStore);
+// A state-changing request from a foreign origin, or with no origin and no Authorization header, is a 403 (step 8j-3, B3).
+router.use(touristVisaOriginGuard);
 router.use(isAuthorized);
 
 // The administrator's side: read only, plus the status. Anonymous is 401 (above), a signed-in user who is not an
@@ -91,6 +95,7 @@ router.get(
 // Submit my draft application: re-checked in full, then one conditional write (body: { declarationAccepted: true })
 router.post(
   '/applications/me/submit',
+  submitLimiter,
   touristVisaApplicationController.submitApplication.bind(touristVisaApplicationController)
 );
 
