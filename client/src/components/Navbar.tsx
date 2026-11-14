@@ -80,12 +80,9 @@ const Navbar = () => {
     setIsOpen(false);
   };
 
-  const baseNavLinks = [
-    { id: "home", href: "/#home", label: "Home" },
-    { id: "about", href: "/#about", label: "About" },
-    { id: "services", href: "/#services", label: "Services" },
-    { id: "contact", href: "/#contact", label: "Contact" },
-  ];
+  // The Home / About / Services / Contact links were removed (those homepage sections are gone). Add entries here
+  // as { id, href, label } to bring a menu link back; the desktop bar, the mobile menu and the scroll-spy all read this list.
+  const baseNavLinks: { id: string; href: string; label: string }[] = [];
 
   const navLinks = baseNavLinks;
 
