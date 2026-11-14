@@ -34,9 +34,6 @@ interface AuthState {
   } | null;
 }
 
-// Background picture of the hero section (any file in client/public). Until the file exists the dark background shows.
-const HERO_IMAGE = '/hero.jpg';
-
 type Country = { name: string; image: string };
 type AdminComment = {
   documentId: string;
@@ -225,6 +222,10 @@ const VisaConsultation: React.FC = () => {
   };
 
   const { settings } = useSettings();
+  // Nearest available picture for each size (mobile prefers tablet, tablet prefers desktop, desktop prefers tablet).
+  const heroMobile = settings.heroMobileUrl || settings.heroTabletUrl || settings.heroDesktopUrl || '';
+  const heroTablet = settings.heroTabletUrl || settings.heroDesktopUrl || settings.heroMobileUrl || '';
+  const heroDesktop = settings.heroDesktopUrl || settings.heroTabletUrl || settings.heroMobileUrl || '';
 
   // Icons stay fixed in code — only the value/label text is admin-editable
   // (via Settings > Homepage Statistics), with hardcoded fallbacks so the
@@ -256,11 +257,20 @@ const VisaConsultation: React.FC = () => {
     <div className="relative overflow-x-hidden">
       {/* Hero Section - Modern Design */}
       <section className="relative w-full min-h-screen flex items-center justify-center overflow-hidden bg-slate-900">
-        {/* Hero background image: put your picture at client/public/hero.jpg (or change HERO_IMAGE above) */}
-        <div
-          className="absolute top-0 left-0 w-full h-full bg-cover bg-center z-0"
-          style={{ backgroundImage: `url(${HERO_IMAGE})` }}
-        />
+        {/* Hero banner: the admin uploads one picture per screen size (Admin > Settings > Homepage Banner).
+            A size without a picture uses the nearest one that is set; with none at all the dark background shows. */}
+        {(heroMobile || heroTablet || heroDesktop) && (
+          <picture>
+            {heroDesktop && <source media="(min-width: 1024px)" srcSet={heroDesktop} />}
+            {heroTablet && <source media="(min-width: 640px)" srcSet={heroTablet} />}
+            {/* eslint-disable-next-line @next/next/no-img-element -- storage URLs are not in next.config's image domains */}
+            <img
+              src={heroMobile}
+              alt=""
+              className="absolute top-0 left-0 w-full h-full object-cover z-0"
+            />
+          </picture>
+        )}
         <div className="absolute inset-0 bg-slate-900/70 z-10" />
 
         <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
@@ -391,21 +401,6 @@ const VisaConsultation: React.FC = () => {
               </motion.div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 bg-slate-900">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="space-y-8"
-          >
-
-          </motion.div>
         </div>
       </section>
 

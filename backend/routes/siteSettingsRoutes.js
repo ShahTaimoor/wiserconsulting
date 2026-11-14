@@ -42,4 +42,19 @@ router.post(
   siteSettingsController.uploadLogo.bind(siteSettingsController),
 );
 
+router.post(
+  "/hero-banner/:device",
+  isAuthorized,
+  isAdmin,
+  uploadToLocal.single("image"),
+  siteSettingsController.uploadHeroBanner.bind(siteSettingsController),
+);
+
+router.delete(
+  "/hero-banner/:device",
+  isAuthorized,
+  isAdmin,
+  siteSettingsController.removeHeroBanner.bind(siteSettingsController),
+);
+
 module.exports = router;

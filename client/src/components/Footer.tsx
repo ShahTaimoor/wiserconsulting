@@ -12,26 +12,17 @@ const Footer = () => {
   const touristVisaEntry = useTouristVisaEntry();
 
   const services = [
-    { name: "Student Visa", href: "/services/student-visa" },
     { name: "Tourist Visa", href: "/services/tourist-visa" },
     ...(touristVisaEntry.open ? [{ name: ENTRY_TEXT.footer, href: touristVisaEntry.href }] : []),
-  ];
-
-  const quickLinks = [
-    { name: "About Us", href: "/#about" },
-    { name: "Services", href: "/#services" },
-    { name: "Contact", href: "/#contact" },
-    { name: "Privacy Policy", href: "/privacy" },
-    { name: "Terms of Service", href: "/terms" },
   ];
 
   return (
     <footer className="bg-slate-900 text-slate-300">
       {/* Main Footer Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10">
           {/* Brand Section */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div className="flex items-center space-x-3">
               <img
                 src={displayLogo}
@@ -102,8 +93,8 @@ const Footer = () => {
 
           {/* Services */}
           <div>
-            <h4 className="text-lg font-semibold text-white mb-6">Our Services</h4>
-            <ul className="space-y-3">
+            <h4 className="text-lg font-semibold text-white mb-4">Our Services</h4>
+            <ul className="space-y-2">
               {services.map((service) => (
                 <li key={service.name}>
                   <Link
@@ -118,28 +109,11 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Quick Links */}
-          <div>
-            <h4 className="text-lg font-semibold text-white mb-6">Quick Links</h4>
-            <ul className="space-y-3">
-              {quickLinks.map((link) => (
-                <li key={link.name}>
-                  <Link
-                    href={link.href}
-                    className="text-slate-400 hover:text-white transition-colors text-sm flex items-center group"
-                  >
-                    <span className="w-1.5 h-1.5 bg-slate-600 rounded-full mr-3 group-hover:bg-white transition-colors" />
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
           {/* Contact Info */}
           <div>
-            <h4 className="text-lg font-semibold text-white mb-6">Contact Us</h4>
-            <ul className="space-y-4">
+            <h4 className="text-lg font-semibold text-white mb-4">Contact Us</h4>
+            <ul className="space-y-3">
+              {settings.address && (
               <li className="flex items-start space-x-3">
                 <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center flex-shrink-0 border border-slate-700">
                   <FaMapMarkerAlt className="text-white text-sm" />
@@ -147,10 +121,12 @@ const Footer = () => {
                 <div>
                   <p className="text-white text-sm font-medium mb-1">Address</p>
                   <p className="text-slate-400 text-sm leading-relaxed whitespace-pre-line">
-                    {settings.address || ""}
+                    {settings.address}
                   </p>
                 </div>
               </li>
+              )}
+              {settings.emailAddress && (
               <li className="flex items-start space-x-3">
                 <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center flex-shrink-0 border border-slate-700">
                   <FaEnvelope className="text-white text-sm" />
@@ -163,10 +139,11 @@ const Footer = () => {
                     rel="noopener noreferrer"
                     className="text-slate-400 hover:text-white transition-colors text-sm"
                   >
-                    {settings.emailAddress || ""}
+                    {settings.emailAddress}
                   </a>
                 </div>
               </li>
+              )}
               <li className="flex items-start space-x-3">
                 <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center flex-shrink-0 border border-slate-700">
                   <FaPhone className="text-white text-sm" />
@@ -188,8 +165,8 @@ const Footer = () => {
 
       {/* Bottom Bar */}
       <div className="border-t border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex flex-col md:flex-row justify-between items-center space-y-3 md:space-y-0">
             <p className="text-slate-400 text-sm text-center md:text-left">
               © {currentYear} <span className="text-white font-semibold">WISER CONSULTING</span>.
               All rights reserved.

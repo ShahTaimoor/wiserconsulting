@@ -27,6 +27,25 @@ class SiteSettingsController {
     );
   });
 
+  uploadHeroBanner = asyncHandler(async (req, res) => {
+    const currentSettings = await siteSettingsService.getSettings();
+    const updatedSettings = await siteSettingsService.uploadHeroBanner(
+      req.params.device,
+      req.file,
+      currentSettings,
+    );
+    return ApiResponse.success(res, updatedSettings, "Banner uploaded successfully", 200);
+  });
+
+  removeHeroBanner = asyncHandler(async (req, res) => {
+    const currentSettings = await siteSettingsService.getSettings();
+    const updatedSettings = await siteSettingsService.removeHeroBanner(
+      req.params.device,
+      currentSettings,
+    );
+    return ApiResponse.success(res, updatedSettings, "Banner removed successfully", 200);
+  });
+
   uploadLogo = asyncHandler(async (req, res) => {
     if (!req.file) {
       return ApiResponse.error(res, "No logo file provided", 400);

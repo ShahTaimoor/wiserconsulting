@@ -100,17 +100,17 @@ function extensionFor(mimetype, originalName = '') {
 }
 
 /**
- * Resizes a picture to fit inside 1000 x 1000 (never enlarges) and fixes its rotation, like the old Cloudinary
+ * Resizes a picture to fit inside maxDimension x maxDimension (default 1000, never enlarges) and fixes its rotation, like the old Cloudinary
  * transformation did. PDFs, Word files and GIFs are returned untouched. If the picture cannot be processed the
  * original bytes are used, so an upload never fails because of the optimisation step.
  */
-async function optimizeImage(buffer, mimetype) {
+async function optimizeImage(buffer, mimetype, maxDimension = 1000) {
   if (!mimetype || !mimetype.startsWith('image/') || mimetype === 'image/gif') return buffer;
   try {
     const sharp = require('sharp');
     let pipeline = sharp(buffer, { failOn: 'none' })
       .rotate()
-      .resize({ width: 1000, height: 1000, fit: 'inside', withoutEnlargement: true });
+      .resize({ width: maxDimension, height: maxDimension, fit: 'inside', withoutEnlargement: true });
     if (mimetype === 'image/png') pipeline = pipeline.png({ compressionLevel: 9 });
     else if (mimetype === 'image/webp') pipeline = pipeline.webp({ quality: 80 });
     else pipeline = pipeline.jpeg({ quality: 82, mozjpeg: true });
@@ -172,11 +172,11 @@ async function signedUrl(key, { ttlSeconds = DEFAULT_LINK_TTL_SECONDS, downloadN
  * (secure_url, public_id, bytes, format), so the services that call it need few changes. The caller removes the
  * local copy. Images are resized; other files are stored as they are.
  */
-async function uploadLocalFile(filePath, folder = 'uploads', { visibility = 'public' } = {}) {
+async function uploadLocalFile(filePath, folder = 'uploads', { visibility = 'public', maxDimension = 1000 } = {}) {
   const ext = path.extname(filePath).toLowerCase();
   const contentType = contentTypeFor(filePath);
   const original = await fs.promises.readFile(filePath);
-  const body = await optimizeImage(original, contentType);
+  const body = await optimizeImage(original, contentType, maxDimension);
   const key = `${folder}/${randomName()}${ext}`;
   await putObject({ visibility, key, body, contentType });
   return {

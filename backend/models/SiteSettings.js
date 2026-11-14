@@ -57,6 +57,13 @@ const siteSettingsSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    // Homepage hero banner pictures, one per screen size (public R2 bucket). Empty = fall back to the nearest size.
+    heroMobileUrl: { type: String, default: null },
+    heroMobilePublicId: { type: String, default: null },
+    heroTabletUrl: { type: String, default: null },
+    heroTabletPublicId: { type: String, default: null },
+    heroDesktopUrl: { type: String, default: null },
+    heroDesktopPublicId: { type: String, default: null },
     socialLinks: {
       type: socialLinksSchema,
       default: {},

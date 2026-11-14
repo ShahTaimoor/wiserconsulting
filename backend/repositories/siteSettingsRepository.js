@@ -41,6 +41,22 @@ class SiteSettingsRepository {
     return settings;
   }
 
+  /** Sets or clears (url = null) the hero banner picture of one screen size: "mobile", "tablet" or "desktop". */
+  async updateHeroBanner(device, url, publicId) {
+    const prefix = `hero${device.charAt(0).toUpperCase()}${device.slice(1)}`;
+    const settings = await SiteSettings.findOneAndUpdate(
+      {},
+      { $set: { [`${prefix}Url`]: url, [`${prefix}PublicId`]: publicId } },
+      { new: true, upsert: true, setDefaultsOnInsert: true },
+    );
+
+    if (!settings) {
+      throw new AppError("Site settings not found", 404);
+    }
+
+    return settings;
+  }
+
   async updateLogo(logoUrl, logoPublicId) {
     const settings = await SiteSettings.findOneAndUpdate(
       {},
