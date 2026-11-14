@@ -4,7 +4,8 @@
  */
 
 const adminSettingsRepository = require("../repositories/adminSettingsRepository");
-const { uploadLocalToCloudinary } = require("../config/cloudinary");
+const { uploadLocalToR2 } = require("../config/upload");
+const { deleteFromR2 } = require("../middleware/fileStorage");
 const { AppError } = require("../middleware/errorHandler");
 
 class AdminSettingsService {
@@ -40,7 +41,7 @@ class AdminSettingsService {
   }
 
   /**
-   * Update logo with Cloudinary
+   * Update logo with R2
    */
   async updateLogo(file, currentSettings) {
     if (!file) {
@@ -48,18 +49,16 @@ class AdminSettingsService {
     }
 
     try {
-      const cloudinary = require("cloudinary").v2;
-
-      // Delete old logo from Cloudinary if it exists
+      // Delete old logo from R2 if it exists
       if (currentSettings.logoPublicId) {
         try {
-          await cloudinary.uploader.destroy(currentSettings.logoPublicId);
+          await deleteFromR2(currentSettings.logoPublicId);
         } catch (error) {
-          console.error("Error deleting old logo from Cloudinary:", error);
+          console.error("Error deleting old logo from R2:", error);
         }
       }
 
-      const result = await uploadLocalToCloudinary(file.path, "admin-settings");
+      const result = await uploadLocalToR2(file.path, "admin-settings");
 
       return await adminSettingsRepository.updateLogo(
         result.secure_url,
@@ -76,9 +75,9 @@ class AdminSettingsService {
   async deleteLogo(currentSettings) {
     if (currentSettings.logoPublicId) {
       try {
-        await cloudinary.uploader.destroy(currentSettings.logoPublicId);
+        await deleteFromR2(currentSettings.logoPublicId);
       } catch (error) {
-        console.error("Error deleting logo from Cloudinary:", error);
+        console.error("Error deleting logo from R2:", error);
       }
     }
 

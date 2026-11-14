@@ -7,7 +7,7 @@ const express = require("express");
 const router = express.Router();
 const reuploadController = require("../controllers/reuploadController");
 const { isAuthorized } = require("../middleware/authMiddleware");
-const { uploadToLocal } = require("../config/cloudinary");
+const { uploadToLocal } = require("../config/upload");
 
 // Re-upload document
 router.post(

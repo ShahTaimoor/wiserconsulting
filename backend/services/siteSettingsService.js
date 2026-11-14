@@ -4,7 +4,8 @@
  */
 
 const siteSettingsRepository = require("../repositories/siteSettingsRepository");
-const { uploadLocalToCloudinary } = require("../config/cloudinary");
+const { uploadLocalToR2 } = require("../config/upload");
+const { deleteFromR2 } = require("../middleware/fileStorage");
 const { AppError } = require("../middleware/errorHandler");
 
 class SiteSettingsService {
@@ -24,17 +25,16 @@ class SiteSettingsService {
     try {
       if (currentSettings?.logoPublicId) {
         try {
-          const cloudinary = require("cloudinary").v2;
-          await cloudinary.uploader.destroy(currentSettings.logoPublicId);
+          await deleteFromR2(currentSettings.logoPublicId);
         } catch (destroyError) {
           console.error(
-            "Failed to remove previous logo from Cloudinary",
+            "Failed to remove previous logo from R2",
             destroyError,
           );
         }
       }
 
-      const result = await uploadLocalToCloudinary(file.path, "site-settings");
+      const result = await uploadLocalToR2(file.path, "site-settings");
 
       return await siteSettingsRepository.updateLogo(
         result.secure_url,

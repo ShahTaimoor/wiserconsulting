@@ -13,7 +13,7 @@ const {
   createTestimonialSchema,
   updateTestimonialSchema,
 } = require("../validations/testimonialValidation");
-const { uploadToLocal } = require("../config/cloudinary");
+const { uploadToLocal } = require("../config/upload");
 
 const uploadTestimonialPhoto = uploadToLocal.fields([
   { name: "clientPhoto", maxCount: 1 },

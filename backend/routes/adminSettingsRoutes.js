@@ -11,7 +11,7 @@ const validate = require("../middleware/validate");
 const {
   updateSettingsSchema,
 } = require("../validations/adminSettingsValidation");
-const { uploadToLocal } = require("../config/cloudinary");
+const { uploadToLocal } = require("../config/upload");
 
 // Get public settings (no auth required - for frontend)
 router.get(

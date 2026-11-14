@@ -6,7 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const assessmentController = require('../controllers/assessmentController');
-const { uploadFields, uploadFieldsLocal } = require('../config/cloudinary');
+const { uploadFields, uploadFieldsLocal } = require('../config/upload');
 const validate = require('../middleware/validate');
 const { createSubmissionSchema } = require('../validations/formSubmissionValidation');
 
@@ -20,7 +20,7 @@ router.post('/test-pdf-upload', uploadFields, async (req, res, next) => {
       });
     }
 
-    const documents = require('../config/cloudinary').processFiles(req.files, 'cloudinary');
+    const documents = require('../config/upload').processFiles(req.files, 'r2');
 
     res.json({
       success: true,
@@ -33,7 +33,7 @@ router.post('/test-pdf-upload', uploadFields, async (req, res, next) => {
   }
 });
 
-// Submit assessment (Cloudinary)
+// Submit assessment (Cloudflare R2, private bucket)
 router.post(
   '/submit-assessment',
   uploadFields,

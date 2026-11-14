@@ -55,11 +55,11 @@ const formSubmissionSchema = new mongoose.Schema(
             filename: String,
             mimetype: String,
             size: Number,
-            cloudinaryUrl: String,
+            cloudinaryUrl: String, // old field name kept; for 'r2' it holds r2://private/<key>
             cloudinaryPublicId: String,
             cloudinaryId: String,
             localPath: String, // For local file storage
-            uploadType: String, // 'cloudinary' or 'local'
+            uploadType: String, // 'r2' (Cloudflare R2, private bucket), 'local', or 'cloudinary' (old files not yet migrated)
             comment: String, // Add this for admin comments
         }],
         status: {

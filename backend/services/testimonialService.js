@@ -1,10 +1,11 @@
 /**
  * Testimonial Service
- * Business logic for testimonial CRUD and Cloudinary image handling.
+ * Business logic for testimonial CRUD and R2 image handling.
  */
 
 const testimonialRepository = require("../repositories/testimonialRepository");
-const { uploadLocalToCloudinary } = require("../config/cloudinary");
+const { uploadLocalToR2 } = require("../config/upload");
+const { deleteFromR2 } = require("../middleware/fileStorage");
 const { AppError } = require("../middleware/errorHandler");
 
 class TestimonialService {
@@ -33,7 +34,7 @@ class TestimonialService {
       let photoFields = {};
 
       if (clientPhotoFile) {
-        const result = await uploadLocalToCloudinary(clientPhotoFile.path, "testimonials");
+        const result = await uploadLocalToR2(clientPhotoFile.path, "testimonials");
         photoFields = {
           clientPhotoUrl: result.secure_url,
           clientPhotoPublicId: result.public_id,
@@ -61,17 +62,16 @@ class TestimonialService {
 
     try {
       if (clientPhotoFile) {
-        const result = await uploadLocalToCloudinary(clientPhotoFile.path, "testimonials");
+        const result = await uploadLocalToR2(clientPhotoFile.path, "testimonials");
         updateData.clientPhotoUrl = result.secure_url;
         updateData.clientPhotoPublicId = result.public_id;
 
         if (existing.clientPhotoPublicId) {
           try {
-            const cloudinary = require("cloudinary").v2;
-            await cloudinary.uploader.destroy(existing.clientPhotoPublicId);
+            await deleteFromR2(existing.clientPhotoPublicId);
           } catch (destroyError) {
             console.error(
-              "Failed to remove previous client photo from Cloudinary",
+              "Failed to remove previous client photo from R2",
               destroyError,
             );
           }
@@ -93,12 +93,11 @@ class TestimonialService {
 
     try {
       if (existing.clientPhotoPublicId) {
-        const cloudinary = require("cloudinary").v2;
-        await cloudinary.uploader.destroy(existing.clientPhotoPublicId);
+        await deleteFromR2(existing.clientPhotoPublicId);
       }
     } catch (destroyError) {
       console.error(
-        "Failed to remove Cloudinary asset for testimonial",
+        "Failed to remove R2 asset for testimonial",
         destroyError,
       );
     }

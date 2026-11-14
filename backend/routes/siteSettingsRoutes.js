@@ -11,7 +11,7 @@ const validate = require("../middleware/validate");
 const {
   updateSettingsSchema,
 } = require("../validations/siteSettingsValidation");
-const { uploadToLocal } = require("../config/cloudinary");
+const { uploadToLocal } = require("../config/upload");
 
 router.get(
   "/",

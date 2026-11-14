@@ -3,21 +3,10 @@
  * Business logic for document re-upload operations
  */
 
-const cloudinary = require('cloudinary').v2;
+const fs = require('fs');
 const FormSubmission = require('../models/FormSubmission');
 const { AppError } = require('../middleware/errorHandler');
-
-// Ensure Cloudinary is configured
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-console.log('🔧 Cloudinary configured in re-upload service');
-console.log('- cloud_name:', process.env.CLOUDINARY_CLOUD_NAME ? 'Set' : 'Not set');
-console.log('- api_key:', process.env.CLOUDINARY_API_KEY ? 'Set' : 'Not set');
-console.log('- api_secret:', process.env.CLOUDINARY_API_SECRET ? 'Set' : 'Not set');
+const r2 = require('../config/r2');
 
 class ReuploadService {
   /**
@@ -100,136 +89,46 @@ class ReuploadService {
       const oldDocument = submission.documents[documentIndex];
       console.log('📄 Old document details:');
       console.log('- Original name:', oldDocument.originalname);
-      console.log('- Cloudinary URL:', oldDocument.cloudinaryUrl || 'No URL');
-      console.log('- Cloudinary Public ID:', oldDocument.cloudinaryPublicId || 'No ID');
-
-      // Delete old file from Cloudinary if it exists
-      if (oldDocument.cloudinaryPublicId) {
-        console.log('🗑️ Deleting old file from Cloudinary...');
+      // Delete the old file from R2 if it is one of ours (an old Cloudinary file has nothing to delete here)
+      if (oldDocument.uploadType === 'r2' && oldDocument.cloudinaryPublicId) {
         try {
-          await cloudinary.uploader.destroy(oldDocument.cloudinaryPublicId);
-          console.log('✅ Old file deleted successfully');
+          await r2.deleteObject(oldDocument.cloudinaryPublicId, 'private');
         } catch (error) {
-          console.error('❌ Failed to delete old file from Cloudinary:', error);
+          console.error('Failed to delete old file from R2:', error.message);
           // Continue with upload even if deletion fails
         }
       }
 
-      // Upload new file to Cloudinary
-      console.log('⬆️ Uploading new file to Cloudinary...');
-      let cloudinaryResult;
+      // Upload the new file to the private R2 bucket
+      let uploaded;
       try {
-        console.log('📁 File object details:');
-        console.log('- file.buffer exists:', !!file.buffer);
-        console.log('- file.path:', file.path);
-        console.log('- file.mimetype:', file.mimetype);
-        console.log('- file.originalname:', file.originalname);
-        
-        // Use upload_stream for better memory storage handling
         if (file.buffer) {
-          console.log('📁 Using file buffer with upload_stream');
-          
-          const uploadStreamOptions = {
+          uploaded = await r2.uploadBuffer(file.buffer, {
             folder: 'wiser-consulting/documents',
-            public_id: `${oldDocument.fieldName || 'document'}-${Date.now()}`,
-          };
-
-          if (file.mimetype.startsWith('image/')) {
-            uploadStreamOptions.resource_type = 'image';
-            uploadStreamOptions.transformation = [
-              {
-                width: 1000,
-                height: 1000,
-                crop: 'limit',
-                quality: 'auto',
-                fetch_format: 'auto',
-              },
-            ];
-          } else if (file.mimetype === 'application/pdf') {
-            uploadStreamOptions.resource_type = 'raw';
-          } else {
-            uploadStreamOptions.resource_type = 'auto';
-          }
-
-          cloudinaryResult = await new Promise((resolve, reject) => {
-            const uploadStream = cloudinary.uploader.upload_stream(
-              uploadStreamOptions,
-              (error, result) => {
-                if (error) {
-                  console.error('❌ Cloudinary upload_stream error:', error);
-                  reject(error);
-                } else {
-                  console.log('✅ Upload stream completed successfully');
-                  resolve(result);
-                }
-              }
-            );
-            
-            // Write the buffer to the stream
-            uploadStream.end(file.buffer);
+            mimetype: file.mimetype,
+            originalName: file.originalname,
+            visibility: 'private',
+            baseName: oldDocument.fieldName || 'document',
           });
-          
         } else if (file.path) {
-          console.log('📁 Using file path with upload');
-          const fs = require('fs');
-          
           if (!fs.existsSync(file.path)) {
-            throw new Error(`File path does not exist: ${file.path}`);
+            throw new Error('Uploaded file is no longer available');
           }
-          
-          const uploadFileOptions = {
+          const bytes = fs.readFileSync(file.path);
+          uploaded = await r2.uploadBuffer(bytes, {
             folder: 'wiser-consulting/documents',
-            public_id: `${oldDocument.fieldName || 'document'}-${Date.now()}`,
-          };
-
-          if (file.mimetype.startsWith('image/')) {
-            uploadFileOptions.resource_type = 'image';
-            uploadFileOptions.transformation = [
-              {
-                width: 1000,
-                height: 1000,
-                crop: 'limit',
-                quality: 'auto',
-                fetch_format: 'auto',
-              },
-            ];
-          } else if (file.mimetype === 'application/pdf') {
-            uploadFileOptions.resource_type = 'raw';
-          } else {
-            uploadFileOptions.resource_type = 'auto';
-          }
-
-          cloudinaryResult = await cloudinary.uploader.upload(file.path, uploadFileOptions);
-          
+            mimetype: file.mimetype,
+            originalName: file.originalname,
+            visibility: 'private',
+            baseName: oldDocument.fieldName || 'document',
+          });
           // Clean up temporary file
           fs.unlinkSync(file.path);
-          console.log('🗑️ Cleaned up temporary file');
-          
         } else {
           throw new Error('No file buffer or path available for upload');
         }
-        
-        console.log('✅ New file uploaded successfully');
-        console.log('- New URL:', cloudinaryResult.secure_url);
-        console.log('- New Public ID:', cloudinaryResult.public_id);
-        console.log('- File size:', cloudinaryResult.bytes);
-        console.log('- Format:', cloudinaryResult.format);
-        
       } catch (error) {
-        console.error('❌ Cloudinary upload failed with detailed error:');
-        console.error('❌ Error name:', error.name);
-        console.error('❌ Error message:', error.message);
-        console.error('❌ Error stack:', error.stack);
-        
-        // Check for specific Cloudinary errors
-        if (error.message.includes('Invalid credentials')) {
-          console.error('❌ Cloudinary authentication failed - check API keys');
-        } else if (error.message.includes('Cloud name')) {
-          console.error('❌ Cloudinary cloud name is invalid');
-        } else if (error.message.includes('Upload preset')) {
-          console.error('❌ Cloudinary upload preset issue');
-        }
-        
+        console.error('R2 upload failed:', error.message);
         throw new AppError(`Failed to upload file to cloud storage: ${error.message}`, 500);
       }
 
@@ -238,8 +137,10 @@ class ReuploadService {
       submission.documents[documentIndex] = {
         ...oldDocument,
         fieldName: oldDocument.fieldName,
-        cloudinaryUrl: cloudinaryResult.secure_url,
-        cloudinaryPublicId: cloudinaryResult.public_id,
+        cloudinaryUrl: uploaded.secure_url,
+        cloudinaryPublicId: uploaded.public_id,
+        cloudinaryId: uploaded.asset_id,
+        uploadType: 'r2',
         originalname: oldDocument.originalname || file.originalname,
         filename: oldDocument.filename || file.originalname,
         mimetype: file.mimetype,
@@ -263,7 +164,7 @@ class ReuploadService {
 
       return {
         documentId: documentId,
-        cloudinaryUrl: cloudinaryResult.secure_url,
+        cloudinaryUrl: await r2.resolveUrl(uploaded.secure_url),
         filename: file.originalname,
         uploadedAt: new Date()
       };

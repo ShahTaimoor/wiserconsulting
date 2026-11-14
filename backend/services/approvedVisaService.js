@@ -1,10 +1,11 @@
 /**
  * Approved Visa Service
- * Business logic for approved visa CRUD and Cloudinary image handling.
+ * Business logic for approved visa CRUD and R2 image handling.
  */
 
 const approvedVisaRepository = require("../repositories/approvedVisaRepository");
-const { uploadLocalToCloudinary } = require("../config/cloudinary");
+const { uploadLocalToR2 } = require("../config/upload");
+const { deleteFromR2 } = require("../middleware/fileStorage");
 const { AppError } = require("../middleware/errorHandler");
 
 class ApprovedVisaService {
@@ -39,8 +40,8 @@ class ApprovedVisaService {
 
     try {
       const [clientPhotoResult, countryFlagResult] = await Promise.all([
-        uploadLocalToCloudinary(clientPhotoFile.path, "approved-visas"),
-        uploadLocalToCloudinary(countryFlagFile.path, "approved-visas"),
+        uploadLocalToR2(clientPhotoFile.path, "approved-visas"),
+        uploadLocalToR2(countryFlagFile.path, "approved-visas"),
       ]);
 
       return await approvedVisaRepository.create({
@@ -68,7 +69,7 @@ class ApprovedVisaService {
 
     try {
       if (clientPhotoFile) {
-        const result = await uploadLocalToCloudinary(
+        const result = await uploadLocalToR2(
           clientPhotoFile.path,
           "approved-visas",
         );
@@ -77,11 +78,10 @@ class ApprovedVisaService {
 
         if (existing.clientPhotoPublicId) {
           try {
-            const cloudinary = require("cloudinary").v2;
-            await cloudinary.uploader.destroy(existing.clientPhotoPublicId);
+            await deleteFromR2(existing.clientPhotoPublicId);
           } catch (destroyError) {
             console.error(
-              "Failed to remove previous client photo from Cloudinary",
+              "Failed to remove previous client photo from R2",
               destroyError,
             );
           }
@@ -89,7 +89,7 @@ class ApprovedVisaService {
       }
 
       if (countryFlagFile) {
-        const result = await uploadLocalToCloudinary(
+        const result = await uploadLocalToR2(
           countryFlagFile.path,
           "approved-visas",
         );
@@ -98,11 +98,10 @@ class ApprovedVisaService {
 
         if (existing.countryFlagPublicId) {
           try {
-            const cloudinary = require("cloudinary").v2;
-            await cloudinary.uploader.destroy(existing.countryFlagPublicId);
+            await deleteFromR2(existing.countryFlagPublicId);
           } catch (destroyError) {
             console.error(
-              "Failed to remove previous country flag from Cloudinary",
+              "Failed to remove previous country flag from R2",
               destroyError,
             );
           }
@@ -123,16 +122,15 @@ class ApprovedVisaService {
     }
 
     try {
-      const cloudinary = require("cloudinary").v2;
       if (existing.clientPhotoPublicId) {
-        await cloudinary.uploader.destroy(existing.clientPhotoPublicId);
+        await deleteFromR2(existing.clientPhotoPublicId);
       }
       if (existing.countryFlagPublicId) {
-        await cloudinary.uploader.destroy(existing.countryFlagPublicId);
+        await deleteFromR2(existing.countryFlagPublicId);
       }
     } catch (destroyError) {
       console.error(
-        "Failed to remove Cloudinary assets for approved visa",
+        "Failed to remove R2 assets for approved visa",
         destroyError,
       );
     }

@@ -272,6 +272,6 @@ test('nothing of the removed code is left: files, mounts, packages, schema, envi
       }
     }
   })(BACKEND);
-  // The settings file is not a source file; the cloudinary config has a document category called "passports", which is unrelated.
-  assert.deepEqual(offenders.filter((file) => !/config[\\/]cloudinary\.js$/.test(file)), []);
+  // The settings file is not a source file; the upload config has a document category called "passports", which is unrelated.
+  assert.deepEqual(offenders.filter((file) => !/config[\\/](upload|cloudinary)\.js$/.test(file)), []);
 });
