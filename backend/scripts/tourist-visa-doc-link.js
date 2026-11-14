@@ -11,10 +11,10 @@
  * It will not do anything unless you confirm the intent, either with the --confirm argument or with
  * TOURIST_VISA_DOC_LINK_CONFIRM=yes in the environment: the link opens a real applicant's file for anyone
  * who holds it, for two minutes, so it must never be run by accident or from a pasted command line.
- * When run from the command line it reads backend/.env (the database and Cloudinary settings), but only after the
+ * When run from the command line it reads backend/.env (the database and R2 settings), but only after the
  * confirmation and the arguments have been accepted. It prints the
  * two ids, the link and when it expires. It never prints a setting or a secret: if the link would contain
- * the API secret it refuses to print it. An error shows only its code or type, never its message.
+ * the secret key it refuses to print it. An error shows only its code or type, never its message.
  *
  * Exit code: 0 a link was printed, 1 it could not be made, 2 refused or used wrongly.
  */
@@ -23,7 +23,7 @@ const path = require('path');
 
 const CONFIRM_FLAG = '--confirm';
 const CONFIRM_ENV = 'TOURIST_VISA_DOC_LINK_CONFIRM';
-const REQUIRED_ENV = ['MONGODB_URI', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'];
+const REQUIRED_ENV = ['MONGODB_URI', 'R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_PRIVATE_BUCKET'];
 const OBJECT_ID = /^[0-9a-f]{24}$/i;
 const DOC_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -66,7 +66,7 @@ async function run({ argv, env, out, err, service, connect, disconnect, loadEnv 
   try {
     await connect();
     const { url, expiresAt } = await service.getTemporaryLink(applicationId, documentId);
-    const secret = env.CLOUDINARY_API_SECRET;
+    const secret = env.R2_SECRET_ACCESS_KEY;
     if (url.includes(secret) || url.includes(env.MONGODB_URI)) {
       err('Refusing to print the link: it contains a secret setting.');
       return 1;

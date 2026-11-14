@@ -18,7 +18,7 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
-const cloudinary = require('cloudinary').v2;
+const { PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 
 const User = require('../models/User');
@@ -32,7 +32,7 @@ const { createUploadLimiter } = require('../middleware/touristVisaUpload');
 const sanitize = require('../middleware/sanitize');
 const skipPaths = require('../middleware/skipPaths');
 const { errorHandler } = require('../middleware/errorHandler');
-const { CloudinaryDocumentStorage, missingStorageVariables } = require('../config/touristVisaStorage');
+const { R2DocumentStorage, missingStorageVariables } = require('../config/touristVisaStorage');
 const detectFileType = require('../utils/detectFileType');
 const limits = require('../config/touristVisaDocuments');
 
@@ -850,98 +850,86 @@ test('there is no route that hands out a link: no applicant path reaches getTemp
 });
 
 // ---------------------------------------------------------------------------
-// The real Cloudinary adapter, with a fake SDK (no network) and the SDK's own URL signing (offline)
+// The real R2 adapter, with a fake client (no network) and the SDK's own offline URL signing
 // ---------------------------------------------------------------------------
 
-const CREDENTIALS = { CLOUDINARY_CLOUD_NAME: 'test-cloud', CLOUDINARY_API_KEY: '123456789012345', CLOUDINARY_API_SECRET: 'test-only-secret-not-real' };
+const CREDENTIALS = {
+  R2_ACCOUNT_ID: 'testaccount0123456789abcdef01234567',
+  R2_ACCESS_KEY_ID: 'AKIATESTKEY0000000001',
+  R2_SECRET_ACCESS_KEY: 'test-only-secret-not-real',
+  R2_PRIVATE_BUCKET: 'test-private-bucket',
+};
 
-test('adapter: uploads private raw files into the application folder with a random id that carries no name', async () => {
-  const calls = [];
-  const sdk = {
-    uploader: {
-      upload_stream(options, callback) {
-        calls.push(options);
-        const handlers = {};
-        return {
-          on(event, fn) { handlers[event] = fn; },
-          end(buffer) { callback(null, { public_id: `${options.folder}/${options.public_id}`, resource_type: 'raw', bytes: buffer.length }); },
-        };
-      },
+function fakeClient({ fail = false } = {}) {
+  const sent = [];
+  return {
+    sent,
+    config: {},
+    async send(command) {
+      sent.push(command);
+      if (fail) throw new Error('secret detail from the provider');
+      return {};
     },
-    utils: cloudinary.utils,
   };
-  const adapter = new CloudinaryDocumentStorage({ cloudinary: sdk, env: CREDENTIALS });
+}
+
+test('adapter: uploads private files into the application folder with a random key that carries no name', async () => {
+  const client = fakeClient();
+  const adapter = new R2DocumentStorage({ client, env: CREDENTIALS });
   assert.equal(adapter.isConfigured(), true);
   const result = await adapter.upload(PDF(10), { applicationId: 'app123', extension: 'pdf' });
-  const [options] = calls;
-  assert.equal(options.type, 'authenticated');
-  assert.equal(options.resource_type, 'raw');
-  assert.equal(options.folder, 'tourist-visa/app123');
-  assert.match(options.public_id, /^[0-9a-f]{32}\.pdf$/);
-  assert.equal(options.overwrite, false);
-  assert.equal(options.use_filename, false);
-  assert.equal(options.cloud_name, 'test-cloud');
-  assert.deepEqual(result, { publicId: `tourist-visa/app123/${options.public_id}`, resourceType: 'raw', bytes: 10 });
+  const [command] = client.sent;
+  assert.ok(command instanceof PutObjectCommand);
+  assert.equal(command.input.Bucket, 'test-private-bucket');
+  assert.match(command.input.Key, /^tourist-visa\/app123\/[0-9a-f]{32}\.pdf$/);
+  assert.equal(command.input.ContentType, 'application/pdf');
+  assert.deepEqual(result, { publicId: command.input.Key, resourceType: 'raw', bytes: 10 });
 
   const second = await adapter.upload(PDF(10), { applicationId: 'app123', extension: 'pdf' });
-  assert.notEqual(second.publicId, result.publicId, 'every upload gets a new random id');
+  assert.notEqual(second.publicId, result.publicId, 'every upload gets a new random key');
 });
 
-test('adapter: a failed upload or delete is an error with a fixed message (nothing from the SDK leaks)', async () => {
-  const sdk = {
-    uploader: {
-      upload_stream(options, callback) {
-        return { on() {}, end() { callback({ message: 'secret detail from the provider', http_code: 500 }); } };
-      },
-      async destroy() { return { result: 'error' }; },
-    },
-    utils: cloudinary.utils,
-  };
-  const adapter = new CloudinaryDocumentStorage({ cloudinary: sdk, env: CREDENTIALS });
+test('adapter: a failed upload or delete is an error with a fixed message (nothing from the provider leaks)', async () => {
+  const adapter = new R2DocumentStorage({ client: fakeClient({ fail: true }), env: CREDENTIALS });
   await assert.rejects(() => adapter.upload(PDF(10), { applicationId: 'a', extension: 'pdf' }), (e) => e.message === 'storage upload failed');
   await assert.rejects(() => adapter.remove('tourist-visa/a/x.pdf', 'raw'), (e) => e.message === 'storage delete failed');
 });
 
-test('adapter: delete asks for the private raw asset and treats "not found" as deleted', async () => {
-  const seen = [];
-  let answer = { result: 'ok' };
-  const sdk = { uploader: { async destroy(publicId, options) { seen.push({ publicId, options }); return answer; } }, utils: cloudinary.utils };
-  const adapter = new CloudinaryDocumentStorage({ cloudinary: sdk, env: CREDENTIALS });
+test('adapter: delete asks for the object in the private bucket', async () => {
+  const client = fakeClient();
+  const adapter = new R2DocumentStorage({ client, env: CREDENTIALS });
   await adapter.remove('tourist-visa/a/x.pdf', 'raw');
-  assert.equal(seen[0].publicId, 'tourist-visa/a/x.pdf');
-  assert.equal(seen[0].options.type, 'authenticated');
-  assert.equal(seen[0].options.resource_type, 'raw');
-  assert.equal(seen[0].options.invalidate, true);
-  answer = { result: 'not found' };
-  await adapter.remove('tourist-visa/a/x.pdf', 'raw');
+  const [command] = client.sent;
+  assert.ok(command instanceof DeleteObjectCommand);
+  assert.equal(command.input.Bucket, 'test-private-bucket');
+  assert.equal(command.input.Key, 'tourist-visa/a/x.pdf');
 });
 
-test('adapter: the temporary link is a signed API download link that carries its expiry in the signature', () => {
-  const adapter = new CloudinaryDocumentStorage({ cloudinary, env: CREDENTIALS });
-  const expiresAt = new Date('2026-11-01T10:02:00.000Z');
-  const url = new URL(adapter.temporaryUrl({ publicId: 'tourist-visa/app123/abc.pdf', resourceType: 'raw' }, expiresAt));
+test('adapter: the temporary link is a signed, expiring download link and never contains the secret', async () => {
+  const adapter = new R2DocumentStorage({ env: CREDENTIALS });
+  const expiresAt = new Date(Date.now() + 120 * 1000);
+  const link = await adapter.temporaryUrl({ publicId: 'tourist-visa/app123/abc.pdf', resourceType: 'raw' }, expiresAt);
+  const url = new URL(link);
   assert.equal(url.protocol, 'https:');
-  assert.equal(url.host, 'api.cloudinary.com');
-  assert.equal(url.pathname, '/v1_1/test-cloud/raw/download');
+  assert.equal(url.host, 'test-private-bucket.testaccount0123456789abcdef01234567.r2.cloudflarestorage.com');
+  assert.equal(url.pathname, '/tourist-visa/app123/abc.pdf');
   const q = url.searchParams;
-  assert.equal(q.get('public_id'), 'tourist-visa/app123/abc.pdf');
-  assert.equal(q.get('type'), 'authenticated');
-  assert.equal(q.get('expires_at'), String(Math.floor(expiresAt.getTime() / 1000)));
-  assert.equal(q.get('api_key'), CREDENTIALS.CLOUDINARY_API_KEY);
-  assert.equal(url.toString().includes(CREDENTIALS.CLOUDINARY_API_SECRET), false, 'the secret is never in the link');
+  assert.equal(q.get('X-Amz-Algorithm'), 'AWS4-HMAC-SHA256');
+  const seconds = Number(q.get('X-Amz-Expires'));
+  assert.ok(seconds >= 118 && seconds <= 120, `expires in about two minutes (got ${seconds})`);
+  assert.equal(link.includes(CREDENTIALS.R2_SECRET_ACCESS_KEY), false, 'the secret is never in the link');
+  assert.ok(q.get('X-Amz-Signature'), 'the link is signed');
 
-  // The signature covers the expiry: it matches the signed values, and not a link with a later expiry.
-  const signed = Object.fromEntries([...q.entries()].filter(([k]) => k !== 'signature' && k !== 'api_key'));
-  assert.equal(q.get('signature'), cloudinary.utils.api_sign_request(signed, CREDENTIALS.CLOUDINARY_API_SECRET));
-  const stretched = { ...signed, expires_at: String(Number(signed.expires_at) + 3600) };
-  assert.notEqual(q.get('signature'), cloudinary.utils.api_sign_request(stretched, CREDENTIALS.CLOUDINARY_API_SECRET), 'a longer expiry needs a new signature');
+  // The expiry is part of the signature: a different expiry gives a different signature.
+  const longer = new URL(await adapter.temporaryUrl({ publicId: 'tourist-visa/app123/abc.pdf' }, new Date(Date.now() + 3600 * 1000)));
+  assert.notEqual(longer.searchParams.get('X-Amz-Signature'), q.get('X-Amz-Signature'));
 });
 
 test('adapter: missing variables are reported by name only, and an unconfigured adapter says so', () => {
-  assert.deepEqual(missingStorageVariables({}), ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET']);
-  assert.deepEqual(missingStorageVariables({ ...CREDENTIALS, CLOUDINARY_API_KEY: '  ' }), ['CLOUDINARY_API_KEY']);
+  assert.deepEqual(missingStorageVariables({}), ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_PRIVATE_BUCKET']);
+  assert.deepEqual(missingStorageVariables({ ...CREDENTIALS, R2_ACCESS_KEY_ID: '  ' }), ['R2_ACCESS_KEY_ID']);
   assert.deepEqual(missingStorageVariables(CREDENTIALS), []);
-  assert.equal(new CloudinaryDocumentStorage({ env: {} }).isConfigured(), false);
+  assert.equal(new R2DocumentStorage({ env: {} }).isConfigured(), false);
 });
 
 test('constants: the limits are the agreed ones, in one place', () => {

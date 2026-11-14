@@ -36,7 +36,7 @@ const FILE_TYPES = Object.freeze({
 /** How long a temporary link to a file works. */
 const LINK_TTL_SECONDS = 2 * 60;
 
-/** Where files live in Cloudinary: private ("authenticated"), as raw files so PDFs are never processed. */
+/** Where files live in R2: the private bucket, stored as raw files so PDFs are never processed. */
 const STORAGE = Object.freeze({
   rootFolder: 'tourist-visa',
   resourceType: 'raw',

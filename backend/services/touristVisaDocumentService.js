@@ -152,7 +152,7 @@ class TouristVisaDocumentService {
     if (!this.storage.isConfigured()) throw documentError('STORAGE_UNAVAILABLE');
 
     const expiresAt = new Date(this.now().getTime() + LINK_TTL_SECONDS * 1000);
-    return { url: this.storage.temporaryUrl(doc, expiresAt), expiresAt };
+    return { url: await this.storage.temporaryUrl(doc, expiresAt), expiresAt };
   }
 
   // -------------------------------------------------------------------------

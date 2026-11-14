@@ -7,12 +7,14 @@
  */
 export const downloadFile = async (url: string, filename: string): Promise<void> => {
   try {
-    // Check if it's a Cloudinary URL
-    const isCloudinaryUrl = url.includes('cloudinary.com') || url.includes('res.cloudinary.com');
+    // Send cookies only to our own API. File storage links (Cloudflare R2, or an old Cloudinary link) are
+    // signed or public, and a cross-origin storage host rejects credentialed requests.
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+    const isOwnApi = apiBase !== '' && url.startsWith(apiBase);
 
     const response = await fetch(url, {
       method: 'GET',
-      credentials: isCloudinaryUrl ? 'omit' : 'include',
+      credentials: isOwnApi ? 'include' : 'omit',
     });
 
     if (!response.ok) {

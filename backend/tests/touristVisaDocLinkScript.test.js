@@ -20,9 +20,10 @@ const SECRET = 'test-only-api-secret-value';
 const MONGO = 'mongodb://test-user:test-only-password@localhost:27017/test-db';
 const ENV = {
   MONGODB_URI: MONGO,
-  CLOUDINARY_CLOUD_NAME: 'test-cloud',
-  CLOUDINARY_API_KEY: '123456789012345',
-  CLOUDINARY_API_SECRET: SECRET,
+  R2_ACCOUNT_ID: 'test-account',
+  R2_ACCESS_KEY_ID: 'AKIATESTKEY0000000001',
+  R2_SECRET_ACCESS_KEY: SECRET,
+  R2_PRIVATE_BUCKET: 'test-private-bucket',
 };
 const NOW = new Date('2026-11-01T10:00:00.000Z');
 
@@ -91,12 +92,12 @@ test('wrong use is refused: missing or extra arguments, an unknown option, ids t
 });
 
 test('missing settings are named, never shown, and nothing is connected', async () => {
-  const { log, deps } = harness({ env: { MONGODB_URI: MONGO, CLOUDINARY_CLOUD_NAME: 'test-cloud' } });
+  const { log, deps } = harness({ env: { MONGODB_URI: MONGO, R2_ACCOUNT_ID: 'test-account' } });
   assert.equal(await run(deps), 1);
   assert.deepEqual(log.calls, [['loadEnv']]);
   const text = log.err.join('\n');
-  assert.match(text, /CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET/);
-  assert.equal(text.includes('test-cloud'), false);
+  assert.match(text, /R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PRIVATE_BUCKET/);
+  assert.equal(text.includes('test-account'), false);
   assert.equal(text.includes('test-only-password'), false);
 });
 
@@ -109,7 +110,7 @@ test('it never prints a secret: a link that contains one is not printed, and no 
   const normal = harness();
   await run(normal.deps);
   const everything = [...normal.log.out, ...normal.log.err].join('\n');
-  for (const value of [SECRET, MONGO, 'test-only-password', ENV.CLOUDINARY_API_KEY, 'test-cloud']) assert.equal(everything.includes(value), false, value);
+  for (const value of [SECRET, MONGO, 'test-only-password', ENV.R2_ACCESS_KEY_ID, 'test-account']) assert.equal(everything.includes(value), false, value);
 });
 
 test('a failure shows only its code or type, never its message', async () => {

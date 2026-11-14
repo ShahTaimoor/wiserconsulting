@@ -100,7 +100,7 @@ const call = async (method, p, { headers = {}, body } = {}) => {
 
 test('a closed deployment starts quietly: no complaint about the missing encryption key', () => {
   assert.equal(/FIELD_ENCRYPTION_KEY/.test(outputAfterStart), false, outputAfterStart);
-  assert.equal(/File storage is not configured|CLOUDINARY/.test(outputAfterStart), false, 'nor about the missing file storage settings');
+  assert.equal(/File storage is not configured|R2_/.test(outputAfterStart), false, 'nor about the missing file storage settings');
 });
 
 test('real index.js, switch unset: every kind of request gets the fixed closed answer, and a signed-in user is not even looked up', async () => {

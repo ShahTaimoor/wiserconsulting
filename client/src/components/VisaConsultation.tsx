@@ -9,9 +9,7 @@ import AssessmentForm from './AssessmentForm';
 import StarButton from '@/components/ui/star-button';
 import ApprovedVisasShowcase from './ApprovedVisasShowcase';
 import {
-  Globe2,
   FileCheck2,
-  Users,
   ArrowRight,
   ChevronRight,
   ChevronLeft,
@@ -224,6 +222,10 @@ const VisaConsultation: React.FC = () => {
   };
 
   const { settings } = useSettings();
+  // Nearest available picture for each size (mobile prefers tablet, tablet prefers desktop, desktop prefers tablet).
+  const heroMobile = settings.heroMobileUrl || settings.heroTabletUrl || settings.heroDesktopUrl || '';
+  const heroTablet = settings.heroTabletUrl || settings.heroDesktopUrl || settings.heroMobileUrl || '';
+  const heroDesktop = settings.heroDesktopUrl || settings.heroTabletUrl || settings.heroMobileUrl || '';
 
   // Icons stay fixed in code — only the value/label text is admin-editable
   // (via Settings > Homepage Statistics), with hardcoded fallbacks so the
@@ -255,14 +257,20 @@ const VisaConsultation: React.FC = () => {
     <div className="relative overflow-x-hidden">
       {/* Hero Section - Modern Design */}
       <section className="relative w-full min-h-screen flex items-center justify-center overflow-hidden bg-slate-900">
-        <video
-          className="absolute top-0 left-0 w-full h-full object-cover z-0"
-          src="/U.mp4"
-          autoPlay
-          loop
-          muted
-          playsInline
-        />
+        {/* Hero banner: the admin uploads one picture per screen size (Admin > Settings > Homepage Banner).
+            A size without a picture uses the nearest one that is set; with none at all the dark background shows. */}
+        {(heroMobile || heroTablet || heroDesktop) && (
+          <picture>
+            {heroDesktop && <source media="(min-width: 1024px)" srcSet={heroDesktop} />}
+            {heroTablet && <source media="(min-width: 640px)" srcSet={heroTablet} />}
+            {/* eslint-disable-next-line @next/next/no-img-element -- storage URLs are not in next.config's image domains */}
+            <img
+              src={heroMobile}
+              alt=""
+              className="absolute top-0 left-0 w-full h-full object-cover z-0"
+            />
+          </picture>
+        )}
         <div className="absolute inset-0 bg-slate-900/70 z-10" />
 
         <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
@@ -347,51 +355,6 @@ const VisaConsultation: React.FC = () => {
         </div>
       </section>
 
-      {/* Why Choose Us Section */}
-      <section className="py-20 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
-              Why Choose Our Visa Services
-            </h2>
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-              We combine expertise, personalized service, and proven success rates to make your visa journey smooth and stress-free.
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-            {/* Background glowing elements for added premium feel */}
-            <div className="absolute top-1/2 left-0 w-[400px] h-[400px] bg-blue-100/40 rounded-full blur-[120px] -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
-            <div className="absolute top-1/2 right-0 w-[400px] h-[400px] bg-amber-100/40 rounded-full blur-[120px] translate-x-1/2 -translate-y-1/2 pointer-events-none" />
-
-            <ServiceCard
-              index={0}
-              icon={<Globe2 className="w-8 h-8" />}
-              title="Personalized Guidance"
-              description="One-on-one sessions tailored to your specific travel and documentation needs. Our experts understand every case is unique."
-            />
-            <ServiceCard
-              index={1}
-              icon={<FileCheck2 className="w-8 h-8" />}
-              title="Complete File Preparation"
-              description="From visa forms to financial documents, everything is reviewed, organized, and prepared to perfection by our team."
-            />
-            <ServiceCard
-              index={2}
-              icon={<Users className="w-8 h-8" />}
-              title="Family & Group Support"
-              description="Specialized support for couples, families, and group applications ensuring a smooth process for everyone involved."
-            />
-          </div>
-        </div>
-      </section>
-
       {/* Approved Visas Section */}
       <ApprovedVisasShowcase />
 
@@ -438,21 +401,6 @@ const VisaConsultation: React.FC = () => {
               </motion.div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 bg-slate-900">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="space-y-8"
-          >
-
-          </motion.div>
         </div>
       </section>
 
@@ -652,33 +600,5 @@ const VisaConsultation: React.FC = () => {
     </div>
   );
 };
-
-const ServiceCard = ({ icon, title, description, index = 0 }: { icon: React.ReactNode; title: string; description: string; index?: number }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 50 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true, margin: "-50px" }}
-    transition={{ duration: 0.7, delay: index * 0.15, ease: "easeOut" }}
-    whileHover={{ y: -12 }}
-    className="relative bg-white p-8 sm:p-10 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.12)] transition-all duration-500 border border-slate-100 hover:border-slate-200 h-full overflow-hidden group z-10"
-  >
-    {/* Decorative background flares on hover */}
-    <div className="absolute -right-20 -top-20 w-48 h-48 bg-slate-50 group-hover:bg-blue-50/80 rounded-full blur-3xl transition-colors duration-700 -z-10" />
-    <div className="absolute -left-20 -bottom-20 w-48 h-48 bg-slate-50 group-hover:bg-amber-50/80 rounded-full blur-3xl transition-colors duration-700 -z-10" />
-
-    <div className="w-16 h-16 bg-slate-50/80 border border-slate-100 rounded-2xl flex items-center justify-center mb-8 text-slate-600 group-hover:bg-slate-900 group-hover:text-white group-hover:-rotate-3 group-hover:scale-110 transition-all duration-500 shadow-sm relative z-20">
-      <div className="absolute inset-0 rounded-2xl bg-slate-900 opacity-0 group-hover:opacity-20 blur-md transition-opacity duration-500 z-10"></div>
-      <div className="relative z-20">
-        {icon}
-      </div>
-    </div>
-
-    <h3 className="text-2xl font-bold mb-4 text-slate-900 group-hover:text-slate-800 transition-colors duration-300 relative z-20">{title}</h3>
-    <p className="text-slate-600/90 leading-relaxed text-base relative z-20">{description}</p>
-
-    {/* Bottom decorative animated underline */}
-    <div className="absolute bottom-0 left-0 w-0 h-1.5 bg-gradient-to-r from-slate-800 to-slate-600 group-hover:w-full transition-all duration-700 ease-in-out" />
-  </motion.div>
-);
 
 export default VisaConsultation;

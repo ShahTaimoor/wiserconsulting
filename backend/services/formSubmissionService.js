@@ -7,6 +7,7 @@ const formSubmissionRepository = require("../repositories/formSubmissionReposito
 const { AppError } = require("../middleware/errorHandler");
 const logger = require("../utils/logger");
 const nodemailer = require("nodemailer");
+const r2 = require("../config/r2");
 
 class FormSubmissionService {
   /**
@@ -57,7 +58,7 @@ class FormSubmissionService {
    * Add file URLs to submission documents and ensure fieldName is set
    */
   async addFileUrls(submission) {
-    const documentsWithUrls = submission.documents.map((doc) => {
+    const documentsWithUrls = await Promise.all(submission.documents.map(async (doc) => {
       const docObj = doc.toObject();
       
       // Ensure fieldName is set - extract from public ID if needed
@@ -68,13 +69,18 @@ class FormSubmissionService {
         }
       }
       
-      if (doc.uploadType === "cloudinary" && doc.cloudinaryUrl) {
-        docObj.fileUrl = doc.cloudinaryUrl;
+      if (
+        (doc.uploadType === "r2" || doc.uploadType === "cloudinary") &&
+        doc.cloudinaryUrl
+      ) {
+        // A private R2 reference becomes a signed link that expires in an hour.
+        docObj.fileUrl = await r2.resolveUrl(doc.cloudinaryUrl);
+        docObj.cloudinaryUrl = docObj.fileUrl;
       } else if (doc.uploadType === "local" && doc.localPath) {
         docObj.fileUrl = `/uploads/${doc.filename}`;
       }
       return docObj;
-    });
+    }));
 
     return {
       ...submission.toObject(),
@@ -199,8 +205,8 @@ class FormSubmissionService {
       throw new AppError("Document not found", 404);
     }
 
-    // Clean up file (local or cloudinary)
-    const { cleanupFiles } = require("../middleware/cloudinaryMiddleware");
+    // Clean up file (local or R2)
+    const { cleanupFiles } = require("../middleware/fileStorage");
     await cleanupFiles([document]);
 
     // Remove from repository
@@ -221,7 +227,7 @@ class FormSubmissionService {
 
     // Clean up files before soft delete
     if (submission.documents && submission.documents.length > 0) {
-      const { cleanupFiles } = require("../middleware/cloudinaryMiddleware");
+      const { cleanupFiles } = require("../middleware/fileStorage");
       await cleanupFiles(submission.documents);
     }
 
@@ -245,8 +251,11 @@ class FormSubmissionService {
     }
 
     let fileUrl;
-    if (document.uploadType === "cloudinary" && document.cloudinaryUrl) {
-      fileUrl = document.cloudinaryUrl;
+    if (
+      (document.uploadType === "r2" || document.uploadType === "cloudinary") &&
+      document.cloudinaryUrl
+    ) {
+      fileUrl = await r2.resolveUrl(document.cloudinaryUrl);
     } else if (document.uploadType === "local" && document.localPath) {
       fileUrl = `/uploads/${document.filename}`;
     } else {

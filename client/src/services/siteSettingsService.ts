@@ -11,6 +11,9 @@ export interface SiteSettings {
   phoneNumber: string;
   address: string;
   logoUrl?: string;
+  heroMobileUrl?: string | null;
+  heroTabletUrl?: string | null;
+  heroDesktopUrl?: string | null;
   socialLinks?: SocialLinks;
   stat1Value?: string;
   stat1Label?: string;
@@ -25,6 +28,8 @@ export interface SiteSettings {
   aboutStat2Value?: string;
   aboutStat2Label?: string;
 }
+
+export type HeroBannerDevice = "mobile" | "tablet" | "desktop";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
@@ -53,6 +58,28 @@ export const siteSettingsService = {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(settings),
+    });
+    const json = await assertResponse(response);
+    return json.data;
+  },
+
+  async uploadHeroBanner(device: HeroBannerDevice, file: File, token: string): Promise<SiteSettings> {
+    const formData = new FormData();
+    formData.append("image", file);
+
+    const response = await fetch(`${API_URL}/site-settings/hero-banner/${device}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    const json = await assertResponse(response);
+    return json.data;
+  },
+
+  async removeHeroBanner(device: HeroBannerDevice, token: string): Promise<SiteSettings> {
+    const response = await fetch(`${API_URL}/site-settings/hero-banner/${device}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
     });
     const json = await assertResponse(response);
     return json.data;

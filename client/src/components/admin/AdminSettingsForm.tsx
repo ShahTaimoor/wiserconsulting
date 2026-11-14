@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Upload, X, Loader2 } from "lucide-react";
 import { useAppSelector } from "@/redux/hooks";
 import { siteSettingsService } from "@/services/siteSettingsService";
+import HeroBannerUploader from "./HeroBannerUploader";
 
 interface AdminSettings {
     _id?: string;
@@ -380,6 +381,9 @@ const AdminSettingsForm = () => {
                         </div>
                     )}
                 </div>
+
+                {/* Homepage banner pictures (mobile / tablet / desktop) */}
+                <HeroBannerUploader />
 
                 {/* Homepage Statistics */}
                 <div>

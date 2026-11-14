@@ -11,7 +11,7 @@ const validate = require("../middleware/validate");
 const {
   updateSettingsSchema,
 } = require("../validations/siteSettingsValidation");
-const { uploadToLocal } = require("../config/cloudinary");
+const { uploadToLocal } = require("../config/upload");
 
 router.get(
   "/",
@@ -40,6 +40,21 @@ router.post(
   isAdmin,
   uploadToLocal.single("logo"),
   siteSettingsController.uploadLogo.bind(siteSettingsController),
+);
+
+router.post(
+  "/hero-banner/:device",
+  isAuthorized,
+  isAdmin,
+  uploadToLocal.single("image"),
+  siteSettingsController.uploadHeroBanner.bind(siteSettingsController),
+);
+
+router.delete(
+  "/hero-banner/:device",
+  isAuthorized,
+  isAdmin,
+  siteSettingsController.removeHeroBanner.bind(siteSettingsController),
 );
 
 module.exports = router;

@@ -47,7 +47,7 @@ before(async () => {
   baseUrl = `http://127.0.0.1:${port}`;
 
   const env = { ...process.env };
-  for (const name of ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET']) delete env[name];
+  for (const name of ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_PRIVATE_BUCKET']) delete env[name];
   child = spawn(process.execPath, [path.join(__dirname, '..', 'index.js')], {
     cwd: os.tmpdir(),
     env: {
@@ -107,7 +107,7 @@ const pdfForm = (name = 'test-passport.pdf') => {
 };
 
 test('startup: the missing file storage settings are named, never shown', () => {
-  assert.match(childOutput, /File storage is not configured \(CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET missing\)/);
+  assert.match(childOutput, /File storage is not configured \(R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PRIVATE_BUCKET missing\)/);
 });
 
 test('real index.js: a multipart upload passes the real middleware order and reaches the service', async () => {

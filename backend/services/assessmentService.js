@@ -7,7 +7,7 @@ const formSubmissionRepository = require("../repositories/formSubmissionReposito
 const { AppError } = require("../middleware/errorHandler");
 const axios = require("axios");
 const { PDFDocument: PDFLibDocument, rgb } = require("pdf-lib");
-const { cloudinary } = require("../config/cloudinary");
+const r2 = require("../config/r2");
 const fs = require("fs");
 const path = require("path");
 const archiver = require("archiver");
@@ -137,20 +137,10 @@ class AssessmentService {
         return;
       }
 
-      let fetchUrl = document.cloudinaryUrl;
-      if (
-        document.cloudinaryPublicId &&
-        document.mimetype.startsWith("image/")
-      ) {
-        const format = document.mimetype === "image/png" ? "png" : "jpg";
-        fetchUrl = cloudinary.url(document.cloudinaryPublicId, {
-          resource_type: "image",
-          type: "upload",
-          format,
-          quality: "auto",
-          secure: true,
-        });
-      }
+      // Private R2 documents are read through a short-lived signed link.
+      const fetchUrl = await r2.resolveUrl(document.cloudinaryUrl, {
+        ttlSeconds: 300,
+      });
 
       const response = await axios.get(fetchUrl, {
         responseType: "arraybuffer",
@@ -218,7 +208,7 @@ class AssessmentService {
     } else if (normalizedType.includes("png")) {
       image = await mergedPdf.embedPng(imageBytes);
     } else {
-      // Fallback: if Cloudinary returns an unexpected image format, try PNG embedding
+      // Fallback: if the stored image is an unexpected image format, try PNG embedding
       image = await mergedPdf.embedPng(imageBytes);
     }
 
@@ -308,18 +298,7 @@ class AssessmentService {
   async getCompressionDownloadUrl(document) {
     if (!document.cloudinaryUrl) return null;
 
-    if (document.cloudinaryPublicId && document.mimetype.startsWith("image/")) {
-      const format = document.mimetype === "image/png" ? "png" : "jpg";
-      return cloudinary.url(document.cloudinaryPublicId, {
-        resource_type: "image",
-        type: "upload",
-        format,
-        quality: "auto",
-        secure: true,
-      });
-    }
-
-    return document.cloudinaryUrl;
+    return r2.resolveUrl(document.cloudinaryUrl, { ttlSeconds: 300 });
   }
 
   async downloadDocumentBytes(document) {

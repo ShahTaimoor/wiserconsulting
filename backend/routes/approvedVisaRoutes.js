@@ -13,7 +13,7 @@ const {
   createApprovedVisaSchema,
   updateApprovedVisaSchema,
 } = require("../validations/approvedVisaValidation");
-const { uploadToLocal } = require("../config/cloudinary");
+const { uploadToLocal } = require("../config/upload");
 
 const uploadVisaImages = uploadToLocal.fields([
   { name: "clientPhoto", maxCount: 1 },

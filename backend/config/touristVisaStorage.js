@@ -1,35 +1,35 @@
 /**
- * Private file storage for Tourist Visa documents (Cloudinary).
+ * Private file storage for Tourist Visa documents (Cloudflare R2, private bucket).
  *
- * Reads the same three variables as the rest of the backend (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY,
- * CLOUDINARY_API_SECRET) and passes them with every call, so it neither depends on nor changes the global
- * Cloudinary setup that the public assessment uploads use.
- *
- * Files are uploaded as type "authenticated" (never reachable by a plain URL) and as resource type "raw":
- * a raw file is stored exactly as sent and is never processed, and Cloudinary's account setting that blocks
- * delivery of PDFs as images does not apply to it. Delivery is a signed, expiring download link
- * (private_download_url with expires_at), not a delivery URL.
+ * Uses the R2 settings (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PRIVATE_BUCKET). The private bucket
+ * has no public access and no custom domain: a file is reachable only through a signed, expiring download link
+ * made here, never through a plain URL. Files are stored exactly as sent (a PDF is never processed).
  *
  * The service talks to this through three methods (upload, remove, temporaryUrl), so tests inject a fake with
- * the same shape and never reach the network. Nothing here puts a file name, a public id or a credential in an
+ * the same shape and never reach the network. Nothing here puts a file name, a storage key or a credential in an
  * error message or a log line.
  */
 
 const crypto = require('crypto');
-const cloudinaryLib = require('cloudinary').v2;
+const { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const r2 = require('./r2');
 const { STORAGE } = require('./touristVisaDocuments');
 const logger = require('../utils/logger');
 
-const VARIABLES = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'];
+const VARIABLES = ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_PRIVATE_BUCKET'];
+
+const MIME_BY_EXTENSION = Object.freeze({ pdf: 'application/pdf', jpg: 'image/jpeg', png: 'image/png' });
 
 /** Names (never values) of the variables that are missing or empty. */
 function missingStorageVariables(env = process.env) {
   return VARIABLES.filter((name) => typeof env[name] !== 'string' || env[name].trim() === '');
 }
 
-class CloudinaryDocumentStorage {
-  constructor({ cloudinary = cloudinaryLib, env = process.env } = {}) {
-    this.cloudinary = cloudinary;
+class R2DocumentStorage {
+  constructor({ client = null, signer = getSignedUrl, env = process.env } = {}) {
+    this.client = client;
+    this.signer = signer;
     this.env = env;
   }
 
@@ -37,62 +37,52 @@ class CloudinaryDocumentStorage {
     return missingStorageVariables(this.env).length === 0;
   }
 
-  credentials() {
-    return {
-      cloud_name: this.env.CLOUDINARY_CLOUD_NAME,
-      api_key: this.env.CLOUDINARY_API_KEY,
-      api_secret: this.env.CLOUDINARY_API_SECRET,
-    };
+  getClient() {
+    return this.client || r2.getClient(this.env);
   }
 
   /**
    * Stores a file. `extension` comes from the detected content, never from the original name.
-   * Returns { publicId, resourceType, bytes }.
+   * Returns { publicId, resourceType, bytes } (publicId is the object key in the private bucket).
    */
-  upload(buffer, { applicationId, extension }) {
-    const options = {
-      ...this.credentials(),
-      resource_type: STORAGE.resourceType,
-      type: STORAGE.deliveryType,
-      folder: `${STORAGE.rootFolder}/${applicationId}`,
-      // Random, and carrying no part of the original name. A raw file keeps its extension in the id.
-      public_id: `${crypto.randomBytes(16).toString('hex')}.${extension}`,
-      use_filename: false,
-      unique_filename: false,
-      overwrite: false,
-    };
-    return new Promise((resolve, reject) => {
-      const stream = this.cloudinary.uploader.upload_stream(options, (error, result) => {
-        if (error || !result || !result.public_id) return reject(new Error('storage upload failed'));
-        return resolve({ publicId: result.public_id, resourceType: result.resource_type || STORAGE.resourceType, bytes: result.bytes });
-      });
-      stream.on('error', () => reject(new Error('storage upload failed')));
-      stream.end(buffer);
-    });
+  async upload(buffer, { applicationId, extension }) {
+    // Random, and carrying no part of the original name.
+    const key = `${STORAGE.rootFolder}/${applicationId}/${crypto.randomBytes(16).toString('hex')}.${extension}`;
+    try {
+      await this.getClient().send(
+        new PutObjectCommand({
+          Bucket: this.env.R2_PRIVATE_BUCKET,
+          Key: key,
+          Body: buffer,
+          ContentType: MIME_BY_EXTENSION[extension] || 'application/octet-stream',
+        }),
+      );
+    } catch {
+      throw new Error('storage upload failed');
+    }
+    return { publicId: key, resourceType: STORAGE.resourceType, bytes: buffer.length };
   }
 
-  /** Deletes a file. A file that is already gone counts as deleted. */
-  async remove(publicId, resourceType = STORAGE.resourceType) {
-    const result = await this.cloudinary.uploader.destroy(publicId, {
-      ...this.credentials(),
-      resource_type: resourceType,
-      type: STORAGE.deliveryType,
-      invalidate: true,
-    });
-    if (!result || (result.result !== 'ok' && result.result !== 'not found')) throw new Error('storage delete failed');
+  /** Deletes a file. A file that is already gone counts as deleted (S3 delete is idempotent). */
+  async remove(publicId) {
+    try {
+      await this.getClient().send(new DeleteObjectCommand({ Bucket: this.env.R2_PRIVATE_BUCKET, Key: publicId }));
+    } catch {
+      throw new Error('storage delete failed');
+    }
   }
 
   /**
    * A signed download link that stops working at `expiresAt` (a Date). The signature covers the expiry,
-   * so changing it in the link makes the link invalid.
+   * so changing it in the link makes the link invalid. Returns a promise of the URL.
    */
-  temporaryUrl({ publicId, resourceType = STORAGE.resourceType }, expiresAt) {
-    return this.cloudinary.utils.private_download_url(publicId, '', {
-      ...this.credentials(),
-      resource_type: resourceType,
-      type: STORAGE.deliveryType,
-      expires_at: Math.floor(expiresAt.getTime() / 1000),
-    });
+  async temporaryUrl({ publicId }, expiresAt) {
+    const seconds = Math.max(1, Math.floor((expiresAt.getTime() - Date.now()) / 1000));
+    return this.signer(
+      this.getClient(),
+      new GetObjectCommand({ Bucket: this.env.R2_PRIVATE_BUCKET, Key: publicId }),
+      { expiresIn: seconds },
+    );
   }
 }
 
@@ -102,7 +92,7 @@ function warnIfDocumentStorageNotConfigured(env = process.env) {
   if (missing.length) logger.error(`File storage is not configured (${missing.join(', ')} missing). Tourist Visa documents cannot be uploaded until it is.`);
 }
 
-module.exports = new CloudinaryDocumentStorage();
-module.exports.CloudinaryDocumentStorage = CloudinaryDocumentStorage;
+module.exports = new R2DocumentStorage();
+module.exports.R2DocumentStorage = R2DocumentStorage;
 module.exports.missingStorageVariables = missingStorageVariables;
 module.exports.warnIfDocumentStorageNotConfigured = warnIfDocumentStorageNotConfigured;
