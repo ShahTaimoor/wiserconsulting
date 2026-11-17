@@ -166,8 +166,8 @@ test('a follow-up that becomes required must be answered in the same request: "o
   assert.equal(withIt.ok, true, JSON.stringify(withIt));
   assert.deepEqual(withIt.answers.otherNames, [{ q2_3a: 'Aliasfirst', q2_3b: 'Aliaslast' }]);
   const preview = logic.buildPreview(cfg, base(), withIt.answers, withIt.items);
-  assert.deepEqual(preview.changes.map((c) => c.questionId), ['q2_3']);
-  assert.deepEqual(preview.required.map((r) => [r.questionId, r.index, r.new]), [['q2_3a', 0, 'Aliasfirst'], ['q2_3b', 0, 'Aliaslast']], 'the questions the change made necessary, with what was supplied');
+  assert.deepEqual(preview.changes.map((c) => c.questionId), ['q2_3', 'q2_3b'], 'the optional family name that was supplied is an ordinary change');
+  assert.deepEqual(preview.required.map((r) => [r.questionId, r.index, r.new]), [['q2_3a', 0, 'Aliasfirst']], 'the questions the change made necessary, with what was supplied (the family name is optional, so it is not one of them)');
   assert.ok(preview.required.every((r) => r.label.startsWith('Other name 1: ')));
 });
 
@@ -175,7 +175,7 @@ test('a section the change makes newly necessary is refused with its id: single 
   const without = run([{ questionId: 'q2_13', value: 'married' }]);
   assert.equal(without.ok, false);
   assert.deepEqual(without.sections.map((s) => s.id), ['4A']);
-  assert.equal(without.sections[0].problems, 6);
+  assert.equal(without.sections[0].problems, 5, 'the partner details minus the optional family name');
 
   const answers4A = [['q4_1', 'Partnerfirst'], ['q4_2', 'Partnerlast'], ['q4_3', '1991-02-03'], ['q4_4', 'GB'], ['q4_5', true], ['q4_6', true]];
   const withIt = run([{ questionId: 'q2_13', value: 'married' }, ...answers4A.map(([questionId, value]) => ({ questionId, value }))]);

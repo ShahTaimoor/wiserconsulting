@@ -356,7 +356,7 @@ test('rejected saves change nothing: missing follow-ups, bad dates, bad amounts,
     ['6A', { ...S6A, q6_5: true }, ['payers']],
     ['6A', { ...S6A, q6_5: true, payers: [{ ...PAYER, q6_5f: gbp(1000001) }] }, ['payers.0.q6_5f.amount']],
     ['6A', { ...S6A, q6_5: true, payers: Array.from({ length: 6 }, () => PAYER) }, ['payers']],
-    ['6B', { q6_6: true, ukFamily: [{}] }, ['ukFamily.0.q6_6b', 'ukFamily.0.q6_6c', 'ukFamily.0.q6_6d', 'ukFamily.0.q6_6f', 'ukFamily.0.q6_6g']],
+    ['6B', { q6_6: true, ukFamily: [{}] }, ['ukFamily.0.q6_6b', 'ukFamily.0.q6_6c', 'ukFamily.0.q6_6f', 'ukFamily.0.q6_6g']], // the family name (q6_6d) is optional
     ['6B', { q6_6: true, ukFamily: Array.from({ length: 11 }, () => RELATIVE) }, ['ukFamily']],
     ['6C', { q6_7: false }, ['q6_7x']],
     ['6D', { q6_8: true, publicFunds: [{ ...FUNDS, q6_8d: '2022-12' }] }, ['publicFunds.0.q6_8d']],

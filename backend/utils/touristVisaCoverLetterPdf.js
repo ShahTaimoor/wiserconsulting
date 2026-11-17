@@ -115,7 +115,7 @@ function parseLetter(value) {
  */
 function senderOf(answers) {
   const a = answers && typeof answers === 'object' ? answers : {};
-  const name = [text(a.q2_1), text(a.q2_2)].filter(Boolean).join(' ');
+  const name = view.fullName(a.q2_1, a.q2_2); // the family name is optional
   const address = a.q2_24 && typeof a.q2_24 === 'object' ? a.q2_24 : {};
   const country = address.country ? (engine.getCountries().find((c) => c.code === address.country) || {}).name || '' : '';
   const townLine = [text(address.town), text(address.region)].filter(Boolean).join(', ');

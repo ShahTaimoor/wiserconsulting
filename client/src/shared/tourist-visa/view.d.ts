@@ -84,3 +84,5 @@ export function formatMoment(value: Date | string): string;
 export function formatAmount(value: unknown): string;
 export function formatDuration(value: unknown): string;
 export function formatSize(bytes: number): string;
+/** A full name from its parts; empty, whitespace-only or missing parts are skipped (the family name is optional). */
+export function fullName(...parts: unknown[]): string;
