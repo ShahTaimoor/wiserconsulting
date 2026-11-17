@@ -48,7 +48,7 @@ function buildHeaderRows({ cfg, answers, reference, submittedAt }) {
     const described = view.describeValue(cfg, question, a[id], a, null);
     return described === 'Not answered' ? '' : described;
   };
-  const name = [text(a.q2_1), text(a.q2_2)].filter(Boolean).join(' ');
+  const name = view.fullName(a.q2_1, a.q2_2); // the family name is optional
   const language = word('q10_4') === 'Other' && text(a.q10_4a) ? text(a.q10_4a) : word('q10_4');
   const when = submittedAt ? new Date(submittedAt) : null;
   const applied = when && !Number.isNaN(when.getTime()) ? view.formatDate(when.toISOString().slice(0, 10)) : '';

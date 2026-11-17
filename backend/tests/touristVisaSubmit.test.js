@@ -671,3 +671,57 @@ test('the review of a draft shows the live config, the files by name, and no ref
   assert.deepEqual(rows.find((r) => r.id === 'q10_7').files.map((f) => f.name), ['funds-file.pdf']);
   assert.equal(rows.find((r) => r.id === 'q1_6').value, '1 March 2027');
 });
+
+// ---------------------------------------------------------------------------
+// The Family name is optional (config 1.2.0): some people have one name only
+// ---------------------------------------------------------------------------
+
+for (const [label, family, storedFamily, expectedName] of [
+  ['missing', undefined, undefined, 'Testfirst'],
+  ['empty', '', undefined, 'Testfirst'],
+  ['whitespace only', '   \t ', undefined, 'Testfirst'],
+  ['normal', '  Testlast ', 'Testlast', 'Testfirst Testlast'],
+]) {
+  test(`a complete application with the Family name ${label} is reviewed, submitted and summarised without a gap`, async () => {
+    const person = await start();
+    for (const [id, answers] of SECTIONS) {
+      let sent = answers;
+      if (id === '2A') {
+        sent = { ...answers };
+        if (family === undefined) delete sent.q2_2; else sent.q2_2 = family;
+      }
+      const res = await put(person.token, id, sent);
+      assert.equal(res.status, 200, `${id}: ${JSON.stringify(res.json)}`);
+    }
+    for (const slot of ['passport', 'funds']) assert.equal((await upload(person.token, slot, `${slot}-file.pdf`)).status, 201, slot);
+
+    // The saved answer: absent when empty (nothing is stored, nothing to decrypt), trimmed when typed.
+    const before = await rawDoc(person.appId);
+    assert.equal(before.answers.q2_2, storedFamily);
+    assert.equal(before.answers.q2_1, 'Testfirst');
+
+    // The review page shows "Not answered" for it, never "undefined" or "null"; the application is ready to submit.
+    const review = await api('GET', '/applications/me/review', { token: person.token });
+    assert.equal(review.status, 200);
+    const row = review.json.data.review.parts.flatMap((p) => p.sections.flatMap((s) => s.rows)).find((r) => r.id === 'q2_2');
+    assert.equal(row.value, storedFamily === undefined ? 'Not answered' : 'Testlast');
+    assert.doesNotMatch(JSON.stringify(review.json.data.review), /undefined|"null"/);
+
+    const res = await submit(person.token);
+    assert.equal(res.status, 200, res.text);
+    assert.equal(res.json.data.application.status, 'submitted');
+
+    const stored = await rawDoc(person.appId);
+    assert.equal(stored.answers.q2_2, storedFamily);
+    assert.equal(stored.summary.name, expectedName, 'the name kept for the admin list');
+    assert.doesNotMatch(stored.summary.name, /undefined|null|\s\s|^\s|\s$/);
+  });
+}
+
+test('the Given name(s) is still required to submit: without it the section is refused', async () => {
+  const person = await start();
+  const answers = { ...SECTIONS.find(([id]) => id === '2A')[1], q2_1: '' };
+  const res = await put(person.token, '2A', answers);
+  assert.equal(res.status, 422);
+  assert.equal(JSON.stringify(res.json).includes('q2_1'), true);
+});

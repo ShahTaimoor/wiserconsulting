@@ -86,6 +86,18 @@ function formatSize(bytes) {
   return `${trim(bytes / (1024 * 1024))} MB`;
 }
 
+/**
+ * A person's full name from its parts (given names, family name), for every place that shows a name. The family name is optional (some
+ * people have one name only, config 1.2.0), so a part that is missing, empty, whitespace only or not text is skipped, and runs of white
+ * space are made single. The result is "" when there is nothing: never a leading, trailing or double space, a comma, "undefined" or "null".
+ */
+function fullName(...parts) {
+  return parts
+    .map((part) => (typeof part === 'string' ? part.replace(/\s+/g, ' ').trim() : ''))
+    .filter(Boolean)
+    .join(' ');
+}
+
 function countryName(code) {
   const found = engine.getCountries().find((c) => c.code === code);
   return found ? found.name : String(code);
@@ -264,4 +276,5 @@ module.exports = {
   formatAmount,
   formatDuration,
   formatSize,
+  fullName,
 };

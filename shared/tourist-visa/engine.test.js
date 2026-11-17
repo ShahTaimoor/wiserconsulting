@@ -144,7 +144,7 @@ test('config: no option is a [TBC] placeholder or a tbc_ value any more', () => 
 });
 
 test('config 1.0.x: the design was approved as final, so no draft marker is left anywhere', () => {
-  assert.equal(config.version, '1.1.0');
+  assert.equal(config.version, '1.2.0');
   assert.doesNotMatch(config.version, /draft/);
   assert.deepEqual(config.questions.filter((q) => q.draft).map((q) => q.number), []);
   assert.deepEqual(config.groups.filter((g) => g.draft).map((g) => g.id), []);
@@ -484,7 +484,7 @@ test('section 2A: other-name entries are validated one by one', () => {
     otherNames: [{ q2_3a: 'Alias', q2_3b: 'One' }, { q2_3a: 'Alias' }, { q2_3a: '', q2_3b: '' }],
   });
   assert.equal(r.success, false);
-  assert.deepEqual(Object.keys(r.errors).sort(), ['otherNames.1.q2_3b', 'otherNames.2.q2_3a', 'otherNames.2.q2_3b']);
+  assert.deepEqual(Object.keys(r.errors).sort(), ['otherNames.2.q2_3a']);
   const ok = validate('2A', { ...S2A, q2_3: true, otherNames: [{ q2_3a: ' Alias ', q2_3b: 'One' }] });
   assert.equal(ok.success, true, JSON.stringify(ok.errors));
   assert.deepEqual(ok.data.otherNames, [{ q2_3a: 'Alias', q2_3b: 'One' }]);
@@ -803,11 +803,11 @@ test('4A: the spouse or partner questions follow 2.13 (placeholder statuses)', (
   }
 });
 
-test('4A: valid partner details pass, and all of them are required when shown', () => {
+test('4A: valid partner details pass, and all of them except the family name are required when shown', () => {
   const ok = validate('4A', PARTNER, { q2_13: 'married' });
   assert.equal(ok.success, true, JSON.stringify(ok.errors));
   const empty = validate('4A', {}, { q2_13: 'unmarried_partner' });
-  assert.deepEqual(Object.keys(empty.errors), ['q4_1', 'q4_2', 'q4_3', 'q4_4', 'q4_5', 'q4_6']);
+  assert.deepEqual(Object.keys(empty.errors), ['q4_1', 'q4_3', 'q4_4', 'q4_5', 'q4_6']);
   assert.equal(validate('4A', { ...PARTNER, q4_3: '2090-01-01' }, { q2_13: 'married' }).errors.q4_3, 'Cannot be in the future');
 });
 
@@ -840,7 +840,7 @@ test('4B: answering No to 4.7 discards the dependants', () => {
 
 test('4C: entries are validated one by one with errors on the right entry and field', () => {
   const r = validate('4C', { q4_8: true, parents: [PARENT, { q4_8a: 'father', q4_8b: 'Testfather', q4_8e: 'ZZ' }] });
-  assert.deepEqual(Object.keys(r.errors).sort(), ['parents.1.q4_8c', 'parents.1.q4_8d', 'parents.1.q4_8e', 'parents.1.q4_8f']);
+  assert.deepEqual(Object.keys(r.errors).sort(), ['parents.1.q4_8d', 'parents.1.q4_8e', 'parents.1.q4_8f']);
   assert.equal(r.errors['parents.1.q4_8e'], 'Choose a country from the list');
 });
 
@@ -1489,14 +1489,14 @@ test('1.2: Yes asks for the organiser (required) and the kind of group (optional
   assert.deepEqual(engine.pruneAnswers(config, { q1_2: false, q1_2a: 'x', q1_2b: 'tour' }).removed.sort(), ['q1_2a', 'q1_2b']);
 });
 
-test('1.3: Yes opens up to 10 companions (relationship, names required; birth date and nationality optional)', () => {
+test('1.3: Yes opens up to 10 companions (relationship and given names required, family name optional; birth date and nationality optional)', () => {
   assert.equal(validate('1', { ...S1, q1_3: true }).errors.companions, 'Add at least one entry');
   const ok = validate('1', { ...S1, q1_3: true, companions: [COMPANION] });
   assert.equal(ok.success, true, JSON.stringify(ok.errors));
   const full = validate('1', { ...S1, q1_3: true, companions: [{ ...COMPANION, q1_3d: '1990-02-03', q1_3e: 'GB' }] });
   assert.equal(full.success, true);
   const blank = validate('1', { ...S1, q1_3: true, companions: [{}] });
-  assert.deepEqual(Object.keys(blank.errors).sort(), ['companions.0.q1_3a', 'companions.0.q1_3b', 'companions.0.q1_3c']);
+  assert.deepEqual(Object.keys(blank.errors).sort(), ['companions.0.q1_3a', 'companions.0.q1_3b']);
   assert.equal(validate('1', { ...S1, q1_3: true, companions: [{ ...COMPANION, q1_3d: '2090-01-01' }] }).errors['companions.0.q1_3d'], 'Cannot be in the future');
   assert.equal(validate('1', { ...S1, q1_3: true, companions: [{ ...COMPANION, q1_3a: 'partner' }] }).errors['companions.0.q1_3a'], 'Choose from the listed options');
   const eleven = Array.from({ length: 11 }, () => COMPANION);
@@ -1866,11 +1866,11 @@ test('6.5 gate: changing to No removes every payer', () => {
   assert.deepEqual(engine.pruneAnswers(config, { q6_5: false, payers: [PAYER] }).removed, ['payers']);
 });
 
-test('6.6: Yes opens up to 10 relatives; the birth date is optional, everything else is required', () => {
+test('6.6: Yes opens up to 10 relatives; the birth date and the family name are optional, everything else is required', () => {
   const six = (relatives) => validate('6B', { q6_6: true, ukFamily: relatives });
   assert.equal(validate('6B', { q6_6: true }).errors.ukFamily, 'Add at least one entry');
   assert.equal(six([RELATIVE]).success, true);
-  assert.deepEqual(Object.keys(six([{}]).errors).sort(), ['ukFamily.0.q6_6b', 'ukFamily.0.q6_6c', 'ukFamily.0.q6_6d', 'ukFamily.0.q6_6f', 'ukFamily.0.q6_6g']);
+  assert.deepEqual(Object.keys(six([{}]).errors).sort(), ['ukFamily.0.q6_6b', 'ukFamily.0.q6_6c', 'ukFamily.0.q6_6f', 'ukFamily.0.q6_6g']);
   assert.equal(six([{ ...RELATIVE, q6_6e: '1985-04-02' }]).success, true);
   assert.equal(six([{ ...RELATIVE, q6_6e: '2090-01-01' }]).errors['ukFamily.0.q6_6e'], 'Cannot be in the future');
   assert.equal(six([{ ...RELATIVE, q6_6g: 'nonsense' }]).errors['ukFamily.0.q6_6g'], 'Choose from the listed options');
@@ -2245,7 +2245,7 @@ test('release check: the approved config exits 0 and says everything is releasab
   const run = spawnSync(process.execPath, [script], { encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
   assert.match(run.stdout, new RegExp(`Tourist Visa config ${config.version.replace(/\./g, '\\.')}`));
-  assert.match(run.stdout, /Tourist Visa config 1\.1\.0/);
+  assert.match(run.stdout, /Tourist Visa config 1\.2\.0/);
   for (const id of ['1', '2A', '3', '9A', '9B', '9C', '10A', '10B', '10C', '10D']) assert.match(run.stdout, new RegExp(`section ${id}: .*: releasable`), id);
   assert.doesNotMatch(run.stdout, /NEEDS SENIOR REVIEW|BLOCKED/);
   assert.match(run.stdout, /23 sections: 0 blocked, 0 need senior review only, 23 clean\./);

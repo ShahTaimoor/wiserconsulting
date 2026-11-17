@@ -287,7 +287,7 @@ test('4C: a Yes on 4.8 opens one to four parents, and entries keep their order',
 
   const blank = await put(token, '4C', { q4_8: true, parents: [{}] });
   assert.equal(blank.status, 422);
-  assert.deepEqual(Object.keys(blank.json.errors).sort(), ['parents.0.q4_8a', 'parents.0.q4_8b', 'parents.0.q4_8c', 'parents.0.q4_8d', 'parents.0.q4_8e', 'parents.0.q4_8f']);
+  assert.deepEqual(Object.keys(blank.json.errors).sort(), ['parents.0.q4_8a', 'parents.0.q4_8b', 'parents.0.q4_8d', 'parents.0.q4_8e', 'parents.0.q4_8f']);
 
   const ok = await put(token, '4C', S4C);
   assert.equal(ok.status, 200, JSON.stringify(ok.json));

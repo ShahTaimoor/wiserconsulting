@@ -590,7 +590,7 @@ test('a follow-up that becomes required must come in the same request: 422 with 
 
   const requestBody = { expectedRevision: 0, changes: [{ questionId: 'q2_3', value: true }, { questionId: 'otherNames', value: [{ q2_3a: 'Aliasfirst', q2_3b: 'Aliaslast' }] }] };
   const preview = await edit(admin.token, app.appId, { ...requestBody, dryRun: true });
-  assert.deepEqual(preview.json.data.required.map((r) => [r.questionId, r.new, r.label]), [['q2_3a', 'Aliasfirst', 'Other name 1: Given name(s)'], ['q2_3b', 'Aliaslast', 'Other name 1: Family name']]);
+  assert.deepEqual(preview.json.data.required.map((r) => [r.questionId, r.new, r.label]), [['q2_3a', 'Aliasfirst', 'Other name 1: Given name(s)']]); // the family name is optional, so the change does not make it necessary
   assert.equal((await edit(admin.token, app.appId, { ...requestBody, reason: REASON })).status, 200);
   assert.deepEqual((await rawDoc(app.appId)).answers.otherNames, [{ q2_3a: 'Aliasfirst', q2_3b: 'Aliaslast' }]);
 });
@@ -601,7 +601,7 @@ test('a section the correction makes necessary elsewhere is named: single -> mar
   const res = await edit(admin.token, app.appId, { expectedRevision: 0, reason: REASON, changes: [{ questionId: 'q2_13', value: 'married' }] });
   assert.equal(res.status, 422);
   assert.deepEqual(res.json.sections.map((s) => s.id), ['4A']);
-  assert.equal(res.json.sections[0].problems, 6);
+  assert.equal(res.json.sections[0].problems, 5, 'the partner details minus the optional family name');
   assertNone(res.text, ['married'], 'the 422');
   const partner = [['q4_1', 'Partnerfirst'], ['q4_2', 'Partnerlast'], ['q4_3', '1991-02-03'], ['q4_4', 'GB'], ['q4_5', true], ['q4_6', true]].map(([questionId, value]) => ({ questionId, value }));
   const ok = await edit(admin.token, app.appId, { expectedRevision: 0, reason: REASON, changes: [{ questionId: 'q2_13', value: 'married' }, ...partner] });

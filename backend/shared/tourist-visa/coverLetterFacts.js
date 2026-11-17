@@ -368,7 +368,7 @@ function tokenValues(cfg, answers) {
     if (name === 'NAME') {
       const given = visibleValue(cfg, 'q2_1', answers, null);
       const family = visibleValue(cfg, 'q2_2', answers, null);
-      const full = [given && given.raw, family && family.raw].filter((p) => typeof p === 'string' && p.trim()).map((p) => p.trim()).join(' ');
+      const full = view.fullName(given && given.raw, family && family.raw); // the family name is optional
       if (full) out.NAME = full;
       continue;
     }

@@ -5,11 +5,13 @@
  * encrypted questions). A field with no answer is an empty text.
  */
 
+const { fullName } = require('../shared/tourist-visa/view');
+
 const text = (value) => (typeof value === 'string' ? value.trim() : '');
 
 function summaryOf(answers) {
   const a = answers && typeof answers === 'object' ? answers : {};
-  const name = [text(a.q2_1), text(a.q2_2)].filter(Boolean).join(' ');
+  const name = fullName(a.q2_1, a.q2_2); // the family name is optional (config 1.2.0)
   const email = text(a.q2_4).toLowerCase();
   const tel = a.q2_32 && typeof a.q2_32 === 'object' ? a.q2_32 : {};
   const phone = [text(tel.countryCode), text(tel.number)].filter(Boolean).join(' ');

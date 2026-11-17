@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
@@ -279,7 +279,7 @@
       "section": "1",
       "label": "Family name",
       "type": "TXT",
-      "required": true,
+      "required": false,
       "group": "companions"
     },
     {
@@ -358,7 +358,7 @@
       "section": "2A",
       "label": "Family name",
       "type": "TXT",
-      "required": true
+      "required": false
     },
     {
       "id": "q2_3",
@@ -383,7 +383,7 @@
       "section": "2A",
       "label": "Family name",
       "type": "TXT",
-      "required": true,
+      "required": false,
       "group": "otherNames"
     },
     {
@@ -893,7 +893,7 @@
       "section": "4A",
       "label": "Family name",
       "type": "TXT",
-      "required": true,
+      "required": false,
       "showWhen": { "q": "q2_13", "in": ["married", "civil_partnership", "unmarried_partner"] }
     },
     {
@@ -976,7 +976,7 @@
       "section": "4B",
       "label": "Family name",
       "type": "TXT",
-      "required": true,
+      "required": false,
       "group": "dependants"
     },
     {
@@ -1056,7 +1056,7 @@
       "section": "4C",
       "label": "Family name",
       "type": "TXT",
-      "required": true,
+      "required": false,
       "group": "parents"
     },
     {
@@ -1513,7 +1513,7 @@
       "section": "6B",
       "label": "Family name",
       "type": "TXT",
-      "required": true,
+      "required": false,
       "group": "ukFamily"
     },
     {

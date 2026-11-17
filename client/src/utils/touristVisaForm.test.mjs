@@ -611,6 +611,23 @@ test("round trip: the optional previous employer can be left out", () => {
   assert.equal(result.success, true, JSON.stringify(result.errors));
 });
 
+test("round trip: the Family name can be left empty (config 1.2.0): no error, nothing is sent for it, and the form marks it optional while the Given name(s) stays required", () => {
+  for (const typed of ["", "   ", undefined]) {
+    const values = { ...V2A, q2_2: typed };
+    const sent = payload("2A", values);
+    assert.equal("q2_2" in sent && sent.q2_2 !== undefined && String(sent.q2_2).trim() !== "", false, `an empty Family name is not sent (${JSON.stringify(typed)})`);
+    const result = engine.validateSection(z, cfg, "2A", sent, {});
+    assert.equal(result.success, true, JSON.stringify(result.errors));
+    assert.equal("q2_2" in result.data, false);
+  }
+  // The form draws the required marker from the question itself, so the asterisk goes with the rule.
+  assert.equal(cfg.questions.find((q) => q.id === "q2_2").required, false);
+  assert.equal(cfg.questions.find((q) => q.id === "q2_1").required, true);
+  const noGiven = engine.validateSection(z, cfg, "2A", payload("2A", { ...V2A, q2_1: "", q2_2: "Testlast" }), {});
+  assert.equal(noGiven.success, false);
+  assert.deepEqual(Object.keys(noGiven.errors), ["q2_1"]);
+});
+
 test("round trip: a negative or oversized amount comes back as an error on the amount box", () => {
   const bad = engine.validateSection(z, cfg, "5", payload("5", { ...V5, q5_7: gbp(-5) }), {});
   assert.equal(bad.success, false);
@@ -872,7 +889,7 @@ test("round trip: every changed section with all its Yes answers builds a payloa
 test("round trip: a Yes without its follow-up comes back as errors on the right fields", () => {
   const result = engine.validateSection(z, cfg, "1", payload("1", { ...V1, q1_2: true, q1_3: true, companions: [{}] }), {});
   const items = collectErrors(cfg, "1", result.errors);
-  assert.deepEqual(items.map((i) => i.targetId), ["field-q1_2a", "field-companions-0-q1_3a", "field-companions-0-q1_3b", "field-companions-0-q1_3c"]);
+  assert.deepEqual(items.map((i) => i.targetId), ["field-q1_2a", "field-companions-0-q1_3a", "field-companions-0-q1_3b"]); // the companion's family name (q1_3c) is optional
   assert.equal(items[0].label, "1.2a Name of the group or organiser");
   assert.equal(items[1].label, "Travelling companion 1: What is your relationship to this person?");
 });
