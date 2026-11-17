@@ -364,15 +364,23 @@ const footerHtml = (availability, user) => {
   return renderToStaticMarkup(React.createElement(module.default));
 };
 
+/** The "Our Services" column of the footer: from its heading to the next column's heading ("Contact Us"). Both must exist. */
+const ourServices = (html) => {
+  const start = html.indexOf("Our Services");
+  const end = html.indexOf("Contact Us");
+  assert.ok(start >= 0 && end > start, "the footer has an Our Services column followed by Contact Us");
+  return html.slice(start, end);
+};
+
 test("FOOTER: no new link while the form is loading, closed or failed (the status hook answers loading or closed): the column is as it always was", () => {
   const closed = footerHtml("closed", null);
   const loading = footerHtml("loading", null);
   for (const html of [closed, loading]) {
     assert.equal(html.includes(ENTRY_TEXT.footer), false);
     assert.equal(html.includes("/register?next="), false);
-    const services = html.slice(html.indexOf("Our Services"), html.indexOf("Quick Links"));
-    assert.equal((services.match(/<li>/g) || []).length, 2, "Student Visa and Tourist Visa only");
-    assert.deepEqual(anchors(services).map((a) => a.text), ["Student Visa", "Tourist Visa"]);
+    const services = ourServices(html);
+    assert.equal((services.match(/<li>/g) || []).length, 1, "the existing Tourist Visa entry only");
+    assert.deepEqual(anchors(services).map((a) => a.text), ["Tourist Visa"]);
   }
   assert.equal(closed, loading, "closed and loading are the same page");
   assert.equal(footerHtml("closed", USER), closed, "signed in or not makes no difference while closed");
@@ -380,16 +388,20 @@ test("FOOTER: no new link while the form is loading, closed or failed (the statu
 
 test("FOOTER: when the form is open the link is in Our Services, in the same style as the others, in the same tab", () => {
   const html = footerHtml("open", null);
-  const services = html.slice(html.indexOf("Our Services"), html.indexOf("Quick Links"));
+  // The link sits inside the footer element (React may put a logo preload tag in front of it, so the page need not start with it).
+  const footer = html.slice(html.indexOf("<footer"), html.indexOf("</footer>"));
+  assert.ok(html.includes("<footer") && footer.includes(ENTRY_TEXT.footer), "the link is inside the footer element");
+  const services = ourServices(html);
   const links = anchors(services);
-  assert.deepEqual(links.map((a) => a.text), ["Student Visa", "Tourist Visa", "Apply for a UK tourist visa online"]);
-  const added = links[2];
+  assert.deepEqual(links.map((a) => a.text), ["Tourist Visa", "Apply for a UK tourist visa online"]);
+  const added = links[1];
   assert.equal(added.href, "/register?next=/tourist-visa", "not signed in: the sign-up page carrying next");
   assert.equal(/target=|rel=/.test(added.attrs), false, "same tab: no target");
   const classOf = (link) => (/class="([^"]*)"/.exec(link.attrs) || [])[1];
-  assert.equal(classOf(added), classOf(links[1]), "the same classes as the other footer links");
+  assert.equal(classOf(added), classOf(links[0]), "the same classes as the other footer links");
   assert.equal((html.match(/Apply for a UK tourist visa online/g) || []).length, 1, "once");
-  assert.equal(anchors(footerHtml("open", USER)).find((a) => a.text === ENTRY_TEXT.footer).href, "/tourist-visa", "signed in: straight to the application");
+  const signedInLink = anchors(ourServices(footerHtml("open", USER))).find((a) => a.text === ENTRY_TEXT.footer);
+  assert.equal(signedInLink.href, "/tourist-visa", "signed in: straight to the application, still inside the footer's Our Services list");
 });
 
 const popupPanel = (user) => {
