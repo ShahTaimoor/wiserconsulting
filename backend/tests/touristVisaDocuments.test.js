@@ -1033,7 +1033,27 @@ test('the dashboard data for 10D never carries a link or storage id either', asy
 // The storage cannot be swapped by anything in production
 // ---------------------------------------------------------------------------
 
-test('production code cannot swap the storage: the default is the Cloudinary adapter, and no production file assigns or reads a swap', () => {
+// What counts as swapping the Tourist Visa storage in production code: assigning a non-text value to a ".storage" property (a fake adapter;
+// not the text marker config/upload.js puts on an uploaded multer file, `file.storage = 'r2'`), handing the service a storage when it is
+// built, a name like a fake storage, or a FAKE / MOCK / STUB switch in the environment.
+const STORAGE_SWAP = [
+  /(?<!this)\.storage\s*=(?!=)(?!\s*['"`])/,
+  /new\s+TouristVisaDocumentService\(\s*[^)\s]/,
+  /fake[-_ ]?storage/i,
+  /process\.env\.[A-Z_]*(FAKE|MOCK|STUB)[A-Z_]*/,
+];
+const swapsStorage = (text) => STORAGE_SWAP.some((pattern) => pattern.test(text));
+
+test('the storage-swap scan catches a real swap and ignores the text marker on an uploaded file', () => {
+  for (const line of ['documentService.storage = fake;', 'service.storage = new FakeAdapter();', 'touristVisaDocumentService.storage={ upload() {} };', 'new TouristVisaDocumentService({ storage: other });', 'const fakeStorage = {};', 'process.env.MOCK_STORAGE']) {
+    assert.equal(swapsStorage(line), true, line);
+  }
+  for (const line of ["file.storage = 'r2';", 'file.storage = "r2";', 'this.storage = storage;', 'if (a.storage === b) {}', 'new TouristVisaDocumentService();']) {
+    assert.equal(swapsStorage(line), false, line);
+  }
+});
+
+test('production code cannot swap the storage: the default is the R2 adapter, and no production file assigns or reads a swap', () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const { TouristVisaDocumentService } = require('../services/touristVisaDocumentService');
@@ -1055,7 +1075,7 @@ test('production code cannot swap the storage: the default is the Cloudinary ada
   const offenders = [];
   for (const file of files) {
     const text = fs.readFileSync(file, 'utf8');
-    if (/(?<!this)\.storage\s*=(?!=)/.test(text) || /fake[-_ ]?storage/i.test(text) || /process\.env\.[A-Z_]*(FAKE|MOCK|STUB)[A-Z_]*/.test(text)) offenders.push(path.relative(root, file));
+    if (swapsStorage(text)) offenders.push(path.relative(root, file));
   }
   assert.deepEqual(offenders, [], 'no production file swaps or fakes the storage');
 });
