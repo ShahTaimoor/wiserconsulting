@@ -89,7 +89,7 @@ for (const [label, family, printed] of CASES) {
     assert.ok(text.includes(`Yours faithfully,\n${printed}`) || text.includes(printed), 'the stored letter names the applicant');
     assertCleanText(text, 'stored letter');
 
-    const model = letter.buildLetterModel({ text, reference: REFERENCE, sender, date: DATE, draft: false });
+    const model = letter.buildLetterModel({ text, sender, date: DATE, draft: false });
     const pdf = await inspectPdf(await letter.renderCoverLetterPdf(model));
     const pdfText = allText(pdf);
     assertCleanText(pdfText, 'cover letter PDF');

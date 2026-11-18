@@ -594,7 +594,7 @@ test('a letter that is not approved is still exported, marked as a draft: the wa
   assert.deepEqual([String(rows[0].adminId), rows[0].pdfBy, rows[0].version, rows[0].pdfApproved], [admin.userId, 'admin', 1, false]);
 });
 
-test('an approved letter is exported clean: no watermark, no banner, no "-draft"; the file holds the stored letter, the sender block from the answers and the date of the version; the audit row has the version and "approved"', async () => {
+test('an approved letter is exported clean: no watermark, no banner, no "-draft"; the file holds the stored letter, the sender block from the answers and the date of the export (no reference); the audit row has the version and "approved"', async () => {
   const app = await submitted();
   const admin = await makeAdmin();
   const version = await makeLetter(admin.token, app.appId);
@@ -608,15 +608,18 @@ test('an approved letter is exported clean: no watermark, no banner, no "-draft"
   // The letter is the stored text (decrypted on the server), word for word.
   const text = pdf.pages.flatMap((p) => p.lines).map((l) => l.text).join(' ').replace(/\s+/g, ' ');
   for (const sentence of version.text.split(/\n+/).filter(Boolean)) assert.ok(text.includes(sentence.replace(/\s+/g, ' ')), `the sentence "${sentence.slice(0, 40)}" is in the file`);
-  // The sender block comes from the answers; the date from the stored version; the reference as its own line.
+  // The sender block comes from the answers.
   const first = pdf.pages[0];
   assert.ok(first.items.some((i) => i.str === 'Testfirst Testlast' && /CormorantGaramond/.test(i.font)), 'the letterhead name in the display face');
   assert.ok(first.items.some((i) => i.str === '1 Test Street, Testville, United Kingdom'), 'the address in the contact row');
   assert.ok(first.items.some((i) => i.str === 'test.pdf.applicant@example.com'), 'the email from the answers');
   assert.ok(first.items.some((i) => i.str === '+44 7700 900123'), 'the telephone from the answers');
-  const stored = await TouristVisaCoverLetter.collection.findOne({ applicationId: oid(app.appId), version: 1 });
-  assert.ok(first.items.some((i) => i.str === formatDate(stored.createdAt.toISOString().slice(0, 10))), 'the date of the version');
-  assert.ok(first.items.some((i) => i.str === app.reference) && first.items.some((i) => i.str === 'REFERENCE'), 'the reference line');
+  // The date is the day the PDF is exported (today, in UTC), not the day the version was written; the letter carries no reference.
+  // (the day in London, as the letter prints it: Europe/London, not UTC)
+  const today = (offset = 0) => formatDate(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() + offset)));
+  assert.ok(first.items.some((i) => i.str === today() || i.str === today(-60000)), 'the date of the export');
+  assert.equal(first.items.some((i) => i.str.includes(app.reference) || i.str === 'REFERENCE'), false, 'no reference on the letter');
+  assert.equal(pdf.pages.some((p) => p.items.some((i) => i.str.includes(app.reference))), false, 'no reference on any page');
   // The audit row: ids and fixed facts only, never the text.
   const rows = await letterRows(app.appId);
   assert.equal(rows.length, 1);

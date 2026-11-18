@@ -168,12 +168,15 @@ class DocumentBuilder extends PdfBuilder {
     }
   }
 
-  /** A slim footer on every page: the reference and who prepared it on the left, "Page X of Y" on the right. */
+  /**
+   * A slim footer on every page: the reference and who prepared it on the left, "Page X of Y" on the right. A document with no reference (the
+   * cover letter) has only who prepared it on the left.
+   */
   drawFooter(number, total) {
     const g = this.geometry;
     const y = g.footerTop + 8;
     this.rule(g.footerTop, { weight: 0.5, color: BRAND.hairline });
-    this.text(`${this.reference}  ${MIDDLE_DOT}  ${TEXT.letterFooter}`, g.left, y, { font: 'Sans', size: 8, color: BRAND.muted, lineGap: 0, lineBreak: false });
+    this.text(this.reference ? `${this.reference}  ${MIDDLE_DOT}  ${TEXT.letterFooter}` : TEXT.letterFooter, g.left, y, { font: 'Sans', size: 8, color: BRAND.muted, lineGap: 0, lineBreak: false });
     this.text(`Page ${number} of ${total}`, g.left, y, { font: 'Sans', size: 8, color: BRAND.muted, align: 'right', lineGap: 0, lineBreak: false });
   }
 }
