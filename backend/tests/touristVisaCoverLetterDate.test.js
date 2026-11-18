@@ -67,15 +67,28 @@ test('the stored letter text (the template) holds no reference, and the letter s
   assert.doesNotMatch(text, /\breference\b/i, 'not even the word: the template never mentions one');
 });
 
-test('the exported cover letter PDF has no reference on any page, in the footer, in the continuation header or in the metadata; the file name keeps it', async () => {
+test('the exported cover letter PDF has no reference on any page, in the footer, in the continuation header or in the metadata; its file name is the applicant\'s name', async () => {
   const { service } = serviceWith();
   const { buffer, filename } = await service.coverLetterForAdmin('admin1', 'app1');
   const pdf = await inspectPdf(buffer);
   assert.equal(pdf.numPages, 1);
   assertNoReference(pdf, 'one page');
-  assert.equal(filename, `${REFERENCE}-cover-letter.pdf`, 'the file name is unchanged: the reference stays in it');
+  // The file name is the applicant's full name and the document (it was the reference before the file names were changed); the reference is
+  // only the fallback when there is no usable name.
+  assert.equal(filename, 'Testfirst-Testlast-Cover-Letter.pdf', 'the file name is the applicant\'s name and the document');
+  assert.equal(filename.includes('TV-'), false, 'no TV- reference in the file name when the applicant has a name');
+  assert.equal(filename.includes(REFERENCE), false);
   const footer = pdf.pages[0].items.filter((i) => i.y < MARGIN + LETTER_PAGE.footer.height).map((i) => i.str).join(' ');
   assert.match(footer, /^Prepared by Wiser Consulting\s+Page 1 of 1$/);
+});
+
+test('with no usable name the file name falls back to the reference (and only the file name has it: the PDF itself still has none)', async () => {
+  for (const answersOfApplicant of [{}, { q2_1: '   ', q2_2: '' }]) {
+    const { service } = serviceWith({ application: { answers: answersOfApplicant } });
+    const { buffer, filename } = await service.coverLetterForAdmin('admin1', 'app1');
+    assert.equal(filename, `${REFERENCE}-cover-letter.pdf`);
+    assertNoReference(await inspectPdf(buffer), 'no name');
+  }
 });
 
 test('a long letter (two pages), a draft and a stale approval: no reference on any of their pages', async () => {

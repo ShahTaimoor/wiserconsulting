@@ -24,20 +24,24 @@ const defaultItineraries = require('../repositories/touristVisaItineraryReposito
 const defaultLetterService = require('./touristVisaCoverLetterService');
 const defaultItineraryService = require('./touristVisaItineraryService');
 const { buildItineraryFacts } = require('../shared/tourist-visa/itineraryFacts');
-const { buildReview } = require('../shared/tourist-visa/view');
+const { buildReview, fullName } = require('../shared/tourist-visa/view');
+const { pdfFileName } = require('../utils/pdfFileName');
 const { buildHeaderRows, buildAnswersModel, unprintableSection, renderAnswersPdf } = require('../utils/touristVisaAnswersPdf');
 const { senderOf, buildLetterModel, unprintableIn, renderCoverLetterPdf } = require('../utils/touristVisaCoverLetterPdf');
 const itineraryPdf = require('../utils/touristVisaItineraryPdf');
-const { FILE_SUFFIX } = require('../config/touristVisaPdf');
 const { AppError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
 
 const fail = (status, code, message, details) => new AppError(message, status, code, details);
 
-/** "TV-X42GYXPS-application-summary.pdf": built only from the reference (never from a name). A letter that is not approved ends "-draft". */
-function fileNameFor(reference, type, { draft = false } = {}) {
-  const safe = typeof reference === 'string' && /^[A-Z0-9][A-Z0-9-]{2,39}$/.test(reference) ? `${reference}-` : '';
-  return `${safe}${FILE_SUFFIX[type]}${draft ? '-draft' : ''}.pdf`;
+/**
+ * The file name of a download: the applicant's full name and the document, "Roohullah-Shah-Cover-Letter.pdf" (a letter or itinerary that is not
+ * approved ends "-Draft"); with no usable name, the reference form "TV-X42GYXPS-cover-letter.pdf" as before (utils/pdfFileName.js). The name
+ * is used for this file name only: it is not put in the PDF, the audit row or a log line.
+ */
+function fileNameFor(application, type, { draft = false } = {}) {
+  const a = (application && application.answers) || {};
+  return pdfFileName({ name: fullName(a.q2_1, a.q2_2), reference: application && application.reference, type, draft });
 }
 
 class TouristVisaPdfService {
@@ -95,7 +99,7 @@ class TouristVisaPdfService {
     await this.audit.append([{ adminId: actorId, applicationId: application._id, action: 'pdf_export', at: this.now(), pdfType: 'answers', pdfBy: by }]);
 
     const buffer = await this.draw(this.render, model, application, 'application');
-    return { buffer, filename: fileNameFor(application.reference, 'answers') };
+    return { buffer, filename: fileNameFor(application, 'answers') };
   }
 
   /**
@@ -129,7 +133,7 @@ class TouristVisaPdfService {
     await this.audit.append([{ adminId, applicationId: application._id, action: 'pdf_export', at: this.now(), pdfType: 'cover_letter', pdfBy: 'admin', version: version.version, pdfApproved: !draft, ...(stale ? { pdfStale: true } : {}) }]);
 
     const buffer = await this.draw(this.renderLetter, model, application, 'letter');
-    return { buffer, filename: fileNameFor(application.reference, 'cover_letter', { draft }) };
+    return { buffer, filename: fileNameFor(application, 'cover_letter', { draft }) };
   }
 
   /**
@@ -160,7 +164,7 @@ class TouristVisaPdfService {
     await this.audit.append([{ adminId, applicationId: application._id, action: 'pdf_export', at: this.now(), pdfType: 'itinerary', pdfBy: 'admin', version: version.version, pdfApproved: !draft, ...(stale ? { pdfStale: true } : {}) }]);
 
     const buffer = await this.draw(this.renderItinerary, model, application, 'itinerary');
-    return { buffer, filename: fileNameFor(application.reference, 'itinerary', { draft }) };
+    return { buffer, filename: fileNameFor(application, 'itinerary', { draft }) };
   }
 
   /** The grid of details: the facts the itinerary is built on (the answers, under the config the application was submitted under). Never fails the PDF. */

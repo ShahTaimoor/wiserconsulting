@@ -23,6 +23,27 @@ export function pdfFileName(reference: string | null | undefined, kind: PdfKind 
   return `${prefix}${SUFFIX[kind]}${kind !== "answers" && draft ? "-draft" : ""}.pdf`;
 }
 
+/** What a file name the server sent looks like: letters, digits and hyphens, then ".pdf" (the server only ever sends names of this shape). */
+const SERVER_FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9-]{0,119}\.pdf$/;
+
+/**
+ * The file name the server chose, from its Content-Disposition header ("attachment; filename=\"Roohullah-Shah-Cover-Letter.pdf\""), or null when
+ * the header is missing or the name is not of the safe shape (it is checked again here, whatever the server sent).
+ */
+export function fileNameFromDisposition(header: string | null | undefined): string | null {
+  if (typeof header !== "string") return null;
+  const match = /filename="([^"]*)"/i.exec(header);
+  return match && SERVER_FILE_NAME.test(match[1]) ? match[1] : null;
+}
+
+/**
+ * The name a download is saved under: the server's own (the applicant's name and the document), so there is one source of truth; the
+ * reference-based name only when the server's header cannot be read.
+ */
+export function pdfDownloadName(header: string | null | undefined, reference: string | null | undefined, kind: PdfKind = "answers", options: { draft?: boolean } = {}): string {
+  return fileNameFromDisposition(header) ?? pdfFileName(reference, kind, options);
+}
+
 /** The failure of a PDF call, for the words below. `message` is the server's sentence (used only for the unsupported characters). */
 export interface PdfFailure {
   status: number;

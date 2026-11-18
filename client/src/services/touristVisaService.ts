@@ -289,11 +289,17 @@ async function itineraryCall(path: string, method: "GET" | "POST" | "PUT", token
   return { ...data, blocker: data.blocker ?? null };
 }
 
+/** A downloaded PDF: the file, and the server's Content-Disposition header (it carries the file name the server chose; null if not readable). */
+export interface PdfFile {
+  blob: Blob;
+  contentDisposition: string | null;
+}
+
 /**
- * A PDF call: the file as a Blob, or a failure with the server's code. The file is made in memory on the server and only ever
- * held in memory here until it is saved; nothing is cached (no-store both ways).
+ * A PDF call: the file as a Blob with the server's chosen file name header, or a failure with the server's code. The file is made in memory on
+ * the server and only ever held in memory here until it is saved; nothing is cached (no-store both ways).
  */
-async function pdfCall(path: string, token: string, signal?: AbortSignal): Promise<Blob> {
+async function pdfCall(path: string, token: string, signal?: AbortSignal): Promise<PdfFile> {
   let response: Response;
   try {
     response = await fetch(`${API_URL}/tourist-visa${path}`, { method: "GET", headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal });
@@ -302,7 +308,7 @@ async function pdfCall(path: string, token: string, signal?: AbortSignal): Promi
   }
   // (The same check as isPdfContentType in utils/touristVisaPdf.ts, kept here so this file has no value imports.)
   const isPdf = (response.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase() === "application/pdf";
-  if (response.ok && isPdf) return response.blob();
+  if (response.ok && isPdf) return { blob: await response.blob(), contentDisposition: response.headers.get("content-disposition") };
   if (response.ok) throw new TouristVisaApiError(502, "The server did not send a PDF.", undefined, "NOT_A_PDF");
   let json: ApiBody | null = null;
   try {
@@ -315,22 +321,22 @@ async function pdfCall(path: string, token: string, signal?: AbortSignal): Promi
 
 export const touristVisaService = {
   /** The application summary PDF of any submitted application (the team only). Recorded in the activity log by the server. */
-  adminAnswersPdf(token: string, id: string, signal?: AbortSignal): Promise<Blob> {
+  adminAnswersPdf(token: string, id: string, signal?: AbortSignal): Promise<PdfFile> {
     return pdfCall(`/admin/applications/${encodeURIComponent(id)}/pdf/answers`, token, signal);
   },
 
   /** The newest version of the cover letter as a PDF (the team only); a version that is not approved is marked as a draft by the server. */
-  adminCoverLetterPdf(token: string, id: string, signal?: AbortSignal): Promise<Blob> {
+  adminCoverLetterPdf(token: string, id: string, signal?: AbortSignal): Promise<PdfFile> {
     return pdfCall(`/admin/applications/${encodeURIComponent(id)}/pdf/cover-letter`, token, signal);
   },
 
   /** The newest version of the itinerary as a PDF (the team only); a version that is not approved is marked as a draft by the server. */
-  adminItineraryPdf(token: string, id: string, signal?: AbortSignal): Promise<Blob> {
+  adminItineraryPdf(token: string, id: string, signal?: AbortSignal): Promise<PdfFile> {
     return pdfCall(`/admin/applications/${encodeURIComponent(id)}/pdf/itinerary`, token, signal);
   },
 
   /** The applicant's own copy of the application summary, once it is submitted. */
-  myAnswersPdf(token: string, signal?: AbortSignal): Promise<Blob> {
+  myAnswersPdf(token: string, signal?: AbortSignal): Promise<PdfFile> {
     return pdfCall("/applications/me/pdf/answers", token, signal);
   },
 
