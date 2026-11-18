@@ -26,7 +26,7 @@ const { getFieldEncryptionKey } = require("../config/fieldEncryption");
 const { buildFacts } = require("../shared/tourist-visa/coverLetterFacts");
 const { PROMPT_VERSION, SYSTEM_PROMPT, buildUserPrompt } = require("../config/touristVisaCoverLetterPrompt");
 const { buildTemplate } = require("../utils/touristVisaCoverLetterTemplate");
-const { checkLetter, substitute, normalizeClosing, tidy, NAME_GAP } = require("../utils/touristVisaCoverLetterChecks");
+const { checkLetter, substitute, normalizeClosing, normalizeOpening, tidy, NAME_GAP } = require("../utils/touristVisaCoverLetterChecks");
 const { MAX_TEXT, FALLBACK_REASONS } = require("../models/TouristVisaCoverLetter");
 const { AppError } = require("../middleware/errorHandler");
 const logger = require("../utils/logger");
@@ -206,7 +206,8 @@ class TouristVisaCoverLetterService {
     if (usedByAdmin >= settings.adminHourlyLimit) return fallback("AI_ADMIN_LIMIT", 0);
 
     // The end of every letter is made the same before it is checked: the last paragraph, then "Yours faithfully," and the name on their own lines.
-    const tidied = (text) => normalizeClosing(tidy(text), { name: facts.tokens.NAME ? "token" : "none" });
+    // The greeting and the addressee are printed by the PDF, so any the AI wrote are taken out first; then the end is made the same every time.
+    const tidied = (text) => normalizeClosing(normalizeOpening(tidy(text)), { name: facts.tokens.NAME ? "token" : "none" });
     const ask = (retry) => this.ai.generate({ system: SYSTEM_PROMPT, user: buildUserPrompt(facts.text, { retry }) });
     let answer;
     try {

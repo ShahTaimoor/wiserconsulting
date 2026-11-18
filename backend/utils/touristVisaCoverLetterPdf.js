@@ -5,7 +5,7 @@
  *
  *   parseLetter(text)              the stored text as it is: { blocks: [[line, ...], ...], closing: [line, ...] | null }
  *   senderOf(answers)              the applicant's name, home address, email and telephone, only what the answers hold
- *   letterDate(version)            the date printed on the letter, and which stored date it came from
+ *   formatLetterDate(date)         the date line of the letter in UK long form ("18 November 2026"), in the zone LETTER_DATE_ZONE
  *   buildLetterModel(...)          everything the renderer prints
  *   unprintableIn(model)           where the text has a character the fonts cannot print ('sender' or 'letter'), or null
  *   renderCoverLetterPdf(model)    the file, as a Buffer
@@ -13,13 +13,13 @@
  * THE TEXT OF THE LETTER IS NEVER CHANGED. No sentence is added, removed or reworded: the stored text is laid out as it is (the salutation,
  * the paragraphs, the closing lines), with only its typographic characters made plain (curly quotes, dashes and the ellipsis; see
  * pdfText.js) and runs of spaces made one. What is added is layout furniture and nothing that reads as part of the letter: the letterhead
- * (the sender's name, address, email and telephone), the date line, the reference line, a narrow brand edge, and the line and the room for a
- * signature.
+ * (the sender's name, address, email and telephone), the date line, a narrow brand edge, and the line and the room for a signature. The
+ * application's reference is NOT on a cover letter: not in the letterhead, the footer or the continuation header (it stays in the file name).
  *
  * THE DESIGN (step 8h-3): a letterhead at the top left (the name large in the display face, a short terracotta rule, one quiet row of small
- * type for the address, the email and the telephone with thin separators), a hairline, a tidy line with the date on the left and the
- * reference on the right, then the body in Source Serif 4 at 11 pt in a column of about 70 characters. A drop cap was tried in thought and
- * left out: the stored text always opens with its salutation ("Dear Sir or Madam,"), which a drop cap would only break. The closing has a
+ * type for the address, the email and the telephone with thin separators), a hairline, a line with the date (the day the PDF is made), then
+ * the body in Source Serif 4 at 11 pt in a column of about 70 characters. A drop cap was tried in thought and
+ * left out: the body opens with the salutation ("Dear Entry Clearance Officer,"), which a drop cap would only break. The closing has a
  * real signature line.
  *
  * FIT TO ONE PAGE (step 8h-4): a letter that overflows page 1 by a few lines is tightened in small steps (FIT_STEPS: the line and paragraph
@@ -35,7 +35,7 @@ const engine = require('../shared/tourist-visa/engine');
 const view = require('../shared/tourist-visa/view');
 const { LetterBuilder } = require('./pdf/letterBuilder');
 const { normalizePdfText, findUnprintable } = require('./pdf/pdfText');
-const { BRAND } = require('../config/touristVisaPdf');
+const { BRAND, LETTER_DATE_ZONE, LETTER_ADDRESSEE, LETTER_SALUTATION } = require('../config/touristVisaPdf');
 
 const norm = normalizePdfText;
 const text = (value) => (typeof value === 'string' ? value.trim() : '');
@@ -59,11 +59,15 @@ const FIT_STEPS = Object.freeze([
   { size: 11, pitch: 17.6, gap: 11, head: 1 },
   { size: 11, pitch: 17.3, gap: 10, head: 1 },
   { size: 11, pitch: 17, gap: 9, head: 1 },
-  { size: 11, pitch: 17, gap: 9, head: 0.8 },
-  { size: 11, pitch: 17, gap: 9, head: 0.6 },
-  { size: 11, pitch: 17, gap: 9, head: 0.4 },
-  { size: 10.75, pitch: 16.7, gap: 9, head: 0.4 },
-  { size: 10.5, pitch: 16.4, gap: 9, head: 0.4 },
+  // The addressee block (two lines) takes room from the page, so the spacing and the letterhead steps go a little further than before, in the
+  // same order and still inside the minimums (the line at least 1.5 times the size: 16.5 at 11 pt, 15.75 at 10.5 pt).
+  { size: 11, pitch: 16.6, gap: 8, head: 1 },
+  { size: 11, pitch: 16.6, gap: 8, head: 0.8 },
+  { size: 11, pitch: 16.6, gap: 8, head: 0.6 },
+  { size: 11, pitch: 16.6, gap: 8, head: 0.4 },
+  { size: 11, pitch: 16.6, gap: 8, head: 0.2 },
+  { size: 10.75, pitch: 16.2, gap: 8, head: 0.2 },
+  { size: 10.5, pitch: 15.8, gap: 8, head: 0.2 },
 ]);
 const MIN_BODY_SIZE = 10.5;
 const MIN_LINE_RATIO = 1.5; // the line pitch is never under this times the body size
@@ -126,41 +130,40 @@ function senderOf(answers) {
 }
 
 /**
- * The date on the letter: the date the version of the letter was written (stored with it); if it has none, the date it was approved.
- * Returns { date: Date, source: 'written' | 'approved' } or null. The stored letter text holds no date of its own.
+ * The date line of the letter: the calendar day of `date` in the zone LETTER_DATE_ZONE (UTC), in UK long form, "3 November 2026". The caller
+ * passes the moment the PDF is made (the date of the letter is the day it is exported); the stored text holds no date of its own. Returns ''
+ * for a value that is not a date.
  */
-function letterDate(version) {
-  const valid = (value) => {
-    const date = value ? new Date(value) : null;
-    return date && !Number.isNaN(date.getTime()) ? date : null;
-  };
-  const written = valid(version && version.createdAt);
-  if (written) return { date: written, source: 'written' };
-  const approved = valid(version && version.approvedAt);
-  return approved ? { date: approved, source: 'approved' } : null;
+function formatLetterDate(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  // "en-CA" prints the day as year-month-day with two digits each, which the shared formatter turns into the long form.
+  const iso = new Intl.DateTimeFormat('en-CA', { timeZone: LETTER_DATE_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+  return view.formatDate(iso);
 }
-
-/** "3 November 2026" (the day in UTC, as the rest of the PDFs). */
-const formatLetterDate = (date) => view.formatDate(date.toISOString().slice(0, 10));
 
 /**
  * Everything the renderer prints.
  * @param {object} input
  * @param {string} input.text       the stored text of the version (decrypted)
- * @param {string} input.reference  the application's reference
  * @param {object} input.sender     senderOf(answers)
- * @param {Date}   [input.date]     the date line
+ * @param {Date}   [input.date]     the date line: the moment the PDF is made (its day, in UTC, is printed)
  * @param {boolean} input.draft     the version is not approved (or was approved and its answers have changed since)
  * @param {boolean} [input.stale]   the draft was approved once, and the answers changed since: the banner says so
+ * A cover letter carries no application reference, so none is taken here. It prints the addressee block under the date and the salutation
+ * "Dear Entry Clearance Officer," above the stored text (the stored text no longer holds a greeting). A letter saved earlier whose text begins
+ * with a greeting of its own ("Dear Sir or Madam,") keeps that one: no second salutation is printed (`ownGreeting`).
  */
-function buildLetterModel({ text: letterText, reference, sender, date, draft, stale }) {
-  const { blocks, closing } = parseLetter(letterText);
+function buildLetterModel({ text: letterText, sender, date, draft, stale }) {
+  const { blocks: stored, closing } = parseLetter(letterText);
+  const ownGreeting = Boolean(stored[0] && /^dear\b/i.test(stored[0][0]));
   return {
-    reference: norm(reference || ''),
     applicantName: sender.name,
     sender,
     dateText: date ? formatLetterDate(date) : '',
-    blocks,
+    addressee: [...LETTER_ADDRESSEE],
+    salutation: ownGreeting ? stored[0][0] : LETTER_SALUTATION,
+    ownGreeting,
+    blocks: ownGreeting ? stored : [[LETTER_SALUTATION], ...stored],
     closing,
     draft: Boolean(draft),
     stale: Boolean(draft) && Boolean(stale),
@@ -168,7 +171,7 @@ function buildLetterModel({ text: letterText, reference, sender, date, draft, st
 }
 
 /**
- * The first place whose text the fonts cannot print: 'sender' (the name, the address, the email, the telephone or the reference) or 'letter'
+ * The first place whose text the fonts cannot print: 'sender' (the name, the address, the email or the telephone) or 'letter'
  * (the date line or the text itself), or null. The text is never returned: it is an answer.
  */
 function unprintableIn(model) {
@@ -179,7 +182,6 @@ function unprintableIn(model) {
     ...sender.addressLines.map((line) => ({ where: 'sender', text: line, fonts: ['Sans'] })),
     { where: 'sender', text: sender.email || '', fonts: ['Sans'] },
     { where: 'sender', text: sender.phone || '', fonts: ['Sans'] },
-    { where: 'sender', text: model.reference, fonts: ['Sans', 'SansBold', 'Serif'] },
     { where: 'letter', text: model.dateText, fonts: serif },
     ...model.blocks.flat().map((line) => ({ where: 'letter', text: line, fonts: serif })),
     ...(model.closing || []).map((line) => ({ where: 'letter', text: line, fonts: serif })),
@@ -212,7 +214,7 @@ class LetterRenderer {
     this.pgap = step.gap;
     this.closingGap = step.gap + 2; // before the closing, in place of a paragraph gap
     this.head = step.head;
-    this.b = builder || new LetterBuilder({ reference: model.reference, applicantName: model.applicantName, draft: model.draft, stale: model.stale });
+    this.b = builder || new LetterBuilder({ applicantName: model.applicantName, draft: model.draft, stale: model.stale });
     this.bodyWidth = Math.min(BODY_WIDTH, this.b.geometry.contentWidth);
     if (single) {
       this.b.newPage = () => {
@@ -329,22 +331,23 @@ class LetterRenderer {
     b.y += HEAD_GAPS.hairAfter * this.head;
   }
 
-  /** The date on the left and the reference on the right, on one tidy line. */
-  dateAndReference() {
+  /** The date of the letter on its own line under the letterhead, on the left edge of the body. The line takes the same room as before. */
+  dateLine() {
     const b = this.b;
     const g = b.geometry;
     const date = this.model.dateText;
     const dateStyle = { font: 'Serif', size: 10.5, color: BRAND.ink };
-    const valueStyle = { font: 'SansBold', size: 9.5 };
-    const labelStyle = { font: 'SansBold', size: 7.2 };
     if (date) b.text(date, g.left, b.y, { ...dateStyle, plain: true, lineGap: 0, lineBreak: false });
-    const valueWidth = b.widthOf(this.model.reference, valueStyle);
-    const labelWidth = b.widthOf('REFERENCE', labelStyle);
-    const valueX = g.right - valueWidth;
-    const base = b.ascent({ ...dateStyle });
-    b.text(this.model.reference, valueX, b.y + base - b.ascent(valueStyle), { ...valueStyle, color: BRAND.greenDeep, plain: true, lineGap: 0, lineBreak: false });
-    b.text('REFERENCE', valueX - 8 - labelWidth, b.y + base - b.ascent(labelStyle), { ...labelStyle, color: BRAND.muted, plain: true, lineGap: 0, lineBreak: false });
     b.y += this.pitch + HEAD_GAPS.dateAfter * this.head;
+  }
+
+  /**
+   * The addressee block, two lines under the date (the gap after the date line is a little over one blank line), on the left edge of the body:
+   * "The Entry Clearance Officer" and "UK Visas and Immigration". The salutation that follows is the first paragraph of the body, so it gets the
+   * usual paragraph gap.
+   */
+  addresseeBlock() {
+    for (const line of this.model.addressee) this.drawLine(line);
   }
 
   /** The room left on this page, in lines. */
@@ -398,7 +401,8 @@ class LetterRenderer {
     const b = this.b;
     const model = this.model;
     this.letterhead();
-    this.dateAndReference();
+    this.dateLine();
+    this.addresseeBlock();
 
     // The body as paragraphs of lines; the last TAIL_LINES lines of it are held back to go with the closing.
     const paragraphs = model.blocks.map((block) => this.wrap(block.join('\n')));
@@ -443,7 +447,7 @@ const OVERFLOW = Object.freeze({ overflow: true });
  * it fit (the letter then flows to two pages at the nominal setting). Step 0 is the nominal setting: a letter that already fits is unchanged.
  */
 function fitOf(model, cache = new Map(), from = 0) {
-  const probe = new LetterBuilder({ reference: model.reference, applicantName: model.applicantName, draft: model.draft, stale: model.stale });
+  const probe = new LetterBuilder({ applicantName: model.applicantName, draft: model.draft, stale: model.stale });
   try {
     // The tightest step first: a letter that does not fit even there fits nowhere (smaller type never needs more lines), and is told at once.
     if (!fitsAtStep(model, FIT_STEPS.length - 1, cache, probe)) return null;
@@ -458,7 +462,7 @@ function fitOf(model, cache = new Map(), from = 0) {
 
 /** Whether the whole letter fits on one page at step `index` of FIT_STEPS (on a probe builder if one is given: what is drawn on it is thrown away). */
 function fitsAtStep(model, index, cache = new Map(), probe = null) {
-  const own = probe || new LetterBuilder({ reference: model.reference, applicantName: model.applicantName, draft: model.draft, stale: model.stale });
+  const own = probe || new LetterBuilder({ applicantName: model.applicantName, draft: model.draft, stale: model.stale });
   const renderer = new LetterRenderer(model, FIT_STEPS[index], { single: true, cache, builder: own });
   try {
     renderer.layout();
@@ -494,4 +498,4 @@ async function renderCoverLetterPdf(model) {
   }
 }
 
-module.exports = { parseLetter, senderOf, letterDate, formatLetterDate, buildLetterModel, unprintableIn, renderCoverLetterPdf, fitOf, fitsAtStep, FIT_STEPS, MIN_BODY_SIZE, MIN_LINE_RATIO, LINE_PITCH, SIGNATURE_GAP };
+module.exports = { parseLetter, senderOf, formatLetterDate, buildLetterModel, unprintableIn, renderCoverLetterPdf, fitOf, fitsAtStep, FIT_STEPS, MIN_BODY_SIZE, MIN_LINE_RATIO, LINE_PITCH, SIGNATURE_GAP };

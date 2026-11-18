@@ -282,7 +282,8 @@ test('with the AI off a template letter is written: version 1, the real name in 
   assert.equal(letter.source, 'template');
   assert.equal(letter.status, 'draft');
   assert.equal(letter.version, 1);
-  assert.match(letter.text, /^Dear Sir or Madam,/);
+  assert.match(letter.text, /^I am writing in support of my application for a UK Standard Visitor visa\./);
+  assert.doesNotMatch(letter.text, /Dear /, 'the stored letter has no greeting: the PDF prints it');
   assert.match(letter.text, /Yours faithfully,\nTestfirst Testlast$/);
   assert.match(letter.text, /1 March 2027/);
   assert.equal(letter.factsHash, undefined, 'the hash is not sent');
@@ -355,8 +356,8 @@ test('every way the AI can fail gives a template letter, never an error to the a
       ['an answer that is not JSON', () => new Response('SECRET-PROVIDER-BODY', { status: 200 }), 'AI_BAD_RESPONSE'],
       ['a letter with an invented number', (body) => chatResponse(followingLetter(body).replace(/a stay of [^.]+/, 'a stay of 99 nights')), 'LETTER_NUMBER_NOT_IN_FACTS'],
       ['a letter with an invented date', (body) => chatResponse(followingLetter(body).replace('1 March 2027', '9 May 2027')), 'LETTER_DATE_NOT_IN_FACTS'],
-      ['a letter with a made-up placeholder', (body) => chatResponse(followingLetter(body).replace('Dear Sir or Madam,', 'Dear Sir or Madam, [SIGNATURE]')), 'LETTER_UNKNOWN_TOKEN'],
-      ['a letter with a token the facts never made', (body) => chatResponse(followingLetter(body).replace('Dear Sir or Madam,', 'Dear Sir or Madam, [R42]')), 'LETTER_UNKNOWN_TOKEN'],
+      ['a letter with a made-up placeholder', (body) => chatResponse(followingLetter(body).replace('I am applying for a UK Standard Visitor visa.', 'I am applying for a UK Standard Visitor visa. [SIGNATURE]')), 'LETTER_UNKNOWN_TOKEN'],
+      ['a letter with a token the facts never made', (body) => chatResponse(followingLetter(body).replace('I am applying for a UK Standard Visitor visa.', 'I am applying for a UK Standard Visitor visa. [R42]')), 'LETTER_UNKNOWN_TOKEN'],
     ];
     for (const [label, answer, code] of scripts) {
       useAi(AI_ON, answer);
@@ -754,15 +755,15 @@ test('prompt version: stored on a version that asked the AI and written to its a
   assert.equal((await generate(admin.token, app.appId)).json.data.created.source, 'ai');
   row = (await letterRows(app.appId))[1];
   assert.equal(row.promptVersion, PROMPT_VERSION);
-  assert.equal(row.promptVersion, 3);
+  assert.equal(row.promptVersion, 4);
   assert.equal(row.aiAttempts, 1);
   assert.deepEqual(Object.keys(row).sort(), ['_id', 'aiAttempted', 'aiAttempts', 'applicationId', 'basedOnRevision', 'createdAt', 'createdBy', 'factsHash', 'model', 'promptVersion', 'source', 'status', 'text', 'version'].sort(), 'the row has the old fields and the two new ones');
   [, audit] = await auditRows({ applicationId: oid(app.appId), action: 'cover_letter_generate' });
-  assert.equal(audit.promptVersion, 3);
+  assert.equal(audit.promptVersion, 4);
   assert.equal(audit.letterSource, 'ai');
   assertNone(JSON.stringify(audit), ['Dear Sir', 'Testfirst', 'demonstrating', 'Yours faithfully'], 'the audit row');
   const activity = await api('GET', `/admin/applications/${app.appId}/activity`, { token: admin.token });
-  assert.ok(activity.json.data.activity.some((a) => a.action === 'cover_letter_generate' && a.promptVersion === 3));
+  assert.ok(activity.json.data.activity.some((a) => a.action === 'cover_letter_generate' && a.promptVersion === 4));
   aiOff();
 
   // A row written before these fields existed is still valid, and counts as one request.
@@ -796,7 +797,7 @@ test('banned wording: the AI is asked once more (with the reminder) and the seco
   const rows = await letterRows(app.appId);
   assert.equal(rows.length, 1, 'one version, not two');
   assert.equal(rows[0].aiAttempts, 2);
-  assert.equal(rows[0].promptVersion, 3);
+  assert.equal(rows[0].promptVersion, 4);
   assert.equal(await coverLetters.countAiRequests({ since: new Date(Date.now() - 60 * 1000), adminId: admin.userId }), 2);
   assertNone(lines.lines.join('\n'), ['demonstrating', 'enthusiasm', 'Testfirst', 'Dear Sir', KEY], 'the log');
   aiOff();
@@ -815,7 +816,7 @@ test('banned wording twice: only one regeneration, then the template with AI_BAN
   assert.equal(row.fallbackReason, 'AI_BANNED_PHRASE');
   assert.equal(row.aiAttempted, true);
   assert.equal(row.aiAttempts, 2);
-  assert.equal(row.promptVersion, 3);
+  assert.equal(row.promptVersion, 4);
   assert.match(res.json.data.versions[0].text, /Yours faithfully,\nTestfirst Testlast$/);
   assertNone(res.text, ['demonstrating', 'enthusiasm'], 'the response');
   assertNone(JSON.stringify(await auditRows({ applicationId: oid(app.appId) })), ['demonstrating', 'enthusiasm', 'Dear Sir'], 'the audit rows');

@@ -415,8 +415,8 @@ test('every statement of the template says what an answer says: employment, rela
 // 4. Prompt version 3: tone, originality and the new rules
 // ---------------------------------------------------------------------------
 
-test('prompt version 3: tone, originality, no stock wording, own words for answers, tokens, zero facts', () => {
-  assert.equal(PROMPT_VERSION, 3);
+test('prompt version 4 (the rules of version 3 kept): tone, originality, no stock wording, own words for answers, tokens, zero facts', () => {
+  assert.equal(PROMPT_VERSION, 4);
   for (const needle of [
     'Tone: formal and human', 'thoughtful person would write carefully to a visa officer', 'polite, plain and precise', 'varied sentence length and natural connecting phrases',
     'No flattery, no marketing language, no filler', 'No bullet points, no headings, no markdown',
@@ -439,7 +439,7 @@ test('the prompt carries no sample letter, model paragraph or stock phrasing for
   for (const phrase of stock) assert.equal(SYSTEM_PROMPT.includes(phrase), false, phrase);
   // The only quoted wording is wording the model must NOT write, or the greeting and closing it must use.
   const quoted = [...SYSTEM_PROMPT.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
-  const allowedQuotes = ['demonstrating', 'illustrating', 'underscoring', 'none', 'in my own words', 'as I have expressed', 'I have described', 'have been provided', 'were given on the form', 'Dear Sir or Madam,', 'Yours faithfully,'];
+  const allowedQuotes = ['demonstrating', 'illustrating', 'underscoring', 'none', 'in my own words', 'as I have expressed', 'I have described', 'have been provided', 'were given on the form', 'Dear ...', 'To whom it may concern', 'The Entry Clearance Officer', 'UK Visas and Immigration', 'Yours faithfully,'];
   for (const q of quoted) assert.ok(allowedQuotes.includes(q), `unexpected quoted wording: ${q}`);
   assert.equal(/\bnot (written|produced|created) by (an )?(AI|person)|hide|conceal|disguise|undetect|human-?written|pass as/i.test(SYSTEM_PROMPT), false, 'nothing whose purpose is to hide that an AI helped');
   assert.equal(/\bAI\b/.test(SYSTEM_PROMPT), false, 'the prompt does not talk about itself being an AI at all');

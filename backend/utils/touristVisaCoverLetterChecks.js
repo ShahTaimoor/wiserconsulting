@@ -227,4 +227,29 @@ function normalizeClosing(raw, { name = 'token' } = {}) {
   return `${text}\n\nYours faithfully,${signature}`;
 }
 
-module.exports = { checkLetter, figuresCode, bannedPhraseId, freeTextOf, BANNED_PHRASES, substitute, normalizeClosing, NAME_GAP, tidy, wordCount, KNOWN_TOKENS, MIN_WORDS, MAX_WORDS };
+// A salutation on a line of its own ("Dear Sir or Madam,", "Dear Officer"; not a sentence, so no full stop at the end) or "To whom it may concern".
+const GREETING_LINE = /^(?:dear\b[^\n]{0,80}[^\s.!?]|to\s+whom\s+it\s+may\s+concern)\s*[,:;!]?$/i;
+// The lines of an addressee block, which the PDF prints itself.
+const ADDRESSEE_LINE = /^(?:the\s+)?entry\s+clearance\s+officer[,.]?$|^uk\s+visas\s+and\s+immigration[,.]?$|^ukvi[,.]?$|^home\s+office[,.]?$/i;
+
+/**
+ * Takes out of the AI's text what the PDF prints itself above it (the addressee block and the greeting). A salutation ("Dear ...") on a line of
+ * its own is removed wherever it stands, so the AI can never add a second "Dear" line; the addressee lines ("The Entry Clearance Officer",
+ * "UK Visas and Immigration") are removed from the start of the text only. A sentence that merely begins with "Dear" and ends with a full stop
+ * is real text and stays. Like normalizeClosing it never fails: it just makes the text what the PDF expects.
+ */
+function normalizeOpening(raw) {
+  const lines = String(raw).replace(/\r\n/g, '\n').split('\n');
+  const kept = [];
+  let leading = true;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (GREETING_LINE.test(trimmed)) continue;
+    if (leading && (trimmed === '' || ADDRESSEE_LINE.test(trimmed))) continue;
+    leading = false;
+    kept.push(line);
+  }
+  return kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+module.exports = { checkLetter, figuresCode, bannedPhraseId, freeTextOf, BANNED_PHRASES, substitute, normalizeClosing, normalizeOpening, NAME_GAP, tidy, wordCount, KNOWN_TOKENS, MIN_WORDS, MAX_WORDS };

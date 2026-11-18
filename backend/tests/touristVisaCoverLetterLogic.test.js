@@ -122,7 +122,9 @@ test('template: built only from the facts, the same facts give the same letter, 
   const letter = buildTemplate(f);
   assert.equal(buildTemplate(facts()), letter);
   assert.equal(checks.figuresCode(letter, f), null, 'no figure that is not in the facts');
-  assert.match(letter, /^Dear Sir or Madam,/);
+  assert.match(letter, /^I am writing in support of my application for a UK Standard Visitor visa\./);
+  assert.doesNotMatch(letter, /Dear |Entry Clearance Officer|UK Visas and Immigration/, 'no greeting or addressee in the stored text: the PDF prints them');
+  assert.match(letter, /1 March 2027 and to leave on 15 March 2027, a stay of 14 nights/);
   assert.match(letter, /1 March 2027 and to leave on 15 March 2027, a stay of 14 nights/);
   assert.match(letter, /I am a national of Pakistan and I live in Pakistan/);
   assert.match(letter, /I have worked for \[EMPLOYER\] since March 2019/);
@@ -435,7 +437,8 @@ test('service: the template is the fallback for every kind of AI failure, with a
       assert.equal(made.source, 'template', code);
       assert.equal(made.fallbackReason, code);
       assert.equal(made.aiAttempted, attempted);
-      assert.match(made.text, /^Dear Sir or Madam,/);
+      assert.match(made.text, /^I am writing in support of my application for a UK Standard Visitor visa\./);
+      assert.doesNotMatch(made.text, /Dear /);
       assert.match(made.text, /Zainab Qureshi$/);
       assert.ok(FALLBACK_REASONS.includes(made.fallbackReason));
     }
@@ -571,11 +574,11 @@ test('banned phrases: a phrase the applicant\'s own free text contains is allowe
   assert.equal(checks.bannedPhraseId('I have strong ties.', ''), 'ties');
 });
 
-test('prompt version 3: the rules are in the prompt file, the retry reminder is only on a second attempt', () => {
-  assert.equal(PROMPT_VERSION, 3);
+test('prompt version 4: the rules are in the prompt file, the retry reminder is only on a second attempt', () => {
+  assert.equal(PROMPT_VERSION, 4);
   for (const needle of ['in my own words', 'as I have expressed', 'I have described', 'never put it in quotation marks', 'empty, meaningless or awkward, leave it out', 'Do not draw conclusions', 'complies with, meets or satisfies',
     'enthusiasm, ties, stability, funds or public funds', '"demonstrating", "illustrating" or "underscoring"', 'You may only say what a supplied fact says', 'guarantee anything, including a return',
-    'have been provided', 'were given on the form', 'closing request', 'one polite sentence asking that the application be considered', 'the opening sentence']) {
+    'have been provided', 'were given on the form', 'closing request', 'one polite sentence asking that the application be considered', 'the opening sentence', 'Do not write a greeting, a salutation or an addressee']) {
     assert.ok(SYSTEM_PROMPT.includes(needle), needle);
   }
   assert.equal(buildUserPrompt('FACTS').includes(RETRY_REMINDER), false);
@@ -620,7 +623,8 @@ test('the template follows the same rules: for several different applications it
     assert.equal(checks.bannedPhraseId(letter, ''), null, `${label}: ${checks.bannedPhraseId(letter, '')}`);
     for (const old of ['In my own words', 'My business:', 'My work:', 'I confirm', 'given details', 'gave details', 'in my own words']) assert.equal(letter.includes(old), false, `${label}: ${old}`);
     assert.equal(/["“”]/.test(letter), false, `${label}: no quotation marks`);
-    assert.match(letter, /^Dear Sir or Madam,\n\nI am writing in support of my application for a UK Standard Visitor visa\./);
+    assert.match(letter, /^I am writing in support of my application for a UK Standard Visitor visa\./);
+    assert.doesNotMatch(letter, /Dear /);
     assert.match(letter, /I would be grateful if you would consider my application\. Thank you for your time\.\n\nYours faithfully,/);
     // The only mentions of "application" are the opening sentence and the closing request.
     assert.equal((letter.match(/application/gi) || []).length, 2, label);
@@ -785,4 +789,45 @@ test('the template keeps the pronoun "I" in a capital when it says an answer in 
   // Other labels still start in lower case inside a sentence.
   assert.match(paid, /I am visiting for a holiday and sightseeing\./);
   assert.match(paid, /I am married\./);
+});
+
+// ---------------------------------------------------------------------------
+// The greeting and the addressee are printed by the PDF: the AI's text never carries them (prompt version 4)
+// ---------------------------------------------------------------------------
+
+test('normalizeOpening: a greeting and an addressee at the start are taken out, and a "Dear" line anywhere else is too', () => {
+  const body = 'I am writing in support of my application for a UK Standard Visitor visa.\n\nI plan to visit in March.';
+  assert.equal(checks.normalizeOpening(`Dear Sir or Madam,\n\n${body}`), body);
+  assert.equal(checks.normalizeOpening(`Dear Entry Clearance Officer,\n\n${body}`), body);
+  assert.equal(checks.normalizeOpening(`The Entry Clearance Officer\nUK Visas and Immigration\n\nDear Sir or Madam,\n\n${body}`), body);
+  assert.equal(checks.normalizeOpening(`To whom it may concern,\n\n${body}`), body);
+  assert.equal(checks.normalizeOpening(`DEAR SIR,\n\n${body}`), body, 'any case');
+  assert.equal(checks.normalizeOpening(`\n\n  Dear Visa Officer:\n\n${body}`), body, 'blank lines and a colon');
+  // A second "Dear" line, further down, is removed too: the letter can never carry two.
+  assert.equal(checks.normalizeOpening(`Dear Sir or Madam,\n\nI am writing in support.\n\nDear Madam\n\nI plan to visit.`), 'I am writing in support.\n\nI plan to visit.');
+  // Text that is not a greeting stays: a sentence that begins with "Dear" and ends with a full stop, an addressee name in the middle of a sentence.
+  assert.equal(checks.normalizeOpening('Dear friends of mine live in Leeds.\n\nI will stay with the Entry Clearance Officer\'s advice in mind.'), 'Dear friends of mine live in Leeds.\n\nI will stay with the Entry Clearance Officer\'s advice in mind.');
+  // The addressee lines are only removed from the start.
+  assert.equal(checks.normalizeOpening(`${body}\n\nUK Visas and Immigration`), `${body}\n\nUK Visas and Immigration`);
+  assert.equal(checks.normalizeOpening(body), body, 'nothing to take out');
+  assert.equal(checks.normalizeOpening(''), '');
+});
+
+test('service: an AI letter that writes its own greeting, addressee or a second "Dear" line is stored without them', async () => {
+  const tricky = goodLetter().replace('Dear Sir or Madam,', 'The Entry Clearance Officer\nUK Visas and Immigration\n\nDear Sir or Madam,').replace('\n\nI am a national of Pakistan', '\n\nDear Madam,\n\nI am a national of Pakistan');
+  assert.equal((tricky.match(/Dear /g) || []).length, 2, 'the fixture has two Dear lines');
+  const { service } = serviceRig({ ai: { generate: async () => ({ text: tricky, model: DEFAULT_GROQ_MODEL, provider: 'groq' }), unavailable: () => null, settings: () => readAiSettings({ ...ENV }) } });
+  const made = await service.compose('admin1', facts());
+  assert.equal(made.source, 'ai');
+  assert.doesNotMatch(made.text, /Dear |Entry Clearance Officer|UK Visas and Immigration/);
+  assert.match(made.text, /^I am writing to support my application/);
+  assert.match(made.text, /Yours faithfully,\nZainab Qureshi$/);
+});
+
+test('the prompt tells the AI to write no greeting or addressee, and no longer tells it to begin with one', () => {
+  assert.ok(SYSTEM_PROMPT.includes('Do not write a greeting, a salutation or an addressee'));
+  assert.ok(SYSTEM_PROMPT.includes('they are printed above your text by the system'));
+  assert.equal(SYSTEM_PROMPT.includes('Begin with "Dear'), false);
+  assert.equal(SYSTEM_PROMPT.includes('Dear Sir or Madam'), false);
+  assert.ok(SYSTEM_PROMPT.includes('Begin directly with the opening sentence'));
 });
