@@ -241,18 +241,18 @@ test('the feature gate: while Tourist Visa is closed both routes answer the fixe
 // The answer: headers, the file, what is in it
 // ---------------------------------------------------------------------------
 
-test('the answer is an attachment that is never cached, with a file name built only from the reference', async () => {
+test('the answer is an attachment that is never cached, with a file name of the applicant name and the document', async () => {
   const app = await submitted('Aisha', 'Khan-Reynolds');
   const admin = await makeAdmin();
   assert.match(app.reference, /^TV-[A-Z0-9]{8}$/);
   for (const res of [await adminPdf(admin.token, app.appId), await myPdf(app.token)]) {
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('content-type'), 'application/pdf');
-    assert.equal(res.headers.get('content-disposition'), `attachment; filename="${app.reference}-application-summary.pdf"`);
+    assert.equal(res.headers.get('content-disposition'), `attachment; filename="Aisha-Khan-Reynolds-Application-Summary.pdf"`);
     assert.equal(res.headers.get('cache-control'), 'no-store');
     assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
     assert.equal(Number(res.headers.get('content-length')), res.buffer.length);
-    assertNone(res.headers.get('content-disposition'), ['Aisha', 'Khan', 'Reynolds', 'test.pdf', app.appId], 'the file name');
+    assertNone(res.headers.get('content-disposition'), [app.reference, 'test.pdf', app.appId, '@'], 'the file name: no reference, id or email');
   }
   // A refusal is no-store too (the admin side marks everything so; the applicant's routes set it before anything runs).
   const refused = await myPdf((await readyApplicant()).token);
@@ -582,11 +582,11 @@ test('a letter that is not approved is still exported, marked as a draft: the wa
   const res = await letterPdf(admin.token, app.appId);
   assert.equal(res.status, 200);
   assert.equal(res.headers.get('content-type'), 'application/pdf');
-  assert.equal(res.headers.get('content-disposition'), `attachment; filename="${app.reference}-cover-letter-draft.pdf"`);
+  assert.equal(res.headers.get('content-disposition'), `attachment; filename="Testfirst-Testlast-Cover-Letter-Draft.pdf"`);
   assert.equal(res.headers.get('cache-control'), 'no-store');
   assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
   assert.equal(Number(res.headers.get('content-length')), res.buffer.length);
-  assertNone(res.headers.get('content-disposition'), ['Testfirst', 'Testlast'], 'the file name');
+  assertNone(res.headers.get('content-disposition'), [app.reference, app.appId], 'the file name: no reference or id');
   const pdf = await inspectPdf(res.buffer);
   for (const page of pdf.pages) assert.equal(page.items.filter((i) => i.str === DRAFT_MARK).length, 2, `page ${page.number}: the watermark and the banner`);
   const rows = await letterRows(app.appId);
@@ -601,7 +601,7 @@ test('an approved letter is exported clean: no watermark, no banner, no "-draft"
   assert.equal((await approveLetter(admin.token, app.appId, version.version)).status, 200);
   const res = await letterPdf(admin.token, app.appId);
   assert.equal(res.status, 200);
-  assert.equal(res.headers.get('content-disposition'), `attachment; filename="${app.reference}-cover-letter.pdf"`);
+  assert.equal(res.headers.get('content-disposition'), `attachment; filename="Testfirst-Testlast-Cover-Letter.pdf"`);
   const pdf = await inspectPdf(res.buffer);
   assert.equal(/DRAFT|NOT APPROVED/i.test(pdf.text), false);
   assert.equal(pdf.pages.some((p) => p.items.some((i) => i.angle !== 0)), false);
@@ -638,7 +638,7 @@ test('the NEWEST version is the one exported: a newer draft after an approval is
   assert.equal((await saveLetter(admin.token, app.appId, `${v1.text}\n\nA NEWER LINE ADDED BY HAND`, 1)).status, 201);
   const res = await letterPdf(admin.token, app.appId);
   assert.equal(res.status, 200);
-  assert.match(res.headers.get('content-disposition'), /-cover-letter-draft\.pdf"/);
+  assert.equal(res.headers.get('content-disposition'), 'attachment; filename="Testfirst-Testlast-Cover-Letter-Draft.pdf"');
   const pdf = await inspectPdf(res.buffer);
   assert.ok(pdf.text.includes('A NEWER LINE ADDED BY HAND'));
   assert.equal(pdf.text.includes(DRAFT_MARK), true);
@@ -831,11 +831,11 @@ test('an itinerary that is not approved is still exported, marked as a draft: th
   const res = await itineraryPdf(admin.token, app.appId);
   assert.equal(res.status, 200);
   assert.equal(res.headers.get('content-type'), 'application/pdf');
-  assert.equal(res.headers.get('content-disposition'), `attachment; filename="${app.reference}-itinerary-draft.pdf"`);
+  assert.equal(res.headers.get('content-disposition'), `attachment; filename="Testfirst-Testlast-Itinerary-Draft.pdf"`);
   assert.equal(res.headers.get('cache-control'), 'no-store');
   assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
   assert.equal(Number(res.headers.get('content-length')), res.buffer.length);
-  assertNone(res.headers.get('content-disposition'), ['Testfirst', 'Testlast'], 'the file name');
+  assertNone(res.headers.get('content-disposition'), [app.reference, app.appId], 'the file name: no reference or id');
   const pdf = await inspectPdf(res.buffer);
   for (const page of pdf.pages) assert.equal(page.items.filter((i) => i.str === DRAFT_MARK).length, 2, `page ${page.number}: the watermark and the banner`);
   const rows = await itineraryRows(app.appId);
@@ -850,7 +850,7 @@ test('an approved itinerary is exported clean, with its details grid from the an
   assert.equal((await approveItinerary(admin.token, app.appId, version.version)).status, 200);
   const res = await itineraryPdf(admin.token, app.appId);
   assert.equal(res.status, 200);
-  assert.equal(res.headers.get('content-disposition'), `attachment; filename="${app.reference}-itinerary.pdf"`);
+  assert.equal(res.headers.get('content-disposition'), `attachment; filename="Testfirst-Testlast-Itinerary.pdf"`);
   const pdf = await inspectPdf(res.buffer);
   assert.equal(/DRAFT|NOT APPROVED/i.test(pdf.text), false);
   assert.equal(pdf.pages.some((p) => p.items.some((i) => i.angle !== 0 && i.angle !== 90)), false, 'no diagonal text');
@@ -888,7 +888,7 @@ test('the NEWEST itinerary version is the one exported: a newer draft after an a
   assert.equal((await saveItinerary(admin.token, app.appId, `${v1.text}\n\nA NEWER NOTE ADDED BY HAND`, 1)).status, 201);
   const res = await itineraryPdf(admin.token, app.appId);
   assert.equal(res.status, 200);
-  assert.match(res.headers.get('content-disposition'), /-itinerary-draft\.pdf"/);
+  assert.equal(res.headers.get('content-disposition'), 'attachment; filename="Testfirst-Testlast-Itinerary-Draft.pdf"');
   const pdf = await inspectPdf(res.buffer);
   assert.ok(plainText(pdf).includes('A NEWER NOTE ADDED BY HAND'));
   assert.equal(pdf.text.includes(DRAFT_MARK), true);

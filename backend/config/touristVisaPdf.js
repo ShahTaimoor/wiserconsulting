@@ -142,8 +142,6 @@ const TEXT = Object.freeze({
 /** The document types a PDF can be (the audit row records one of these). 8h-2 adds the other two. */
 const PDF_TYPES = Object.freeze(['answers', 'cover_letter', 'itinerary']);
 
-/** The file name of each type, after the reference. The name of a person is never part of a file name. */
-const FILE_SUFFIX = Object.freeze({ answers: 'application-summary', cover_letter: 'cover-letter', itinerary: 'itinerary' });
 
 const LIMITS = Object.freeze({
   // More pages than any real application makes: a guard against a runaway document, not a design limit.
@@ -152,4 +150,4 @@ const LIMITS = Object.freeze({
   rate: Object.freeze({ windowMs: 10 * 60 * 1000, max: 20 }),
 });
 
-module.exports = { PAGE, LETTER_PAGE, ITINERARY_PAGE, MM, BRAND, PALETTE, FONT_FILES, LOGO_FILE, TEXT, PDF_TYPES, FILE_SUFFIX, LIMITS };
+module.exports = { PAGE, LETTER_PAGE, ITINERARY_PAGE, MM, BRAND, PALETTE, FONT_FILES, LOGO_FILE, TEXT, PDF_TYPES, LIMITS };

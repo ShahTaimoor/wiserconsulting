@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { notifyPdfDone, notifyPdfFailed } from "@/components/tourist-visa/notify";
 import { useAppDispatch } from "@/redux/hooks";
 import { logout } from "@/redux/slices/auth/authSlice";
-import { touristVisaService, TouristVisaApiError } from "@/services/touristVisaService";
-import { describePdfError, pdfFileName, PDF_WORDS, type PdfKind } from "@/utils/touristVisaPdf";
+import { touristVisaService, TouristVisaApiError, type PdfFile } from "@/services/touristVisaService";
+import { describePdfError, pdfDownloadName, PDF_WORDS, type PdfKind } from "@/utils/touristVisaPdf";
 
 function readToken(): string | null {
   try {
@@ -85,12 +85,13 @@ export function PdfDownloadButton({ side, kind = "answers", applicationId, refer
     setBusy(true);
     announce(words.start);
     try {
-      let blob: Blob;
-      if (kind === "cover_letter") blob = await touristVisaService.adminCoverLetterPdf(token, applicationId as string);
-      else if (kind === "itinerary") blob = await touristVisaService.adminItineraryPdf(token, applicationId as string);
-      else if (side === "admin") blob = await touristVisaService.adminAnswersPdf(token, applicationId as string);
-      else blob = await touristVisaService.myAnswersPdf(token);
-      saveBlob(blob, pdfFileName(reference, kind, { draft }));
+      let file: PdfFile;
+      if (kind === "cover_letter") file = await touristVisaService.adminCoverLetterPdf(token, applicationId as string);
+      else if (kind === "itinerary") file = await touristVisaService.adminItineraryPdf(token, applicationId as string);
+      else if (side === "admin") file = await touristVisaService.adminAnswersPdf(token, applicationId as string);
+      else file = await touristVisaService.myAnswersPdf(token);
+      // The file is saved under the name the server chose (the applicant's name and the document); the reference-based name is only the fallback.
+      saveBlob(file.blob, pdfDownloadName(file.contentDisposition, reference, kind, { draft }));
       if (alive.current) announce(words.done);
       notifyPdfDone(words.done);
       onDone?.();

@@ -3,7 +3,7 @@
 import test, { afterEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { coverLetterPdfState, itineraryPdfState, documentPdfState, describePdfError, isPdfContentType, pdfFileName, PDF_UNSUPPORTED_FALLBACK, PDF_WORDS } from "./touristVisaPdf.ts";
+import { coverLetterPdfState, itineraryPdfState, documentPdfState, describePdfError, isPdfContentType, pdfFileName, fileNameFromDisposition, pdfDownloadName, PDF_UNSUPPORTED_FALLBACK, PDF_WORDS } from "./touristVisaPdf.ts";
 import { describeActivity } from "./touristVisaAdmin.ts";
 import { touristVisaService, TouristVisaApiError } from "../services/touristVisaService.ts";
 
@@ -67,14 +67,14 @@ test("the activity log words a PDF export by who made it, without a file name or
 // The service calls
 // ---------------------------------------------------------------------------
 
-function stubResponse({ status = 200, contentType = "application/pdf", bytes = Buffer.from("%PDF-1.7 test"), json } = {}) {
+function stubResponse({ status = 200, contentType = "application/pdf", bytes = Buffer.from("%PDF-1.7 test"), json, disposition = null } = {}) {
   const calls = [];
   globalThis.fetch = async (url, init) => {
     calls.push({ url, init });
     return {
       status,
       ok: status >= 200 && status < 300,
-      headers: { get: (name) => (name.toLowerCase() === "content-type" ? contentType : null) },
+      headers: { get: (name) => (name.toLowerCase() === "content-type" ? contentType : name.toLowerCase() === "content-disposition" ? disposition : null) },
       blob: async () => new Blob([bytes], { type: contentType }),
       json: async () => {
         if (json === undefined) throw new SyntaxError("not json");
@@ -86,8 +86,9 @@ function stubResponse({ status = 200, contentType = "application/pdf", bytes = B
 }
 
 test("the admin download asks for the answers PDF with the session token, never cached, and returns a blob", async () => {
-  const calls = stubResponse();
-  const blob = await touristVisaService.adminAnswersPdf("test-token", "abc123");
+  const calls = stubResponse({ disposition: "attachment; filename=\"Test-Person-Application-Summary.pdf\"" });
+  const { blob, contentDisposition } = await touristVisaService.adminAnswersPdf("test-token", "abc123");
+  assert.equal(contentDisposition, "attachment; filename=\"Test-Person-Application-Summary.pdf\"", "the server's file name header is passed on");
   assert.equal(blob instanceof Blob, true);
   assert.equal(await blob.text(), "%PDF-1.7 test");
   assert.match(calls[0].url, /\/tourist-visa\/admin\/applications\/abc123\/pdf\/answers$/);
@@ -188,8 +189,9 @@ test("the activity log words a cover letter export with its version and whether 
 });
 
 test("the cover letter download asks the letter route with the session token, never cached, and returns a blob; a refusal keeps the server's code", async () => {
-  const calls = stubResponse();
-  const blob = await touristVisaService.adminCoverLetterPdf("test-token", "abc123");
+  const calls = stubResponse({ disposition: "attachment; filename=\"Test-Person-Cover-Letter.pdf\"" });
+  const { blob, contentDisposition } = await touristVisaService.adminCoverLetterPdf("test-token", "abc123");
+  assert.equal(contentDisposition, "attachment; filename=\"Test-Person-Cover-Letter.pdf\"");
   assert.equal(blob instanceof Blob, true);
   assert.match(calls[0].url, /\/tourist-visa\/admin\/applications\/abc123\/pdf\/cover-letter$/);
   assert.equal(calls[0].init.method, "GET");
@@ -271,8 +273,9 @@ test("the activity log words an itinerary export with its version and whether it
 });
 
 test("the itinerary download asks the itinerary route with the session token, never cached, and returns a blob; a refusal keeps the server's code", async () => {
-  const calls = stubResponse();
-  const blob = await touristVisaService.adminItineraryPdf("test-token", "abc123");
+  const calls = stubResponse({ disposition: "attachment; filename=\"Test-Person-Itinerary.pdf\"" });
+  const { blob, contentDisposition } = await touristVisaService.adminItineraryPdf("test-token", "abc123");
+  assert.equal(contentDisposition, "attachment; filename=\"Test-Person-Itinerary.pdf\"");
   assert.equal(blob instanceof Blob, true);
   assert.match(calls[0].url, /\/tourist-visa\/admin\/applications\/abc123\/pdf\/itinerary$/);
   assert.equal(calls[0].init.method, "GET");
@@ -300,4 +303,36 @@ test("the itinerary panel wires the button from the source like the cover letter
   const button = fs.readFileSync(new URL("../components/tourist-visa/PdfDownloadButton.tsx", import.meta.url), "utf8");
   assert.match(button, /adminItineraryPdf/);
   assert.equal(/localStorage\.setItem|sessionStorage|console\./.test(button), false);
+});
+
+// ---------------------------------------------------------------------------
+// The file name is the server's (the applicant's name and the document): one source of truth
+// ---------------------------------------------------------------------------
+
+test("the file name is read from the server's Content-Disposition header, and only a name of the safe shape is accepted", () => {
+  assert.equal(fileNameFromDisposition('attachment; filename="Roohullah-Shah-Cover-Letter.pdf"'), "Roohullah-Shah-Cover-Letter.pdf");
+  assert.equal(fileNameFromDisposition('attachment; filename="Roohullah-Application-Summary.pdf"'), "Roohullah-Application-Summary.pdf");
+  assert.equal(fileNameFromDisposition('attachment; filename="TV-X42GYXPS-cover-letter-draft.pdf"'), "TV-X42GYXPS-cover-letter-draft.pdf");
+  for (const bad of [null, undefined, "", "attachment", "attachment; filename=Roohullah.pdf", 'attachment; filename=""', 'attachment; filename="../x.pdf"', 'attachment; filename="a/b.pdf"',
+    'attachment; filename="a b.pdf"', 'attachment; filename="x.exe"', 'attachment; filename=".pdf"', 'attachment; filename="é.pdf"', `attachment; filename="${"a".repeat(130)}.pdf"`, 'attachment; filename="a;b.pdf"']) {
+    assert.equal(fileNameFromDisposition(bad), null, String(bad));
+  }
+});
+
+test("a download is saved under the server's name; the reference-based name is only the fallback when the header cannot be read", () => {
+  const header = 'attachment; filename="Roohullah-Shah-Cover-Letter.pdf"';
+  assert.equal(pdfDownloadName(header, "TV-X42GYXPS", "cover_letter"), "Roohullah-Shah-Cover-Letter.pdf");
+  assert.equal(pdfDownloadName(header, null, "cover_letter", { draft: true }), "Roohullah-Shah-Cover-Letter.pdf", "the server already put -Draft in its name when it applies");
+  assert.equal(pdfDownloadName(null, "TV-X42GYXPS", "cover_letter", { draft: true }), "TV-X42GYXPS-cover-letter-draft.pdf");
+  assert.equal(pdfDownloadName(undefined, "TV-X42GYXPS", "answers"), "TV-X42GYXPS-application-summary.pdf");
+  assert.equal(pdfDownloadName('attachment; filename="../../evil.pdf"', "TV-X42GYXPS", "itinerary"), "TV-X42GYXPS-itinerary.pdf", "an unsafe name from the server is not used");
+  assert.equal(pdfDownloadName(null, null, "itinerary"), "itinerary.pdf");
+});
+
+test("the download button saves under pdfDownloadName with the server's header, for all four downloads, and builds no name of its own", async () => {
+  const { readFileSync } = await import("node:fs");
+  const button = readFileSync(new URL("../components/tourist-visa/PdfDownloadButton.tsx", import.meta.url), "utf8");
+  assert.match(button, /saveBlob\(file\.blob, pdfDownloadName\(file\.contentDisposition, reference, kind, \{ draft \}\)\)/);
+  assert.equal(/\bpdfFileName\(/.test(button), false, "the button does not build a name itself");
+  for (const method of ["adminCoverLetterPdf", "adminItineraryPdf", "adminAnswersPdf", "myAnswersPdf"]) assert.ok(button.includes(`file = await touristVisaService.${method}(`), method);
 });

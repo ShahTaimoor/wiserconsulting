@@ -119,14 +119,14 @@ async function submitted() {
 
 const KINDS = {
   letter: {
-    name: 'cover letter', slug: 'cover-letter', pdfType: 'cover_letter', suffix: 'cover-letter',
+    name: 'cover letter', slug: 'cover-letter', pdfType: 'cover_letter', suffix: 'cover-letter', title: 'Cover-Letter',
     generate: (token, appId) => api('POST', `/admin/applications/${appId}/cover-letter/generate`, { token }),
     approve: (token, appId, version) => api('POST', `/admin/applications/${appId}/cover-letter/approve`, { token, body: { version } }),
     view: (token, appId) => api('GET', `/admin/applications/${appId}/cover-letter`, { token }),
     pdf: (token, appId) => getPdf(`/admin/applications/${appId}/pdf/cover-letter`, token),
   },
   itinerary: {
-    name: 'itinerary', slug: 'itinerary', pdfType: 'itinerary', suffix: 'itinerary',
+    name: 'itinerary', slug: 'itinerary', pdfType: 'itinerary', suffix: 'itinerary', title: 'Itinerary',
     generate: (token, appId) => api('POST', `/admin/applications/${appId}/itinerary/generate`, { token }),
     approve: (token, appId, version) => api('POST', `/admin/applications/${appId}/itinerary/approve`, { token, body: { version } }),
     view: (token, appId) => api('GET', `/admin/applications/${appId}/itinerary`, { token }),
@@ -155,7 +155,7 @@ for (const kind of ['letter', 'itinerary']) {
     assert.equal((await K.view(admin.token, app.appId)).json.data.stale, false, 'the panel agrees: not stale');
     const res = await K.pdf(admin.token, app.appId);
     assert.equal(res.status, 200);
-    assert.equal(res.headers.get('content-disposition'), `attachment; filename="${app.reference}-${K.suffix}.pdf"`);
+    assert.equal(res.headers.get('content-disposition'), `attachment; filename="Testfirst-Testlast-${K.title}.pdf"`);
     const pdf = await inspectPdf(res.buffer);
     assert.equal(/DRAFT|NOT APPROVED|CHANGED SINCE/i.test(pdf.text), false);
     const rows = await rowsOf(kind, app.appId);
@@ -173,7 +173,7 @@ for (const kind of ['letter', 'itinerary']) {
     const res = await K.pdf(admin.token, app.appId);
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('content-type'), 'application/pdf');
-    assert.equal(res.headers.get('content-disposition'), `attachment; filename="${app.reference}-${K.suffix}-draft.pdf"`);
+    assert.equal(res.headers.get('content-disposition'), `attachment; filename="Testfirst-Testlast-${K.title}-Draft.pdf"`);
     assert.equal(res.headers.get('cache-control'), 'no-store');
     const pdf = await inspectPdf(res.buffer);
     // Every page: the diagonal watermark (still the draft words) once, and the banner (the new words) once.
@@ -200,7 +200,7 @@ for (const kind of ['letter', 'itinerary']) {
     assert.equal((await K.view(admin.token, app.appId)).json.data.stale, true);
     const res = await K.pdf(admin.token, app.appId);
     assert.equal(res.status, 200);
-    assert.equal(res.headers.get('content-disposition'), `attachment; filename="${app.reference}-${K.suffix}-draft.pdf"`);
+    assert.equal(res.headers.get('content-disposition'), `attachment; filename="Testfirst-Testlast-${K.title}-Draft.pdf"`);
     const pdf = await inspectPdf(res.buffer);
     assert.deepEqual(countOf(pdf, DRAFT_MARK), pdf.pages.map(() => 2), 'watermark and banner both say NOT APPROVED');
     assert.deepEqual(countOf(pdf, STALE_MARK), pdf.pages.map(() => 0));
@@ -212,13 +212,13 @@ for (const kind of ['letter', 'itinerary']) {
     const { app, admin } = await approvedDocument(kind);
     assert.equal((await correctArrival(admin.token, app.appId, 0, '2027-03-02')).status, 200);
     const stale = await K.pdf(admin.token, app.appId);
-    assert.match(stale.headers.get('content-disposition'), /-draft\.pdf"$/);
+    assert.match(stale.headers.get('content-disposition'), /-Draft.pdf"$/);
     const made = await K.generate(admin.token, app.appId);
     assert.equal(made.status, 201);
     assert.equal((await K.approve(admin.token, app.appId, made.json.data.versions[0].version)).status, 200);
     assert.equal((await K.view(admin.token, app.appId)).json.data.stale, false);
     const clean = await K.pdf(admin.token, app.appId);
-    assert.equal(clean.headers.get('content-disposition'), `attachment; filename="${app.reference}-${K.suffix}.pdf"`);
+    assert.equal(clean.headers.get('content-disposition'), `attachment; filename="Testfirst-Testlast-${K.title}.pdf"`);
     assert.equal(/DRAFT|CHANGED SINCE/i.test((await inspectPdf(clean.buffer)).text), false);
     const rows = await rowsOf(kind, app.appId);
     assert.deepEqual(rows.map((r) => [r.pdfApproved, 'pdfStale' in r]), [[false, true], [true, false]]);
@@ -230,14 +230,14 @@ for (const kind of ['letter', 'itinerary']) {
     for (const status of ['in_review', 'completed']) assert.equal((await api('PATCH', `/admin/applications/${stale.app.appId}/status`, { token: stale.admin.token, body: { status } })).status, 200);
     const draft = await K.pdf(stale.admin.token, stale.app.appId);
     assert.equal(draft.status, 200);
-    assert.match(draft.headers.get('content-disposition'), /-draft\.pdf"$/);
+    assert.match(draft.headers.get('content-disposition'), /-Draft.pdf"$/);
     assert.equal(countOf(await inspectPdf(draft.buffer), STALE_MARK).every((n) => n === 1), true, 'the stale banner is on every page');
     assert.equal((await rowsOf(kind, stale.app.appId))[0].pdfStale, true);
 
     const current = await approvedDocument(kind);
     for (const status of ['in_review', 'completed']) assert.equal((await api('PATCH', `/admin/applications/${current.app.appId}/status`, { token: current.admin.token, body: { status } })).status, 200);
     const clean = await K.pdf(current.admin.token, current.app.appId);
-    assert.equal(clean.headers.get('content-disposition'), `attachment; filename="${current.app.reference}-${K.suffix}.pdf"`);
+    assert.equal(clean.headers.get('content-disposition'), `attachment; filename="Testfirst-Testlast-${K.title}.pdf"`);
     assert.equal('pdfStale' in (await rowsOf(kind, current.app.appId))[0], false);
   });
 }
@@ -255,7 +255,7 @@ test('the PDF uses the same check as the panel: for every state of every documen
     }
     const stale = (await KINDS.letter.view(admin.token, app.appId)).json.data.stale;
     const res = await KINDS.letter.pdf(admin.token, app.appId);
-    sequence.push([arrival, stale, /-draft\.pdf"$/.test(res.headers.get('content-disposition'))]);
+    sequence.push([arrival, stale, /-Draft.pdf"$/.test(res.headers.get('content-disposition'))]);
   }
   // Changed and changed back: the hash is of the facts, so the letter is current again and prints clean again.
   assert.deepEqual(sequence, [[null, false, false], ['2027-03-02', true, true], ['2027-03-01', false, false]]);
@@ -316,7 +316,7 @@ test('the PDF service asks the staleness check only for an approved version, and
   assert.equal('pdfStale' in calls.find((c) => c[0] === 'audit')[1], false);
 });
 
-test('the models: stale only counts for a draft, and the file name helper is unchanged', () => {
+test('the models: stale only counts for a draft, and the file name helper makes the name-based and the reference-based names', () => {
   const base = { text: 'Dear Sir,\n\nA made-up letter.\n\nYours faithfully,\nTest Person', reference: 'TV-ABCDEFGH', sender: { name: 'Test Person' }, date: null };
   assert.equal(buildLetterModel({ ...base, draft: true, stale: true }).stale, true);
   assert.equal(buildLetterModel({ ...base, draft: true }).stale, false);
@@ -324,8 +324,13 @@ test('the models: stale only counts for a draft, and the file name helper is unc
   const itin = { text: 'Travel itinerary\n\nA note.\n\nMon 1 Mar\nA made-up day.', reference: 'TV-ABCDEFGH', applicantName: 'Test Person', details: [] };
   assert.equal(buildItineraryModel({ ...itin, draft: true, stale: true }).stale, true);
   assert.equal(buildItineraryModel({ ...itin, draft: false, stale: true }).stale, false);
-  assert.equal(fileNameFor('TV-ABCDEFGH', 'cover_letter', { draft: true }), 'TV-ABCDEFGH-cover-letter-draft.pdf');
-  assert.equal(fileNameFor('TV-ABCDEFGH', 'itinerary'), 'TV-ABCDEFGH-itinerary.pdf');
+  // The file name: the applicant's name and the document; with no usable name, the reference form as before.
+  const named = { reference: 'TV-ABCDEFGH', answers: { q2_1: 'Test', q2_2: 'Person' } };
+  const nameless = { reference: 'TV-ABCDEFGH', answers: {} };
+  assert.equal(fileNameFor(named, 'cover_letter', { draft: true }), 'Test-Person-Cover-Letter-Draft.pdf');
+  assert.equal(fileNameFor(named, 'itinerary'), 'Test-Person-Itinerary.pdf');
+  assert.equal(fileNameFor(nameless, 'cover_letter', { draft: true }), 'TV-ABCDEFGH-cover-letter-draft.pdf');
+  assert.equal(fileNameFor(nameless, 'itinerary'), 'TV-ABCDEFGH-itinerary.pdf');
 });
 
 test('the audit model keeps pdfStale like pdfApproved: a fixed yes, immutable, and the repository returns it only when it is true', async () => {

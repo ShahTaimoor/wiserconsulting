@@ -56,7 +56,9 @@ const corsOptions = {
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  allowedHeaders: ["Content-Type", "Authorization"],
+  // The browser may read the PDF file name the server chose (the applicant's name and the document) from Content-Disposition.
+  exposedHeaders: ["Content-Disposition"],
 };
 // Two Tourist Visa protections that run BEFORE CORS and only while the feature is open (step 8j-3). While it is closed they do nothing, so a
 // closed deployment behaves exactly as before (and the feature gate below marks its own fixed answer no-store).
