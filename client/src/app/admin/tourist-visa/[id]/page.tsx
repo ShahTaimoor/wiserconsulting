@@ -13,6 +13,7 @@ import { AdminNotesPanel } from "@/components/tourist-visa/AdminNotesPanel";
 import { CoverLetterPanel } from "@/components/tourist-visa/CoverLetterPanel";
 import { ItineraryPanel } from "@/components/tourist-visa/ItineraryPanel";
 import { AdminStatusBadge } from "@/components/tourist-visa/AdminStatusBadge";
+import { BackToSectionsButton } from "@/components/tourist-visa/BackToSectionsButton";
 import { ConfirmDialog } from "@/components/tourist-visa/ConfirmDialog";
 import { notifyAdminDone, notifyAdminFailed } from "@/components/tourist-visa/notify";
 import { PdfDownloadButton } from "@/components/tourist-visa/PdfDownloadButton";
@@ -73,6 +74,8 @@ export default function AdminTouristVisaOverviewPage() {
   const [opening, setOpening] = useState<string | null>(null);
   const [held, setHeld] = useState<HeldLink | null>(null);
   const [announcement, setAnnouncement] = useState({ text: "", n: 0 });
+  // The "Jump to" section list, kept as state so the back-to-sections button follows it when it appears and goes (the editor replaces it).
+  const [sectionsPanel, setSectionsPanel] = useState<HTMLElement | null>(null);
 
   const alive = useRef(true);
   const started = useRef<string | null>(null);
@@ -508,7 +511,7 @@ export default function AdminTouristVisaOverviewPage() {
 
         <ItineraryPanel applicationId={id} reference={call.reference} status={application.status} readToken={readToken} fail={fail} announce={announce} onRecorded={() => void loadActivity()} />
 
-        <nav aria-label="Jump to a section" className="rounded-lg border border-border bg-card p-4">
+        <nav ref={setSectionsPanel} tabIndex={-1} aria-label="Jump to a section" className="scroll-mt-20 rounded-lg border border-border bg-card p-4 outline-none">
           <h2 className="mb-2 text-sm font-semibold text-foreground">Jump to</h2>
           <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
             {links.map((link) => (
@@ -590,6 +593,8 @@ export default function AdminTouristVisaOverviewPage() {
           </>
         )}
 
+        <BackToSectionsButton panel={sectionsPanel} />
+
         <ConfirmDialog
           open={confirmOpen}
           title={words?.title ?? ""}
@@ -614,7 +619,7 @@ export default function AdminTouristVisaOverviewPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-2 py-4 sm:px-4 sm:py-6">
+    <div className="mx-auto w-full max-w-4xl px-2 pb-20 pt-4 sm:px-4 sm:pb-24 sm:pt-6">
       {availability === "open" && back}
       <p key={announcement.n} role="status" aria-live="polite" className="sr-only">
         {announcement.text}
