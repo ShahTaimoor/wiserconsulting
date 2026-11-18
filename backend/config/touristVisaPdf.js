@@ -152,4 +152,19 @@ const LIMITS = Object.freeze({
   rate: Object.freeze({ windowMs: 10 * 60 * 1000, max: 20 }),
 });
 
-module.exports = { PAGE, LETTER_PAGE, ITINERARY_PAGE, MM, BRAND, PALETTE, FONT_FILES, LOGO_FILE, TEXT, PDF_TYPES, FILE_SUFFIX, LIMITS };
+/**
+ * The time zone whose calendar day is printed as the date of a cover letter (the day the PDF is exported). Europe/London, because the letter
+ * is for a UK officer: in summer (BST, UTC+1) a clock time after 23:00 UTC is already the next day. Change this one value (an IANA name, for
+ * example "UTC" or "Asia/Karachi") to print the day of another zone.
+ */
+const LETTER_DATE_ZONE = 'Europe/London';
+
+/**
+ * What the cover letter says to whom, printed by the PDF and not part of the stored text: the addressee block under the date, then the
+ * salutation. The stored text (the template, or the AI's) starts with the opening sentence and ends with the closing. A letter saved
+ * earlier that begins with a greeting of its own keeps it (the PDF prints no second one).
+ */
+const LETTER_ADDRESSEE = Object.freeze(['The Entry Clearance Officer', 'UK Visas and Immigration']);
+const LETTER_SALUTATION = 'Dear Entry Clearance Officer,';
+
+module.exports = { PAGE, LETTER_PAGE, ITINERARY_PAGE, MM, BRAND, PALETTE, FONT_FILES, LOGO_FILE, TEXT, PDF_TYPES, FILE_SUFFIX, LIMITS, LETTER_DATE_ZONE, LETTER_ADDRESSEE, LETTER_SALUTATION };

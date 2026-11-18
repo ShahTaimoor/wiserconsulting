@@ -26,7 +26,7 @@ const defaultItineraryService = require('./touristVisaItineraryService');
 const { buildItineraryFacts } = require('../shared/tourist-visa/itineraryFacts');
 const { buildReview } = require('../shared/tourist-visa/view');
 const { buildHeaderRows, buildAnswersModel, unprintableSection, renderAnswersPdf } = require('../utils/touristVisaAnswersPdf');
-const { senderOf, letterDate, buildLetterModel, unprintableIn, renderCoverLetterPdf } = require('../utils/touristVisaCoverLetterPdf');
+const { senderOf, buildLetterModel, unprintableIn, renderCoverLetterPdf } = require('../utils/touristVisaCoverLetterPdf');
 const itineraryPdf = require('../utils/touristVisaItineraryPdf');
 const { FILE_SUFFIX } = require('../config/touristVisaPdf');
 const { AppError } = require('../middleware/errorHandler');
@@ -104,8 +104,8 @@ class TouristVisaPdfService {
    * and banner on every page and "-draft" in the file name, and the audit row says it was not approved. A version that WAS approved but whose answers have changed since is
    * treated the same way, with a banner that says the answers changed since approval, and the audit row also has pdfStale true (step 8j-3, A12).
    * No letter: 404 LETTER_NOT_FOUND.
-   * The letter's words are never changed; the sender block (name and home address) comes from the answers and the date from the stored
-   * version (the day it was written, or failing that the day it was approved).
+   * The letter's words are never changed; the sender block (name and home address) comes from the answers. The date line is the day the PDF is
+   * exported (config LETTER_DATE_ZONE, UTC), and there is no reference on the letter (the file name still has it).
    */
   async coverLetterForAdmin(adminId, id) {
     const application = await this.admin.load(id);
@@ -114,8 +114,8 @@ class TouristVisaPdfService {
     // An approved version whose answers have changed since is NOT printed as approved (step 8j-3, A12): same staleness check as the admin panel.
     const stale = version.status === 'approved' && (await this.letterService.isStale(application, version));
     const draft = version.status !== 'approved' || stale;
-    const when = letterDate(version);
-    const model = buildLetterModel({ text: version.text, reference: application.reference, sender: senderOf(application.answers), date: when ? when.date : null, draft, stale });
+    // The date of the letter is the day it is exported (now), and the letter carries no reference (it stays in the file name only).
+    const model = buildLetterModel({ text: version.text, sender: senderOf(application.answers), date: this.now(), draft, stale });
 
     // Refused before anything is recorded or drawn; the character itself is never in the message.
     const unprintable = unprintableIn(model);

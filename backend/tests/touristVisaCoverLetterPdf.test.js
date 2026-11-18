@@ -25,7 +25,7 @@ const { inspectPdf, pageOf, contentStreams } = require('./helpers/pdfInspect');
 
 const C = String.fromCodePoint;
 const top = (page, item) => page.height - item.y; // from the top of the page, in points
-const { LETTER_PAGE, TEXT } = config;
+const { LETTER_PAGE, TEXT, LETTER_ADDRESSEE, LETTER_SALUTATION } = config;
 const MARGIN = LETTER_PAGE.margin;
 const SENDER = { name: 'Aisha Khan-Reynolds', addressLines: ['12 Sample Road', 'Flat 4', 'Karachi, Sindh', '75000', 'Pakistan'], email: 'aisha.khan@example.com', phone: '+44 7700 900123' };
 const ADDRESS_ROW = SENDER.addressLines.join(', ');
@@ -35,7 +35,7 @@ const REFERENCE = 'TV-K7M3QD9R';
 const CLOSING = 'Yours faithfully,\nAisha Khan-Reynolds';
 const ARABIC = C(0x645, 0x631, 0x62d, 0x628, 0x627);
 
-const model = (text, over = {}) => letter.buildLetterModel({ text, reference: REFERENCE, sender: SENDER, date: DATE, draft: false, ...over });
+const model = (text, over = {}) => letter.buildLetterModel({ text, sender: SENDER, date: DATE, draft: false, ...over });
 const render = (m) => letter.renderCoverLetterPdf(m);
 const pdfOf = async (text, over) => inspectPdf(await render(model(text, over)));
 const visit = (n) => Array.from({ length: n }, () => 'visit').join(' '); // a paragraph of about n words (every line of it holds the word "visit")
@@ -64,11 +64,12 @@ function realLetter() {
 // The stored text, as it is
 // ---------------------------------------------------------------------------
 
-test('the real structure of a stored letter is read as it is: the salutation, the paragraphs, and the closing with the name under it', () => {
+test('the real structure of a stored letter is read as it is: the opening sentence first (no greeting is stored), the paragraphs, and the closing with the name under it', () => {
   const text = realLetter();
   const parsed = letter.parseLetter(text);
-  assert.deepEqual(parsed.blocks[0], ['Dear Sir or Madam,']);
-  assert.ok(parsed.blocks.length >= 6);
+  assert.deepEqual(parsed.blocks[0], ['I am writing in support of my application for a UK Standard Visitor visa.']);
+  assert.equal(parsed.blocks.some((block) => /^Dear\b/.test(block[0])), false, 'the stored text has no greeting');
+  assert.ok(parsed.blocks.length >= 5);
   assert.deepEqual(parsed.closing, ['Yours faithfully,', 'Aisha Khan-Reynolds']);
   // Nothing is lost or added: the blocks and the closing put back together are the stored text.
   const again = [...parsed.blocks.map((b) => b.join('\n')), parsed.closing.join('\n')].join('\n\n');
@@ -104,22 +105,34 @@ test('the sender block is the name and the home address from the answers, only w
   assert.deepEqual(letter.senderOf({ q2_1: 'Aisha', q2_4: 'a@example.com' }), { name: 'Aisha', addressLines: [], email: 'a@example.com', phone: '' }, 'only the contact details the answers hold');
 });
 
-test('the date of the letter is the date its version was written; failing that, the date it was approved; failing that, none', () => {
-  const written = new Date('2026-11-03T10:00:00Z');
-  const approved = new Date('2026-11-09T08:00:00Z');
-  assert.deepEqual(letter.letterDate({ createdAt: written, approvedAt: approved }), { date: written, source: 'written' });
-  assert.deepEqual(letter.letterDate({ approvedAt: approved }), { date: approved, source: 'approved' });
-  assert.deepEqual(letter.letterDate({ createdAt: 'not a date', approvedAt: approved }), { date: approved, source: 'approved' });
-  assert.equal(letter.letterDate({}), null);
-  assert.equal(letter.letterDate(null), null);
-  assert.equal(letter.formatLetterDate(new Date('2026-11-03T23:30:00Z')), '3 November 2026');
+test('the date line is the day the PDF is made, in UK long form, in the zone LETTER_DATE_ZONE (Europe/London); a value that is not a date prints nothing', () => {
+  assert.equal(config.LETTER_DATE_ZONE, 'Europe/London');
+  assert.equal(letter.formatLetterDate(new Date('2026-11-18T09:30:00Z')), '18 November 2026');
+  // Winter (GMT, the same as UTC): 23:30 is still the same day, and midnight is the new day.
+  assert.equal(letter.formatLetterDate(new Date('2026-11-03T23:30:00Z')), '3 November 2026', 'winter: London is on UTC, so 23:30 UTC is still the 3rd');
+  assert.equal(letter.formatLetterDate(new Date('2026-11-04T00:00:00Z')), '4 November 2026', 'midnight UTC is the new day');
+  // Summer (BST, UTC+1): 23:30 UTC is already 00:30 the NEXT day in London.
+  assert.equal(letter.formatLetterDate(new Date('2026-07-15T23:30:00Z')), '16 July 2026', 'summer: 23:30 UTC is 00:30 BST, the next day in London');
+  assert.equal(letter.formatLetterDate(new Date('2026-07-15T22:59:00Z')), '15 July 2026', 'summer: 22:59 UTC is 23:59 BST, still the same day');
+  assert.equal(letter.formatLetterDate(new Date('2026-07-15T23:00:00Z')), '16 July 2026', 'summer: 23:00 UTC is midnight BST, the new day');
+  // The clocks change on the last Sunday of March and October: the rule follows them.
+  assert.equal(letter.formatLetterDate(new Date('2026-03-28T23:30:00Z')), '28 March 2026', 'the night before the clocks go forward (still GMT)');
+  assert.equal(letter.formatLetterDate(new Date('2026-03-29T23:30:00Z')), '30 March 2026', 'the day the clocks went forward (BST): the next day');
+  assert.equal(letter.formatLetterDate(new Date('2026-10-24T23:30:00Z')), '25 October 2026', 'the night before the clocks go back (BST): the next day');
+  assert.equal(letter.formatLetterDate(new Date('2026-10-25T23:30:00Z')), '25 October 2026', 'after the clocks went back (GMT): the same day');
+  assert.equal(letter.formatLetterDate(new Date('2027-01-05T12:00:00Z')), '5 January 2027', 'no leading zero on the day');
+  for (const bad of [null, undefined, 'not a date', 12345, new Date('nonsense'), {}]) assert.equal(letter.formatLetterDate(bad), '', String(bad));
+  assert.equal(letter.letterDate, undefined, 'the old written/approved date rule is gone');
+  // A letter built with no date has no date line text; one built with a Date has it.
+  assert.equal(letter.buildLetterModel({ text: 'Dear Sir,\n\nHi.', sender: SENDER, draft: false }).dateText, '');
+  assert.equal(letter.buildLetterModel({ text: 'Dear Sir,\n\nHi.', sender: SENDER, date: new Date('2026-11-18T09:30:00Z'), draft: false }).dateText, '18 November 2026');
 });
 
 // ---------------------------------------------------------------------------
 // A very short letter: one page, the furniture, the type
 // ---------------------------------------------------------------------------
 
-test('a very short letter is one A4 page with generous margins: the letterhead top left, the contact row, the date and the reference on one line, and a slim footer with Page 1 of 1', async () => {
+test('a very short letter is one A4 page with generous margins: the letterhead top left, the contact row, the date on a line of its own, and a slim footer with Page 1 of 1', async () => {
   const pdf = await pdfOf(`Dear Sir or Madam,\n\nI am writing to apply.\n\n${CLOSING}`);
   assert.equal(pdf.numPages, 1);
   const page = pdf.pages[0];
@@ -140,16 +153,13 @@ test('a very short letter is one A4 page with generous margins: the letterhead t
   assert.ok(Math.abs(address.x - MARGIN) < 1.5 && address.x < email.x && email.x < phone.x, 'left to right from the margin');
   assert.ok(Math.abs(address.y - email.y) < 1 && Math.abs(email.y - phone.y) < 1, 'on one row');
   assert.ok(address.y < name.y, 'under the name');
-  // The date on the left and the reference on the right, on one tidy line under the letterhead.
+  // The date on a line of its own under the letterhead, at the left margin like the body; no reference and no REFERENCE label anywhere.
   const date = page.items.find((i) => i.str === '3 November 2026');
-  const value = page.items.find((i) => i.str === REFERENCE);
-  const label = page.items.find((i) => i.str === 'REFERENCE');
-  assert.ok(date && value && label);
+  assert.ok(date, 'the date is printed in UK long form');
   assert.ok(Math.abs(date.x - MARGIN) < 1.5, 'the date is at the left margin');
-  assert.ok(Math.abs(value.x + value.width - (page.width - MARGIN)) < 2, 'the reference ends at the right margin');
-  assert.ok(label.x + label.width < value.x, 'with its label before it');
-  assert.ok(Math.abs(date.y - value.y) < 1, 'on one line');
   assert.ok(date.y < address.y, 'under the letterhead');
+  assert.equal(page.items.some((i) => i.str.includes(REFERENCE) || i.str === 'REFERENCE'), false, 'no reference and no label');
+  assert.equal(page.items.filter((i) => i.str === '3 November 2026' || Math.abs(i.y - date.y) < 1).length, 1, 'nothing else on the date line');
   // The body is Source Serif 4 at 11 pt in a column of about 70 characters.
   const body = page.items.find((i) => i.str === 'Dear Sir or Madam,');
   assert.ok(/SourceSerif4/.test(body.font), body.font);
@@ -160,16 +170,15 @@ test('a very short letter is one A4 page with generous margins: the letterhead t
   const signed = page.lines.find((l) => l.text === 'Aisha Khan-Reynolds' && l.items.every((i) => /SourceSerif4/.test(i.font)));
   assert.ok(yours && signed);
   assert.ok(yours.y - signed.y >= 56, `room to sign: ${yours.y - signed.y}`);
-  // A slim footer: the reference, who prepared it, and Page X of Y even for a single page; nothing like the summary's disclaimer or logo.
+  // A slim footer: who prepared it (no reference), and Page X of Y even for a single page; nothing like the summary's disclaimer or logo.
   const footer = page.items.filter((i) => i.y < MARGIN + LETTER_PAGE.footer.height).map((i) => i.str).join(' ');
-  assert.match(footer, new RegExp(`${REFERENCE} . Prepared by Wiser Consulting`));
-  assert.ok(footer.includes('Page 1 of 1'), footer);
+  assert.match(footer, /^Prepared by Wiser Consulting\s+Page 1 of 1$/);
   assert.equal(pdf.text.includes('not an official'), false);
   assert.equal((pdf.raw.match(/\/Subtype\s*\/Image/g) || []).length, 0, 'no logo or picture on the letter');
 });
 
 test('the contact row holds only what the answers hold, and wraps rather than overflowing', async () => {
-  const only = async (sender) => inspectPdf(await render(letter.buildLetterModel({ text: `Dear Sir,\n\nHello.\n\n${CLOSING}`, reference: REFERENCE, sender, date: DATE, draft: false })));
+  const only = async (sender) => inspectPdf(await render(letter.buildLetterModel({ text: `Dear Sir,\n\nHello.\n\n${CLOSING}`, sender, date: DATE, draft: false })));
   const none = await only({ name: 'Aisha Khan-Reynolds', addressLines: [], email: '', phone: '' });
   assert.equal(none.pages[0].items.some((i) => i.str.includes('@')), false, 'no email, none printed');
   assert.ok(none.pages[0].items.some((i) => i.str === 'Aisha Khan-Reynolds' && DISPLAY.test(i.font)), 'the name is still the letterhead');
@@ -201,12 +210,17 @@ test('the letter is only its own words: the body text of the file is the stored 
   lines = lines.filter((l) => !furniture(l));
   const printed = lines.map((l) => l.text).join(' ').replace(/\s+/g, ' ').trim();
   const stored = text.replace(/\s+/g, ' ').trim();
-  assert.equal(printed, stored);
+  // What the PDF adds above the stored text is the addressee block and the salutation (fixed wording, printed by the builder); after them the
+  // stored text is printed word for word.
+  assert.equal(printed, `${LETTER_ADDRESSEE.join(' ')} ${LETTER_SALUTATION} ${stored}`);
 });
 
 test('no page of a letter looks like a government document: no crest, no government name, no barcode, no reference number of an official kind', async () => {
   const pdf = await pdfOf(realLetter());
-  for (const forbidden of [/UK Visas/i, /Immigration/, /Home Office/i, /HM Government/i, /GWF/, /Partially completed/i, /Crown/, /barcode/i]) assert.equal(forbidden.test(pdf.text), false, String(forbidden));
+  // The addressee block names "UK Visas and Immigration" in words, as any letter to the officer would; nothing else official is printed.
+  for (const forbidden of [/Home Office/i, /HM Government/i, /GWF/, /Partially completed/i, /Crown/, /barcode/i, /Border Force/i]) assert.equal(forbidden.test(pdf.text), false, String(forbidden));
+  assert.equal((pdf.text.match(/UK Visas and Immigration/g) || []).length, 1, 'the name appears once, as the addressee');
+  assert.equal((pdf.text.match(/Immigration/g) || []).length, 1);
   assert.equal((pdf.raw.match(/\/Subtype\s*\/Image/g) || []).length, 0);
 });
 
@@ -266,7 +280,8 @@ test('a long letter flows to further pages with a continuation header (the sende
     }
     const footer = page.items.filter((i) => i.y < MARGIN + LETTER_PAGE.footer.height).map((i) => i.str).join(' ');
     assert.ok(footer.includes(`Page ${page.number} of ${pdf.numPages}`), `page ${page.number}: Page X of Y`);
-    assert.ok(footer.includes(`${REFERENCE}`) && footer.includes('Prepared by Wiser Consulting'));
+    assert.ok(footer.includes('Prepared by Wiser Consulting'));
+    assert.equal(footer.includes(REFERENCE), false, `page ${page.number}: the footer has no reference`);
   });
 });
 
@@ -346,9 +361,9 @@ test('typographic characters become plain ones: curly quotes, en and em dashes, 
 test('text the fonts cannot print is found before anything is drawn: in the letter, in the sender block or in the date; the text is never returned', () => {
   assert.equal(letter.unprintableIn(model(`Dear Sir,\n\nA trip to ${ARABIC} soon.\n\n${CLOSING}`)), 'letter');
   assert.equal(letter.unprintableIn(model(`Dear Sir,\n\nFine.\n\nYours faithfully,\n${ARABIC}`)), 'letter');
-  assert.equal(letter.unprintableIn(letter.buildLetterModel({ text: 'Dear Sir,\n\nFine.', reference: REFERENCE, sender: { name: ARABIC, addressLines: [] }, date: DATE, draft: false })), 'sender');
-  assert.equal(letter.unprintableIn(letter.buildLetterModel({ text: 'Dear Sir,\n\nFine.', reference: REFERENCE, sender: { name: 'Aisha', addressLines: [`1 ${C(0x5317)}${C(0x4eac)} Road`] }, date: DATE, draft: false })), 'sender');
-  for (const contact of [{ email: `${ARABIC}@example.com` }, { phone: `+44 ${ARABIC}` }]) assert.equal(letter.unprintableIn(letter.buildLetterModel({ text: 'Dear Sir,\n\nFine.', reference: REFERENCE, sender: { name: 'Aisha', addressLines: [], email: '', phone: '', ...contact }, date: DATE, draft: false })), 'sender', 'the email and the telephone are checked too');
+  assert.equal(letter.unprintableIn(letter.buildLetterModel({ text: 'Dear Sir,\n\nFine.', sender: { name: ARABIC, addressLines: [] }, date: DATE, draft: false })), 'sender');
+  assert.equal(letter.unprintableIn(letter.buildLetterModel({ text: 'Dear Sir,\n\nFine.', sender: { name: 'Aisha', addressLines: [`1 ${C(0x5317)}${C(0x4eac)} Road`] }, date: DATE, draft: false })), 'sender');
+  for (const contact of [{ email: `${ARABIC}@example.com` }, { phone: `+44 ${ARABIC}` }]) assert.equal(letter.unprintableIn(letter.buildLetterModel({ text: 'Dear Sir,\n\nFine.', sender: { name: 'Aisha', addressLines: [], email: '', phone: '', ...contact }, date: DATE, draft: false })), 'sender', 'the email and the telephone are checked too');
   for (const bad of [C(0x5317), C(0xe0e), C(0x5d0), C(0x939), C(0x1f600)]) assert.equal(letter.unprintableIn(model(`Dear Sir,\n\nA ${bad} here.\n\n${CLOSING}`)), 'letter');
   // Typographic characters are made plain first, so they are never a reason to refuse; accents and the pound sign are printable.
   assert.equal(letter.unprintableIn(model(`Dear Sir,\n\n${C(0x201c)}Caf${C(0xe9)}${C(0x201d)} ${C(0x2014)} ${C(0xa3)}5${C(0x2026)} ${C(0x2011)}\n\n${CLOSING}`)), null);
@@ -582,10 +597,10 @@ test('the tightest letter that still fits is set at 10.5 pt or more on a line of
   const limit = nominalLimit(false);
   let tightest = null;
   for (let e = limit + 1; e <= limit + 25; e += 1) {
-    const fit = letter.fitOf(model(withExtra(e)));
-    if (fit && fit.index === letter.FIT_STEPS.length - 1) tightest = e;
+    if (letter.fitOf(model(withExtra(e)))) tightest = e; // the longest letter that still fits on one page
   }
-  assert.ok(tightest, 'some letter needs the last step');
+  assert.ok(tightest, 'some letter needs tightening');
+  assert.ok(letter.fitOf(model(withExtra(tightest))).index >= letter.FIT_STEPS.length - 2, 'the longest letter that fits needs one of the last two steps');
   const pdf = await pdfOf(withExtra(tightest));
   assert.equal(pdf.numPages, 1);
   const sizes = pdf.pages[0].items.filter((i) => /^visit/.test(i.str)).map((i) => i.size);

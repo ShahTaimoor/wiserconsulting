@@ -67,7 +67,8 @@ function buildTemplate(facts) {
   const v = facts.values || {};
   const raw = facts.raw || {};
   const entries = facts.entries || {};
-  const paragraphs = ['Dear Sir or Madam,', 'I am writing in support of my application for a UK Standard Visitor visa.'];
+  // No greeting: the PDF prints the addressee and "Dear Entry Clearance Officer," above the stored text.
+  const paragraphs = ['I am writing in support of my application for a UK Standard Visitor visa.'];
   const add = (parts) => { const filled = parts.filter(Boolean); if (filled.length) paragraphs.push(filled.join(' ')); };
 
   // The visit
