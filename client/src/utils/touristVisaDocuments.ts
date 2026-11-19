@@ -18,6 +18,7 @@ export type DocumentErrorCode =
   | "FILE_EMPTY"
   | "INVALID_SLOT"
   | "INVALID_UPLOAD"
+  | "SLOT_NOT_AVAILABLE"
   | "WRONG_TYPE"
   | "FILE_TOO_LARGE"
   | "TOO_MANY_FILES"
@@ -34,6 +35,7 @@ export const DOCUMENT_ERROR_CODES: readonly DocumentErrorCode[] = [
   "FILE_EMPTY",
   "INVALID_SLOT",
   "INVALID_UPLOAD",
+  "SLOT_NOT_AVAILABLE",
   "WRONG_TYPE",
   "FILE_TOO_LARGE",
   "TOO_MANY_FILES",
@@ -91,6 +93,8 @@ export function documentErrorMessage(
       return "We couldn't tell where this file belongs. Please reload the page and try again.";
     case "INVALID_UPLOAD":
       return "We couldn't read that upload. Please try again.";
+    case "SLOT_NOT_AVAILABLE":
+      return "This document is not on your list any more, because of your answers. Please reload the page to see your list.";
     case "WRONG_TYPE":
       return `Only ${allowedTypesText(limits ?? null)} files can be uploaded.`;
     case "FILE_TOO_LARGE":

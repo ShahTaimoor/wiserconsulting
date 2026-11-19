@@ -75,6 +75,8 @@ export interface AdminOverview {
   documents: AdminFile[];
   /** Question id of each file question -> its slot, so a row of files can be matched to its documents. */
   fileSlots: Record<string, string>;
+  /** Files whose slot is not on this applicant's list for their answers (kept; shown in their own row). */
+  otherDocuments: AdminFile[];
 }
 
 export type AuditAction =

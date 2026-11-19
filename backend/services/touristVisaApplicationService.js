@@ -138,17 +138,18 @@ class TouristVisaApplicationService {
       if (state === "saved" && !this.sectionStillValid(section.id, view.answers)) statuses[section.id] = "needs_review";
       else if (state) statuses[section.id] = state;
     }
-    // A section made only of file questions (10D) has no stored status: it follows the uploaded files.
-    // Not started with no files, in progress with some, saved once every slot has one. Saving a draft never needs
-    // them; `documentsComplete` is what the submit step (8d) must check.
+    // A section made only of file questions (10D) has no stored status: it follows the uploaded files, for the slots that are on
+    // this applicant's list (a slot hidden by their answers is ignored, and an optional slot never blocks). Not started with no
+    // files, in progress with some, saved once every required slot has one. Saving a draft never needs them;
+    // `documentsComplete` is what the submit step (8d) must check.
     for (const section of engine.getVisibleSections(this.config, view.answers)) {
       if (!engine.isFilesOnlySection(this.config, section.id)) continue;
-      const { state } = engine.documentsStatus(this.config, view.documents, section.id);
+      const { state } = engine.documentsStatus(this.config, view.documents, section.id, view.answers);
       if (state === "complete") statuses[section.id] = "saved";
       else if (state === "in_progress") statuses[section.id] = "in_progress";
       else delete statuses[section.id];
     }
-    view.documentsComplete = engine.documentsComplete(this.config, view.documents);
+    view.documentsComplete = engine.documentsComplete(this.config, view.documents, view.answers);
     view.sectionStatus = statuses;
     view.currentSection = this.resumeSection(statuses, view.answers);
     return view;
@@ -274,7 +275,7 @@ class TouristVisaApplicationService {
     for (const section of engine.getVisibleSections(cfg, view.answers)) {
       let problems = 0;
       if (engine.isFilesOnlySection(cfg, section.id)) {
-        problems = engine.documentsStatus(cfg, view.documents, section.id).slots.filter((slot) => slot.count === 0).length;
+        problems = engine.documentsStatus(cfg, view.documents, section.id, view.answers).slots.filter((slot) => slot.required && slot.count === 0).length;
       } else {
         const stored = {};
         for (const id of this.sectionKeys(section.id)) if (view.answers[id] !== undefined) stored[id] = view.answers[id];

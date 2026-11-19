@@ -277,7 +277,7 @@ test("payload: file questions are skipped, entry-level conditions are honoured",
       { id: "q1_1", number: "1.1", type: "YN" },
       { id: "q1_2", number: "1.2", type: "SEL", group: "trips", options: [{ value: "a", label: "A" }, { value: "b", label: "B" }] },
       { id: "q1_3", number: "1.3", type: "TXT", group: "trips", showWhen: { q: "q1_2", eq: "b" } },
-      { id: "q1_4", number: "1.4", type: "FILE", slot: "doc" },
+      { id: "q1_4", number: "1.4", type: "FILE", slot: "doc", maxFiles: 2 },
     ],
     [{ id: "trips", gate: "q1_1", questions: ["q1_2", "q1_3"] }]
   );

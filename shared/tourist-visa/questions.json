@@ -1,10 +1,10 @@
 {
-  "version": "1.4.0",
+  "version": "1.4.1",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
     "groupMax": 20,
-    "note": "Text answers: up to 200 characters for a short answer, up to 5,000 for a long one, and up to 20 entries in a repeating group. Documents: PDF, JPG or PNG, up to 4 MB per file and 40 MB in all; the passport up to 3 files and the evidence of funds up to 10. The values that are enforced for documents are in backend/config/touristVisaDocuments.js."
+    "note": "Text answers: up to 200 characters for a short answer, up to 5,000 for a long one, and up to 20 entries in a repeating group. Documents: PDF, JPG or PNG, up to 4 MB per file and 120 MB in all; the passport up to 3 files and the evidence of funds up to 10. The values that are enforced for documents are in backend/config/touristVisaDocuments.js."
   },
   "parts": [
     { "id": "1", "title": "Travel information" },
@@ -2576,6 +2576,7 @@
       "label": "Your passport or travel document",
       "type": "FILE",
       "slot": "passport",
+      "maxFiles": 3,
       "required": true,
       "help": "A clear scan or photo of the page with your photo and personal details. You can upload up to 3 files, for example if the page does not fit in one picture."
     },
@@ -2586,6 +2587,7 @@
       "label": "Evidence of funds",
       "type": "FILE",
       "slot": "funds",
+      "maxFiles": 10,
       "required": true,
       "help": "Documents that show money available to you which you can clearly access, for example recent bank statements. You can upload up to 10 files."
     }

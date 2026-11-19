@@ -22,7 +22,7 @@ import { useAppDispatch } from "@/redux/hooks";
 import { logout } from "@/redux/slices/auth/authSlice";
 import type { ReviewRow } from "@/shared/tourist-visa/view";
 import { touristVisaService, TouristVisaApiError } from "@/services/touristVisaService";
-import type { ActivityRow, AdminFlag, AdminOverview, AdminStatus, ChangeRecordView } from "@/services/touristVisaAdminTypes";
+import type { ActivityRow, AdminFile, AdminFlag, AdminOverview, AdminStatus, ChangeRecordView } from "@/services/touristVisaAdminTypes";
 import { AvailabilityLoading, ClosedNotice } from "@/components/tourist-visa/ClosedNotice";
 import { useTouristVisaAvailability } from "@/hooks/useTouristVisaOpen";
 import { formatBytes } from "@/utils/touristVisaDocuments";
@@ -314,11 +314,9 @@ export default function AdminTouristVisaOverviewPage() {
     [announce]
   );
 
-  const renderFiles = useCallback(
-    (row: ReviewRow) => {
-      if (!overview) return null;
-      const files = filesOfRow(row.id, overview.fileSlots, overview.documents);
-      if (files.length === 0) return <span className="italic text-muted-foreground">{row.value}</span>;
+  /** A list of files, each with its Open button and the two-minute link once opened. Used by the file rows and by "Not on this applicant's list". */
+  const renderFileList = useCallback(
+    (files: AdminFile[]) => {
       return (
         <ul className="space-y-2">
           {files.map((file) => (
@@ -350,7 +348,17 @@ export default function AdminTouristVisaOverviewPage() {
         </ul>
       );
     },
-    [overview, opening, held, openFile]
+    [opening, held, openFile]
+  );
+
+  const renderFiles = useCallback(
+    (row: ReviewRow) => {
+      if (!overview) return null;
+      const files = filesOfRow(row.id, overview.fileSlots, overview.documents);
+      if (files.length === 0) return <span className="italic text-muted-foreground">{row.value}</span>;
+      return renderFileList(files);
+    },
+    [overview, renderFileList]
   );
 
   const back = (
@@ -553,6 +561,18 @@ export default function AdminTouristVisaOverviewPage() {
             ) : null
           }
         />
+
+        {(overview.otherDocuments ?? []).length > 0 && (
+          <section aria-labelledby="other-files-heading" data-testid="other-files" className="rounded-lg border border-dashed border-border bg-card p-4 text-card-foreground sm:p-6">
+            <h2 id="other-files-heading" className="text-lg font-semibold text-foreground">
+              Not on this applicant&apos;s list
+            </h2>
+            <p className="mt-1 mb-3 text-sm text-muted-foreground">
+              Files uploaded for documents that are not on this applicant&apos;s list for their current answers. They are kept, and they do not count as missing or needed.
+            </p>
+            {renderFileList(overview.otherDocuments ?? [])}
+          </section>
+        )}
 
         <AdminChangesPanel history={history} error={historyError} onRetry={() => void loadHistory()} />
 

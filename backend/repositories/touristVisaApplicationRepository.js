@@ -239,11 +239,14 @@ class TouristVisaApplicationRepository {
   // Documents (the uploaded files; the file itself lives in private storage)
   // -------------------------------------------------------------------------
 
-  /** The applicant's latest application with only what the document routes need: status and document references. */
+  /**
+   * The applicant's latest application with only what the document routes need: status, document references and the answers
+   * (as stored, so the caller decrypts them: they decide which document slots are on the applicant's list).
+   */
   async findDocumentContext(applicantId) {
     return TouristVisaApplication.findOne({ applicant: applicantId, isDeleted: false })
       .sort({ createdAt: -1 })
-      .select("status documents")
+      .select("status documents answers")
       .lean();
   }
 

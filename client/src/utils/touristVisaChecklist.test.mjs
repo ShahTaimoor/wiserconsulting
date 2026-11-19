@@ -202,12 +202,12 @@ test("10D: a complete documents section counts as saved on the dashboard, an in-
 test("10D: the row says how many files each slot has", () => {
   const detail = (documents) => row10D({ sectionStatus: {}, answers: {}, documents }).detail;
   assert.equal(detail([]), "No files uploaded yet");
-  assert.equal(detail([doc("passport")]), "1 passport file");
-  assert.equal(detail([doc("passport"), doc("funds"), doc("funds", 2)]), "1 passport file, 2 funds files");
-  assert.equal(detail([doc("passport"), doc("passport", 2), doc("passport", 3), doc("funds")]), "3 passport files, 1 funds file");
-  assert.equal(detail([doc("funds", 1), doc("funds", 2)]), "2 funds files", "a slot with no files is left out");
-  assert.equal(documentSummary(config, undefined), "No files uploaded yet");
-  assert.equal(documentSummary(config, [doc("passport")], "10D"), "1 passport file");
+  assert.equal(detail([doc("passport")]), "Your passport or travel document (1 file)");
+  assert.equal(detail([doc("passport"), doc("funds"), doc("funds", 2)]), "Your passport or travel document (1 file), Evidence of funds (2 files)");
+  assert.equal(detail([doc("passport"), doc("passport", 2), doc("passport", 3), doc("funds")]), "Your passport or travel document (3 files), Evidence of funds (1 file)");
+  assert.equal(detail([doc("funds", 1), doc("funds", 2)]), "Evidence of funds (2 files)", "a slot with no files is left out");
+  assert.equal(documentSummary(config, undefined, undefined, {}), "No files uploaded yet");
+  assert.equal(documentSummary(config, [doc("passport")], "10D", {}), "Your passport or travel document (1 file)");
 });
 
 test("only the documents row has a detail line", () => {

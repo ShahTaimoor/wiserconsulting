@@ -20,9 +20,9 @@ const MB = 1024 * 1024;
 const file = (name, size, type) => ({ name, size, type });
 const doc = (slot, size = 1000) => ({ slot, size });
 
-test("the limits the tests use are the agreed ones: 4 MB a file, 3 passport and 10 funds files, 40 MB in all", () => {
+test("the limits the tests use are the agreed ones: 4 MB a file, 3 passport and 10 funds files, 120 MB in all", () => {
   assert.equal(limits.maxFileBytes, 4 * MB);
-  assert.equal(limits.maxTotalBytes, 40 * MB);
+  assert.equal(limits.maxTotalBytes, 120 * MB);
   assert.deepEqual(limits.slots, { passport: { max: 3 }, funds: { max: 10 } });
   assert.deepEqual(limits.allowedTypes, ["application/pdf", "image/jpeg", "image/png"]);
 });
@@ -132,11 +132,12 @@ test("messages that the server also words say the same thing, with the numbers f
   assert.match(documentErrorMessage("TOO_MANY_FILES", { limits, slot: "passport" }), /most files allowed here \(3\)/);
   assert.match(documentErrorMessage("TOO_MANY_FILES", { limits, slot: "funds" }), /most files allowed here \(10\)/);
   assert.match(documentErrorMessage("TOO_MANY_FILES"), /most files allowed here/);
-  assert.match(documentErrorMessage("TOTAL_TOO_LARGE", { limits }), /together.*up to 40 MB/);
+  assert.match(documentErrorMessage("TOTAL_TOO_LARGE", { limits }), /together.*up to 120 MB/);
   assert.match(documentErrorMessage("DOCUMENTS_LOCKED"), /submitted/);
   assert.match(documentErrorMessage("FILE_EMPTY"), /empty/);
   assert.match(documentErrorMessage("STORAGE_UNAVAILABLE"), /our side/);
   assert.match(documentErrorMessage("TOO_MANY_UPLOADS"), /wait/);
+  assert.match(documentErrorMessage("SLOT_NOT_AVAILABLE"), /not on your list/);
 });
 
 test("the browser check and the server answer read the same: both go through one message function", () => {

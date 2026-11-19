@@ -932,9 +932,33 @@ test('adapter: missing variables are reported by name only, and an unconfigured 
   assert.equal(new R2DocumentStorage({ env: {} }).isConfigured(), false);
 });
 
+test('the slots in the backend and the FILE questions of the shared config cannot drift apart: same ids, same maximum, same question numbers', () => {
+  const raw = require('../shared/tourist-visa/questions.json'); // read as plain data, not through the engine, so this is an independent comparison
+  const fileQuestions = raw.questions.filter((q) => q.type === 'FILE');
+  assert.deepEqual(Object.keys(limits.SLOTS), fileQuestions.map((q) => q.slot), 'the same slot ids, in the same order');
+  for (const q of fileQuestions) {
+    assert.equal(limits.SLOTS[q.slot].max, q.maxFiles, `${q.slot}: same maximum number of files`);
+    assert.equal(limits.SLOTS[q.slot].question, q.number, `${q.slot}: same question number`);
+    assert.equal(limits.SLOTS[q.slot].questionId, q.id, `${q.slot}: same question id`);
+  }
+  // what the server tells the page is the same list
+  assert.deepEqual(limits.publicLimits().slots, Object.fromEntries(fileQuestions.map((q) => [q.slot, { max: q.maxFiles }])));
+  // the slots that exist today are never renamed or dropped (stored files keep their slot id)
+  assert.equal(limits.SLOTS.passport.max, 3);
+  assert.equal(limits.SLOTS.funds.max, 10);
+  // the model takes any slot id, so a file stored under a slot a later config no longer lists never makes a write fail
+  assert.equal(TouristVisaApplication.schema.path('documents').schema.path('slot').enumValues.length, 0);
+  // and a different config gives its own list
+  const other = JSON.parse(JSON.stringify(raw));
+  other.questions.find((q) => q.slot === 'funds').maxFiles = 7;
+  assert.equal(limits.slotsOf(other).funds.max, 7);
+});
+
 test('constants: the limits are the agreed ones, in one place', () => {
   assert.equal(limits.MAX_FILE_BYTES, 4 * 1024 * 1024);
-  assert.equal(limits.MAX_TOTAL_BYTES, 40 * 1024 * 1024);
+  assert.equal(limits.MAX_TOTAL_BYTES, 120 * 1024 * 1024);
+  assert.equal(limits.UPLOAD_RATE.max, 120);
+  assert.equal(limits.UPLOAD_RATE.windowMs, 60 * 60 * 1000);
   assert.deepEqual(Object.fromEntries(Object.entries(limits.SLOTS).map(([id, s]) => [id, s.max])), { passport: 3, funds: 10 });
   assert.deepEqual(Object.keys(limits.FILE_TYPES), ['pdf', 'jpg', 'png']);
   assert.equal(limits.LINK_TTL_SECONDS, 120);

@@ -116,6 +116,8 @@ class TouristVisaAdminService {
 
     const fileSlots = {};
     for (const question of engine.getFileQuestions(cfg)) fileSlots[question.id] = question.slot;
+    // Files in a slot that is not on this applicant's list (hidden by their answers, or not in the config): kept, listed apart.
+    const orphans = new Set(engine.getOrphanDocuments(cfg, files, application.answers || {}));
 
     return {
       application: {
@@ -134,6 +136,7 @@ class TouristVisaAdminService {
       review,
       documents: files,
       fileSlots,
+      otherDocuments: files.filter((file) => orphans.has(file)),
     };
   }
 

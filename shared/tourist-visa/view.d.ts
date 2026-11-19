@@ -31,6 +31,8 @@ export interface ReviewRow {
   correctedByTeam?: string;
   /** kind "files". */
   files?: ReviewFile[];
+  /** kind "files": true for an optional document slot (an empty one reads "Not answered"). */
+  optional?: boolean;
   /** kind "group": one numbered item per entry. */
   entries?: Array<{ title: string; rows: ReviewRow[] }>;
 }
