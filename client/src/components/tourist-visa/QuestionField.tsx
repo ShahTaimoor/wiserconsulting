@@ -76,7 +76,7 @@ export function QuestionField({ cfg, question, idBase, value, onChange, options,
 
   const labelText = (
     <>
-      <span className="mr-2 font-normal text-muted-foreground">{question.number}</span>
+      {!question.otherOf && <span className="mr-2 font-normal text-muted-foreground">{question.number}</span>}
       {question.label}
       {question.required ? (
         <>
@@ -181,7 +181,7 @@ export function QuestionField({ cfg, question, idBase, value, onChange, options,
   }
 
   return (
-    <div className="space-y-2" data-question-id={question.id}>
+    <div className={`space-y-2${question.otherOf ? " ml-1 border-l-2 border-border pl-4" : ""}`} data-question-id={question.id}>
       <Label htmlFor={idBase} className="items-start text-sm font-medium leading-snug">
         <span>{labelText}</span>
       </Label>

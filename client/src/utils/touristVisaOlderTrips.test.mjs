@@ -17,12 +17,12 @@ const question = (id) => cfg.questions.find((q) => q.id === id);
 const TOO_RECENT = "Trips in the last 10 years go in the travel history above.";
 
 test("section 8 lists the recent trips first and then 8.3 with its own group, and the ids of Part 8 are the same as before", () => {
-  const ids = sectionItems(cfg, "8").map((i) => (i.kind === "question" ? i.question.id : `group:${i.group.id}`));
+  const ids = sectionItems(cfg, "8").map((i) => (i.kind === "question" ? i.question.id : `group:${i.group.id}`)).filter((id) => !id.endsWith("_other"));
   assert.deepEqual(ids, ["q8_1", "q8_1a", "q8_2", "group:otherCountryTrips", "q8_3", "group:olderCountryTrips"]);
-  assert.deepEqual([...sectionKeys(cfg, "8")].sort(), ["otherCountryTrips", "olderCountryTrips", "q8_1", "q8_1a", "q8_2", "q8_3"].sort());
+  assert.deepEqual([...sectionKeys(cfg, "8")].filter((id) => !id.endsWith("_other")).sort(), ["otherCountryTrips", "olderCountryTrips", "q8_1", "q8_1a", "q8_2", "q8_3"].sort());
   const group = sectionItems(cfg, "8").find((i) => i.kind === "group" && i.group.id === "olderCountryTrips");
-  assert.deepEqual(group.members.map((m) => m.id), ["q8_3a", "q8_3b", "q8_3c", "q8_3d"]);
-  assert.ok(group.members.every((m) => m.required === true), "every field is required");
+  assert.deepEqual(group.members.map((m) => m.id).filter((id) => !id.endsWith("_other")), ["q8_3a", "q8_3b", "q8_3c", "q8_3d"]);
+  assert.ok(group.members.every((m) => m.required === true), "every field is required (the text box of an Other answer too, whenever it is shown)");
   assert.equal(question("q8_3").required, true);
 });
 

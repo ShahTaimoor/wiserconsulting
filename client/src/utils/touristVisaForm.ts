@@ -360,6 +360,12 @@ export function withoutEntryErrors(errors: Record<string, string>, groupId: stri
   return out;
 }
 
+/** The name of a question in a list of errors. The text box of an Other answer says whose answer it is. */
+function questionName(cfg: TouristVisaConfig, question: Question): string {
+  const owner = question.otherOf ? cfg.questions.find((q) => q.id === question.otherOf) : undefined;
+  return owner ? `Written answer: ${owner.label}` : question.label;
+}
+
 /**
  * The server's field errors as a list for the error summary, in form order, each with
  * a readable name and the id of the control to focus. Keys the form does not recognise
@@ -375,13 +381,13 @@ export function collectErrors(cfg: TouristVisaConfig, sectionId: string, errors:
   const describe = (key: string): { label: string; rank: number } => {
     const [first, second, third] = key.split(".");
     const question = cfg.questions.find((q) => q.id === first);
-    if (question) return { label: `${question.number} ${question.label}`, rank: order.get(first) ?? Number.MAX_SAFE_INTEGER };
+    if (question) return { label: `${question.number} ${questionName(cfg, question)}`, rank: order.get(first) ?? Number.MAX_SAFE_INTEGER };
     const group = cfg.groups.find((g) => g.id === first);
     if (group) {
       const rank = order.get(first) ?? Number.MAX_SAFE_INTEGER;
       const entry = second !== undefined && /^\d+$/.test(second) ? `${group.entryLabel} ${Number(second) + 1}` : group.entryLabel;
       const member = third ? cfg.questions.find((q) => q.id === third) : undefined;
-      return { label: member ? `${entry}: ${member.label}` : entry, rank: rank + (second !== undefined && /^\d+$/.test(second) ? Number(second) / 1000 : 0) };
+      return { label: member ? `${entry}: ${questionName(cfg, member)}` : entry, rank: rank + (second !== undefined && /^\d+$/.test(second) ? Number(second) / 1000 : 0) };
     }
     return { label: "This section", rank: Number.MAX_SAFE_INTEGER };
   };
@@ -418,6 +424,8 @@ export function hintFor(cfg: TouristVisaConfig, question: Question): string | un
   if (question.rules?.withinYears) parts.push(`Must be within the past ${question.rules.withinYears} years.`);
   if (question.rules?.olderThanYears) parts.push(`Must be more than ${question.rules.olderThanYears} years ago.`);
   if (question.type === "TEL") parts.push("Include the country code, for example +44.");
+  // The box that asks for the words of an Other answer.
+  if (question.otherOf && question.rules?.maxLen) parts.push(`Up to ${question.rules.maxLen} characters.`);
   return parts.length > 0 ? parts.join(" ") : undefined;
 }
 

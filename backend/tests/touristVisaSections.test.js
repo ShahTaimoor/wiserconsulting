@@ -202,13 +202,13 @@ test('free text is stored exactly as typed, including < and >', async () => {
 test('answers that become hidden are removed, including stale ones sent by the client', async () => {
   const { token, appId } = await start();
   const second = 'second@example.com';
-  const withSecond = await put(token, '2A', { ...S2A, q2_6: true, q2_7: second, q2_8: 'other', q2_10: second });
+  const withSecond = await put(token, '2A', { ...S2A, q2_6: true, q2_7: second, q2_8: 'other', q2_8_other: 'My accountant', q2_10: second });
   assert.equal(withSecond.status, 200, JSON.stringify(withSecond.json));
   assert.equal((await rawDoc(appId)).answers.q2_7, second);
 
-  const without = await put(token, '2A', { ...S2A, q2_6: false, q2_7: second, q2_8: 'other' });
+  const without = await put(token, '2A', { ...S2A, q2_6: false, q2_7: second, q2_8: 'other', q2_8_other: 'My accountant' });
   assert.equal(without.status, 200, JSON.stringify(without.json));
-  assert.deepEqual(without.json.data.removed.sort(), ['q2_7', 'q2_8']);
+  assert.deepEqual(without.json.data.removed.sort(), ['q2_7', 'q2_8', 'q2_8_other']);
   const raw = await rawDoc(appId);
   assert.equal('q2_7' in raw.answers, false);
   assert.equal('q2_8' in raw.answers, false);

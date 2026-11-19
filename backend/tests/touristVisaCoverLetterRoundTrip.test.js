@@ -362,10 +362,10 @@ test('the template never repeats the form\'s option labels: every option of the 
   const labels = ids.flatMap(labelsOf).filter(multiWord);
   assert.ok(labels.length >= 8, 'a real list of labels is being checked');
   const samples = [];
-  for (const purpose of ['tourism', 'family_friends', 'business', 'study', 'transit', 'other']) for (const holiday of ['holiday', 'event', 'shopping', 'cruise', 'other']) samples.push(base({ q1_1: purpose, q1_4: holiday }));
+  for (const purpose of ['tourism', 'family_friends', 'business', 'study', 'transit', 'other']) for (const holiday of ['holiday', 'event', 'shopping', 'cruise', 'other']) samples.push(base({ q1_1: purpose, q1_4: holiday, ...(purpose === 'other' ? { q1_1_other: 'A made-up reason' } : {}), ...(holiday === 'other' ? { q1_4_other: 'A made-up leisure reason' } : {}) }));
   for (const status of ['single', 'married', 'civil_partnership', 'unmarried_partner', 'separated', 'divorced', 'widowed']) samples.push(base({ q2_13: status }));
   for (const status of ['employed', 'self_employed', 'retired', 'student', 'homemaker', 'unemployed', 'other']) samples.push(base({ q5_1: status, q5_1i: '2020-01', q5_1b: '2018-05' }));
-  for (const plan of ['not_decided', 'paid_stay', 'family_friends', 'address_unknown', 'other']) samples.push(base({ q6_7: false, q6_7x: plan }));
+  for (const plan of ['not_decided', 'paid_stay', 'family_friends', 'address_unknown', 'other']) samples.push(base({ q6_7: false, q6_7x: plan, ...(plan === 'other' ? { q6_7x_other: 'A made-up plan' } : {}) }));
   samples.push(base({ q6_5: true, payers: [{ q6_5b: 'relative', q6_5d: 'parent', q6_5g: ['travel', 'accommodation', 'living_costs'] }, { q6_5b: 'employer', q6_5d: 'employer' }, { q6_5b: 'sponsoring_organisation', q6_5d: 'other' }], q8_1a: ['usa', 'eea', 'new_zealand'] }));
   for (const answers of samples) {
     const letter = buildTemplate(build(answers)).toLowerCase();
@@ -512,12 +512,12 @@ test('a missing place gives "the United Kingdom" wording and never an invented o
   assert.match(checks.substitute(buildTemplate(named), named.tokens, named.redactions), /I expect to stay in Bath\./);
 });
 
-test('"Other" as the type of stay is "somewhere else" in the facts the AI is shown, and the template says nothing invented about it', async () => {
-  const f = build(base({ q6_7: false, q6_7x: 'other', q6_7y: undefined }));
+test('"Other (please write)" as the type of stay reaches the AI as the applicant\'s own words in a data block (never as "other"), and the template says nothing invented about it', async () => {
+  const f = build(base({ q6_7: false, q6_7x: 'other', q6_7x_other: 'A houseboat moored in Bath', q6_7y: undefined }));
   const { service, prompts } = serviceWith(() => letterUsing([]));
   await service.compose('admin1', f);
-  assert.match(prompts[0].user, /- Plans for accommodation: somewhere else/);
-  assert.equal(/accommodation: Other\b/.test(prompts[0].user), false);
+  assert.ok(prompts[0].user.includes('<data name="Plans for accommodation">\nA houseboat moored in Bath\n</data>'), prompts[0].user);
+  assert.equal(/accommodation: Other\b|somewhere else/.test(prompts[0].user), false);
   assert.equal(/booked|hotel/i.test(checks.substitute(buildTemplate(f), f.tokens, f.redactions)), false);
 });
 

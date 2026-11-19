@@ -1,5 +1,5 @@
 {
-  "version": "1.3.0",
+  "version": "1.4.0",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
@@ -205,6 +205,7 @@
       "label": "What is the main reason for your visit to the UK?",
       "type": "SEL",
       "required": true,
+      "allowOther": true,
       "options": [
         { "value": "tourism", "label": "Tourism or holiday" },
         { "value": "family_friends", "label": "Visiting family or friends" },
@@ -212,7 +213,7 @@
         { "value": "study", "label": "Short course of study" },
         { "value": "medical", "label": "Medical treatment" },
         { "value": "transit", "label": "Passing through the UK on the way to another country" },
-        { "value": "other", "label": "Another reason" }
+        { "value": "other", "label": "Other (please write)" }
       ]
     },
     {
@@ -239,13 +240,14 @@
       "label": "What kind of group is it?",
       "type": "SEL",
       "required": false,
+      "allowOther": true,
       "options": [
         { "value": "tour", "label": "Tour group" },
         { "value": "school_college", "label": "School or college" },
         { "value": "religious", "label": "Religious group" },
         { "value": "sports_cultural", "label": "Sports or cultural group" },
         { "value": "business", "label": "Business or professional group" },
-        { "value": "other", "label": "Another kind of group" }
+        { "value": "other", "label": "Other (please write)" }
       ],
       "showWhen": { "q": "q1_2", "eq": true }
     },
@@ -264,12 +266,13 @@
       "label": "What is your relationship to this person?",
       "type": "SEL",
       "required": true,
+      "allowOther": true,
       "group": "companions",
       "options": [
         { "value": "friend", "label": "Friend" },
         { "value": "family_member", "label": "Family member" },
         { "value": "colleague", "label": "Colleague or business associate" },
-        { "value": "other", "label": "Other" }
+        { "value": "other", "label": "Other (please write)" }
       ]
     },
     {
@@ -316,13 +319,14 @@
       "label": "What is the main reason for your holiday visit to the UK?",
       "type": "SEL",
       "required": true,
+      "allowOther": true,
       "showWhen": { "q": "q1_1", "eq": "tourism" },
       "options": [
         { "value": "holiday", "label": "Holiday or sightseeing" },
         { "value": "event", "label": "Attending an event, for example a concert, festival or sports match" },
         { "value": "shopping", "label": "A shopping trip" },
         { "value": "cruise", "label": "Joining or leaving a cruise" },
-        { "value": "other", "label": "Another leisure reason" }
+        { "value": "other", "label": "Other (please write)" }
       ]
     },
     {
@@ -401,13 +405,14 @@
       "label": "Why did you use this name?",
       "type": "SEL",
       "required": false,
+      "allowOther": true,
       "group": "otherNames",
       "options": [
         { "value": "maiden_name", "label": "Maiden name" },
         { "value": "married_name", "label": "Married name" },
         { "value": "deed_poll", "label": "Changed by deed poll" },
         { "value": "nickname", "label": "Nickname or a name I am known by" },
-        { "value": "other", "label": "Another reason" }
+        { "value": "other", "label": "Other (please write)" }
       ]
     },
     {
@@ -427,11 +432,12 @@
       "label": "Who does this email address belong to?",
       "type": "SEL",
       "required": true,
+      "allowOther": true,
       "options": [
         { "value": "me", "label": "Me" },
         { "value": "family_or_friend", "label": "A family member or friend" },
         { "value": "representative", "label": "A representative or agent helping me apply" },
-        { "value": "other", "label": "Someone else" }
+        { "value": "other", "label": "Other (please write)" }
       ]
     },
     {
@@ -458,12 +464,13 @@
       "label": "Who does this email address belong to?",
       "type": "SEL",
       "required": true,
+      "allowOther": true,
       "showWhen": { "q": "q2_6", "eq": true },
       "options": [
         { "value": "me", "label": "Me" },
         { "value": "family_or_friend", "label": "A family member or friend" },
         { "value": "representative", "label": "A representative or agent helping me apply" },
-        { "value": "other", "label": "Someone else" }
+        { "value": "other", "label": "Other (please write)" }
       ]
     },
     {
@@ -631,13 +638,14 @@
       "label": "How did you acquire it?",
       "type": "SEL",
       "required": true,
+      "allowOther": true,
       "group": "otherNationalities",
       "options": [
         { "value": "birth", "label": "By birth" },
         { "value": "descent", "label": "Through a parent or grandparent (descent)" },
         { "value": "marriage_or_partnership", "label": "Through marriage or a partnership" },
         { "value": "naturalisation", "label": "By naturalisation or registration" },
-        { "value": "other", "label": "Another way" }
+        { "value": "other", "label": "Other (please write)" }
       ]
     },
     {
@@ -957,6 +965,7 @@
       "label": "What is this person's relationship to you?",
       "type": "SEL",
       "required": true,
+      "allowOther": true,
       "group": "dependants",
       "options": [
         { "value": "son", "label": "Son" },
@@ -966,7 +975,7 @@
         { "value": "parent", "label": "Parent" },
         { "value": "sibling", "label": "Brother or sister" },
         { "value": "other_relative", "label": "Other relative" },
-        { "value": "other", "label": "Someone else who depends on me" }
+        { "value": "other", "label": "Other (please write)" }
       ]
     },
     {
@@ -1494,6 +1503,7 @@
       "label": "What is their relationship to you?",
       "type": "SEL",
       "required": true,
+      "allowOther": true,
       "group": "ukFamily",
       "options": [
         { "value": "spouse_partner", "label": "Spouse or partner" },
@@ -1503,7 +1513,7 @@
         { "value": "grandparent", "label": "Grandparent" },
         { "value": "aunt_uncle", "label": "Aunt or uncle" },
         { "value": "cousin", "label": "Cousin" },
-        { "value": "other", "label": "Other" }
+        { "value": "other", "label": "Other (please write)" }
       ]
     },
     {
@@ -1550,6 +1560,7 @@
       "label": "What is their immigration status in the UK?",
       "type": "SEL",
       "required": true,
+      "allowOther": true,
       "group": "ukFamily",
       "options": [
         { "value": "british_citizen", "label": "British citizen" },
@@ -1559,7 +1570,7 @@
         { "value": "student", "label": "Student visa" },
         { "value": "visitor", "label": "Visitor" },
         { "value": "protection", "label": "Protection (refugee or humanitarian)" },
-        { "value": "other", "label": "Other" },
+        { "value": "other", "label": "Other (please write)" },
         { "value": "dont_know", "label": "I don't know" }
       ]
     },
@@ -1579,12 +1590,13 @@
       "label": "What are your plans for accommodation?",
       "type": "SEL",
       "required": true,
+      "allowOther": true,
       "options": [
         { "value": "not_decided", "label": "I have not decided yet" },
         { "value": "paid_stay", "label": "I will book a hotel or other paid stay" },
         { "value": "family_friends", "label": "I will stay with family or friends" },
         { "value": "address_unknown", "label": "I will stay somewhere, but I don't have the address yet" },
-        { "value": "other", "label": "Other" }
+        { "value": "other", "label": "Other (please write)" }
       ],
       "showWhen": { "q": "q6_7", "eq": false }
     },
@@ -1651,13 +1663,14 @@
       "label": "What type of public funds did you receive?",
       "type": "SEL",
       "required": true,
+      "allowOther": true,
       "group": "publicFunds",
       "options": [
         { "value": "housing_benefit", "label": "Housing benefit" },
         { "value": "universal_credit", "label": "Universal credit" },
         { "value": "child_benefit", "label": "Child benefit" },
         { "value": "council_tax_reduction", "label": "Council tax reduction" },
-        { "value": "other", "label": "Other" }
+        { "value": "other", "label": "Other (please write)" }
       ]
     },
     {
@@ -1717,6 +1730,7 @@
       "label": "What type of visa was it?",
       "type": "SEL",
       "required": true,
+      "allowOther": true,
       "group": "ukVisas",
       "options": [
         { "value": "visitor", "label": "Visitor" },
@@ -1724,7 +1738,7 @@
         { "value": "work", "label": "Work" },
         { "value": "family_partner", "label": "Family or partner" },
         { "value": "transit", "label": "Transit" },
-        { "value": "other", "label": "Other" }
+        { "value": "other", "label": "Other (please write)" }
       ]
     },
     {
@@ -1763,6 +1777,7 @@
       "label": "What was the application for?",
       "type": "SEL",
       "required": true,
+      "allowOther": true,
       "group": "ukLeaveApplications",
       "options": [
         { "value": "work", "label": "Work" },
@@ -1770,7 +1785,7 @@
         { "value": "family_partner", "label": "Family or partner" },
         { "value": "protection", "label": "Protection (refugee or humanitarian)" },
         { "value": "long_residence", "label": "Long residence" },
-        { "value": "other", "label": "Other" }
+        { "value": "other", "label": "Other (please write)" }
       ]
     },
     {
@@ -1836,6 +1851,7 @@
       "label": "Select why you were in the UK",
       "type": "SEL",
       "required": true,
+      "allowOther": true,
       "group": "ukVisits",
       "options": [
         { "value": "tourism", "label": "Tourism or holiday" },
@@ -1845,7 +1861,7 @@
         { "value": "work", "label": "Work" },
         { "value": "medical", "label": "Medical treatment" },
         { "value": "transit", "label": "Passing through the UK on the way to another country" },
-        { "value": "other", "label": "Another reason" }
+        { "value": "other", "label": "Other (please write)" }
       ]
     },
     {
@@ -2049,6 +2065,7 @@
       "label": "What was the reason for your visit?",
       "type": "SEL",
       "required": true,
+      "allowOther": true,
       "group": "otherCountryTrips",
       "options": [
         { "value": "tourism", "label": "Tourism or holiday" },
@@ -2058,7 +2075,7 @@
         { "value": "work", "label": "Work" },
         { "value": "medical", "label": "Medical treatment" },
         { "value": "transit", "label": "Passing through the UK on the way to another country" },
-        { "value": "other", "label": "Another reason" }
+        { "value": "other", "label": "Other (please write)" }
       ]
     },
     {
@@ -2105,6 +2122,7 @@
       "label": "What was the reason for your visit?",
       "type": "SEL",
       "required": true,
+      "allowOther": true,
       "group": "olderCountryTrips",
       "options": [
         { "value": "tourism", "label": "Tourism or holiday" },
@@ -2114,7 +2132,7 @@
         { "value": "work", "label": "Work" },
         { "value": "medical", "label": "Medical treatment" },
         { "value": "transit", "label": "Passing through the UK on the way to another country" },
-        { "value": "other", "label": "Another reason" }
+        { "value": "other", "label": "Other (please write)" }
       ]
     },
     {

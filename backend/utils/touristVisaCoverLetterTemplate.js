@@ -74,7 +74,9 @@ function buildTemplate(facts) {
   // The visit
   const purpose = (() => {
     if (!v.purpose) return missing('main reason for the visit');
-    if (raw.purpose === 'tourism') return HOLIDAY[raw.holidayReason] || 'I am visiting for a holiday.';
+    // Other (please write): the applicant's own words (already cleaned; any redacted piece is put back later), not the fixed "another reason".
+    if (raw.purpose === 'tourism') return raw.holidayReason === 'other' && v.holidayReason ? sentence(`I am visiting for a leisure reason: ${v.holidayReason}`) : HOLIDAY[raw.holidayReason] || 'I am visiting for a holiday.';
+    if (raw.purpose === 'other') return sentence(`The main reason for my visit is ${lowerFirst(v.purpose)}`);
     return PURPOSE[raw.purpose] || `The main reason for my visit is ${lowerFirst(v.purpose)}.`;
   })();
   add([
@@ -87,7 +89,7 @@ function buildTemplate(facts) {
 
   // Where they will stay
   add([
-    ACCOMMODATION[raw.accommodationPlan] || '',
+    raw.accommodationPlan === 'other' && typeof v.accommodationPlan === 'string' ? sentence(`My plan for accommodation is ${lowerFirst(v.accommodationPlan)}`) : ACCOMMODATION[raw.accommodationPlan] || '',
     Array.isArray(v.accommodationArea) && v.accommodationArea.length ? `I expect to stay in ${joinAnd(v.accommodationArea)}.` : '',
     Array.isArray(v.accommodationTowns) && v.accommodationTowns.length ? `I will be staying in ${joinAnd(v.accommodationTowns)}.` : '',
   ]);

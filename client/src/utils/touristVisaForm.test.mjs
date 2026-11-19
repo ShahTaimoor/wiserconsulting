@@ -112,7 +112,8 @@ function mk(questions, groups = []) {
 // ---------------------------------------------------------------------------
 
 test("sectionKeys lists a section's questions and its repeating groups", () => {
-  assert.deepEqual(sectionKeys(cfg, "1"), ["q1_1", "q1_2", "q1_2a", "q1_2b", "q1_3", "q1_4", "q1_5", "q1_6", "q1_7", "companions"]);
+  // The text boxes of the Other (please write) answers are keys of the section too (q1_1_other, ...): they are saved with it.
+  assert.deepEqual(sectionKeys(cfg, "1"), ["q1_1", "q1_1_other", "q1_2", "q1_2a", "q1_2b", "q1_2b_other", "q1_3", "q1_4", "q1_4_other", "q1_5", "q1_6", "q1_7", "companions"]);
   const keys2A = sectionKeys(cfg, "2A");
   assert.ok(keys2A.includes("otherNames") && !keys2A.includes("q2_3a") && keys2A.includes("q2_3"));
 });
@@ -124,7 +125,7 @@ test("sectionItems puts the repeating group once, right after its Yes/No questio
   assert.equal(ids[gate + 2], "q2_4");
   assert.equal(ids.filter((i) => i.startsWith("group:")).length, 1);
   const group = items.find((i) => i.kind === "group");
-  assert.deepEqual(group.members.map((m) => m.id), ["q2_3a", "q2_3b", "q2_3c"]);
+  assert.deepEqual(group.members.map((m) => m.id), ["q2_3a", "q2_3b", "q2_3c", "q2_3c_other"]);
 });
 test("every question of every part is rendered exactly once across the sections", () => {
   const seen = [];
@@ -366,7 +367,7 @@ test("round trip: the payload built for every section passes the shared validati
 test("round trip: a section with an open repeating group and the second email passes", () => {
   const values = {
     ...V2A, q2_3: true, otherNames: [{ q2_3a: "Alias", q2_3b: "One" }, { q2_3a: "Second", q2_3b: "Alias" }],
-    q2_6: true, q2_7: "second@example.com", q2_8: "other", q2_10: "second@example.com",
+    q2_6: true, q2_7: "second@example.com", q2_8: "other", q2_8_other: "My accountant", q2_10: "second@example.com",
   };
   const result = engine.validateSection(z, cfg, "2A", payload("2A", values), {});
   assert.equal(result.success, true, JSON.stringify(result.errors));
@@ -900,7 +901,8 @@ test("hintFor: the new date questions say they cannot be in the future", () => {
 });
 
 test("every section of Parts 1 to 4 still renders, the new groups appear once and in order", () => {
-  const ids = (section) => sectionItems(cfg, section).map((i) => (i.kind === "question" ? i.question.id : `group:${i.group.id}`));
+  // Without the text boxes of the Other (please write) answers, which sit right after their question (tested in touristVisaOther.test.mjs).
+  const ids = (section) => sectionItems(cfg, section).map((i) => (i.kind === "question" ? i.question.id : `group:${i.group.id}`)).filter((id) => !id.endsWith("_other"));
   assert.deepEqual(ids("1").slice(0, 7), ["q1_1", "q1_2", "q1_2a", "q1_2b", "q1_3", "group:companions", "q1_4"]);
   assert.deepEqual(ids("2B").slice(-2), ["q2_23", "group:otherNationalities"]);
   assert.deepEqual(ids("2C").slice(-4), ["q2_30", "q2_30a", "q2_31", "group:medicalTreatments"]);
@@ -1007,7 +1009,7 @@ test("hintFor: the new month questions say they cannot be in the future; 6.8d al
 });
 
 test("sectionItems: the new questions and groups come in order in sections 5, 6A, 6B, 6C and 6D", () => {
-  const ids = (section) => sectionItems(cfg, section).map((i) => (i.kind === "question" ? i.question.id : `group:${i.group.id}`));
+  const ids = (section) => sectionItems(cfg, section).map((i) => (i.kind === "question" ? i.question.id : `group:${i.group.id}`)).filter((id) => !id.endsWith("_other"));
   assert.deepEqual(ids("5").slice(0, 3), ["q5_1", "q5_1a", "q5_1b"]);
   assert.equal(ids("5").indexOf("q5_1l") < ids("5").indexOf("q5_2"), true, "the other statuses come right under 5.1, before the employer questions");
   assert.deepEqual(ids("6A"), ["q6_1", "q6_1a", "q6_2", "q6_3", "q6_4", "q6_5", "group:payers"]);
