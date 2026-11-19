@@ -115,7 +115,7 @@ const BEFORE = [
   ['6C', { q6_7: false, q6_7x: 'not_decided' }],
   ['6D', { q6_8: false }],
   ['7', { q7_1: false, q7_3: false, q7_4: false, q7_6: false, q7_7: false }],
-  ['8', { q8_1: 0, q8_2: false }],
+  ['8', { q8_1: 0, q8_2: false, q8_3: false }],
   ['9A', { q9_11: true, q9_1: false, q9_12: true, q9_2: false }],
   ['9B', { q9_13: true, q9_3: false, q9_4: false, q9_5: false, q9_14: true, q9_6: false, q9_7: false }],
   ['9C', { q9_8: false, q9_9: false, q9_10: false }],

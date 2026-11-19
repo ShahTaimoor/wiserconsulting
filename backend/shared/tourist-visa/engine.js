@@ -486,6 +486,16 @@ function relationalIssues(cfg, q, value, flat, entry, today) {
     }
   }
 
+  // The other side of the same cutoff: a date that must be MORE than `olderThanYears` ago. The cutoff is the one
+  // `withinYears` uses (counted back from today), and a date on the cutoff counts as within the window, so exactly one
+  // of the two rules accepts any given day, with no gap and no overlap.
+  if (rules.olderThanYears && typeof value === 'string') {
+    const cutoff = yearsBefore(today, rules.olderThanYears);
+    if (value >= cutoff) {
+      issues.push({ path: [], message: `Trips in the last ${rules.olderThanYears} years go in the travel history above.` });
+    }
+  }
+
   return issues;
 }
 
@@ -968,6 +978,11 @@ function validateConfig(cfg) {
     if (r.withinYears !== undefined) {
       if (q.type !== 'DATE' && q.type !== 'MY') err(`${w}: rules.withinYears needs a DATE or MY question`);
       if (!Number.isInteger(r.withinYears) || r.withinYears < 1 || r.withinYears > 100) err(`${w}: rules.withinYears must be a whole number from 1 to 100`);
+    }
+    if (r.olderThanYears !== undefined) {
+      if (q.type !== 'DATE') err(`${w}: rules.olderThanYears needs a DATE question`);
+      if (!Number.isInteger(r.olderThanYears) || r.olderThanYears < 1 || r.olderThanYears > 100) err(`${w}: rules.olderThanYears must be a whole number from 1 to 100`);
+      if (r.withinYears !== undefined) err(`${w}: rules.olderThanYears cannot be combined with rules.withinYears`);
     }
     if (q.helpCountries !== undefined) {
       const h = q.helpCountries;

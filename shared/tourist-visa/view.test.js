@@ -217,7 +217,7 @@ test('a full application renders every part without a gap or a leftover code', (
     q2_32: { countryCode: '+44', number: '7700 900123' }, q2_33: 'in_uk', q2_34: 'mobile', q2_35: ['call'],
     q3_1: 'FAKE-PASSPORT-9876', q3_2: 'Test Passport Office', q3_3: '2022-05-01', q3_4: '2032-05-01',
     q4_7: false, q4_8: false, q5_1: 'retired', q6_1: 'none', q6_3: { amount: 1500, currency: 'GBP' }, q6_4: { amount: 900, currency: 'GBP' }, q6_5: false, q6_6: false, q6_7: false, q6_7x: 'not_decided', q6_8: false,
-    q7_1: false, q7_3: false, q7_4: false, q7_6: false, q7_7: false, q8_1: 0, q8_2: false,
+    q7_1: false, q7_3: false, q7_4: false, q7_6: false, q7_7: false, q8_1: 0, q8_2: false, q8_3: false,
     q9_11: true, q9_1: false, q9_12: true, q9_2: false, q9_13: true, q9_3: false, q9_4: false, q9_5: false, q9_14: true, q9_6: false, q9_7: false, q9_8: false, q9_9: false, q9_10: false,
     q10_1: ['none'], q10_4: 'english', q10_5: false,
   };

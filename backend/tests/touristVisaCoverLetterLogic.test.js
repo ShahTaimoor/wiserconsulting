@@ -608,7 +608,7 @@ const SAMPLES = () => {
     ['student', { ...base, q5_1: 'student', q5_1f: 'Test University', q5_1h: 'Engineering', q5_2: undefined, q5_3: undefined, q5_6: undefined, q5_7: undefined }],
     ['retired with a pension', { ...base, q5_1: 'retired', q5_1i: '2020-01', q5_1j: { amount: 90000, currency: 'PKR' }, q5_2: undefined, q5_3: undefined, q5_6: undefined, q5_7: undefined }],
     ['someone else pays, with a group and parents', { ...base, q1_2: true, q4_8: true, parents: [{}, {}], q6_5: true, payers: [{ q6_5b: 'relative', q6_5d: 'parent', q6_5e: 'PK', q6_5f: { amount: 800, currency: 'GBP' }, q6_5g: ['travel', 'accommodation'] }] }],
-    ['earlier travel', { ...base, q7_4: true, q7_5: 3, ukVisits: [{ q7_5b: '2023-05', q7_5c: { weeks: 2 } }, { q7_5b: '2021-08', q7_5c: { days: 5 } }, { q7_5b: '2019-01', q7_5c: { days: 3 } }], q8_1a: ['usa'], q8_2: true, otherCountryTrips: [{ q8_2a: 'AE', q8_2c: '2024-01-02', q8_2d: '2024-01-09' }] }],
+    ['earlier travel', { ...base, q7_4: true, q7_5: 3, ukVisits: [{ q7_5b: '2023-05', q7_5c: { weeks: 2 } }, { q7_5b: '2021-08', q7_5c: { days: 5 } }, { q7_5b: '2019-01', q7_5c: { days: 3 } }], q8_1a: ['usa'], q8_2: true, q8_3: false, otherCountryTrips: [{ q8_2a: 'AE', q8_2c: '2024-01-02', q8_2d: '2024-01-09' }] }],
     ['a stay at a booked place', { ...base, q6_7: true, accommodation: [{ q6_7b: { line1: 'x', town: 'Manchester', country: 'GB' } }] }],
     ['a medical visit', { ...base, q1_1: 'medical' }],
     ['almost nothing', { q2_1: 'Zainab', q2_2: 'Qureshi', q6_3: { amount: 1500, currency: 'GBP' } }],
