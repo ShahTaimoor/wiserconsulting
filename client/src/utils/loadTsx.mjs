@@ -44,10 +44,16 @@ export function loadTsx(file, { mocks = {}, recordEffects = true, reactOverrides
   const load = (absolute) => {
     if (cache.has(absolute)) return cache.get(absolute).exports;
     const source = fs.readFileSync(absolute, "utf8");
-    const { outputText } = ts.transpileModule(source, {
-      fileName: absolute,
-      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
-    });
+    // A .js file (the shared Tourist Visa modules) is already CommonJS: it is run as it is; a .json file (their data) becomes its value.
+    // Only TypeScript is compiled.
+    const { outputText } = absolute.endsWith(".js")
+      ? { outputText: source }
+      : absolute.endsWith(".json")
+      ? { outputText: `module.exports = ${source};` }
+      : ts.transpileModule(source, {
+          fileName: absolute,
+          compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
+        });
     const mod = { exports: {} };
     cache.set(absolute, mod);
     const localRequire = (specifier) => {

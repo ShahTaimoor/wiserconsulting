@@ -8,6 +8,7 @@
 
 import type { TouristVisaConfig } from "../shared/tourist-visa/engine.js";
 import type { SubmitProblem } from "@/services/touristVisaService";
+import { formatMoment } from "../shared/tourist-visa/view.js";
 
 /** One section that needs attention, ready to show and link. */
 export interface SectionToFix {
@@ -87,11 +88,8 @@ export function describeSubmitFailure(cfg: TouristVisaConfig, failure: SubmitFai
   return { kind: "other", message: "Something went wrong. Please try again.", sections: [], declarationMissing: false };
 }
 
-/** "Submitted on 1 November 2026". An unreadable date gives just "Submitted". */
+/** "Submitted on 1 November 2026" (the shared date formatter, the day in UTC as before). An unreadable date gives just "Submitted". */
 export function submittedOnText(iso: string | null | undefined): string {
-  if (!iso) return "Submitted";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "Submitted";
-  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  return `Submitted on ${date.getUTCDate()} ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+  const when = iso ? formatMoment(iso) : "";
+  return when ? `Submitted on ${when}` : "Submitted";
 }

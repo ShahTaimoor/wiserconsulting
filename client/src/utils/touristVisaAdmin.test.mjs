@@ -74,8 +74,8 @@ test("the pager can go back from page 2 and forward until the last page", () => 
 });
 
 test("formatWhen writes a date and time, and nothing for a missing or bad one", () => {
-  assert.equal(formatWhen("2026-10-31T11:56:00.000Z", "UTC"), "31 Oct 2026, 11:56");
-  assert.equal(formatWhen("2027-03-01T00:05:00.000Z", "UTC"), "1 Mar 2027, 00:05");
+  assert.equal(formatWhen("2026-10-31T11:56:00.000Z", "UTC"), "31 October 2026, 11:56");
+  assert.equal(formatWhen("2027-03-01T00:05:00.000Z", "UTC"), "1 March 2027, 00:05");
   assert.equal(formatWhen(null), "");
   assert.equal(formatWhen(""), "");
   assert.equal(formatWhen("not a date"), "");
