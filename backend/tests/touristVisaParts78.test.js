@@ -133,7 +133,7 @@ const S7 = {
   q7_6: false, q7_7: true, immigrationProblems: [PROBLEM],
 };
 const TRIP = { q8_2a: 'FR', q8_2b: 'tourism', q8_2c: daysAgo(400), q8_2d: daysAgo(390) };
-const S8 = { q8_1: 3, q8_2: true, otherCountryTrips: [TRIP] };
+const S8 = { q8_1: 3, q8_2: true, q8_3: false, otherCountryTrips: [TRIP] };
 
 const ALL = [
   ['1', S1], ['2A', S2A], ['2B', S2B], ['2C', S2C], ['2D', S2D], ['3', S3], ['4B', S4B], ['4C', S4C],
@@ -249,7 +249,7 @@ test('GATE 7.7: changing to No prunes every immigration problem', async () => {
 
 test('GATE 8.2: changing to No prunes every trip, and 8.1 stays', async () => {
   const { token, appId } = await fullApplication();
-  const res = await put(token, '8', { q8_1: 3, q8_2: false, otherCountryTrips: [TRIP] });
+  const res = await put(token, '8', { q8_1: 3, q8_2: false, q8_3: false, otherCountryTrips: [TRIP] });
   assert.equal(res.status, 200, JSON.stringify(res.json));
   assert.deepEqual(res.json.data.removed, ['otherCountryTrips']);
   const stored = await rawDoc(appId);
@@ -334,11 +334,11 @@ test('dates: events in Parts 7 and 8 cannot be in the future, and "past 10 years
   const futureBreach = await put(token, '7', { ...S7, q7_6: true, breaches: [{ ...BREACH, q7_6c: monthsAgo(-1) }] });
   assert.deepEqual(futureBreach.json.errors, { 'breaches.0.q7_6c': 'Cannot be in the future' });
 
-  const trips = await put(token, '8', { q8_1: 0, q8_2: true, otherCountryTrips: [{ ...TRIP, q8_2c: daysAhead(5), q8_2d: daysAhead(9) }] });
+  const trips = await put(token, '8', { q8_1: 0, q8_2: true, q8_3: false, otherCountryTrips: [{ ...TRIP, q8_2c: daysAhead(5), q8_2d: daysAhead(9) }] });
   assert.deepEqual(trips.json.errors, { 'otherCountryTrips.0.q8_2c': 'Cannot be in the future', 'otherCountryTrips.0.q8_2d': 'Cannot be in the future' });
-  const ancient = await put(token, '8', { q8_1: 0, q8_2: true, otherCountryTrips: [{ ...TRIP, q8_2c: daysAgo(4400), q8_2d: daysAgo(4390) }] });
+  const ancient = await put(token, '8', { q8_1: 0, q8_2: true, q8_3: false, otherCountryTrips: [{ ...TRIP, q8_2c: daysAgo(4400), q8_2d: daysAgo(4390) }] });
   assert.deepEqual(ancient.json.errors, { 'otherCountryTrips.0.q8_2d': 'Must be within the past 10 years' });
-  const order = await put(token, '8', { q8_1: 0, q8_2: true, otherCountryTrips: [{ ...TRIP, q8_2c: daysAgo(100), q8_2d: daysAgo(100) }] });
+  const order = await put(token, '8', { q8_1: 0, q8_2: true, q8_3: false, otherCountryTrips: [{ ...TRIP, q8_2c: daysAgo(100), q8_2d: daysAgo(100) }] });
   assert.deepEqual(order.json.errors, { 'otherCountryTrips.0.q8_2d': 'Must be after the date in question 8.2c' });
 
   assert.deepEqual(await rawDoc(appId), snapshot, 'rejected saves change nothing');

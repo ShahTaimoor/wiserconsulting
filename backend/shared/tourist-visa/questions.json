@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
@@ -187,6 +187,14 @@
       "gate": "q8_2",
       "max": 20,
       "questions": ["q8_2a", "q8_2b", "q8_2c", "q8_2d"]
+    },
+    {
+      "id": "olderCountryTrips",
+      "section": "8",
+      "entryLabel": "Older trip",
+      "gate": "q8_3",
+      "max": 20,
+      "questions": ["q8_3a", "q8_3b", "q8_3c", "q8_3d"]
     }
   ],
   "questions": [
@@ -2072,6 +2080,62 @@
       "required": true,
       "group": "otherCountryTrips",
       "rules": { "after": "q8_2c", "notFuture": true, "withinYears": 10 }
+    },
+    {
+      "id": "q8_3",
+      "number": "8.3",
+      "section": "8",
+      "label": "Have you travelled to any other country more than 10 years ago?",
+      "type": "YN",
+      "required": true
+    },
+    {
+      "id": "q8_3a",
+      "number": "8.3a",
+      "section": "8",
+      "label": "Which country did you visit?",
+      "type": "CTRY",
+      "required": true,
+      "group": "olderCountryTrips"
+    },
+    {
+      "id": "q8_3b",
+      "number": "8.3b",
+      "section": "8",
+      "label": "What was the reason for your visit?",
+      "type": "SEL",
+      "required": true,
+      "group": "olderCountryTrips",
+      "options": [
+        { "value": "tourism", "label": "Tourism or holiday" },
+        { "value": "family_friends", "label": "Visiting family or friends" },
+        { "value": "business", "label": "Business" },
+        { "value": "study", "label": "Study" },
+        { "value": "work", "label": "Work" },
+        { "value": "medical", "label": "Medical treatment" },
+        { "value": "transit", "label": "Passing through the UK on the way to another country" },
+        { "value": "other", "label": "Another reason" }
+      ]
+    },
+    {
+      "id": "q8_3c",
+      "number": "8.3c",
+      "section": "8",
+      "label": "When did you enter this country?",
+      "type": "DATE",
+      "required": true,
+      "group": "olderCountryTrips",
+      "rules": { "notFuture": true }
+    },
+    {
+      "id": "q8_3d",
+      "number": "8.3d",
+      "section": "8",
+      "label": "When did you leave this country?",
+      "type": "DATE",
+      "required": true,
+      "group": "olderCountryTrips",
+      "rules": { "onOrAfter": "q8_3c", "notFuture": true, "olderThanYears": 10 }
     },
     {
       "id": "q9_11",

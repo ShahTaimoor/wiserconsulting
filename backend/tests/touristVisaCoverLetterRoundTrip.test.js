@@ -397,7 +397,7 @@ test('every statement of the template says what an answer says: employment, rela
   const f = build(base({
     q2_13: 'married', q4_7: true, dependants: [{}, {}], q4_8: true, parents: [{}, {}], q1_2: true, q1_3: true, companions: [{}],
     q6_2: { amount: 2500, currency: 'GBP' }, q6_1: 'savings', q5_7: { amount: 475000, currency: 'PKR' }, q6_4: { amount: 900, currency: 'GBP' },
-    q7_4: true, q7_5: 1, ukVisits: [{ q7_5b: '2023-05', q7_5c: { weeks: 2 } }], q8_1: 3, q8_1a: ['usa', 'eea'], q8_2: true, otherCountryTrips: [{ q8_2a: 'AE', q8_2c: '2024-01-02', q8_2d: '2024-01-09' }],
+    q7_4: true, q7_5: 1, ukVisits: [{ q7_5b: '2023-05', q7_5c: { weeks: 2 } }], q8_1: 3, q8_1a: ['usa', 'eea'], q8_2: true, q8_3: false, otherCountryTrips: [{ q8_2a: 'AE', q8_2c: '2024-01-02', q8_2d: '2024-01-09' }],
   }));
   const letter = buildTemplate(f);
   for (const sentence of [

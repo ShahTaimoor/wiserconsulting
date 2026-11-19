@@ -153,6 +153,7 @@ const EXCLUDED_IDS = Object.freeze({
   'Employer details other than the placeholder; earlier employer; how they are supported': ['q5_5', 'q5_9', 'q5_1k', 'q5_1l'],
   'Public funds received': ['q6_8', 'q6_8b', 'q6_8c', 'q6_8d', 'q6_8e'],
   'Other': ['q6_7', 'q6_1', 'q8_1', 'q8_2b'],
+  'Travel more than 10 years ago (not in the letter, which gives the recent travel history only)': ['q8_3', 'q8_3a', 'q8_3b', 'q8_3c', 'q8_3d'],
 });
 
 const EXCLUDED_FLAT = new Set(Object.values(EXCLUDED_IDS).flat());

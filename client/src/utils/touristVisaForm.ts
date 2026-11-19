@@ -416,6 +416,7 @@ export function hintFor(cfg: TouristVisaConfig, question: Question): string | un
   }
   if (question.rules?.notFuture) parts.push("Cannot be in the future.");
   if (question.rules?.withinYears) parts.push(`Must be within the past ${question.rules.withinYears} years.`);
+  if (question.rules?.olderThanYears) parts.push(`Must be more than ${question.rules.olderThanYears} years ago.`);
   if (question.type === "TEL") parts.push("Include the country code, for example +44.");
   return parts.length > 0 ? parts.join(" ") : undefined;
 }

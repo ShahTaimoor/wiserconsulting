@@ -75,7 +75,7 @@ const V7 = {
   q7_6: false, q7_7: true, immigrationProblems: [PROBLEM],
 };
 const TRIP = { q8_2a: "FR", q8_2b: "tourism", q8_2c: ago(400), q8_2d: ago(390) };
-const V8 = { q8_1: 3, q8_2: true, otherCountryTrips: [TRIP] };
+const V8 = { q8_1: 3, q8_2: true, q8_3: false, otherCountryTrips: [TRIP] };
 // 2.13 is married here, so that section 4A applies and is exercised too.
 // Part 9: every answer No and every tick given.
 const V9A = { q9_11: true, q9_1: false, q9_12: true, q9_2: false };
@@ -743,7 +743,7 @@ test("initialValues: the new lists start with one entry once their Yes/No is Yes
 test("sectionItems: in section 7 the lists sit after their Yes/No, and 8.1a follows 8.1", () => {
   const order = sectionItems(cfg, "7").map((i) => (i.kind === "question" ? i.question.id : `group:${i.group.id}`));
   assert.deepEqual(order, ["q7_1", "group:ukVisas", "q7_3", "group:ukLeaveApplications", "q7_4", "q7_5", "group:ukVisits", "q7_6", "group:breaches", "q7_7", "group:immigrationProblems"]);
-  assert.deepEqual(sectionItems(cfg, "8").map((i) => (i.kind === "question" ? i.question.id : `group:${i.group.id}`)), ["q8_1", "q8_1a", "q8_2", "group:otherCountryTrips"]);
+  assert.deepEqual(sectionItems(cfg, "8").map((i) => (i.kind === "question" ? i.question.id : `group:${i.group.id}`)), ["q8_1", "q8_1a", "q8_2", "group:otherCountryTrips", "q8_3", "group:olderCountryTrips"]);
 });
 
 test("hintFor words the look-back window, 7.3e's order rule and 7.5's limit of 20 listed visits", () => {

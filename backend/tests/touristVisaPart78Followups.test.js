@@ -163,7 +163,7 @@ test('encryption: 7.2c, 7.3f and 7.6d are ciphertext in the database, inside eve
 test('encryption: only the three new fields are newly encrypted; nothing else in Parts 7 and 8 is ciphertext', async () => {
   const { token, appId } = await applicationUpToPart6();
   assert.equal((await put(token, '7', { ...FULL7, q7_4: true, q7_5: 1, ukVisits: [VISIT], q7_7: true, immigrationProblems: [{ q7_7a: 'refused_visa', q7_7b: 'GB', q7_7c: monthsAgo(100), q7_7d: 'MADE-UP-PROBLEM-TEXT' }] })).status, 200);
-  assert.equal((await put(token, '8', { q8_1: 2, q8_1a: ['usa'], q8_2: false })).status, 200);
+  assert.equal((await put(token, '8', { q8_1: 2, q8_1a: ['usa'], q8_2: false, q8_3: false })).status, 200);
   const stored = await rawDoc(appId);
   const encrypted = [];
   const walk = (value, where) => {
@@ -189,16 +189,16 @@ test('encryption: a rejected save stores nothing, and the error messages never c
 
 test('GATE 8.1: 8.1a (which places) is optional, needs 8.1 above zero and is pruned when 8.1 goes back to 0', async () => {
   const { token, appId } = await applicationUpToPart6();
-  assert.equal((await put(token, '8', { q8_1: 3, q8_2: false })).status, 200, 'optional');
-  const ok = await put(token, '8', { q8_1: 3, q8_1a: ['usa', 'eea'], q8_2: false });
+  assert.equal((await put(token, '8', { q8_1: 3, q8_2: false, q8_3: false })).status, 200, 'optional');
+  const ok = await put(token, '8', { q8_1: 3, q8_1a: ['usa', 'eea'], q8_2: false, q8_3: false });
   assert.equal(ok.status, 200, JSON.stringify(ok.json));
   assert.deepEqual((await rawDoc(appId)).answers.q8_1a, ['usa', 'eea']);
 
-  const bad = await put(token, '8', { q8_1: 3, q8_1a: ['mars'], q8_2: false });
+  const bad = await put(token, '8', { q8_1: 3, q8_1a: ['mars'], q8_2: false, q8_3: false });
   assert.equal(bad.status, 422);
   assert.ok(bad.json.errors.q8_1a);
 
-  const zero = await put(token, '8', { q8_1: 0, q8_1a: ['usa', 'eea'], q8_2: false });
+  const zero = await put(token, '8', { q8_1: 0, q8_1a: ['usa', 'eea'], q8_2: false, q8_3: false });
   assert.equal(zero.status, 200, JSON.stringify(zero.json));
   assert.deepEqual(zero.json.data.removed, ['q8_1a']);
   const stored = await rawDoc(appId);
@@ -246,7 +246,7 @@ async function oldPartSeven(appId, answers) {
 test('old application: a saved No/No/No Part 7 is still saved; old Yes answers (7.1, 7.3, 7.6) need review and nothing is rewritten', async () => {
   const { token, appId } = await applicationUpToPart6();
   assert.equal((await put(token, '7', NO7)).status, 200);
-  assert.equal((await put(token, '8', { q8_1: 0, q8_2: false })).status, 200);
+  assert.equal((await put(token, '8', { q8_1: 0, q8_2: false, q8_3: false })).status, 200);
   assert.equal((await get(token)).sectionStatus['7'], 'saved', 'all No answers need nothing from the new questions');
 
   await oldPartSeven(appId, { q7_1: true, q7_2: monthsAgo(30), q7_3: true, q7_3a: 'old leave text', q7_6: true, q7_6a: 'old breach text' });
@@ -300,7 +300,7 @@ test('keep until answered: a Part 7 gate never answered keeps whatever list is s
     { _id: oid(appId) },
     { $set: { 'answers.ukVisas': [{ q7_2a: monthsAgo(30), q7_2b: 'work' }] } }
   );
-  assert.equal((await put(token, '8', { q8_1: 0, q8_2: false })).status, 200);
+  assert.equal((await put(token, '8', { q8_1: 0, q8_2: false, q8_3: false })).status, 200);
   assert.equal((await put(token, '6D', { q6_8: false })).status, 200);
   assert.equal((await rawDoc(appId)).answers.ukVisas.length, 1, 'saving other sections leaves it alone');
 

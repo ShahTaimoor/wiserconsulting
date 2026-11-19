@@ -109,6 +109,8 @@ test('config: covers exactly the questions of Parts 1 to 8 in the spec (plus the
   for (const l of 'abcd') expected.add(`7.7${l}`);
   for (let i = 1; i <= 2; i++) expected.add(`8.${i}`);
   expected.add('8.1a');
+  expected.add('8.3'); // 1.3.0: travel more than 10 years ago, with its own four fields
+  for (const l of 'abcd') expected.add(`8.3${l}`);
   // Part 9 (8b-1): ten Yes/No questions with a details box each, and four declaration ticks.
   for (let i = 1; i <= 14; i++) expected.add(`9.${i}`);
   for (let i = 1; i <= 10; i++) expected.add(`9.${i}a`);
@@ -144,7 +146,7 @@ test('config: no option is a [TBC] placeholder or a tbc_ value any more', () => 
 });
 
 test('config 1.0.x: the design was approved as final, so no draft marker is left anywhere', () => {
-  assert.equal(config.version, '1.2.0');
+  assert.equal(config.version, '1.3.0');
   assert.doesNotMatch(config.version, /draft/);
   assert.deepEqual(config.questions.filter((q) => q.draft).map((q) => q.number), []);
   assert.deepEqual(config.groups.filter((g) => g.draft).map((g) => g.id), []);
@@ -1153,7 +1155,7 @@ const S7 = {
   q7_6: false, q7_7: true, immigrationProblems: [PROBLEM],
 };
 const TRIP8 = { q8_2a: 'FR', q8_2b: 'tourism', q8_2c: '2024-07-01', q8_2d: '2024-07-10' };
-const S8 = { q8_1: 3, q8_2: true, otherCountryTrips: [TRIP8] };
+const S8 = { q8_1: 3, q8_2: true, otherCountryTrips: [TRIP8], q8_3: false };
 const NO7 = { q7_1: false, q7_3: false, q7_4: false, q7_6: false, q7_7: false };
 
 test('part 7: a complete section validates; every Yes/No answered No needs nothing more', () => {
@@ -1313,6 +1315,165 @@ test('look-back: the day matters for a full date, and 29 February moves to 28 Fe
   assert.equal(leave('2018-02-27', '2028-02-29'), 'Must be within the past 10 years');
 });
 
+// ---------------------------------------------------------------------------
+// Config 1.3.0: travel more than 10 years ago (8.3 and the group olderCountryTrips)
+// ---------------------------------------------------------------------------
+
+const OLD8 = { q8_3a: 'FR', q8_3b: 'tourism', q8_3c: '2005-03-01', q8_3d: '2005-03-10' };
+const NO_RECENT = { q8_1: 0, q8_2: false };
+const olderErrors = (entry, today) => validate('8', { ...NO_RECENT, q8_3: true, olderCountryTrips: [entry] }, undefined, today ? { today } : undefined).errors;
+const oldLeave = (d, today) => olderErrors({ ...OLD8, q8_3c: '1990-01-01', q8_3d: d }, today)['olderCountryTrips.0.q8_3d'];
+const recentLeave = (d, today) => validate('8', { q8_1: 0, q8_2: true, otherCountryTrips: [{ ...TRIP8, q8_2c: '1990-01-01', q8_2d: d }], q8_3: false }, undefined, { today }).errors['otherCountryTrips.0.q8_2d'];
+const TOO_RECENT = 'Trips in the last 10 years go in the travel history above.';
+
+test('older trips: 8.3 is a required Yes/No placed right after the existing Part 8 questions, and the old ids are unchanged', () => {
+  const ids = config.questions.filter((q) => q.section === '8').map((q) => q.id);
+  assert.deepEqual(ids, ['q8_1', 'q8_1a', 'q8_2', 'q8_2a', 'q8_2b', 'q8_2c', 'q8_2d', 'q8_3', 'q8_3a', 'q8_3b', 'q8_3c', 'q8_3d']);
+  const q83 = config.questions.find((q) => q.id === 'q8_3');
+  assert.equal(q83.number, '8.3');
+  assert.equal(q83.type, 'YN');
+  assert.equal(q83.required, true);
+  assert.equal(q83.label, 'Have you travelled to any other country more than 10 years ago?');
+  assert.equal(validate('8', { ...NO_RECENT }).errors.q8_3, 'This question is required');
+  const group = config.groups.find((g) => g.id === 'olderCountryTrips');
+  assert.equal(group.gate, 'q8_3');
+  assert.deepEqual(group.questions, ['q8_3a', 'q8_3b', 'q8_3c', 'q8_3d']);
+  assert.equal(group.max, config.groups.find((g) => g.id === 'otherCountryTrips').max);
+});
+
+test('older trips: the fields match the recent trip group one for one (same types, wording, options, all required)', () => {
+  const pairs = [['q8_2a', 'q8_3a'], ['q8_2b', 'q8_3b'], ['q8_2c', 'q8_3c'], ['q8_2d', 'q8_3d']];
+  for (const [a, b] of pairs) {
+    const qa = config.questions.find((q) => q.id === a);
+    const qb = config.questions.find((q) => q.id === b);
+    assert.equal(qb.type, qa.type, b);
+    assert.equal(qb.label, qa.label, b);
+    assert.deepEqual(qb.options, qa.options, b);
+    assert.equal(qb.required, true, `${b} is required`);
+    assert.equal(qb.group, 'olderCountryTrips');
+  }
+});
+
+test('older trips: Yes shows the group and needs at least one entry; No hides it', () => {
+  assert.equal(engine.isVisible(config, 'q8_3a', {}), false, 'not before 8.3 is answered');
+  assert.equal(engine.isVisible(config, 'q8_3a', { q8_3: false }), false);
+  assert.equal(engine.isVisible(config, 'q8_3a', { q8_3: true }), true);
+  assert.equal(validate('8', { ...NO_RECENT, q8_3: true }).errors.olderCountryTrips, 'Add at least one entry');
+  const ok = validate('8', { ...NO_RECENT, q8_3: true, olderCountryTrips: [OLD8] });
+  assert.equal(ok.success, true, JSON.stringify(ok.errors));
+  assert.deepEqual(ok.data.olderCountryTrips, [OLD8]);
+  const two = validate('8', { ...NO_RECENT, q8_3: true, olderCountryTrips: [OLD8, { ...OLD8, q8_3a: 'DE', q8_3c: '2001-05-01', q8_3d: '2001-05-04' }] });
+  assert.equal(two.success, true, JSON.stringify(two.errors));
+  assert.equal(validate('8', { ...NO_RECENT, q8_3: false }).success, true, 'No needs nothing more');
+});
+
+test('older trips: No ignores and removes stale entries, and does not touch the recent trips', () => {
+  const stale = { ...S8, q8_3: false, olderCountryTrips: [OLD8] };
+  const r = validate('8', stale, { ...S8, q8_3: true, olderCountryTrips: [OLD8] });
+  assert.equal(r.success, true, JSON.stringify(r.errors));
+  assert.deepEqual(r.removed, ['olderCountryTrips']);
+  assert.equal(r.data.olderCountryTrips, undefined);
+  assert.deepEqual(r.data.otherCountryTrips, [TRIP8], 'the recent trips stay');
+  assert.deepEqual(engine.pruneAnswers(config, { q8_3: false, olderCountryTrips: [OLD8] }).removed, ['olderCountryTrips']);
+  // A stale entry with errors in it does not block a No.
+  const bad = validate('8', { ...NO_RECENT, q8_3: false, olderCountryTrips: [{ q8_3a: 'ZZ' }] });
+  assert.equal(bad.success, true, JSON.stringify(bad.errors));
+});
+
+test('older trips: every field of an entry is required, and an empty entry says so for all four', () => {
+  const blank = olderErrors({});
+  assert.deepEqual(Object.keys(blank).sort(), ['olderCountryTrips.0.q8_3a', 'olderCountryTrips.0.q8_3b', 'olderCountryTrips.0.q8_3c', 'olderCountryTrips.0.q8_3d']);
+  for (const message of Object.values(blank)) assert.equal(message, 'This question is required');
+  for (const key of ['q8_3a', 'q8_3b', 'q8_3c', 'q8_3d']) {
+    const { [key]: _gone, ...rest } = OLD8;
+    assert.equal(olderErrors(rest)[`olderCountryTrips.0.${key}`], 'This question is required', key);
+  }
+  assert.equal(olderErrors({ ...OLD8, q8_3a: 'ZZ' })['olderCountryTrips.0.q8_3a'], 'Choose a country from the list');
+  assert.ok(olderErrors({ ...OLD8, q8_3b: 'not-a-reason' })['olderCountryTrips.0.q8_3b']);
+});
+
+test('older trips: the leave date must be before the cutoff the recent trips use, on both sides of it', () => {
+  // Today 2026-10-28: the cutoff is 2016-10-28. The recent group accepts a leave date from the cutoff on; the older group only before it.
+  assert.equal(oldLeave('2016-10-27', '2026-10-28'), undefined, 'the day before the cutoff is an older trip');
+  assert.equal(oldLeave('2016-10-28', '2026-10-28'), TOO_RECENT, 'exactly the cutoff is a recent trip');
+  assert.equal(oldLeave('2016-10-29', '2026-10-28'), TOO_RECENT, 'the day after the cutoff is a recent trip');
+  assert.equal(recentLeave('2016-10-28', '2026-10-28'), undefined, 'the recent group still takes the cutoff day');
+  assert.equal(recentLeave('2016-10-27', '2026-10-28'), 'Must be within the past 10 years', 'and still refuses the day before');
+});
+
+test('older trips: no day is accepted by both groups or by neither (every day within 40 days of the cutoff, in several years including leap years)', () => {
+  const addDays = (iso, n) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+  for (const today of ['2026-10-28', '2028-02-29', '2024-02-29', '2026-03-01', '2026-02-28', '2020-02-29', '2026-01-01', '2026-12-31']) {
+    const cutoff = engine.yearsBefore ? engine.yearsBefore(today, 10) : null;
+    for (let n = -40; n <= 40; n += 1) {
+      const leave = addDays(today, -3652 + n);
+      const inOlder = oldLeave(leave, today) === undefined;
+      const inRecent = recentLeave(leave, today) === undefined;
+      assert.notEqual(inOlder, inRecent, `${leave} (today ${today}${cutoff ? `, cutoff ${cutoff}` : ''}) must belong to exactly one group`);
+    }
+  }
+});
+
+test('older trips: 29 February moves to 28 February the same way as for the recent trips', () => {
+  // Today is a leap day: the cutoff is 28 February ten years ago.
+  assert.equal(oldLeave('2018-02-27', '2028-02-29'), undefined);
+  assert.equal(oldLeave('2018-02-28', '2028-02-29'), TOO_RECENT);
+  assert.equal(recentLeave('2018-02-28', '2028-02-29'), undefined);
+  // A leave date that is itself a leap day.
+  assert.equal(oldLeave('2016-02-29', '2026-03-01'), undefined, 'the cutoff is 1 March 2016, so 29 February 2016 is older');
+  assert.equal(oldLeave('2016-02-29', '2026-02-28'), TOO_RECENT, 'the cutoff is 28 February 2016, so 29 February 2016 is recent');
+  assert.equal(recentLeave('2016-02-29', '2026-02-28'), undefined);
+  assert.equal(oldLeave('2016-02-29', '2026-02-27'), TOO_RECENT);
+  assert.equal(oldLeave('2016-02-27', '2026-02-28'), undefined);
+});
+
+test('older trips: a trip in the last ten years, today and a future date are refused in the older group', () => {
+  assert.equal(oldLeave('2024-07-10'), TOO_RECENT);
+  assert.equal(oldLeave('2026-10-28'), TOO_RECENT, 'today');
+  assert.equal(oldLeave('2026-10-29'), 'Cannot be in the future', 'tomorrow: the future message comes first');
+  assert.equal(oldLeave('2030-01-01'), 'Cannot be in the future');
+  assert.equal(olderErrors({ ...OLD8, q8_3c: '2030-01-01', q8_3d: '2030-01-05' })['olderCountryTrips.0.q8_3c'], 'Cannot be in the future');
+});
+
+test('older trips: the leave date may be the arrival date but not before it', () => {
+  assert.equal(olderErrors({ ...OLD8, q8_3c: '2005-03-10', q8_3d: '2005-03-10' })['olderCountryTrips.0.q8_3d'], undefined, 'a day trip');
+  assert.equal(olderErrors({ ...OLD8, q8_3c: '2005-03-10', q8_3d: '2005-03-09' })['olderCountryTrips.0.q8_3d'], 'Must be on or after the date in question 8.3c');
+  // An arrival in the last ten years with a leave date before the cutoff cannot happen; the arrival check comes from the leave date.
+  assert.equal(olderErrors({ ...OLD8, q8_3c: '2017-01-01', q8_3d: '2005-03-10' })['olderCountryTrips.0.q8_3d'], 'Must be on or after the date in question 8.3c');
+});
+
+test('older trips: an entry is checked on its own, so one bad entry does not hide a good one, and a good older trip does not excuse a bad recent one', () => {
+  const r = validate('8', { ...NO_RECENT, q8_3: true, olderCountryTrips: [OLD8, { ...OLD8, q8_3d: '2024-07-10', q8_3c: '2024-07-01' }] });
+  assert.equal(r.success, false);
+  assert.equal(r.errors['olderCountryTrips.0.q8_3d'], undefined);
+  assert.equal(r.errors['olderCountryTrips.1.q8_3d'], TOO_RECENT);
+  // The recent group keeps its own rules: a trip that ended more than ten years ago is still refused there.
+  const recent = validate('8', { ...S8, otherCountryTrips: [{ ...TRIP8, q8_2c: '2005-03-01', q8_2d: '2005-03-10' }] });
+  assert.equal(recent.errors['otherCountryTrips.0.q8_2d'], 'Must be within the past 10 years');
+  // The recent group is not asked about 8.3's answer, and 8.3 does not need the recent group.
+  assert.equal(validate('8', { ...NO_RECENT, q8_3: true, olderCountryTrips: [OLD8] }).success, true);
+  assert.equal(validate('8', { ...S8, q8_3: true, olderCountryTrips: [OLD8] }).success, true);
+});
+
+test('older trips: a stay that began before the cutoff and ended after it is a recent trip, not an older one', () => {
+  const spanning = { ...TRIP8, q8_2c: '2010-01-01', q8_2d: '2020-01-05' };
+  assert.equal(validate('8', { ...S8, otherCountryTrips: [spanning] }).success, true, 'a stay that began earlier and ended inside the window is a recent trip');
+  assert.equal(olderErrors({ ...OLD8, q8_3c: '2010-01-01', q8_3d: '2020-01-05' })['olderCountryTrips.0.q8_3d'], TOO_RECENT);
+});
+
+test('older trips: the group is capped like the recent group', () => {
+  const max = config.groups.find((g) => g.id === 'olderCountryTrips').max;
+  const entries = Array.from({ length: max + 1 }, () => ({ ...OLD8 }));
+  const r = validate('8', { ...NO_RECENT, q8_3: true, olderCountryTrips: entries });
+  assert.equal(r.success, false);
+});
+
+test('older trips: an application saved under 1.2.0 (no 8.3) still validates its other answers and only 8.3 is missing', () => {
+  const before = validate('8', { ...S8, q8_3: undefined });
+  assert.deepEqual(Object.keys(before.errors), ['q8_3']);
+  assert.equal(before.errors.q8_3, 'This question is required');
+});
+
 test('7.5c is one number and one unit', () => {
   const dur = (v) => validate('7', { ...NO7, q7_4: true, q7_5: 1, ukVisits: [{ ...VISIT, q7_5c: v }] }).errors['ukVisits.0.q7_5c'];
   assert.equal(dur({ months: 3 }), undefined);
@@ -1383,8 +1544,8 @@ test('part 8: 8.1a (which places) only shows when 8.1 is above zero, is optional
   assert.equal(engine.isVisible(config, 'q8_1a', { q8_1: 1 }), true);
   assert.equal(engine.isVisible(config, 'q8_1a', { q8_1: 1000 }), true);
   assert.equal(engine.isVisible(config, 'q8_1a', { q8_1: '3' }), false, 'a text value is not a number');
-  assert.equal(validate('8', { q8_1: 3, q8_2: false }).success, true, 'optional');
-  const ok = validate('8', { q8_1: 3, q8_1a: ['usa', 'eea'], q8_2: false });
+  assert.equal(validate('8', { q8_1: 3, q8_2: false, q8_3: false }).success, true, 'optional');
+  const ok = validate('8', { q8_1: 3, q8_1a: ['usa', 'eea'], q8_2: false, q8_3: false });
   assert.equal(ok.success, true, JSON.stringify(ok.errors));
   assert.deepEqual(ok.data.q8_1a, ['usa', 'eea']);
   assert.ok(validate('8', { q8_1: 3, q8_1a: ['mars'], q8_2: false }).errors.q8_1a);
@@ -1438,6 +1599,10 @@ test('config: validateConfig checks count-driven groups, items and the look-back
     ['withinYears on a text question', (c) => { q(c, 'q8_1').rules.withinYears = 10; }, /needs a DATE or MY/],
     ['withinYears of zero', (c) => { q(c, 'q7_2a').rules.withinYears = 0; }, /whole number from 1 to 100/],
     ['withinYears that is not whole', (c) => { q(c, 'q7_2a').rules.withinYears = 2.5; }, /whole number from 1 to 100/],
+    ['olderThanYears on a text question', (c) => { q(c, 'q8_1').rules.olderThanYears = 10; }, /rules.olderThanYears needs a DATE question/],
+    ['olderThanYears of zero', (c) => { q(c, 'q8_3d').rules.olderThanYears = 0; }, /olderThanYears must be a whole number from 1 to 100/],
+    ['olderThanYears that is not whole', (c) => { q(c, 'q8_3d').rules.olderThanYears = 2.5; }, /olderThanYears must be a whole number from 1 to 100/],
+    ['olderThanYears together with withinYears', (c) => { q(c, 'q8_3d').rules.withinYears = 10; }, /cannot be combined with rules.withinYears/],
     ['gt that is not a number', (c) => { q(c, 'q8_1a').showWhen.gt = 'zero'; }, /"gt" must be a number/],
     ['gt on a question that is not a number', (c) => { q(c, 'q8_1a').showWhen = { q: 'q7_4', gt: 0 }; }, /"gt" needs a NUM question/],
     ['gt together with eq', (c) => { q(c, 'q8_1a').showWhen.eq = 1; }, /exactly one of eq, in, gt/],
@@ -2245,7 +2410,7 @@ test('release check: the approved config exits 0 and says everything is releasab
   const run = spawnSync(process.execPath, [script], { encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
   assert.match(run.stdout, new RegExp(`Tourist Visa config ${config.version.replace(/\./g, '\\.')}`));
-  assert.match(run.stdout, /Tourist Visa config 1\.2\.0/);
+  assert.match(run.stdout, /Tourist Visa config 1\.3\.0/);
   for (const id of ['1', '2A', '3', '9A', '9B', '9C', '10A', '10B', '10C', '10D']) assert.match(run.stdout, new RegExp(`section ${id}: .*: releasable`), id);
   assert.doesNotMatch(run.stdout, /NEEDS SENIOR REVIEW|BLOCKED/);
   assert.match(run.stdout, /23 sections: 0 blocked, 0 need senior review only, 23 clean\./);

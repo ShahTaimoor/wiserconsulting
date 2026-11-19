@@ -40,7 +40,7 @@ const answers = () => ({
   q6_7: false, q6_7x: 'paid_stay', q6_7y: 'London',
   q7_1: true, ukVisas: [{ q7_2a: '2023-04', q7_2b: 'visit', q7_2c: 'SECRET-VISA-REF' }],
   q7_4: true, q7_5: 2, ukVisits: [{ q7_5a: 'tourism', q7_5b: '2021-08', q7_5c: { days: 5 } }, { q7_5a: 'tourism', q7_5b: '2023-05', q7_5c: { weeks: 2 } }],
-  q8_1: 0, q8_2: true, otherCountryTrips: [{ q8_2a: 'AE', q8_2b: 'tourism', q8_2c: '2024-01-02', q8_2d: '2024-01-09' }],
+  q8_1: 0, q8_2: true, q8_3: false, otherCountryTrips: [{ q8_2a: 'AE', q8_2b: 'tourism', q8_2c: '2024-01-02', q8_2d: '2024-01-09' }],
   q9_1: true, q9_1a: 'SECRET-DETAILS-9', q10_1: ['conviction'], q10_1a: 'SECRET-10A', q10_2: 'SECRET-10B', q10_3: 'SECRET-10B', q10_4: 'other', q10_4a: 'SECRET-LANGUAGE', q10_5: true, q10_5a: 'SECRET-NI',
 });
 const SUBMITTED = new Date('2026-11-03T10:00:00Z');

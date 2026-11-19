@@ -42,6 +42,8 @@ export interface QuestionRules {
   notFuture?: boolean;
   /** DATE/MY must not be earlier than this many years before today ("in the past 10 years"). */
   withinYears?: number;
+  /** DATE must be before the day this many years before today ("more than 10 years ago"): the other side of the withinYears cutoff. */
+  olderThanYears?: number;
   /** DUR: which units are asked, and whether all of them ('parts') or exactly one ('single'). */
   units?: Array<'years' | 'months' | 'weeks' | 'days'>;
   durationMode?: 'single' | 'parts';
