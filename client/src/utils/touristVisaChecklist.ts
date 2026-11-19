@@ -19,15 +19,27 @@ export interface ChecklistSection {
   detail?: string;
 }
 
+/** How many documents the dashboard line names before it says "and N more" (a list of 20 documents must stay one short line). */
+const SUMMARY_NAMED = 3;
+
 /**
- * The line under the documents row on the dashboard: "1 passport file, 2 funds files", or
- * "No files uploaded yet". Slots are in the order of the file questions.
+ * The line under the documents row on the dashboard: "Your passport or travel document (1 file), Evidence of funds (2 files)",
+ * or "No files uploaded yet". It names the slots on this applicant's list that have files, by their label in the config, in the
+ * order of the file questions; with more than three it names the first three and says how many more. A slot that is hidden for
+ * the applicant's answers is not named.
  */
-export function documentSummary(config: TouristVisaConfig, documents: Array<{ slot: string }> | undefined, sectionId?: string): string {
-  const parts = documentsStatus(config, documents, sectionId)
+export function documentSummary(
+  config: TouristVisaConfig,
+  documents: Array<{ slot: string }> | undefined,
+  sectionId: string | undefined,
+  answers: Answers | undefined
+): string {
+  const parts = documentsStatus(config, documents, sectionId, answers ?? {})
     .slots.filter((slot) => slot.count > 0)
-    .map((slot) => slot.count + " " + slot.slot + " file" + (slot.count === 1 ? "" : "s"));
-  return parts.length ? parts.join(", ") : "No files uploaded yet";
+    .map((slot) => (getQuestion(config, slot.questionId)?.label ?? slot.slot) + " (" + slot.count + " file" + (slot.count === 1 ? "" : "s") + ")");
+  if (parts.length === 0) return "No files uploaded yet";
+  const named = parts.slice(0, SUMMARY_NAMED).join(", ");
+  return parts.length > SUMMARY_NAMED ? named + " and " + (parts.length - SUMMARY_NAMED) + " more" : named;
 }
 
 export interface ChecklistPart {
@@ -55,17 +67,18 @@ export function buildChecklist(
   const status = application?.sectionStatus ?? {};
   const applicable = new Set(getVisibleSections(config, (application?.answers ?? {}) as Answers).map((s) => s.id));
   const documents = application?.documents;
+  const answers = (application?.answers ?? {}) as Answers;
   const stateOf = (id: string): ChecklistState => {
     // A section made only of file questions (10D) follows the uploaded files, not a saved status.
     if (application && documents && isFilesOnlySection(config, id)) {
-      const { state } = documentsStatus(config, documents, id);
+      const { state } = documentsStatus(config, documents, id, answers);
       return state === "complete" ? "saved" : state === "in_progress" ? "in_progress" : "not_started";
     }
     const stored = status[id];
     return stored === "saved" || stored === "needs_review" || stored === "in_progress" ? stored : "not_started";
   };
   const detailOf = (id: string): string | undefined =>
-    application && documents && isFilesOnlySection(config, id) ? documentSummary(config, documents, id) : undefined;
+    application && documents && isFilesOnlySection(config, id) ? documentSummary(config, documents, id, answers) : undefined;
 
   const parts: ChecklistPart[] = config.parts
     .map((part) => ({
@@ -95,8 +108,13 @@ export interface MissingItem {
   href: string;
 }
 
+/** "A", "A and B", "A, B and C": the documents still to upload, named in a sentence (long lists stay readable). */
+function joinLabels(labels: string[]): string {
+  return labels.length <= 1 ? labels.join("") : labels.slice(0, -1).join(", ") + " and " + labels[labels.length - 1];
+}
+
 export interface Readiness {
-  /** True for a draft in which every section that applies is complete and both documents are uploaded. */
+  /** True for a draft in which every section that applies is complete and every required document is uploaded. */
   ready: boolean;
   /** What is still missing, in form order. Empty when ready, and for an application that is not a draft. */
   missing: MissingItem[];
@@ -104,7 +122,7 @@ export interface Readiness {
 
 /**
  * Is the draft ready to review and submit? Every section that applies has to be saved (the documents section only
- * counts once both slots have a file). Otherwise it says what is still missing, section by section, with where to
+ * needs a file in each REQUIRED slot on the applicant's list; an optional slot never blocks). Otherwise it says what is still missing, section by section, with where to
  * go. The server checks all of this again at submit and has the last word.
  */
 export function getReadiness(
@@ -113,15 +131,18 @@ export function getReadiness(
 ): Readiness {
   if (!application || application.status !== "draft") return { ready: false, missing: [] };
   const sections = buildChecklist(config, application).parts.flatMap((part) => part.sections);
+  const answers = (application.answers ?? {}) as Answers;
+  // The documents section is complete when every required slot has a file, whatever its optional slots hold (the server's rule).
+  const documentsDone = (id: string) => isFilesOnlySection(config, id) && documentsStatus(config, application.documents ?? [], id, answers).complete;
   const missing = sections
-    .filter((section) => section.state !== "saved")
+    .filter((section) => section.state !== "saved" && !documentsDone(section.id))
     .map((section): MissingItem => {
       let reason = section.state === "needs_review" ? "Needs another look" : section.state === "in_progress" ? "Not finished" : "Not started yet";
       if (isFilesOnlySection(config, section.id)) {
-        const labels = documentsStatus(config, application.documents ?? [], section.id)
-          .slots.filter((slot) => slot.count === 0)
+        const labels = documentsStatus(config, application.documents ?? [], section.id, answers)
+          .slots.filter((slot) => slot.required && slot.count === 0)
           .map((slot) => getQuestion(config, slot.questionId)?.label ?? slot.slot);
-        if (labels.length > 0) reason = "Upload a file for: " + labels.join(" and ");
+        if (labels.length > 0) reason = "Upload a file for: " + joinLabels(labels);
       }
       return { id: section.id, title: section.title, state: section.state, reason, href: "/tourist-visa/" + section.id };
     });

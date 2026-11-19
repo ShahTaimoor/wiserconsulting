@@ -1,7 +1,7 @@
 /**
  * Dedicated rate limits for the Tourist Visa routes that were covered only by the general limiter (step 8j-3, finding B9). They are separate
  * from the AI limits (config/ai.js, repositories/aiUsageRepository.js), from the PDF limiter (middleware/touristVisaPdfLimit.js) and from the
- * upload limiter (middleware/touristVisaUpload.js, 40 uploads an hour per user, which already existed). Each has its OWN budget, so one kind of
+ * upload limiter (middleware/touristVisaUpload.js, 120 uploads an hour per user, which already existed). Each has its OWN budget, so one kind of
  * work never uses up another's.
  *
  * Counted per signed-in user (the routes sit behind sign-in, so req.user is there); a request with no user is counted per network address.

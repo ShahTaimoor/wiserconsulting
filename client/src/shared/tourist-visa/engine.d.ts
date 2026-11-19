@@ -79,6 +79,8 @@ export interface Question {
   rules?: QuestionRules;
   /** FILE only: the document slot its files go into (the backend's document routes use the same names). */
   slot?: string;
+  /** FILE only: most files the slot holds (the backend's upload limit for the slot is read from here). */
+  maxFiles?: number;
   /** Short items shown as a bulleted list under the question text. */
   items?: string[];
   /**
@@ -275,18 +277,24 @@ export function getWordingDrafts(cfg: TouristVisaConfig): Array<{ id: string; dr
 export function wordingOf(cfg: TouristVisaConfig, questionId: string): string;
 
 export interface DocumentsStatus {
-  slots: Array<{ questionId: string; number: string; slot: string; count: number }>;
-  /** not_started: no slot has a file; in_progress: some do; complete: every slot has at least one. */
+  /** The slots on the applicant's list only (a hidden slot is not here). */
+  slots: Array<{ questionId: string; number: string; slot: string; required: boolean; count: number }>;
+  /** not_started: no visible slot has a file; in_progress: some do but a required slot has none; complete: every required slot has a file. */
   state: 'not_started' | 'in_progress' | 'complete';
+  /** Every required visible slot has at least one file (optional slots never block). */
   complete: boolean;
 }
 /** The FILE questions of the config, or of one section. */
 export function getFileQuestions(cfg: TouristVisaConfig, sectionId?: string): Question[];
+/** The FILE questions that are on this applicant's list: their showWhen is met by `answers`. */
+export function getVisibleFileQuestions(cfg: TouristVisaConfig, answers: Answers, sectionId?: string): Question[];
+/** Files whose slot is hidden for `answers` (or unknown to the config): kept, never blocking, removable while a draft. */
+export function getOrphanDocuments<T extends { slot: string }>(cfg: TouristVisaConfig, documents: T[] | undefined, answers: Answers): T[];
 /** A section made only of FILE questions: nothing to save, its files are saved as they are uploaded. */
 export function isFilesOnlySection(cfg: TouristVisaConfig, sectionId: string): boolean;
-/** How many files each FILE question has, and the overall state. `documents` need only a `slot`. */
-export function documentsStatus(cfg: TouristVisaConfig, documents: Array<{ slot: string }> | undefined, sectionId?: string): DocumentsStatus;
-/** True when every FILE question has at least one file (the rule for submitting). */
-export function documentsComplete(cfg: TouristVisaConfig, documents: Array<{ slot: string }> | undefined): boolean;
+/** How many files each visible FILE question has, and the overall state. `documents` need only a `slot`. */
+export function documentsStatus(cfg: TouristVisaConfig, documents: Array<{ slot: string }> | undefined, sectionId: string | undefined, answers: Answers): DocumentsStatus;
+/** True when every visible, required FILE question has at least one file (the rule for submitting). */
+export function documentsComplete(cfg: TouristVisaConfig, documents: Array<{ slot: string }> | undefined, answers: Answers): boolean;
 export function isSectionReleasable(cfg: TouristVisaConfig, sectionId: string): boolean;
 export function validateConfig(cfg: unknown): string[];

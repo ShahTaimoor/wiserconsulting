@@ -1,10 +1,8 @@
 const mongoose = require('mongoose');
 const { config: formConfig } = require('../shared/tourist-visa/engine');
-const { SLOTS } = require('../config/touristVisaDocuments');
 
 const APPLICATION_STATUSES = ['draft', 'submitted', 'in_review', 'completed'];
 const SECTION_STATES = ['saved', 'needs_review'];
-const DOCUMENT_SLOTS = Object.keys(SLOTS);
 // The fixed words an admin can flag an application with (needs a call, has been called, ...).
 const ADMIN_FLAGS = ['needs_call', 'called', 'awaiting_applicant', 'verified', 'concern'];
 
@@ -13,7 +11,9 @@ const ADMIN_FLAGS = ['needs_call', 'called', 'awaiting_applicant', 'verified', '
 // `originalName` is encrypted with the field cipher (bound to the application and the document id).
 const documentSchema = new mongoose.Schema({
     id: { type: String, required: true },
-    slot: { type: String, enum: DOCUMENT_SLOTS, required: true },
+    // Any slot id, not an enum: a file stored under a slot that a later config no longer lists (or has hidden) must never make a
+    // save or an update of its application fail. Whether a NEW upload may go into a slot is decided by the upload service.
+    slot: { type: String, required: true },
     publicId: { type: String, required: true },
     resourceType: { type: String, required: true },
     format: { type: String, required: true },
@@ -115,5 +115,4 @@ touristVisaApplicationSchema.index({ status: 1, createdAt: -1 });
 module.exports = mongoose.model('TouristVisaApplication', touristVisaApplicationSchema);
 module.exports.APPLICATION_STATUSES = APPLICATION_STATUSES;
 module.exports.SECTION_STATES = SECTION_STATES;
-module.exports.DOCUMENT_SLOTS = DOCUMENT_SLOTS;
 module.exports.ADMIN_FLAGS = ADMIN_FLAGS;

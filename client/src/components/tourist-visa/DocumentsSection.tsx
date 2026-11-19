@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTouristVisa } from "@/context/TouristVisaContext";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
-import { config, getFileQuestions, getVisibleSections } from "@/shared/tourist-visa/engine";
+import { config, getOrphanDocuments, getVisibleFileQuestions, getVisibleSections } from "@/shared/tourist-visa/engine";
 import type { Answers, Question } from "@/shared/tourist-visa/engine";
 import type { DocumentLimits, TouristVisaApplication, TouristVisaDocument } from "@/services/touristVisaService";
 import { isPreviewMode } from "@/utils/touristVisaChecklist";
@@ -55,7 +55,8 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
 
   const section = config.sections.find((s) => s.id === sectionId);
   const part = config.parts.find((p) => p.id === section?.part);
-  const questions = useMemo(() => getFileQuestions(config, sectionId), [sectionId]);
+  // Only the documents on this applicant's list (a slot hidden by their answers is not asked for).
+  const questions = useMemo(() => getVisibleFileQuestions(config, application.answers as Answers, sectionId), [sectionId, application.answers]);
   const applicable = useMemo(() => getVisibleSections(config, application.answers as Answers), [application.answers]);
   const sectionNumber = applicable.findIndex((s) => s.id === sectionId) + 1;
   const previousId = previousSectionId(config, sectionId, application.answers);
@@ -212,6 +213,8 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
   if (!section) return null;
   const total = docs.reduce((sum, d) => sum + d.size, 0);
   const busy = uploading !== null;
+  // Files kept from an earlier list of documents (the answers changed): not asked for, never blocking, still counted in the total.
+  const orphans = getOrphanDocuments(config, docs, application.answers as Answers);
 
   return (
     <>
@@ -226,8 +229,8 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
           </CardTitle>
           <CardDescription>
             Upload a clear scan or photo of each document. Each file is saved the moment it uploads, so there is nothing to save
-            here. You can carry on without them and add them later, but you will need at least one file for each before you can
-            submit your application.
+            here. You can carry on without them and add them later, but you will need at least one file for each document marked
+            "needed" before you can submit your application. Documents marked "optional" can be left out.
           </CardDescription>
         </CardHeader>
 
@@ -276,7 +279,9 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
                 <h3 id={`${panelId}-title`} className="text-base font-semibold text-foreground">
                   <span className="mr-2 font-normal text-muted-foreground">{question.number}</span>
                   {question.label}
-                  <span className="ml-2 text-xs font-normal text-muted-foreground">(at least one file is needed to submit)</span>
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    {question.required === false ? "(optional)" : "(needed: at least one file to submit)"}
+                  </span>
                   {previewMode && question.draft && <DraftBadge note={question.draft} />}
                 </h3>
                 <p id={`${panelId}-hint`} className="text-sm text-muted-foreground">
@@ -367,6 +372,60 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
               </section>
             );
           })}
+
+          {orphans.length > 0 && (
+            <section aria-labelledby="other-files-title" data-testid="other-files" className="space-y-3 rounded-lg border border-dashed border-border p-4">
+              <h3 id="other-files-title" className="text-base font-semibold text-foreground">
+                Files from a different list
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                These files were uploaded for documents that are not on your list now, because your answers changed. They are not needed and
+                do not stop you from submitting. They still count towards the total size, so you can remove them if you do not want to keep them.
+              </p>
+              <ul aria-label="Files from a different list" className="space-y-2">
+                {orphans.map((doc) => (
+                  <li
+                    key={doc.id}
+                    id={fileDomId(doc.id)}
+                    tabIndex={-1}
+                    className="flex flex-col gap-3 rounded-md border border-border bg-muted/30 p-3 outline-none focus-visible:ring-2 focus-visible:ring-ring sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex min-w-0 items-start gap-3">
+                      <FileText className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+                      <div className="min-w-0">
+                        <p className="break-all text-sm font-medium text-foreground">{doc.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {typeLabel(doc.type)} · {formatBytes(doc.size)} · Uploaded {formatUploadedAt(doc.uploadedAt)}
+                        </p>
+                        {slotErrors[doc.slot] && (
+                          <p role="alert" className="mt-1 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
+                            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                            {slotErrors[doc.slot]}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full sm:w-auto"
+                      disabled={removingId === doc.id}
+                      id={removeButtonDomId(doc.id)}
+                      aria-label={`Remove ${doc.name}`}
+                      onClick={() => {
+                        openedFrom.current = doc.id;
+                        setPendingRemove(doc);
+                      }}
+                    >
+                      {removingId === doc.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <Trash2 className="mr-2 h-4 w-4" aria-hidden />}
+                      {removingId === doc.id ? "Removing..." : "Remove"}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </CardContent>
 
         <CardFooter className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

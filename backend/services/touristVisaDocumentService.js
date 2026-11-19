@@ -19,11 +19,12 @@ const defaultStorage = require('../config/touristVisaStorage');
 const detectFileType = require('../utils/detectFileType');
 const documentError = require('../utils/documentError');
 const logger = require('../utils/logger');
+const engine = require('../shared/tourist-visa/engine');
 const { toDocumentView } = require('../utils/touristVisaDocumentView');
 const {
   MAX_FILE_BYTES,
   MAX_TOTAL_BYTES,
-  SLOTS,
+  slotsOf,
   FILE_TYPES,
   LINK_TTL_SECONDS,
   MAX_NAME_LENGTH,
@@ -34,8 +35,6 @@ const {
 const DOC_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Control characters, and the characters that reverse the direction of text (used to disguise file names).
 const UNSAFE_NAME_CHARS = /[\u0000-\u001f\u007f‪-‮⁦-⁩]/g;
-
-const isSlot = (slot) => typeof slot === 'string' && Object.prototype.hasOwnProperty.call(SLOTS, slot);
 
 /** A display-only name: no folders, no control characters, bounded length. Never used to name a stored file. */
 function cleanName(originalName, extension) {
@@ -48,8 +47,10 @@ function cleanName(originalName, extension) {
 }
 
 class TouristVisaDocumentService {
-  constructor({ repository = defaultRepository, storage = defaultStorage, now = () => new Date(), newId = () => crypto.randomUUID() } = {}) {
+  constructor({ repository = defaultRepository, storage = defaultStorage, now = () => new Date(), newId = () => crypto.randomUUID(), config = engine.config } = {}) {
     this.repository = repository;
+    this.config = config; // the form's config: its FILE questions are the slots, and their showWhen decides who may upload where
+    this.slots = slotsOf(config);
     this.storage = storage;
     this.now = now;
     this.newId = newId;
@@ -59,7 +60,7 @@ class TouristVisaDocumentService {
   async list(userId) {
     const context = await this.contextOf(userId);
     const documents = this.repository.decryptDocuments(context._id, context.documents);
-    return { documents: documents.map(toDocumentView), limits: publicLimits() };
+    return { documents: documents.map(toDocumentView), limits: publicLimits(this.slots) };
   }
 
   /**
@@ -68,7 +69,7 @@ class TouristVisaDocumentService {
    */
   async upload(userId, { slot, file }) {
     if (!file || !Buffer.isBuffer(file.buffer)) throw documentError('FILE_REQUIRED');
-    if (!isSlot(slot)) throw documentError('INVALID_SLOT');
+    if (!this.isSlot(slot)) throw documentError('INVALID_SLOT');
     if (file.buffer.length === 0) throw documentError('FILE_EMPTY');
     if (file.buffer.length > MAX_FILE_BYTES) throw documentError('FILE_TOO_LARGE');
     const typeKey = detectFileType(file.buffer);
@@ -108,7 +109,7 @@ class TouristVisaDocumentService {
 
     let added;
     try {
-      added = await this.repository.addDocument(context._id, userId, reference, { slotMax: SLOTS[slot].max, totalMax: MAX_TOTAL_BYTES });
+      added = await this.repository.addDocument(context._id, userId, reference, { slotMax: this.slots[slot].max, totalMax: MAX_TOTAL_BYTES });
     } catch (error) {
       await this.discard(applicationId, id, stored);
       throw error;
@@ -163,11 +164,25 @@ class TouristVisaDocumentService {
     return context;
   }
 
-  /** Throws the right error unless the application is a draft with room for this file. */
+  isSlot(slot) {
+    return typeof slot === 'string' && Object.prototype.hasOwnProperty.call(this.slots, slot);
+  }
+
+  /**
+   * Is this slot on the applicant's list for the answers they have now? A slot with a showWhen that is not met is not (the check
+   * is here, on the server, so a hand-made request cannot upload to it). Answers come from the stored application, decrypted.
+   */
+  slotIsOnList(context, slot) {
+    const answers = this.repository.decryptAnswers(String(context._id), context.answers || {});
+    return engine.getVisibleFileQuestions(this.config, answers).some((q) => q.slot === slot);
+  }
+
+  /** Throws the right error unless the application is a draft with room for this file, in a slot that is on the applicant's list. */
   assertRoom(context, slot, bytes) {
     if (context.status !== 'draft') throw documentError('DOCUMENTS_LOCKED');
+    if (!this.slotIsOnList(context, slot)) throw documentError('SLOT_NOT_AVAILABLE');
     const documents = context.documents || [];
-    if (documents.filter((d) => d.slot === slot).length >= SLOTS[slot].max) throw documentError('TOO_MANY_FILES');
+    if (documents.filter((d) => d.slot === slot).length >= this.slots[slot].max) throw documentError('TOO_MANY_FILES');
     if (documents.reduce((sum, d) => sum + d.bytes, 0) + bytes > MAX_TOTAL_BYTES) throw documentError('TOTAL_TOO_LARGE');
   }
 

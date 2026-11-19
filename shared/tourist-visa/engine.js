@@ -25,6 +25,8 @@ const DURATION_MAX = { years: 150, months: 1800, weeks: 7800, days: 54750 };
 // Largest amount an AMT question accepts unless it sets its own rules.max.
 const AMOUNT_MAX = 1e9;
 const REQUIRED_MSG = 'This question is required';
+// Most files one document slot may hold (a FILE question's maxFiles).
+const FILE_SLOT_MAX_FILES = 20;
 const COUNTRY_CODES = new Set(countries.map((c) => c.code));
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 // rules.normalize: how a TXT answer is tidied before its pattern is checked and before it is stored.
@@ -1070,17 +1072,19 @@ function validateConfig(cfg) {
     }
     if (q.type === 'ACK' && q.required !== true) err(`${w}: an ACK question must be required`);
     if (q.type === 'FILE') {
-      // A FILE question is answered by uploading files into its slot. It stores no answer, is always shown,
-      // and "required" means "needs at least one file before the application can be submitted".
+      // A FILE question is answered by uploading files into its slot. It stores no answer. It may have a showWhen (the same
+      // rule as any question: a hidden slot is not on the applicant's list), and "required" means "needs at least one file
+      // before the application can be submitted" (required: false is an optional slot that never blocks).
       if (typeof q.slot !== 'string' || !/^[a-z]+$/.test(q.slot)) err(`${w}: a FILE question needs a slot (lower-case letters)`);
       else if (fileSlots.has(q.slot)) err(`${w}: slot ${q.slot} is already used by ${fileSlots.get(q.slot)}`);
       else fileSlots.set(q.slot, q.id);
-      for (const key of ['options', 'rules', 'showWhen', 'group', 'items', 'helpCountries']) {
+      if (!Number.isInteger(q.maxFiles) || q.maxFiles < 1 || q.maxFiles > FILE_SLOT_MAX_FILES) err(`${w}: a FILE question needs maxFiles, a whole number from 1 to ${FILE_SLOT_MAX_FILES}`);
+      for (const key of ['options', 'rules', 'group', 'items', 'helpCountries']) {
         if (q[key] !== undefined) err(`${w}: a FILE question has no ${key}`);
       }
       if (q.sensitive) err(`${w}: a FILE question stores no answer, so it cannot be sensitive`);
-    } else if (q.slot !== undefined) {
-      err(`${w}: slot is only for FILE questions`);
+    } else if (q.slot !== undefined || q.maxFiles !== undefined) {
+      err(`${w}: slot and maxFiles are only for FILE questions`);
     }
     if (r.withinYears !== undefined) {
       if (q.type !== 'DATE' && q.type !== 'MY') err(`${w}: rules.withinYears needs a DATE or MY question`);
@@ -1189,29 +1193,59 @@ function isFilesOnlySection(cfg, sectionId) {
 }
 
 /**
- * Where the files stand. `documents` is the application's list (each with a `slot`); only the slot is read.
- * Per FILE question (of one section when sectionId is given): how many files it has. state is
- *  - 'not_started': no slot has a file;
- *  - 'in_progress': some slot has a file, not all;
- *  - 'complete': every slot has at least one file.
- * A draft can be saved in any state; `complete` is the rule for submitting (step 8d).
+ * The FILE questions that are on this applicant's list: the ones whose showWhen is met by `answers` (a FILE question with no
+ * showWhen is always on the list). A hidden slot is not on the list: nothing is asked for and nothing blocks. `answers` is required
+ * (an engine that guessed "no answers" would quietly hide every conditional slot).
  */
-function documentsStatus(cfg, documents, sectionId) {
+function getVisibleFileQuestions(cfg, answers, sectionId) {
+  if (!answers || typeof answers !== 'object' || Array.isArray(answers)) throw new Error('getVisibleFileQuestions needs the answers');
+  return getFileQuestions(cfg, sectionId).filter((q) => isVisibleIn(cfg, q, answers, null));
+}
+
+/** Is a FILE question required (needs at least one file before submitting)? A missing flag counts as required. */
+const isFileRequired = (q) => q.required !== false;
+
+/**
+ * Files that are not on this applicant's list: their slot is hidden for the current answers, or is not in this config at all
+ * (an older upload). They are kept, never block anything and are never asked for; the applicant may remove them while the
+ * application is a draft. `documents` is the application's list (each with a `slot`).
+ */
+function getOrphanDocuments(cfg, documents, answers) {
+  const onList = new Set(getVisibleFileQuestions(cfg, answers).map((q) => q.slot));
+  return (Array.isArray(documents) ? documents : []).filter((d) => d && !onList.has(d.slot));
+}
+
+/**
+ * Where the files stand, for the slots that are on the applicant's list (a hidden slot is ignored here).
+ * `documents` is the application's list (each with a `slot`); only the slot is read. `answers` are the application's answers
+ * (they decide which slots are visible). Per visible FILE question (of one section when sectionId is given): how many files
+ * it has and whether it is required. Only required slots block; an optional slot with no files is simply not answered. state is
+ *  - 'not_started': no visible slot has a file (and nothing is required, or nothing yet);
+ *  - 'in_progress': some visible slot has a file but a required slot has none;
+ *  - 'complete': every required slot has at least one file (a section whose slots are all optional is complete once it has a file).
+ * `complete` is the rule for submitting: every required visible slot has a file. A draft can be saved in any state.
+ */
+function documentsStatus(cfg, documents, sectionId, answers) {
   const list = Array.isArray(documents) ? documents : [];
-  const slots = getFileQuestions(cfg, sectionId).map((q) => ({
+  const slots = getVisibleFileQuestions(cfg, answers, sectionId).map((q) => ({
     questionId: q.id,
     number: q.number,
     slot: q.slot,
+    required: isFileRequired(q),
     count: list.filter((d) => d && d.slot === q.slot).length,
   }));
-  const filled = slots.filter((s) => s.count > 0).length;
-  const complete = filled === slots.length;
-  return { slots, state: complete ? 'complete' : filled > 0 ? 'in_progress' : 'not_started', complete };
+  const complete = slots.every((s) => !s.required || s.count > 0);
+  const anyFile = slots.some((s) => s.count > 0);
+  const anyRequired = slots.some((s) => s.required);
+  let state;
+  if (!complete) state = anyFile ? 'in_progress' : 'not_started';
+  else state = anyRequired || anyFile ? 'complete' : 'not_started';
+  return { slots, state, complete };
 }
 
-/** True when every FILE question has at least one file. Step 8d refuses to submit until it is. */
-function documentsComplete(cfg, documents) {
-  return documentsStatus(cfg, documents).complete;
+/** True when every visible, required FILE question has at least one file. Step 8d refuses to submit until it is. */
+function documentsComplete(cfg, documents, answers) {
+  return documentsStatus(cfg, documents, undefined, answers).complete;
 }
 
 module.exports = {
@@ -1235,6 +1269,8 @@ module.exports = {
   getWordingDrafts,
   wordingOf,
   getFileQuestions,
+  getVisibleFileQuestions,
+  getOrphanDocuments,
   isFilesOnlySection,
   documentsStatus,
   documentsComplete,
