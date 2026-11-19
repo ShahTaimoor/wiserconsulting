@@ -311,3 +311,64 @@ test('declarations.submit: the config has the final wording, and its hash input 
   delete broken.declarations.submit;
   assert.ok(engine.validateConfig(broken).some((p) => /declarations\.submit is required/.test(p)));
 });
+
+// ---------------------------------------------------------------------------
+// Read-only dates: "18 January 2026" (day, full month name, year), the same in every time zone
+// ---------------------------------------------------------------------------
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** Runs `check` with the process in a time zone, then puts the zone back. */
+function inZone(zone, check) {
+  const before = process.env.TZ;
+  process.env.TZ = zone;
+  try {
+    check();
+  } finally {
+    if (before === undefined) delete process.env.TZ;
+    else process.env.TZ = before;
+  }
+}
+const ZONES = ['UTC', 'Pacific/Kiritimati', 'Pacific/Pago_Pago', 'America/Los_Angeles', 'Asia/Karachi', 'Europe/London', 'Australia/Lord_Howe'];
+
+test('formatDate writes all twelve months in full, with no leading zero on the day', () => {
+  MONTH_NAMES.forEach((name, index) => {
+    const month = String(index + 1).padStart(2, '0');
+    assert.equal(view.formatDate(`2026-${month}-05`), `5 ${name} 2026`);
+    assert.equal(view.formatDate(`2026-${month}-18`), `18 ${name} 2026`);
+  });
+});
+
+test('formatDate: the first and last day of a year, a leap day, and text that is not a date', () => {
+  assert.equal(view.formatDate('2026-01-01'), '1 January 2026');
+  assert.equal(view.formatDate('2026-12-31'), '31 December 2026');
+  assert.equal(view.formatDate('2024-02-29'), '29 February 2024');
+  assert.equal(view.formatDate('not a date'), 'not a date');
+  assert.equal(view.formatDate('2026-13-01'), '2026-13-01', 'a month that does not exist is returned as it is');
+});
+
+test('formatDate and formatMonth never move a day or a month, whatever the time zone of the machine', () => {
+  for (const zone of ZONES) {
+    inZone(zone, () => {
+      assert.equal(view.formatDate('2026-01-18'), '18 January 2026', zone);
+      assert.equal(view.formatDate('2026-01-01'), '1 January 2026', zone);
+      assert.equal(view.formatDate('2026-12-31'), '31 December 2026', zone);
+      assert.equal(view.formatMonth('2026-01'), 'January 2026', zone);
+      assert.equal(view.formatMonth('2026-12'), 'December 2026', zone);
+    });
+  }
+});
+
+test('formatMoment is the UTC day of a moment, whatever the time zone of the machine, near midnight too', () => {
+  for (const zone of ZONES) {
+    inZone(zone, () => {
+      assert.equal(view.formatMoment('2026-01-18T23:59:59.999Z'), '18 January 2026', zone);
+      assert.equal(view.formatMoment('2026-01-19T00:00:00.000Z'), '19 January 2026', zone);
+      assert.equal(view.formatMoment('2026-12-31T23:30:00Z'), '31 December 2026', zone);
+      assert.equal(view.formatMoment('2027-01-01T00:30:00Z'), '1 January 2027', zone);
+      assert.equal(view.formatMoment(new Date(Date.UTC(2026, 6, 15, 23, 30))), '15 July 2026', zone);
+      assert.equal(view.formatMoment('2026-01-18'), '18 January 2026', `${zone}: an ISO date alone is the UTC day`);
+    });
+  }
+  assert.equal(view.formatMoment('not a date'), '');
+});

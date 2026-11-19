@@ -7,6 +7,7 @@
  */
 
 import type { Review } from "../shared/tourist-visa/view.js";
+import { formatDateTime } from "./touristVisaDate.ts";
 import type { ActivityRow, AdminFile, AdminFlag, AdminStatus, CallOutcome } from "@/services/touristVisaAdminTypes";
 
 export const ADMIN_STATUSES: readonly AdminStatus[] = ["submitted", "in_review", "completed"];
@@ -135,12 +136,9 @@ export function pagerState(page: number, totalPages: number): { hasPrevious: boo
   return { hasPrevious: page > 1, hasNext: page < totalPages };
 }
 
-/** The date and time of a row, such as "31 Oct 2026, 11:56". `timeZone` is for tests; the page uses the browser's. */
+/** The date and time of a row, such as "31 October 2026, 11:56" (the date as everywhere, the time in 24 hours). `timeZone` is for tests; the page uses the browser's. */
 export function formatWhen(iso: string | null | undefined, timeZone?: string): string {
-  if (!iso) return "";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false, ...(timeZone ? { timeZone } : {}) });
+  return formatDateTime(iso, timeZone);
 }
 
 /** A line of the Activity panel: who did what. */

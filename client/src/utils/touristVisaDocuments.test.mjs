@@ -156,10 +156,9 @@ test("without a known code the message follows the status: offline, too many req
   assert.equal(documentErrorMessage("MADE_UP"), "Something went wrong. Please try again.");
 });
 
-test("formatUploadedAt gives a readable date and time, and nothing for a bad one", () => {
-  const text = formatUploadedAt("2026-11-01T12:00:00.000Z", "en-US");
-  assert.match(text, /Nov/);
-  assert.match(text, /2026/);
+test("formatUploadedAt gives the date as 1 November 2026 and the 24-hour time, and nothing for a bad one", () => {
+  assert.equal(formatUploadedAt("2026-11-01T12:00:00.000Z", "UTC"), "1 November 2026, 12:00");
+  assert.equal(formatUploadedAt("2026-11-01T23:30:00.000Z", "Asia/Karachi"), "2 November 2026, 04:30", "the day and the time in the time zone asked for");
   assert.equal(formatUploadedAt("not a date"), "");
   assert.equal(formatUploadedAt(""), "");
 });

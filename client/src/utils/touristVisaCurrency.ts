@@ -6,6 +6,8 @@
  * functions with their dependencies passed in (the fetch), so they can be unit tested with `node --test`.
  */
 
+import { longDate } from "./touristVisaDate.ts";
+
 /** What the rates route sends: units of each currency per 1 GBP. */
 export interface RatesData {
   base: "GBP";
@@ -71,13 +73,9 @@ export function formatRate(rate: number): string {
   return rate.toLocaleString("en-GB", { maximumFractionDigits: digits });
 }
 
-/** "3 November 2026" from "2026-11-03"; the text itself when it is not a date. */
+/** "3 November 2026" from "2026-11-03" (the shared date formatter, from the parts); the text itself when it is not a date. */
 export function formatAsOf(asOf: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(asOf);
-  if (!match) return asOf;
-  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
-  if (Number.isNaN(date.getTime())) return asOf;
-  return date.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+  return longDate(asOf);
 }
 
 /** The amount typed, written back with separators ("450,000.5"), for the message after it is used. */

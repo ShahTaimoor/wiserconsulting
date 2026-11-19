@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useTouristVisa } from "@/context/TouristVisaContext";
 import { config, getDraftItems, getReleaseBlockers } from "@/shared/tourist-visa/engine";
 import type { TouristVisaApplication } from "@/services/touristVisaService";
+import { formatMomentDate } from "@/utils/touristVisaDate";
 import {
   buildChecklist,
   countHeldSections,
@@ -194,7 +195,7 @@ export default function TouristVisaDashboardPage() {
 
               {application && application.status !== "draft" && application.submittedAt && (
                 <p className="text-sm text-muted-foreground">
-                  Submitted on {new Date(application.submittedAt).toLocaleDateString()}.
+                  Submitted on {formatMomentDate(application.submittedAt)}.
                 </p>
               )}
 

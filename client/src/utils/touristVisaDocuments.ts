@@ -10,6 +10,7 @@
  */
 
 import type { DocumentLimits, TouristVisaDocument } from "@/services/touristVisaService";
+import { formatDateTime } from "./touristVisaDate.ts";
 
 /** The codes the server's document routes answer with (backend/config/touristVisaDocuments.js). */
 export type DocumentErrorCode =
@@ -172,9 +173,7 @@ export function acceptAttribute(limits: Pick<DocumentLimits, "allowedTypes"> | n
   return [...types, ...extensions].join(",");
 }
 
-/** When a file was uploaded, for the list. */
-export function formatUploadedAt(iso: string, locale?: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
+/** When a file was uploaded, for the list: "18 January 2026, 14:05". */
+export function formatUploadedAt(iso: string, timeZone?: string): string {
+  return formatDateTime(iso, timeZone);
 }

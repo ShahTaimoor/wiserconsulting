@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { config as liveConfig } from "@/shared/tourist-visa/engine";
 import type { Question, QuestionOption, TouristVisaConfig } from "@/shared/tourist-visa/engine";
 import { wantsCurrencyHelper } from "@/utils/touristVisaCurrency";
+import { dateErrorMessage } from "@/utils/touristVisaDate";
 import { helpCountryNames, hintFor } from "@/utils/touristVisaForm";
 import { FIELD_RENDERERS, GROUPED_TYPES, INLINE_LABEL_TYPES } from "./fields";
 import { CurrencyHelper } from "./CurrencyHelper";
@@ -61,8 +62,10 @@ export function DraftBadge({ note }: { note: string }) {
  * type, and the error message. Everything is tied together for screen readers with
  * label/legend and aria-describedby, and the control is reachable by keyboard.
  */
-export function QuestionField({ cfg, question, idBase, value, onChange, options, error, subErrors, previewMode }: QuestionFieldProps) {
+export function QuestionField({ cfg, question, idBase, value, onChange, options, error: reportedError, subErrors, previewMode }: QuestionFieldProps) {
   const Renderer = FIELD_RENDERERS[question.type];
+  // A date question whose text is not a date says so in plain words that name the format, whatever generic words the engine used.
+  const error = question.type === "DATE" ? dateErrorMessage(value, reportedError) : reportedError;
   const hint = hintFor(cfg, question);
   const hintId = hint ? `${idBase}-hint` : undefined;
   const errorId = error ? `${idBase}-error` : undefined;
