@@ -325,7 +325,7 @@ test('a valid fill-in for each changed section saves, with the entries in order 
     ['6A', { ...S6A, q6_1: 'savings_and_income', q6_2: gbp(8000), q6_1a: gbp(400), q6_5: true, payers: [PAYER, { ...PAYER, q6_5c: 'Second Payer', q6_5b: 'employer', q6_5d: 'employer', q6_5f: undefined, q6_5g: undefined }] }],
     ['6B', { q6_6: true, ukFamily: [RELATIVE, { ...RELATIVE, q6_6c: 'Second', q6_6e: undefined, q6_6g: 'dont_know' }] }],
     ['6C', { q6_7: false, q6_7x: 'address_unknown', q6_7y: 'Test City' }],
-    ['6D', { q6_8: true, publicFunds: [FUNDS, { q6_8b: 'other', q6_8c: '2022-02' }] }],
+    ['6D', { q6_8: true, publicFunds: [FUNDS, { q6_8b: 'other', q6_8b_other: 'A made-up benefit', q6_8c: '2022-02' }] }],
   ];
   for (const [section, answers] of sections) {
     const res = await put(token, section, answers);

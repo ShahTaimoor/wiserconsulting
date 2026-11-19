@@ -132,7 +132,9 @@ function detailsOf(facts, name) {
   const values = (facts && facts.values) || {};
   const places = Array.isArray(facts && facts.places) ? facts.places : [];
   const cap = (s) => (typeof s === 'string' && s ? s[0].toUpperCase() + s.slice(1) : '');
-  const stay = values.accommodationPlan ? cap(values.accommodationPlan) : [].concat(values.accommodationTowns || []).join(', ');
+  // An Other (please write) plan is the applicant's own words, cleaned for the AI: a piece taken out of it (a name, a number) is put back as typed.
+  const restore = (s) => (typeof s === 'string' ? s.replace(/\[(R\d+)\]/g, (match, key) => (facts && facts.redactions && typeof facts.redactions[key] === 'string' ? facts.redactions[key] : match)) : s);
+  const stay = values.accommodationPlan ? cap(restore(values.accommodationPlan)) : [].concat(values.accommodationTowns || []).join(', ');
   const nights = typeof values.stay === 'string' && !/^0(?!\d)/.test(values.stay) ? values.stay : '';
   return [
     { label: 'Traveller', value: name || '' },

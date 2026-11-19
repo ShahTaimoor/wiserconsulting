@@ -13,7 +13,7 @@
  * in the Next.js client and the Express backend with their own zod install.
  */
 
-const config = require('./questions.json');
+const rawConfig = require('./questions.json');
 const countries = require('./countries.json');
 
 const TYPES = [
@@ -31,6 +31,70 @@ const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const NORMALIZERS = {
   uppercase_no_spaces: (s) => s.replace(/\s+/g, '').toUpperCase(),
 };
+
+// ---------------------------------------------------------------------------
+// "Other (please write)": a list question with allowOther gets a companion text question
+// ---------------------------------------------------------------------------
+//
+// The config says only `allowOther: true` on a SEL or CHK question whose options include the value "other". expandOther turns that into
+// a real question placed right after it, so visibility, required, validation, pruning, readiness and "changes made necessary" all
+// work on it like on any other question, with no special case anywhere else:
+//
+//   id        <question id>_other           (stored next to the choice: answers.q1_1 = "other", answers.q1_1_other = "the text")
+//   number    the same number as the question it belongs to
+//   showWhen  the question is "other" (for CHK: ticked), so choosing anything else hides it and the text is dropped
+//   text      required, trimmed, at most OTHER_MAX characters, no angle brackets (the same TXT rules as other short answers)
+//   otherOf   the id of the question it belongs to (the review, the PDFs and the facts read the text through this)
+//
+// The shape of the choice itself is untouched: it stays the option value "other". Nothing here is stored in the config file, so the
+// stored answers and the file stay as they are; the expanded config is what a submission records as its snapshot.
+
+const OTHER_VALUE = 'other';
+const OTHER_SUFFIX = '_other';
+const OTHER_LABEL = 'Please write your answer';
+const OTHER_MAX = 100;
+const OTHER_PATTERN = Object.freeze({ regex: '^[^<>]*$', message: 'Do not use the < or > characters' });
+
+/** The companion text question of a list question that allows Other. */
+function otherCompanionOf(q) {
+  return {
+    id: `${q.id}${OTHER_SUFFIX}`,
+    number: q.number,
+    section: q.section,
+    label: OTHER_LABEL,
+    type: 'TXT',
+    required: true,
+    ...(q.group ? { group: q.group } : {}),
+    showWhen: q.type === 'CHK' ? { q: q.id, includes: OTHER_VALUE } : { q: q.id, eq: OTHER_VALUE },
+    rules: { maxLen: OTHER_MAX, pattern: { regex: OTHER_PATTERN.regex, message: OTHER_PATTERN.message } },
+    otherOf: q.id,
+  };
+}
+
+/**
+ * The config with a companion question after every list question that allows Other (and in its group). Returns the config itself
+ * when there is nothing to add, so it is safe to call again on a config that is already expanded.
+ */
+function expandOther(cfg) {
+  if (!cfg || !Array.isArray(cfg.questions)) return cfg;
+  const have = new Set(cfg.questions.map((q) => q && q.id));
+  const wanted = cfg.questions.filter((q) => q && q.allowOther === true && !have.has(`${q.id}${OTHER_SUFFIX}`));
+  if (!wanted.length) return cfg;
+  const wantedIds = new Set(wanted.map((q) => q.id));
+  const questions = [];
+  for (const q of cfg.questions) {
+    questions.push(q);
+    if (wantedIds.has(q.id)) questions.push(otherCompanionOf(q));
+  }
+  const groups = Array.isArray(cfg.groups)
+    ? cfg.groups.map((g) => (Array.isArray(g.questions) && g.questions.some((id) => wantedIds.has(id))
+      ? { ...g, questions: g.questions.flatMap((id) => (wantedIds.has(id) ? [id, `${id}${OTHER_SUFFIX}`] : [id])) }
+      : g))
+    : cfg.groups;
+  return { ...cfg, questions, ...(groups !== undefined ? { groups } : {}) };
+}
+
+const config = expandOther(rawConfig);
 
 // ---------------------------------------------------------------------------
 // Indexing
@@ -137,6 +201,23 @@ function yearsBefore(iso, years) {
 function scopeGet(flat, entry, id) {
   if (entry && Object.prototype.hasOwnProperty.call(entry, id)) return entry[id];
   return flat[id];
+}
+
+/** Is Other the chosen answer of this list question (for a CHK question: is it ticked)? */
+function isOtherChosen(q, value) {
+  return !!q && q.allowOther === true && (Array.isArray(value) ? value.includes(OTHER_VALUE) : value === OTHER_VALUE);
+}
+
+/**
+ * The text written for an Other answer: trimmed, or '' when Other is not the chosen answer or nothing was written. `entry` is the
+ * repeating-group entry when the question is inside one. The review, the PDFs and the facts for the AI all read it through this.
+ */
+function writtenOther(cfg, q, answers, entry) {
+  if (!q || q.allowOther !== true) return '';
+  const flat = answers || {};
+  if (!isOtherChosen(q, scopeGet(flat, entry || null, q.id))) return '';
+  const text = scopeGet(flat, entry || null, `${q.id}${OTHER_SUFFIX}`);
+  return typeof text === 'string' ? text.trim() : '';
 }
 
 // ---------------------------------------------------------------------------
@@ -266,6 +347,8 @@ function conditionRefs(cond, out = []) {
  * somebody changed, so they must not be removed; they wait until the gate is answered.
  */
 function waitingForGate(cfg, q, flat, entry) {
+  // The written text of an Other answer is never "waiting": without the choice it belongs to, it is not kept.
+  if (q.otherOf) return false;
   return conditionRefs(q.showWhen).some((id) => scopeGet(flat, entry, id) === undefined);
 }
 
@@ -787,6 +870,8 @@ function isSectionReleasable(cfg, sectionId) {
 
 /** Structural check of a config. Returns a list of problems (empty = valid). */
 function validateConfig(cfg) {
+  // A config that allows Other is checked as it is used: with the companion text questions in place (a no-op when they already are).
+  cfg = expandOther(cfg);
   const errs = [];
   const err = (m) => errs.push(m);
   if (!cfg || typeof cfg !== 'object') return ['Config must be an object'];
@@ -847,20 +932,26 @@ function validateConfig(cfg) {
     groups.set(g.id, g);
   }
 
-  const checkCondition = (c, q, where) => {
+  const checkCondition = (c, q, where, negated = false) => {
     if (!c || typeof c !== 'object') return err(`${where}: condition must be an object`);
     const forms = ['all', 'any', 'not', 'q'].filter((k) => k in c);
     if (forms.length !== 1) return err(`${where}: condition needs exactly one of all, any, not, q`);
     if (c.all || c.any) {
       const list = c.all || c.any;
       if (!Array.isArray(list) || !list.length) return err(`${where}: all/any needs a non-empty array`);
-      return list.forEach((x) => checkCondition(x, q, where));
+      return list.forEach((x) => checkCondition(x, q, where, negated));
     }
-    if (c.not) return checkCondition(c.not, q, where);
+    if (c.not) return checkCondition(c.not, q, where, !negated);
     if (['eq', 'in', 'gt', 'includes'].filter((k) => k in c).length !== 1) return err(`${where}: condition on ${c.q} needs exactly one of eq, in, gt, includes`);
     if ('in' in c && !Array.isArray(c.in)) err(`${where}: "in" must be an array`);
     if ('gt' in c && (typeof c.gt !== 'number' || !Number.isFinite(c.gt))) err(`${where}: "gt" must be a number`);
     if (!byId.has(c.q)) return err(`${where}: refers to unknown question ${c.q}`);
+    // A rule that tests a list question which allows Other must not be able to be met, or missed, by an Other answer by accident.
+    if (byId.get(c.q).allowOther === true && q.otherOf !== c.q) {
+      if (negated) err(`${where}: a "not" rule on ${c.q}, which allows Other, would also be met by Other`);
+      const named = ('eq' in c && c.eq === OTHER_VALUE) || ('in' in c && Array.isArray(c.in) && c.in.includes(OTHER_VALUE)) || ('includes' in c && c.includes === OTHER_VALUE);
+      if (named) err(`${where}: tests the value "other" of ${c.q}, which allows Other (its written answer would be needed)`);
+    }
     if ('gt' in c && byId.get(c.q).type !== 'NUM') err(`${where}: "gt" needs a NUM question (${c.q})`);
     if ('includes' in c) {
       const target = byId.get(c.q);
@@ -874,8 +965,24 @@ function validateConfig(cfg) {
   const fileSlots = new Map();
   for (const q of cfg.questions) {
     const w = q.id;
-    if (!/^q\d+_\d+[a-z]?$/.test(q.id)) err(`${w}: id must look like q2_3 or q2_3a`);
+    if (q.otherOf !== undefined) {
+      // The text box of an Other answer: made by expandOther, never written in the config file.
+      const owner = byId.get(q.otherOf);
+      if (!owner || owner.allowOther !== true) err(`${w}: otherOf ${q.otherOf} is not a question that allows Other`);
+      else {
+        if (q.id !== `${owner.id}${OTHER_SUFFIX}`) err(`${w}: the text of an Other answer must be called ${owner.id}${OTHER_SUFFIX}`);
+        if (q.number !== owner.number || q.section !== owner.section || q.group !== owner.group) err(`${w}: must have the number, section and group of ${owner.id}`);
+        if (q.type !== 'TXT' || q.required !== true) err(`${w}: the text of an Other answer must be a required TXT question`);
+      }
+    } else if (!/^q\d+_\d+[a-z]?$/.test(q.id)) err(`${w}: id must look like q2_3 or q2_3a`);
     else if (q.number !== q.id.slice(1).replace('_', '.')) err(`${w}: number ${q.number} does not match id`);
+    if (q.allowOther !== undefined) {
+      if (q.allowOther !== true) err(`${w}: allowOther must be true or left out`);
+      else if ((q.type !== 'SEL' && q.type !== 'CHK') || !Array.isArray(q.options)) err(`${w}: allowOther is only for SEL or CHK questions with their own option list`);
+      else if (!q.options.some((opt) => opt.value === OTHER_VALUE)) err(`${w}: allowOther needs an option with the value "${OTHER_VALUE}"`);
+      else if (q.options.some((opt) => opt.value === OTHER_VALUE && opt.exclusive)) err(`${w}: the Other option cannot be exclusive`);
+      if (!/^q\d+_\d+[a-z]?$/.test(q.id)) err(`${w}: a question that allows Other must have an ordinary id`);
+    }
     if (!sectionIds.has(q.section)) err(`${w}: unknown section ${q.section}`);
     if (!q.label) err(`${w}: label is required`);
     if (!TYPES.includes(q.type)) err(`${w}: unknown type ${q.type}`);
@@ -1109,6 +1216,10 @@ function documentsComplete(cfg, documents) {
 
 module.exports = {
   config,
+  OTHER_VALUE,
+  expandOther,
+  isOtherChosen,
+  writtenOther,
   getCountries,
   getQuestion,
   isVisible,

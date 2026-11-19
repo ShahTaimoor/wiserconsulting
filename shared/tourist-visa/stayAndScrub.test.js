@@ -68,12 +68,16 @@ for (const [name, build] of BUILDERS) {
     assert.equal(build(base({ q6_7y: undefined })).values.accommodationArea, undefined);
   });
 
-  test(`${name}: "Other" as the type of stay is "somewhere else", never the bare word`, () => {
-    const built = build(base({ q6_7x: 'other', q6_7y: undefined }));
-    assert.ok(built.values.accommodationPlan === 'somewhere else', built.values.accommodationPlan);
-    assert.match(built.text, /- Plans for accommodation: somewhere else/);
+  test(`${name}: "Other (please write)" as the type of stay sends the applicant's own words as a data block, never the bare word "other"`, () => {
+    const built = build(base({ q6_7x: 'other', q6_7x_other: 'A houseboat on the river', q6_7y: undefined }));
+    assert.equal(built.values.accommodationPlan, 'A houseboat on the river');
+    assert.equal(built.raw.accommodationPlan, 'other', 'the stored choice is still known to the template');
+    assert.ok(built.text.includes('<data name="Plans for accommodation">\nA houseboat on the river\n</data>'), built.text);
     assert.equal(/Accommodation: Other|: Other\b/.test(built.text), false);
-    assert.equal(built.raw.accommodationPlan, 'other', 'the stored answer is still known to the template');
+    // Nothing written (an answer saved before the box existed): no fact at all, never "other".
+    const unwritten = build(base({ q6_7x: 'other', q6_7y: undefined }));
+    assert.equal(unwritten.values.accommodationPlan, undefined);
+    assert.equal(/Plans for accommodation/.test(unwritten.text), false, unwritten.text);
   });
 
   test(`${name}: the town of an address is a town: one with a digit, a comma or a great length is an address typed in the wrong box and is dropped`, () => {

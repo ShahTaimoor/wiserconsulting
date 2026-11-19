@@ -677,11 +677,12 @@ test('the worst-case string in 6.7y: the itinerary AI is shown only the type of 
   assert.equal(checks.validateDescriptions(list, { mode: 'days', named: [], stay: [] }).ok, true);
 });
 
-test('a listed place in 6.7y is the city of the stay for the template and for the checks; "Other" is "somewhere else"', async () => {
-  const answers = base({ q6_7y: 'Flat 4, 12 Acacia Road, Bath', q6_7x: 'other', q1_5: 'Nothing specific.' });
+test('a listed place in 6.7y is the city of the stay for the template and for the checks; "Other (please write)" is the applicant\'s own words as data', async () => {
+  const answers = base({ q6_7y: 'Flat 4, 12 Acacia Road, Bath', q6_7x: 'other', q6_7x_other: 'A houseboat on the river', q1_5: 'Nothing specific.' });
   const f = build(answers);
   assert.deepEqual(f.values.accommodationArea, ['Bath']);
-  assert.match(f.text, /- Plans for accommodation: somewhere else/);
+  assert.ok(f.text.includes('<data name="Plans for accommodation">\nA houseboat on the river\n</data>'), f.text);
+  assert.equal(/Plans for accommodation: [Oo]ther|somewhere else/.test(f.text), false);
   assert.match(f.text, /- Area or city they expect to stay in: Bath/);
   assert.match(buildTemplateDescriptions(f, skeletonOf(f))[0], /^Arrive in Bath/);
   // An AI that names the city of the stay is accepted; one that names another well-known place is not.

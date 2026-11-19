@@ -179,7 +179,7 @@ test('every new option list saves: each value of 2.13, 2.12, 2.5, 2.28, 2.33 and
     assert.equal(res.status, 200, `${v}: ${JSON.stringify(res.json)}`);
   }
   for (const v of ['female', 'male', 'other']) assert.equal((await put(token, '2B', { ...S2B, q2_12: v })).status, 200, v);
-  for (const v of ['me', 'family_or_friend', 'representative', 'other']) assert.equal((await put(token, '2A', { ...S2A, q2_5: v })).status, 200, v);
+  for (const v of ['me', 'family_or_friend', 'representative', 'other']) assert.equal((await put(token, '2A', { ...S2A, q2_5: v, ...(v === 'other' ? { q2_5_other: 'A made-up person' } : {}) })).status, 200, v);
   for (const v of ['owned', 'rented']) assert.equal((await put(token, '2C', { ...S2C, q2_28: v })).status, 200, v);
   for (const v of ['with_family_or_friends', 'employer_provided']) {
     assert.equal((await put(token, '2C', { ...S2C, q2_28: v })).status, 422, `${v} now asks 2.29`);

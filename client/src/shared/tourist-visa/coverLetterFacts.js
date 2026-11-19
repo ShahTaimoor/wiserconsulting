@@ -204,9 +204,17 @@ function validateAllowlist(specs = SPECS, cfg = engine.config, rules = COVER_LET
       else for (const id of spec.ids || []) if (!TOKEN_SOURCES[spec.token].includes(id)) problems.push(`${id}: not a source of ${spec.token}`);
       continue;
     }
+    // A question that allows Other (please write) can only be read as a plain value: that is the one kind that carries the written words
+    // (cleaned, as delimited data). Read any other way, the answer would reach the AI as the bare word "other".
+    const readIds = spec.kind === 'list' ? (spec.fields || []).map((field) => field.id) : (spec.id ? [spec.id] : []);
+    for (const id of readIds) {
+      const read = engine.getQuestion(cfg, id);
+      if (read && read.allowOther === true && spec.kind !== 'value') problems.push(`${id}: allows Other, which only a value fact can carry`);
+    }
     for (const id of idsOfSpec(spec)) {
       const question = engine.getQuestion(cfg, id);
       if (!question) { problems.push(`${id}: not a question of this config`); continue; }
+      if (question.otherOf) problems.push(`${id}: the written answer of an Other can only be read through its own question (${question.otherOf})`);
       if (forbiddenSections.includes(question.section)) problems.push(`${id}: in section ${question.section}, which can never feed the letter`);
       if (rules.allowedSections && !rules.allowedSections.includes(question.section)) problems.push(`${id}: in section ${question.section}, which this allowlist never reads`);
       if (excludedIds.has(id)) problems.push(`${id}: in the excluded list`);
@@ -449,12 +457,12 @@ function buildFactsFor(specs, rules, cfg, answers, options = {}) {
   const rawValues = {};
   const structuredEntries = {};
   const bySection = new Map();
-  const add = (spec, value) => {
+  const add = (spec, value, flags) => {
     values[spec.key] = value;
     if (!bySection.has(spec.section)) bySection.set(spec.section, []);
     // `free` marks what the applicant typed (so a check can tell a phrase that is theirs from one the AI added); `data` marks
     // the blocks that are passed as delimited data.
-    bySection.get(spec.section).push({ key: spec.key, label: spec.label, value, ...(spec.kind === 'text' ? { free: true } : {}), ...(spec.kind === 'text' && !spec.inline ? { data: true } : {}), ...(spec.oneLine ? { oneLine: true } : {}) });
+    bySection.get(spec.section).push({ key: spec.key, label: spec.label, value, ...(spec.kind === 'text' ? { free: true } : {}), ...(spec.kind === 'text' && !spec.inline ? { data: true } : {}), ...(spec.oneLine ? { oneLine: true } : {}), ...(flags || {}) });
   };
   const describe = (found, entry) => view.describeValue(cfg, found.question, found.raw, safeAnswers, entry || null);
   const entriesOf = (groupId) => (Array.isArray(safeAnswers[groupId]) ? safeAnswers[groupId].filter(isObject) : []);
@@ -466,6 +474,14 @@ function buildFactsFor(specs, rules, cfg, answers, options = {}) {
       case 'value': {
         if (spec.gate) { const gate = visibleValue(cfg, spec.gate, safeAnswers, null); if (!gate || gate.raw !== true) break; }
         const found = visibleValue(cfg, spec.id, safeAnswers, null);
+        if (found && engine.isOtherChosen(found.question, found.raw)) {
+          // Other (please write): what the applicant wrote, cleaned and redacted exactly like free text, and passed as a delimited data block (so
+          // it is information to use, never an instruction). Never the word "other" or the stored value. Nothing written: no fact at all.
+          const written = visibleValue(cfg, `${spec.id}_other`, safeAnswers, null);
+          const cleaned = written && typeof written.raw === 'string' ? cleanFreeText(written.raw, tokens, redactions) : '';
+          if (cleaned) { add(spec, cleaned, { free: true, data: true }); rawValues[spec.key] = found.raw; }
+          break;
+        }
         // A zero or empty amount (or a count of nothing) is no fact: it is left out, never stated as "£0".
         if (found && !isEmptyAmount(found.question, found.raw)) { add(spec, spec.words && Object.prototype.hasOwnProperty.call(spec.words, found.raw) ? spec.words[found.raw] : describe(found)); rawValues[spec.key] = found.raw; }
         break;

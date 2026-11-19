@@ -121,9 +121,11 @@ test('config: covers exactly the questions of Parts 1 to 8 in the spec (plus the
   expected.add('10.4a'); expected.add('10.5a');
   // Part 10D (8c-2): the two document questions.
   expected.add('10.6'); expected.add('10.7');
-  const actual = new Set(config.questions.map((q) => q.number));
+  // The text boxes of the Other (please write) answers carry the number of the question they belong to, so they add no number and no question of their own.
+  const own = config.questions.filter((q) => !q.otherOf);
+  const actual = new Set(own.map((q) => q.number));
   assert.deepEqual([...actual].sort(), [...expected].sort());
-  assert.equal(config.questions.length, expected.size);
+  assert.equal(own.length, expected.size);
 });
 
 test('config: sections are 1, 2A-2D, 3, 4A-4C, 5, 6A-6D, 7, 8, 9A-9C, 10A-10D and every question belongs to one', () => {
@@ -146,7 +148,7 @@ test('config: no option is a [TBC] placeholder or a tbc_ value any more', () => 
 });
 
 test('config 1.0.x: the design was approved as final, so no draft marker is left anywhere', () => {
-  assert.equal(config.version, '1.3.0');
+  assert.equal(config.version, '1.4.0');
   assert.doesNotMatch(config.version, /draft/);
   assert.deepEqual(config.questions.filter((q) => q.draft).map((q) => q.number), []);
   assert.deepEqual(config.groups.filter((g) => g.draft).map((g) => g.id), []);
@@ -418,7 +420,7 @@ test('section 1: empty submission lists every required question except hidden 1.
 test('section 1: choosing tourism makes 1.4 required; other reasons hide and discard it', () => {
   const without = validate('1', { ...S1, q1_4: undefined });
   assert.deepEqual(Object.keys(without.errors), ['q1_4']);
-  const other = validate('1', { ...S1, q1_1: 'other' }, { q1_4: 'holiday' });
+  const other = validate('1', { ...S1, q1_1: 'other', q1_1_other: 'My cousin\'s wedding' }, { q1_4: 'holiday' });
   assert.equal(other.success, true, JSON.stringify(other.errors));
   assert.equal('q1_4' in other.data, false);
   assert.deepEqual(other.removed, ['q1_4']);
@@ -461,7 +463,7 @@ test('section 2A: 2.9-2.11 must pick one of the entered addresses', () => {
   const bad = validate('2A', { ...S2A, q2_9: 'someone.else@example.com' });
   assert.equal(bad.errors.q2_9, 'Choose from the listed options');
   const two = validate('2A', {
-    ...S2A, q2_6: true, q2_7: 'second@example.com', q2_8: 'other', q2_10: 'second@example.com',
+    ...S2A, q2_6: true, q2_7: 'second@example.com', q2_8: 'other', q2_8_other: 'My accountant', q2_10: 'second@example.com',
   });
   assert.equal(two.success, true, JSON.stringify(two.errors));
   const hidden = validate('2A', { ...S2A, q2_7: 'second@example.com', q2_10: 'second@example.com' });
@@ -1327,7 +1329,7 @@ const recentLeave = (d, today) => validate('8', { q8_1: 0, q8_2: true, otherCoun
 const TOO_RECENT = 'Trips in the last 10 years go in the travel history above.';
 
 test('older trips: 8.3 is a required Yes/No placed right after the existing Part 8 questions, and the old ids are unchanged', () => {
-  const ids = config.questions.filter((q) => q.section === '8').map((q) => q.id);
+  const ids = config.questions.filter((q) => q.section === '8' && !q.otherOf).map((q) => q.id);
   assert.deepEqual(ids, ['q8_1', 'q8_1a', 'q8_2', 'q8_2a', 'q8_2b', 'q8_2c', 'q8_2d', 'q8_3', 'q8_3a', 'q8_3b', 'q8_3c', 'q8_3d']);
   const q83 = config.questions.find((q) => q.id === 'q8_3');
   assert.equal(q83.number, '8.3');
@@ -1337,7 +1339,7 @@ test('older trips: 8.3 is a required Yes/No placed right after the existing Part
   assert.equal(validate('8', { ...NO_RECENT }).errors.q8_3, 'This question is required');
   const group = config.groups.find((g) => g.id === 'olderCountryTrips');
   assert.equal(group.gate, 'q8_3');
-  assert.deepEqual(group.questions, ['q8_3a', 'q8_3b', 'q8_3c', 'q8_3d']);
+  assert.deepEqual(group.questions.filter((id) => !id.endsWith('_other')), ['q8_3a', 'q8_3b', 'q8_3c', 'q8_3d']);
   assert.equal(group.max, config.groups.find((g) => g.id === 'otherCountryTrips').max);
 });
 
@@ -2040,7 +2042,7 @@ test('6.6: Yes opens up to 10 relatives; the birth date and the family name are 
   assert.equal(six([{ ...RELATIVE, q6_6e: '2090-01-01' }]).errors['ukFamily.0.q6_6e'], 'Cannot be in the future');
   assert.equal(six([{ ...RELATIVE, q6_6g: 'nonsense' }]).errors['ukFamily.0.q6_6g'], 'Choose from the listed options');
   for (const status of ['british_citizen', 'settled', 'pre_settled', 'work', 'student', 'visitor', 'protection', 'other', 'dont_know']) {
-    assert.equal(six([{ ...RELATIVE, q6_6g: status }]).success, true, status);
+    assert.equal(six([{ ...RELATIVE, q6_6g: status, ...(status === 'other' ? { q6_6g_other: 'A made-up status' } : {}) }]).success, true, status);
   }
   assert.match(six(Array.from({ length: 11 }, () => RELATIVE)).errors.ukFamily, /up to 10 entries/);
   assert.equal(six(Array.from({ length: 10 }, () => RELATIVE)).success, true);
@@ -2057,7 +2059,7 @@ test('6.7 No: accommodation plans are required and the area is optional; a Yes r
   assert.equal(validate('6C', { q6_7: false, q6_7x: 'not_decided' }).success, true);
   assert.equal(validate('6C', { q6_7: false, q6_7x: 'paid_stay', q6_7y: 'Test City' }).success, true);
   for (const v of ['not_decided', 'paid_stay', 'family_friends', 'address_unknown', 'other']) {
-    assert.equal(validate('6C', { q6_7: false, q6_7x: v }).success, true, v);
+    assert.equal(validate('6C', { q6_7: false, q6_7x: v, ...(v === 'other' ? { q6_7x_other: 'A made-up plan' } : {}) }).success, true, v);
   }
   assert.equal(validate('6C', { q6_7: false, q6_7x: 'nonsense' }).errors.q6_7x, 'Choose from the listed options');
   assert.equal(validate('6C', { q6_7: false, q6_7x: 'other', q6_7y: 'x'.repeat(201) }).errors.q6_7y, 'Must be 200 characters or fewer');
@@ -2080,7 +2082,7 @@ test('6.8: Yes opens up to 5 public-funds entries; type and start are required; 
   assert.equal(six([{ ...FUNDS, q6_8e: gbp(-1) }]).errors['publicFunds.0.q6_8e.amount'], 'Cannot be negative');
   assert.equal(six([{ ...FUNDS, q6_8b: 'nonsense' }]).errors['publicFunds.0.q6_8b'], 'Choose from the listed options');
   for (const type of ['housing_benefit', 'universal_credit', 'child_benefit', 'council_tax_reduction', 'other']) {
-    assert.equal(six([{ ...FUNDS, q6_8b: type }]).success, true, type);
+    assert.equal(six([{ ...FUNDS, q6_8b: type, ...(type === 'other' ? { q6_8b_other: 'A made-up benefit' } : {}) }]).success, true, type);
   }
   assert.match(six(Array.from({ length: 6 }, () => FUNDS)).errors.publicFunds, /up to 5 entries/);
 });
@@ -2410,7 +2412,7 @@ test('release check: the approved config exits 0 and says everything is releasab
   const run = spawnSync(process.execPath, [script], { encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
   assert.match(run.stdout, new RegExp(`Tourist Visa config ${config.version.replace(/\./g, '\\.')}`));
-  assert.match(run.stdout, /Tourist Visa config 1\.3\.0/);
+  assert.match(run.stdout, /Tourist Visa config 1\.4\.0/);
   for (const id of ['1', '2A', '3', '9A', '9B', '9C', '10A', '10B', '10C', '10D']) assert.match(run.stdout, new RegExp(`section ${id}: .*: releasable`), id);
   assert.doesNotMatch(run.stdout, /NEEDS SENIOR REVIEW|BLOCKED/);
   assert.match(run.stdout, /23 sections: 0 blocked, 0 need senior review only, 23 clean\./);

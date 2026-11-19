@@ -349,7 +349,10 @@ function describeItem(cfg, item, oldAnswers, newAnswers, { history = false } = {
 
   const question = idx.questions.get(item.questionId);
   const group = idx.groupOfMember.get(item.questionId);
-  const label = group && item.index !== undefined ? `${group.entryLabel} ${item.index + 1}: ${question.label}` : question.label;
+  // The text box of an Other answer says whose answer it is, since its own label ("Please write your answer") says nothing in a list of changes.
+  const owner = question.otherOf ? idx.questions.get(question.otherOf) : null;
+  const questionLabel = owner ? `Written answer to "${owner.label}"` : question.label;
+  const label = group && item.index !== undefined ? `${group.entryLabel} ${item.index + 1}: ${questionLabel}` : questionLabel;
   const entryOf = (answers) => (group && item.index !== undefined && Array.isArray(answers[group.id]) && isPlainObject(answers[group.id][item.index]) ? answers[group.id][item.index] : null);
   const show = (value, answers) => describeValue(cfg, question, value, answers, entryOf(answers));
 

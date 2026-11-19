@@ -103,6 +103,12 @@ function countryName(code) {
   return found ? found.name : String(code);
 }
 
+/** "Other: <the words written>" for an Other answer; "Other" alone when nothing was written (an answer saved before the box existed). */
+function otherText(cfg, question, answers, entry) {
+  const written = engine.writtenOther(cfg, question, answers, entry);
+  return written ? `Other: ${written}` : 'Other';
+}
+
 /** The text of one answer, or null when it has none to show. Returns { text, items? }. */
 function readValue(cfg, question, value, answers, entry) {
   switch (question.type) {
@@ -121,12 +127,15 @@ function readValue(cfg, question, value, answers, entry) {
     case 'CTRY':
       return { text: countryName(value) };
     case 'SEL': {
+      // Other (please write): the choice and the words written for it, "Other: <what was written>". Never just the option's label.
+      if (value === engine.OTHER_VALUE && question.allowOther === true) return { text: otherText(cfg, question, answers, entry) };
       const option = engine.resolveOptions(cfg, question.id, answers, entry).find((o) => o.value === value);
       return { text: option ? option.label : String(value) };
     }
     case 'CHK': {
       const options = engine.resolveOptions(cfg, question.id, answers, entry);
       const items = (Array.isArray(value) ? value : []).map((v) => {
+        if (v === engine.OTHER_VALUE && question.allowOther === true) return otherText(cfg, question, answers, entry);
         const option = options.find((o) => o.value === v);
         return option ? option.label : String(v);
       });
@@ -205,7 +214,8 @@ function questionRow(cfg, question, answers, entry, documents, declarations, cor
 
 function groupRow(cfg, group, answers, documents, declarations, corrections) {
   const entries = Array.isArray(answers[group.id]) ? answers[group.id] : [];
-  const members = group.questions.map((id) => engine.getQuestion(cfg, id)).filter(Boolean);
+  // The written text of an Other answer is shown with its choice ("Other: ..."), not as a row of its own.
+  const members = group.questions.map((id) => engine.getQuestion(cfg, id)).filter((q) => q && !q.otherOf);
   return {
     id: group.id,
     number: null,
@@ -229,6 +239,7 @@ function sectionRows(cfg, sectionId, answers, documents, declarations, correctio
   const placed = new Set();
   for (const question of cfg.questions) {
     if (question.section !== sectionId || !visible.has(question.id)) continue;
+    if (question.otherOf) continue; // shown with its choice, not as a row of its own
     if (!question.group) {
       rows.push(questionRow(cfg, question, answers, null, documents, declarations, corrections, correctionKey(question.id)));
       continue;

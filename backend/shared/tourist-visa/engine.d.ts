@@ -89,6 +89,13 @@ export interface Question {
   /** Encrypt at rest (passport and ID numbers, Part 9, Part 10A). */
   sensitive?: boolean;
   /**
+   * SEL/CHK with its own option list that includes the value "other": choosing it asks for a written answer, kept next to the choice
+   * as <id>_other. The companion question is made by the engine (see otherOf); it is not written in the config file.
+   */
+  allowOther?: boolean;
+  /** The text box of an Other answer: the id of the list question it belongs to. Made by the engine. */
+  otherOf?: string;
+  /**
    * AMT (money) questions only: show the inline "Enter in another currency" tool under the field. It converts an amount in
    * another currency to pounds and fills the field with whole pounds. Nothing from the tool is saved.
    */
@@ -201,6 +208,15 @@ export interface HeldSection {
 }
 
 export const config: TouristVisaConfig;
+
+/** The value of the option that asks for a written answer. */
+export const OTHER_VALUE: 'other';
+/** The config with the companion text question after every list question that allows Other (the config itself when there is nothing to add). */
+export function expandOther(cfg: TouristVisaConfig): TouristVisaConfig;
+/** Is Other the chosen answer of this list question (for a CHK question: ticked)? */
+export function isOtherChosen(question: Question | undefined, value: unknown): boolean;
+/** The text written for an Other answer, trimmed; '' when Other is not chosen or nothing was written. `entry` for a question in a group. */
+export function writtenOther(cfg: TouristVisaConfig, question: Question | undefined, answers: Answers, entry?: GroupEntry | null): string;
 
 export function getCountries(): Array<{ code: string; name: string }>;
 export function getQuestion(cfg: TouristVisaConfig, id: string): Question | undefined;
