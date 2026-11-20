@@ -47,6 +47,7 @@ const startOfUtcDay = (date) => new Date(Date.UTC(date.getUTCFullYear(), date.ge
 
 const BLOCKER_MESSAGES = {
   ITINERARY_DATES_MISSING: "The itinerary needs the arrival and departure dates. Fix the answers to the questions listed, then try again.",
+  ITINERARY_STAYS_INVALID: "The places of stay cannot make an itinerary (each stay must leave after it arrives, stay inside the dates of the visit, and not overlap another stay). Fix the answers to the questions listed, then try again.",
   ITINERARY_DATES_INVALID: "The arrival and departure dates cannot make an itinerary (the departure must not be before the arrival, and the visit can be at most six months). Fix the answers to the questions listed, then try again.",
 };
 
@@ -169,7 +170,7 @@ class TouristVisaItineraryService {
       logger.error("Tourist Visa itinerary facts could not be built", { applicationId: String(application._id), code: error && error.code, problems: error && error.problems });
       throw fail(500, "ITINERARY_UNAVAILABLE", "The itinerary is not available right now. Please contact support.");
     }
-    const skeleton = buildSkeleton(facts.raw.arrival, facts.raw.departure);
+    const skeleton = buildSkeleton(facts.raw.arrival, facts.raw.departure, facts.stays);
     return { application, facts, factsHash: this.hash(facts), skeleton };
   }
 
@@ -207,7 +208,16 @@ class TouristVisaItineraryService {
     const values = facts.values || {};
     const stay = [...new Set([...[].concat(values.accommodationArea || []), ...placesIn([].concat(values.accommodationTowns || []).join(" "))])];
     // Common American spellings are made British first (the checks and the stored text both see the British form).
-    const checked = validateDescriptions(parsed.descriptions.map(britishSpelling), { mode: skeleton.mode, named: facts.places, stay, lastDay: true, distinct: true });
+    // Built from the places of stay: the places named are the stays' (in date order) and each day may name only its own (and its neighbours').
+    const byStays = skeleton.byStays === true;
+    const checked = validateDescriptions(parsed.descriptions.map(britishSpelling), {
+      mode: skeleton.mode,
+      named: byStays ? skeleton.stayPlaces : facts.places,
+      stay,
+      lastDay: true,
+      distinct: true,
+      dayPlaces: byStays ? skeleton.blocks.map((block) => block.allowed) : null,
+    });
     if (!checked.ok) return checked;
     const text = assembleItinerary(skeleton.blocks, checked.descriptions);
     if (text.length > MAX_TEXT) return { ok: false, code: "ITINERARY_BAD_ENTRY", rule: "too-long" };

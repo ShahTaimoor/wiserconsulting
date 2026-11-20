@@ -15,7 +15,9 @@ const questions = cfg.questions;
 const spec = (id, extra = {}) => ({ key: `probe_${id}`, section: 'Probe', label: 'Probe', kind: 'value', id, ...extra });
 
 /** EVERY question id the itinerary reads. Adding to this list is a decision: the handover lists the same ids. */
-const ALLOWED_IDS = ['q1_1', 'q1_2', 'q1_3', 'q1_4', 'q1_5', 'q1_6', 'q1_7', 'q6_7b', 'q6_7x', 'q6_7y'];
+const ALLOWED_IDS = ['q1_1', 'q1_2', 'q1_3', 'q1_4', 'q1_5', 'q1_6', 'q1_7', 'q6_7', 'q6_7b', 'q6_7c', 'q6_7d', 'q6_7x', 'q6_7y'];
+/** The ids only the itinerary reads (the places of stay: the gate, the dates; and the town of the address, which the cover letter reads too). The cover letter never reads them. */
+const ITINERARY_ONLY = ['q6_7', 'q6_7c', 'q6_7d'];
 
 const SUBMITTED = new Date('2026-11-03T10:00:00Z');
 const answers = () => ({
@@ -84,7 +86,10 @@ test('adding ANY other question to the allowlist fails validation: the only ids 
 test('the cover letter\'s own allowlist is unchanged by this: its rules still refuse what they refused, and the itinerary ids are a subset of the ones it reads', () => {
   assert.deepEqual(cover.validateAllowlist(), []);
   const coverIds = new Set(cover.allowedIds());
-  for (const id of itinerary.allowedIds()) assert.ok(coverIds.has(id), `${id} is not a cover letter fact`);
+  for (const id of itinerary.allowedIds()) if (!ITINERARY_ONLY.includes(id)) assert.ok(coverIds.has(id), `${id} is not a cover letter fact`);
+  // ... and the cover letter still refuses the stays' dates and gate, exactly as before.
+  for (const id of ITINERARY_ONLY) assert.equal(coverIds.has(id), false, `${id} must stay out of the cover letter`);
+  for (const id of ['q6_7a', 'q6_7c', 'q6_7d', 'q6_7']) assert.ok(cover.validateAllowlist([...cover.SPECS, spec(id)]).some((p) => p.startsWith(`${id}:`)), `the cover letter still refuses ${id}`);
   assert.ok(cover.validateAllowlist([...cover.SPECS, spec('q6_7a')]).some((p) => p.startsWith('q6_7a:')));
 });
 

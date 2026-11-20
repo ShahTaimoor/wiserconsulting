@@ -99,9 +99,11 @@ function parseDescriptions(raw, count) {
  *   options.stay     the places of the stay (the city they will stay in), which may be named too
  *   options.lastDay  when true, the LAST description must say that the traveller leaves the United Kingdom or goes home
  *   options.distinct when true, no two descriptions may share a sentence or a run of five words, or begin with the same three words
+ *   options.dayPlaces when the itinerary is built from the places of stay: for each description, the places it may name (its own day's and its
+ *                    neighbours'; none at all for a day no stay covers). A place of the list named on a day that may not name it is refused.
  * -> { ok: true, descriptions } with each entry tidied, or { ok: false, code, entry?, rule? }. Never any text.
  */
-function validateDescriptions(descriptions, { mode = 'days', named = [], stay = [], lastDay = false, distinct = false } = {}) {
+function validateDescriptions(descriptions, { mode = 'days', named = [], stay = [], lastDay = false, distinct = false, dayPlaces = null } = {}) {
   const max = MAX_ENTRY[mode] || MAX_ENTRY.days;
   const clean = [];
   for (let i = 0; i < descriptions.length; i += 1) {
@@ -131,6 +133,16 @@ function validateDescriptions(descriptions, { mode = 'days', named = [], stay = 
       if (COUNTRIES.has(place)) continue;
       if (!allowed.has(place)) return { ok: false, code: 'ITINERARY_PLACE_NOT_NAMED', entry: i, rule: 'place' };
       if (!firstSeen.has(place)) firstSeen.set(place, i);
+    }
+  }
+  // Built from the places of stay: each day may name only the places that belong to it (and a general day none at all).
+  if (Array.isArray(dayPlaces)) {
+    for (let i = 0; i < clean.length; i += 1) {
+      const mine = new Set(dayPlaces[i] || []);
+      for (const place of placesIn(clean[i])) {
+        if (COUNTRIES.has(place)) continue;
+        if (!mine.has(place)) return { ok: false, code: 'ITINERARY_PLACE_NOT_NAMED', entry: i, rule: 'place-day' };
+      }
     }
   }
   let last = -1;

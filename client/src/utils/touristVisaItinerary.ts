@@ -103,7 +103,12 @@ export function aiLine(ai: { available: boolean; code?: string }): string {
   return `${(ai.code && why[ai.code]) || "The AI is not available right now."} A new version will be a template itinerary.`;
 }
 
-const QUESTION_WORDS: Record<string, string> = { "1.6": "question 1.6 (the arrival date)", "1.7": "question 1.7 (the departure date)" };
+const QUESTION_WORDS: Record<string, string> = {
+  "1.6": "question 1.6 (the arrival date)",
+  "1.7": "question 1.7 (the departure date)",
+  "6.7c": "question 6.7c (when they arrive at a place of stay)",
+  "6.7d": "question 6.7d (when they leave it)",
+};
 
 /** Which answers to fix when the dates cannot make an itinerary: the server's fixed code and the question numbers. */
 export function blockerMessage(blocker: ItineraryBlocker): string {
@@ -111,6 +116,9 @@ export function blockerMessage(blocker: ItineraryBlocker): string {
   const list = which.length === 2 ? `${which[0]} and ${which[1]}` : which.join(", ");
   if (blocker.code === "ITINERARY_DATES_MISSING") {
     return `An itinerary cannot be made yet: ${list} ${which.length === 1 ? "has" : "have"} no answer. Add ${which.length === 1 ? "it" : "them"} with the Edit button of section 1 below, then create the itinerary.`;
+  }
+  if (blocker.code === "ITINERARY_STAYS_INVALID") {
+    return `An itinerary cannot be made from the places of stay: each stay must leave after it arrives, stay inside the dates of the visit and not overlap another stay. Check ${list} with the Edit button of section 6C below.`;
   }
   return `An itinerary cannot be made from these dates: the departure must not be before the arrival, and the visit can be at most six months. Check ${list} with the Edit button of section 1 below.`;
 }
@@ -171,6 +179,8 @@ export function describeItineraryError(failure: AdminFailure & { questions?: str
     case "ITINERARY_DATES_MISSING":
     case "ITINERARY_DATES_INVALID":
       return blockerMessage({ code: failure.code, questions: failure.questions ?? ["1.6", "1.7"] });
+    case "ITINERARY_STAYS_INVALID":
+      return blockerMessage({ code: failure.code, questions: failure.questions ?? ["6.7c", "6.7d"] });
     case "ITINERARY_CHANGED":
       return "The itinerary was changed by someone else. Reload it, then make your change again.";
     case "ITINERARY_NOT_LATEST":

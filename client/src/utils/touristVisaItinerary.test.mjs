@@ -134,6 +134,19 @@ test("the dates that block an itinerary: the panel says which questions to fix, 
   assert.equal(/ITINERARY_/.test(blockerMessage({ code: "ITINERARY_DATES_INVALID", questions: ["1.6", "1.7"] })), false);
 });
 
+test("stays that contradict each other or the visit block an itinerary: the panel says which questions to fix, in section 6C, never the code", () => {
+  const message = blockerMessage({ code: "ITINERARY_STAYS_INVALID", questions: ["6.7c", "6.7d"] });
+  assert.match(message, /places of stay/);
+  assert.match(message, /each stay must leave after it arrives, stay inside the dates of the visit and not overlap another stay/);
+  assert.match(message, /question 6\.7c \(when they arrive at a place of stay\) and question 6\.7d \(when they leave it\)/);
+  assert.match(message, /Edit button of section 6C/);
+  assert.equal(/ITINERARY_/.test(message), false);
+  // the same sentence when the call itself is refused (a 422 with the code and the questions), and when the server sent no list
+  const refused = describeItineraryError({ status: 422, code: "ITINERARY_STAYS_INVALID", questions: ["6.7c", "6.7d"] }, describeAdminError);
+  assert.equal(refused, message);
+  assert.match(describeItineraryError({ status: 422, code: "ITINERARY_STAYS_INVALID" }, describeAdminError), /question 6\.7c.*question 6\.7d/);
+});
+
 test("a plain sentence for every way an itinerary call can fail, never the code or anything the server holds", () => {
   const codes = ["ITINERARY_NOT_AVAILABLE", "ITINERARY_DATES_MISSING", "ITINERARY_DATES_INVALID", "ITINERARY_CHANGED", "ITINERARY_NOT_LATEST", "ALREADY_APPROVED", "ITINERARY_STALE", "ITINERARY_NOT_FOUND", "ITINERARY_UNREADABLE", "ITINERARY_UNAVAILABLE", "INVALID_TEXT", "INVALID_REQUEST"];
   const seen = new Set();

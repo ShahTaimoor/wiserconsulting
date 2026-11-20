@@ -9,7 +9,7 @@
  * own rules. Allowed: the arrival and departure dates and the number of nights; the main purpose and kind of visit; the places and
  * plans the applicant described for the trip (free text, redacted exactly like the cover letter's: the AI only ever sees tokens for a
  * name, an employer, an email, a phone number, a link); the city and type of stay; whether they travel alone or in a group and how
- * many companions. Never: every financial fact, employment and study, family, previous travel, identity and contact details, Parts 9
+ * many companions; and the PLACES OF STAY the applicant gave (6.7: only the town of each address and its two dates). Never: every financial fact, employment and study, family, previous travel, identity and contact details, Parts 9
  * and 10, health, documents. A question in any section but 1 and 6C is refused outright.
  *
  * It also works out ONE derived fact from the trip description: the well-known places the applicant named, in the order they named
@@ -50,6 +50,8 @@ const SPECS = Object.freeze([
   { ...pick('accommodationPlan'), words: STAY_WORDS },
   pick('accommodationArea'),
   pick('accommodationTowns'),
+  // The places of stay (6.7b to 6.7d): the town of each address and the arrival and leaving dates, nothing else of the entry.
+  { key: 'stays', section: 'Where they will stay in the UK', label: 'Places of stay, with dates', kind: 'stays', group: 'accommodation', gate: 'q6_7', townId: 'q6_7b', fromId: 'q6_7c', toId: 'q6_7d', max: 20, fields: [{ id: 'q6_7b' }, { id: 'q6_7c' }, { id: 'q6_7d' }] },
 ].map((spec) => Object.freeze({ ...spec })));
 
 /** The derived fact: the places named, in order. Not a question of its own. */
@@ -77,7 +79,7 @@ const EXCLUDED_SECTIONS = Object.freeze({
 /** Questions in the two allowed sections that can still never be a fact, by why. */
 const EXCLUDED_IDS = Object.freeze({
   'The organiser of a group and the details of companions (only how many are counted)': ['q1_2a', 'q1_2b', 'q1_3a', 'q1_3b', 'q1_3c', 'q1_3d', 'q1_3e'],
-  'The name of a place of stay, its full address and the dates of each stay (only the town is read)': ['q6_7', 'q6_7a', 'q6_7c', 'q6_7d'],
+  'The name of a place of stay and the rest of its address (only the town and the two dates of a stay are read)': ['q6_7a'],
 });
 
 const ITINERARY_RULES = Object.freeze({
@@ -118,7 +120,10 @@ function validateItineraryAllowlist(specs = SPECS, cfg = engine.config) {
  * `raw.arrival` and `raw.departure` are the stored dates (or missing).
  */
 function buildItineraryFacts(cfg, answers, options = {}) {
-  const facts = cover.buildFactsFor(SPECS, ITINERARY_RULES, cfg, answers, {
+  // An application keeps the config it was submitted under, so an allowlist question that config does not have is simply not read (never a
+  // refusal to run): the facts are the ones that config can give. The real config is checked in full by validateItineraryAllowlist.
+  const specs = SPECS.filter((spec) => cover.allowedIds([spec]).every((id) => engine.getQuestion(cfg, id)));
+  const facts = cover.buildFactsFor(specs, ITINERARY_RULES, cfg, answers, {
     ...options,
     derive: ({ values, add }) => {
       const places = placesIn(values.tripDescription);
@@ -126,13 +131,96 @@ function buildItineraryFacts(cfg, answers, options = {}) {
     },
   });
   facts.places = Array.isArray(facts.values.places) ? facts.values.places : [];
+  // The places of stay as { town, place, from, to, fromText, toText } (never sent as such: the AI gets the lines of the "stays" fact), and the
+  // plan they make with the dates of the visit.
+  facts.stays = Array.isArray(facts.raw.stays) ? facts.raw.stays : [];
+  facts.stayPlan = planStays(facts.stays, facts.raw.arrival, facts.raw.departure);
 
   // The AI does not need the applicant's name at all: no name line (a name part in the free text is still a token).
   facts.text = cover.renderFacts(facts.sections, {});
   return facts;
 }
 
+// ---------------------------------------------------------------------------
+// The stays, as a plan
+// ---------------------------------------------------------------------------
+
+const DAY_MS = 86400000;
+
+/** "2027-03-15" -> a day number (UTC), or null when it is not a real calendar date. */
+function dayNumber(value) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value === undefined || value === null ? '' : value));
+  if (!m) return null;
+  const ms = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  const back = new Date(ms);
+  return back.getUTCFullYear() === +m[1] && back.getUTCMonth() === +m[2] - 1 && back.getUTCDate() === +m[3] ? Math.round(ms / DAY_MS) : null;
+}
+
+const MONTH_NAMES = cover.MONTHS;
+const partsOf = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso); return { y: +m[1], m: MONTH_NAMES[+m[2] - 1], d: +m[3] }; };
+
+/** "15 March to 18 March 2027" (the year once when both dates are in it, otherwise on each: "28 December 2026 to 3 January 2027"). */
+function stayRange(from, to) {
+  const a = partsOf(from);
+  const b = partsOf(to);
+  return a.y === b.y ? `${a.d} ${a.m} to ${b.d} ${b.m} ${b.y}` : `${a.d} ${a.m} ${a.y} to ${b.d} ${b.m} ${b.y}`;
+}
+
+/** The questions to fix when the stays contradict each other or the dates of the visit. */
+const STAY_QUESTIONS = Object.freeze(['6.7c', '6.7d']);
+
+/**
+ * What the places of stay make of the visit, worked out again from the stored dates (never trusted):
+ *   { mode: 'trip' }                          no stay has a place we can name (or the visit's own dates are unusable): the itinerary is built from the trip
+ *                                             alone, exactly as it was before stays were read
+ *   { mode: 'stays', stays }                  at least one stay has a place: `stays` are the stays that have both dates, in date order
+ *   { mode: 'invalid', questions }            a stay leaves before it arrives, or starts before the visit or ends after it, or overlaps another
+ *                                             (touching, one leaving the day the next arrives, is fine): generation is refused, nothing is guessed
+ * A stay is { town, place, from, to, fromText, toText }.
+ */
+function planStays(stays, arrival, departure) {
+  const list = Array.isArray(stays) ? stays : [];
+  if (!list.some((s) => s && s.place)) return { mode: 'trip' };
+  const first = dayNumber(arrival);
+  const last = dayNumber(departure);
+  if (first === null || last === null || last < first) return { mode: 'trip' }; // the visit's own dates are refused elsewhere, with their own code
+  const sorted = list.map((s) => ({ ...s, a: dayNumber(s.from), b: dayNumber(s.to) })).sort((x, y) => (x.a === null ? Infinity : x.a) - (y.a === null ? Infinity : y.a));
+  for (let i = 0; i < sorted.length; i += 1) {
+    const s = sorted[i];
+    if (s.a === null || s.b === null || s.b <= s.a || s.a < first || s.b > last) return { mode: 'invalid', questions: [...STAY_QUESTIONS] };
+    if (i > 0 && s.a < sorted[i - 1].b) return { mode: 'invalid', questions: [...STAY_QUESTIONS] };
+  }
+  return { mode: 'stays', stays: sorted.map(({ a, b, ...rest }) => rest) };
+}
+
+/**
+ * The stay a day belongs to, or null (a day no stay covers). A stay covers its arrival day, every day between, and its leaving day; when a stay
+ * leaves on the day the next one arrives, that day belongs to the LATER stay (it is the day of the move).
+ */
+function stayOnDay(stays, iso) {
+  const day = dayNumber(iso);
+  if (day === null) return null;
+  let found = null;
+  for (const s of stays) {
+    const a = dayNumber(s.from);
+    const b = dayNumber(s.to);
+    if (a !== null && b !== null && a <= day && day <= b && (found === null || a > dayNumber(found.from))) found = s;
+  }
+  return found;
+}
+
+/** The lines of the "Staying" row of the details grid, from the stays: "London, 15 March to 18 March 2027". The town is as the applicant typed it (restored by the caller). */
+function stayLines(stays) {
+  return stays.map((s) => `${s.town || 'Place not given'}, ${stayRange(s.from, s.to)}`);
+}
+
 module.exports = {
+  planStays,
+  stayOnDay,
+  stayLines,
+  stayRange,
+  dayNumber,
+  STAY_QUESTIONS,
   SPECS,
   PLACES_SPEC,
   ALLOWED_SECTIONS,

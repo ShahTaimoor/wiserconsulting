@@ -48,4 +48,20 @@ function placesIn(text) {
   return [...new Map(found.map((f) => [f.name, f.name])).values()];
 }
 
-module.exports = { PLACES, CAPITAL_ONLY, placesIn };
+// A plain town: letters, spaces, apostrophes and hyphens only, 2 to 40 characters (one with a digit, a comma or a bracket is not a town).
+const PLAIN_TOWN = /^[\p{L}][\p{L} '’-]{1,39}$/u;
+
+/**
+ * The place a town stands for, or null. A town that names a place of the list above gives that list name (the first one it names; the
+ * list name is spelled as a letter would write it); any other plain town is used as typed (trimmed); anything else (a bracket, a digit,
+ * a street) gives null: it is not a place we can name. The same two rules the itinerary template has always used for the town of a stay.
+ */
+function placeOfTown(town) {
+  const text = typeof town === 'string' ? town.trim() : '';
+  if (!text) return null;
+  const listed = placesIn(text);
+  if (listed.length) return listed[0];
+  return PLAIN_TOWN.test(text) ? text : null;
+}
+
+module.exports = { PLACES, CAPITAL_ONLY, PLAIN_TOWN, placesIn, placeOfTown };

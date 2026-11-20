@@ -237,9 +237,9 @@ export interface CoverLetterView {
 /** One version of the itinerary. The text is for the team only. */
 export type ItineraryVersion = CoverLetterVersion;
 
-/** Why an itinerary cannot be made yet: the dates. A fixed code and the numbers of the questions to fix ("1.6", "1.7"). */
+/** Why an itinerary cannot be made yet: the dates, or the places of stay. A fixed code and the numbers of the questions to fix ("1.6", "1.7", "6.7c", "6.7d"). */
 export interface ItineraryBlocker {
-  code: "ITINERARY_DATES_MISSING" | "ITINERARY_DATES_INVALID";
+  code: "ITINERARY_DATES_MISSING" | "ITINERARY_DATES_INVALID" | "ITINERARY_STAYS_INVALID";
   questions: string[];
 }
 

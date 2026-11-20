@@ -6,6 +6,11 @@
  * a booking, a price, a time, a hotel or a link: its descriptions pass the same checks as the AI's (a test makes sure).
  *
  * A long stay (weekly blocks) is described a week at a time with the same rules.
+ *
+ * When the skeleton was built from the applicant's PLACES OF STAY (skeleton.byStays) every block already says its place (`place`, or null for a day no
+ * stay covers), and the descriptions follow it: the arrival day and the last day as before, a day on which the place changes (the day one stay leaves
+ * and the next arrives, or the first day of a stay that follows a gap) says to travel there and settle in, the day before a move packs up for it, and
+ * a day with no place is a general day that names none. Nothing is invented: only a place of a stay is ever named.
  */
 
 const { placesIn } = require('../shared/tourist-visa/places');
@@ -68,9 +73,64 @@ function spread(count, locations) {
   return locations.map((place, i) => ({ place, size: base + (i < extra ? 1 : 0) })).filter((part) => part.size > 0);
 }
 
+/** Days no stay covers: general, with no place named (a few wordings, so that neighbouring days do not repeat). */
+const GENERAL_DAYS = [
+  'A day to settle in and explore: spend a relaxed day close to where you are staying, on foot, with a meal along the way.',
+  'Keep the day unhurried: a walk around the neighbourhood, time to rest and a quiet evening.',
+  'Use the day to explore the area on foot, visit a local market or park and stop for a coffee.',
+  'A flexible day with no fixed plan: look around the local streets and shops and finish with an early night.',
+];
+
+/** The descriptions of an itinerary built from the places of stay (skeleton.byStays). */
+function buildStayDescriptions(facts, skeleton, kind) {
+  const pool = DAYS[kind];
+  const blocks = skeleton.blocks;
+  const out = new Array(blocks.length);
+  const placeAt = (i) => (blocks[i] ? blocks[i].place : null);
+
+  if (skeleton.mode === 'weeks') {
+    blocks.forEach((block, i) => {
+      const place = block.place;
+      const where = place ? named(place) : null;
+      if (block.first && block.last) out[i] = `A short stay: arrive${where ? ` in ${where}` : ''}, see what is close by and leave for the journey home.`;
+      else if (block.first) out[i] = `Arrive${where ? ` in ${where}` : ' in the United Kingdom'}, settle in and spend the first days getting to know the area, with unhurried walks and time to find your bearings.`;
+      else if (block.last) out[i] = `The final days are for a last look around${where ? ` ${where}` : ' the area'} and for packing, before setting off on the journey home.`;
+      else if (place && placeAt(i - 1) !== place) out[i] = `Travel to ${where} early in the week and settle in. The rest of the week is for ${WEEKS[kind]}.`;
+      else out[i] = `The week continues${where ? ` in ${where}` : ''} with ${WEEKS[kind]}.`;
+    });
+    return out;
+  }
+
+  let counter = 0;
+  let general = 0;
+  blocks.forEach((block, i) => {
+    const place = block.place;
+    if (block.first && block.last) {
+      out[i] = `A single day: arrive${place ? ` in ${named(place)}` : ''}, see what is close by and finish the day ready to travel home.`;
+    } else if (block.first) {
+      out[i] = place ? `Arrive in ${named(place)}, settle in and take a gentle first look around the area.` : 'Arrive in the United Kingdom, settle in and take a gentle first look around the area.';
+    } else if (block.last) {
+      out[i] = place ? `The last day: tidy up, take a final short walk around ${named(place)} and set off on the journey home.` : 'The last day: pack, take a final short walk nearby and set off on the journey home.';
+    } else if (!place) {
+      out[i] = GENERAL_DAYS[general % GENERAL_DAYS.length];
+      general += 1;
+    } else if (placeAt(i - 1) !== place) {
+      // The first day of a stay that is not the arrival day: the day of the move (or the first day after a gap).
+      out[i] = `Travel to ${named(place)} and settle in, then take a first walk around the area to get your bearings.`;
+    } else if (placeAt(i + 1) && placeAt(i + 1) !== place) {
+      out[i] = `A relaxed day in ${named(place)} to finish what is left, then pack up ready for the move to ${named(placeAt(i + 1))}.`;
+    } else {
+      out[i] = counter % 6 === 5 ? REST : pool[counter % pool.length].replace('{p}', named(place));
+    }
+    if (place) counter += 1;
+  });
+  return out;
+}
+
 /** One description for each block of the skeleton, as an array of strings. */
 function buildTemplateDescriptions(facts, skeleton) {
   const kind = kindOf(facts);
+  if (skeleton.byStays) return buildStayDescriptions(facts, skeleton, kind);
   const pool = DAYS[kind];
   const locations = locationsOf(facts);
   const blocks = skeleton.blocks;
@@ -124,4 +184,4 @@ function buildTemplateDescriptions(facts, skeleton) {
   return out;
 }
 
-module.exports = { buildTemplateDescriptions, locationsOf, DAYS };
+module.exports = { buildTemplateDescriptions, buildStayDescriptions, locationsOf, DAYS, GENERAL_DAYS };

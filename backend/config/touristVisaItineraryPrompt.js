@@ -10,13 +10,15 @@
  * Versions: 1 = the first prompt. 2 = the last heading is a departure from the United Kingdom (never onward travel or a place outside
  * it), and plain, factual wording: what the traveller will do, with no scene-setting, feelings or sales language. 3 = specific but safe
  * days: one or two well-known sights or activities in that day's city, a landmark named only when the model is certain it exists there,
- * no landmark or sentence or opening repeated across days, travel days say the route, British English.
+ * no landmark or sentence or opening repeated across days, travel days say the route, British English. 4 = the headings can carry the place
+ * each day is spent in, worked out from the applicant's places of stay: write each day about that place only, a day with no place stays general
+ * and names none (the wording is only added to the prompt when the itinerary is built from stays, but the version is for the whole prompt).
  *
  * There is deliberately NO sample itinerary, model day or stock phrasing in this prompt: every itinerary is to be written freshly from
  * the facts. The few quoted phrases are ones the model must NOT write.
  */
 
-const ITINERARY_PROMPT_VERSION = 3;
+const ITINERARY_PROMPT_VERSION = 4;
 
 const SYSTEM_PROMPT = [
   'You write the day-by-day descriptions of a proposed itinerary for a visit to the United Kingdom. The headings are fixed and are given to you with the facts: you write exactly one short description for each heading, in the same order, and nothing else.',
@@ -38,6 +40,7 @@ const SYSTEM_PROMPT = [
   '- The arrival day is for arriving and settling in. Where the facts suggest it (a move from one place to the next, a long stay), a day can be a travel day or a quieter day of rest.',
   '- The last heading is the traveller\'s departure from the United Kingdom. It says that the traveller leaves the United Kingdom or sets off on the journey home, in your own words. It never mentions a next destination, onward travel or any place outside the United Kingdom.',
   '- Never name a place the applicant did not name, other than the city of the stay.',
+  '- When the facts list places of stay with dates, a heading may say which place that day is spent in. Write that day about that place only (a day on which the traveller moves from one place to the next may name both, as the route). A heading that says no place applies is a general day: describe the kind of day and name no place at all. Never move a day to a different place than its heading gives.',
   '',
   'What never to write:',
   '- Nothing that invents or implies a booking or a specific: no names of hotels, restaurants, shops or tour companies; nothing about flights, trains, tickets, reservations, prices, opening times, clock times, phone numbers or links; never say that anything is booked, reserved, confirmed or guaranteed.',
@@ -53,12 +56,23 @@ const SYSTEM_PROMPT = [
 /** The reminder added to the user message when the descriptions are asked for a second time (the first answer was not acceptable). */
 const RETRY_REMINDER = 'The previous answer was rejected. Check the shape (a JSON object with one key, "descriptions", holding exactly one plain string for each heading), that no description has a digit, a date, a weekday, a month, a currency symbol, a bracket or a link, that nothing sounds booked, priced or promised, that the wording is plain and factual with no scene-setting or sales language, that only the places the applicant named (or the city of the stay) are mentioned, in the order the applicant named them, that no landmark, sentence or run of words is repeated on another day and that no two days begin with the same words, that each ordinary day names one or two well-known sights only if you are certain they exist in that city (otherwise the kind of place), that the spelling is British, and that the last heading says the traveller leaves the United Kingdom or returns home, with no next destination or onward travel. Then answer again.';
 
+/** The place of a heading, when the itinerary is built from the places of stay: where that day (or most of that week) is spent. Names only. */
+function placeNote(skeleton, i) {
+  if (!skeleton.byStays) return '';
+  const block = skeleton.blocks[i];
+  if (!block.place) return ' (no place applies: keep this day general and name no place)';
+  const before = i > 0 ? skeleton.blocks[i - 1].place : null;
+  const others = block.places.filter((p) => p !== block.place);
+  if (skeleton.mode === 'weeks') return ` (mostly in ${block.place}${others.length ? `; also ${others.join(', ')}` : ''})`;
+  return before && before !== block.place ? ` (the day of the move: from ${before} to ${block.place})` : ` (in ${block.place})`;
+}
+
 /** The user message: the headings (how many, and which are the arrival and departure days), the facts, and the task. */
 function buildUserPrompt(factsText, skeleton, { retry = false } = {}) {
   const per = skeleton.mode === 'weeks' ? 'week' : 'day';
   const list = skeleton.blocks.map((block, i) => {
     const note = block.first && block.last ? ' (the arrival day and the departure day)' : block.first ? ' (includes the arrival day)' : block.last ? ' (includes the departure day)' : '';
-    return `${i + 1}. ${block.heading}${note}`;
+    return `${i + 1}. ${block.heading}${note}${placeNote(skeleton, i)}`;
   });
   return [
     `Write the descriptions for this itinerary. There are exactly ${skeleton.blocks.length} headings, one for each ${per}.`,

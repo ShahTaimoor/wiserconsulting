@@ -155,7 +155,7 @@ export function ItineraryPanel({ applicationId, reference, status, readToken, fa
         announce(message);
         // Someone else changed the itinerary, or the answers moved on: show what is there now.
         const code = (e as { code?: string })?.code;
-        if (code === "ITINERARY_CHANGED" || code === "ITINERARY_NOT_LATEST" || code === "ITINERARY_STALE" || code === "ITINERARY_DATES_MISSING" || code === "ITINERARY_DATES_INVALID") setAttempt((n) => n + 1);
+        if (code === "ITINERARY_CHANGED" || code === "ITINERARY_NOT_LATEST" || code === "ITINERARY_STALE" || code === "ITINERARY_DATES_MISSING" || code === "ITINERARY_DATES_INVALID" || code === "ITINERARY_STAYS_INVALID") setAttempt((n) => n + 1);
       } finally {
         if (alive.current) setBusy(null);
       }
