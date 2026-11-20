@@ -12,6 +12,8 @@ import { config, getOrphanDocuments, getVisibleFileQuestions, getVisibleSections
 import type { Answers, Question } from "@/shared/tourist-visa/engine";
 import type { DocumentLimits, TouristVisaApplication, TouristVisaDocument } from "@/services/touristVisaService";
 import { isPreviewMode } from "@/utils/touristVisaChecklist";
+import { prepareFile } from "@/utils/touristVisaCompress";
+import type { CompressEngine, PrepareResult } from "@/utils/touristVisaCompress";
 import {
   PREPARED_BY_US,
   acceptAttribute,
@@ -25,6 +27,7 @@ import {
 } from "@/utils/touristVisaDocuments";
 import { previousSectionId } from "@/utils/touristVisaForm";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { CompressionNote, PreparingFile } from "./FilePreparation";
 import { notifyDocumentFailed, notifyDocumentRemoved, notifyDocumentUploaded } from "./notify";
 import { DraftBadge } from "./QuestionField";
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
@@ -36,6 +39,15 @@ interface DocumentsSectionProps {
 
 /** Where to put keyboard focus after an upload or a removal. `n` makes the same request count twice. */
 type FocusRequest = { kind: "file"; id: string; n: number } | { kind: "upload"; slot: string; n: number } | { kind: "remove"; id: string; n: number };
+
+/**
+ * The browser's half of making a file smaller, loaded only when a file that needs it is picked (a file of about 1 MB or less never loads it), and
+ * pdf.js and pdf-lib only when a PDF is picked: none of it is in the page's own code.
+ */
+const lazyEngine: CompressEngine = {
+  image: async (file, plan, signal) => (await import("@/utils/touristVisaCompressBrowser")).browserEngine.image(file, plan, signal),
+  pdf: async (file, plan, signal) => (await import("@/utils/touristVisaCompressBrowser")).browserEngine.pdf(file, plan, signal),
+};
 
 const fileDomId = (id: string) => `doc-${id}`;
 const uploadButtonDomId = (slot: string) => `upload-button-${slot}`;
@@ -69,6 +81,9 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [uploading, setUploading] = useState<{ slot: string; name: string } | null>(null);
+  // A picked file being made smaller (before it is uploaded), and the line that stays by each uploaded file ("Reduced from 5.2 MB to 0.9 MB").
+  const [preparing, setPreparing] = useState<{ slot: string; name: string } | null>(null);
+  const [notes, setNotes] = useState<Record<string, string>>({});
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [pendingRemove, setPendingRemove] = useState<TouristVisaDocument | null>(null);
   const [slotErrors, setSlotErrors] = useState<Record<string, string>>({});
@@ -142,6 +157,16 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
     [limits, setSlotError, announce]
   );
 
+  /** Shows a sentence of our own (not a server code) as the error of a slot. */
+  const failText = useCallback(
+    (slot: string, message: string) => {
+      setSlotError(slot, message);
+      announce(message);
+      notifyDocumentFailed(message);
+    },
+    [setSlotError, announce]
+  );
+
   /** Reads the list again, for when the server says it is not what this page thought (for example a full slot). */
   const resync = useCallback(async () => {
     const result = await listDocuments();
@@ -154,8 +179,32 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
   const choose = useCallback(
     async (question: Question, file: File) => {
       const slot = question.slot as string;
-      if (!limits || uploading) return;
+      if (!limits || uploading || preparing) return;
       setSlotError(slot, null);
+
+      // First the file is made smaller if that helps (a big phone photo, a scanned PDF), here in the browser and with a Cancel; the limit it must
+      // fit is the server's own. Then the ordinary checks run on what will really be sent, and the server checks it all again.
+      const preparation = new AbortController();
+      abort.current = preparation;
+      setPreparing({ slot, name: file.name });
+      let prepared: PrepareResult;
+      try {
+        prepared = await prepareFile(file, { maxFileBytes: limits.maxFileBytes, signal: preparation.signal, engine: lazyEngine });
+      } catch {
+        prepared = { status: "unchanged", file, originalSize: file.size, finalSize: file.size, message: "", note: null };
+      }
+      abort.current = null;
+      if (!alive.current) return;
+      setPreparing(null);
+      if (prepared.status === "cancelled") {
+        announce(prepared.message);
+        return;
+      }
+      if (prepared.status === "too_large" || prepared.status === "original_too_big") {
+        failText(slot, prepared.message);
+        return;
+      }
+      file = prepared.file;
 
       const refused = preCheckFile({ name: file.name, size: file.size, type: file.type }, slot, limits, docs);
       if (refused) {
@@ -174,7 +223,9 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
 
       if (result.ok) {
         setDocs((previous) => [...previous, result.document]);
-        announce(`${result.document.name} uploaded.`);
+        const note = prepared.note;
+        if (note) setNotes((previous) => ({ ...previous, [result.document.id]: note }));
+        announce(`${result.document.name} uploaded${note ? `. ${note}` : ""}.`);
         notifyDocumentUploaded();
         counter.current += 1;
         setFocusRequest({ kind: "file", id: result.document.id, n: counter.current });
@@ -184,7 +235,7 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
       fail(slot, result.code, result.status);
       if (result.code === "TOO_MANY_FILES" || result.code === "TOTAL_TOO_LARGE" || result.code === "DOCUMENTS_LOCKED") void resync();
     },
-    [limits, uploading, docs, uploadDocument, refresh, resync, fail, announce, setSlotError]
+    [limits, uploading, preparing, docs, uploadDocument, refresh, resync, fail, failText, announce, setSlotError]
   );
 
   const confirmRemove = useCallback(async () => {
@@ -215,7 +266,7 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
 
   if (!section) return null;
   const total = docs.reduce((sum, d) => sum + d.size, 0);
-  const busy = uploading !== null;
+  const busy = uploading !== null || preparing !== null;
   // Files kept from an earlier list of documents (the answers changed): not asked for, never blocking, still counted in the total.
   const orphans = getOrphanDocuments(config, docs, application.answers as Answers);
 
@@ -321,6 +372,7 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
                             <p className="text-xs text-muted-foreground">
                               {typeLabel(doc.type)} · {formatBytes(doc.size)} · Uploaded {formatUploadedAt(doc.uploadedAt)}
                             </p>
+                            {notes[doc.id] && <CompressionNote note={notes[doc.id]} />}
                           </div>
                         </div>
                         <Button
@@ -328,7 +380,7 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
                           variant="outline"
                           size="sm"
                           className="w-full sm:w-auto"
-                          disabled={removingId === doc.id}
+                          disabled={removingId === doc.id || preparing !== null}
                           id={removeButtonDomId(doc.id)}
                           aria-label={`Remove ${doc.name}`}
                           onClick={() => {
@@ -345,6 +397,8 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
                 ) : (
                   <p className="text-sm text-muted-foreground">No files uploaded yet.</p>
                 )}
+
+                {preparing?.slot === slot && <PreparingFile name={preparing.name} onCancel={() => abort.current?.abort()} />}
 
                 {error && (
                   <p id={`${panelId}-error`} role="alert" className="flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
