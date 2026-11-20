@@ -849,8 +849,8 @@ test('the template never uses the banned wording of the polish step, ends every 
 // Prompt version 3: specific but safe days; the repetition checks; British spelling
 // ---------------------------------------------------------------------------
 
-test('prompt version 3: one or two specific, well-known sights a day, a landmark only when certain, never booked, ticketed, timed or priced', () => {
-  assert.equal(ITINERARY_PROMPT_VERSION, 3);
+test('prompt version 4 (3 plus the places of stay): one or two specific, well-known sights a day, a landmark only when certain, never booked, ticketed, timed or priced', () => {
+  assert.equal(ITINERARY_PROMPT_VERSION, 4);
   assert.match(SYSTEM_PROMPT, /each ordinary day describes one or two specific, well-known sights or activities in that day's city, naming real landmarks \(such as a famous museum, castle, abbey, cathedral, park, market or historic street\), in plain factual wording/);
   assert.match(SYSTEM_PROMPT, /Name a landmark only if you are certain that it exists in that city; if you are not sure, describe the kind of place instead/);
   assert.match(SYSTEM_PROMPT, /Never present anything as booked, ticketed, timed or priced\./);

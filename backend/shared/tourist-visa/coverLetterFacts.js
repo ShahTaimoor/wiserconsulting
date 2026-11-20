@@ -27,7 +27,7 @@
 
 const engine = require('./engine');
 const view = require('./view');
-const { placesIn } = require('./places');
+const { placesIn, placeOfTown } = require('./places');
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MAX_FREE_TEXT = 500;
@@ -51,6 +51,8 @@ const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
  *   part   one part of an address (town or country only)
  *   count  how many entries a repeating group has (when its Yes/No is Yes)
  *   list   a few chosen fields of each entry of a repeating group
+ *   stays  the places of stay of a repeating group, as { town, place, from, to } by entry: only the TOWN of the address (never the name or the
+ *          rest of it) and the two dates; read by the itinerary alone (its rules name the question ids: townId, fromId, toId)
  *   stay   length of the visit from two dates     since  time since a month, as at the day of the application
  *   token  a name held back as a placeholder
  * withholdIf { id, value }: the fact is left out when that answer has that value (a medical visit).
@@ -220,7 +222,8 @@ function validateAllowlist(specs = SPECS, cfg = engine.config, rules = COVER_LET
       if (excludedIds.has(id)) problems.push(`${id}: in the excluded list`);
       if (question.sensitive) problems.push(`${id}: stored encrypted`);
       if (forbiddenTypes.has(question.type)) problems.push(`${id}: a ${question.type} question can never be a fact`);
-      if (question.type === 'ADDR' && !(spec.kind === 'part' && spec.id === id && addressParts.has(spec.part))) problems.push(`${id}: an address can only be read as a town or a country`);
+      const readsTown = (spec.kind === 'part' && spec.id === id && addressParts.has(spec.part)) || (spec.kind === 'stays' && spec.townId === id && addressParts.has('town'));
+      if (question.type === 'ADDR' && !readsTown) problems.push(`${id}: an address can only be read as a town or a country`);
       if (question.type === 'FIL' || question.type === 'FILE') problems.push(`${id}: documents can never be facts`);
     }
     if (spec.kind === 'part' && !addressParts.has(spec.part)) problems.push(`${spec.key}: ${spec.part} is not an allowed part of an address`);
@@ -514,6 +517,28 @@ function buildFactsFor(specs, rules, cfg, answers, options = {}) {
             rawValues[spec.key] = found.raw[spec.part];
             add(spec, spec.part === 'country' ? view.describeValue(cfg, { id: 'x', type: 'CTRY' }, found.raw.country, safeAnswers, null) : String(found.raw[spec.part]).trim());
           }
+        }
+        break;
+      }
+      case 'stays': {
+        // The places of stay, for the itinerary: the town of each address (the same "is this a town" check as the towns above, never
+        // anything else of the address) and the two dates. An entry without both dates is not a stay we can place. Its `place` is a name
+        // of the fixed list, else the plain town as typed, else null (the stay then has no place we can name).
+        if (spec.gate) { const gate = visibleValue(cfg, spec.gate, safeAnswers, null); if (!gate || gate.raw !== true) break; }
+        const ISO = /^\d{4}-\d{2}-\d{2}$/;
+        const stays = [];
+        for (const entry of entriesOf(spec.group).slice(0, spec.max)) {
+          const from = visibleValue(cfg, spec.fromId, safeAnswers, entry);
+          const to = visibleValue(cfg, spec.toId, safeAnswers, entry);
+          if (!from || !to || typeof from.raw !== 'string' || typeof to.raw !== 'string' || !ISO.test(from.raw) || !ISO.test(to.raw)) continue;
+          const found = visibleValue(cfg, spec.townId, safeAnswers, entry);
+          const typed = found && isObject(found.raw) && typeof found.raw.town === 'string' ? found.raw.town.trim() : '';
+          const town = typed && !NOT_A_TOWN.test(typed) ? cleanFreeText(typed, tokens, redactions) : null;
+          stays.push({ town: town || null, place: town ? placeOfTown(town) : null, from: from.raw, to: to.raw, fromText: describe(from, entry), toText: describe(to, entry) });
+        }
+        if (stays.length) {
+          rawValues[spec.key] = stays;
+          add(spec, stays.map((s, i) => `Stay ${i + 1}: ${s.place || 'place not given'}, from ${s.fromText} to ${s.toText}`));
         }
         break;
       }

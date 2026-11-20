@@ -37,6 +37,10 @@ const { normalizePdfText, findUnprintable } = require('./pdf/pdfText');
 const { BRAND, ITINERARY_PAGE, TEXT } = require('../config/touristVisaPdf');
 
 const norm = normalizePdfText;
+const { stayLines } = require('../shared/tourist-visa/itineraryFacts');
+
+/** The most stays the "Staying" cell lists (the group allows 20); the rest are counted. */
+const MAX_STAY_LINES = 8;
 
 // ---------------------------------------------------------------------------
 // The stored text, as it is
@@ -136,13 +140,25 @@ function detailsOf(facts, name) {
   const restore = (s) => (typeof s === 'string' ? s.replace(/\[(R\d+)\]/g, (match, key) => (facts && facts.redactions && typeof facts.redactions[key] === 'string' ? facts.redactions[key] : match)) : s);
   const stay = values.accommodationPlan ? cap(restore(values.accommodationPlan)) : [].concat(values.accommodationTowns || []).join(', ');
   const nights = typeof values.stay === 'string' && !/^0(?!\d)/.test(values.stay) ? values.stay : '';
+  // Built from the applicant's places of stay: the destination is the places of the stays in date order, and "Staying" lists each stay with its dates,
+  // "London, 15 March to 18 March 2027", from our own checked data (never from the AI). Nothing else of a stay is printed.
+  const byStays = facts && facts.stayPlan && facts.stayPlan.mode === 'stays';
+  let destination = places.join(', ');
+  let staying = { value: stay };
+  if (byStays) {
+    const stays = facts.stayPlan.stays;
+    destination = [...new Set(stays.filter((s) => s.place).map((s) => s.place))].join(', ');
+    const lines = stayLines(stays).map((line) => restore(line));
+    const shown = lines.length > MAX_STAY_LINES ? [...lines.slice(0, MAX_STAY_LINES), `and ${lines.length - MAX_STAY_LINES} more`] : lines;
+    staying = { value: shown.join('; '), items: shown };
+  }
   return [
     { label: 'Traveller', value: name || '' },
-    { label: 'Destination', value: places.join(', ') },
+    { label: 'Destination', value: destination },
     { label: 'Arrival', value: values.arrival || '' },
     { label: 'Departure', value: values.departure || '' },
     { label: 'Length of stay', value: nights },
-    { label: 'Staying', value: stay },
+    { label: 'Staying', ...staying, ...(byStays ? { wide: true } : {}) },
   ].filter((d) => d.value);
 }
 
@@ -152,7 +168,8 @@ function detailsOf(facts, name) {
  * @param {string} input.text          the stored text of the version (decrypted)
  * @param {string} input.reference     the application's reference
  * @param {string} input.applicantName the traveller's name (the continuation header)
- * @param {Array<{label: string, value: string}>} [input.details]  the grid of details, from the answers (only the fields the data has)
+ * @param {Array<{label: string, value: string, items?: string[], wide?: boolean}>} [input.details]  the grid of details, from the answers (only the fields
+ *        the data has; `items` are the lines of a cell that lists several things, one to a line; a `wide` cell has a row of its own, the full width)
  * @param {boolean} input.draft        the version is not approved (or was approved and its answers have changed since)
  * @param {boolean} [input.stale]      the draft was approved once, and the answers changed since: the banner says so
  */
@@ -162,7 +179,12 @@ function buildItineraryModel({ text, reference, applicantName, details, draft, s
   return {
     reference: norm(reference || ''),
     applicantName: norm(applicantName || ''),
-    details: (details || []).filter((d) => d && typeof d.value === 'string' && d.value.trim() !== '').map((d) => ({ label: d.label, value: norm(d.value).replace(/\s+/g, ' ').trim() })),
+    details: (details || []).filter((d) => d && typeof d.value === 'string' && d.value.trim() !== '').map((d) => ({
+      label: d.label,
+      value: norm(d.value).replace(/\s+/g, ' ').trim(),
+      ...(Array.isArray(d.items) && d.items.length ? { items: d.items.map((item) => norm(item).replace(/\s+/g, ' ').trim()).filter(Boolean) } : {}),
+      ...(d.wide === true ? { wide: true } : {}),
+    })),
     kicker: parsed.title,
     note: parsed.note,
     blocks,
@@ -301,14 +323,21 @@ class ItineraryRenderer {
     }
     const details = this.model.details;
     if (details.length) {
+      const normal = details.filter((cell) => !cell.wide);
+      const wide = details.filter((cell) => cell.wide);
       const cols = Math.min(3, details.length);
       const colGap = 18;
       const cellW = (g.contentWidth - 2 * PANEL_PAD - (cols - 1) * colGap) / cols;
+      const style = { font: 'Serif', size: 11.2 };
+      const linesOf = (cell, width) => (Array.isArray(cell.items) && cell.items.length ? cell.items.flatMap((item) => this.wrap(item, style, width)) : this.wrap(cell.value, style, width));
       const rows = [];
-      for (let i = 0; i < details.length; i += cols) {
-        const row = details.slice(i, i + cols).map((cell) => ({ ...cell, lines: this.wrap(cell.value, { font: 'Serif', size: 11.2 }, cellW) }));
-        rows.push({ cells: row, height: 11 + Math.max(...row.map((c) => c.lines.length)) * 15 });
+      for (let i = 0; i < normal.length; i += cols) {
+        const row = normal.slice(i, i + cols).map((cell) => ({ ...cell, lines: linesOf(cell, cellW) }));
+        rows.push({ cells: row, cellW, height: 11 + Math.max(...row.map((c) => c.lines.length)) * 15 });
       }
+      // A cell that lists several things (the stays) has a row of its own, as wide as the panel, so that a line is not broken in a third of the width.
+      const fullW = g.contentWidth - 2 * PANEL_PAD;
+      for (const cell of wide) rows.push({ cells: [{ ...cell, lines: linesOf(cell, fullW) }], cellW: fullW, height: 11 + linesOf(cell, fullW).length * 15 });
       const rowGap = 12;
       const panelH = 2 * PANEL_PAD - 2 + rows.reduce((sum, r) => sum + r.height, 0) + (rows.length - 1) * rowGap;
       m.panel = { cols, colGap, cellW, rows, rowGap, height: panelH };
@@ -344,7 +373,7 @@ class ItineraryRenderer {
       let rowY = y + PANEL_PAD - 1;
       p.rows.forEach((row, r) => {
         row.cells.forEach((cell, c) => {
-          const x = g.left + PANEL_PAD + c * (p.cellW + p.colGap);
+          const x = g.left + PANEL_PAD + c * (row.cellW + p.colGap);
           if (c > 0) b.doc.save().lineWidth(0.5).strokeColor(RULE_ON_TINT).moveTo(x - p.colGap / 2, rowY).lineTo(x - p.colGap / 2, rowY + row.height - 3).stroke().restore();
           this.line(cell.label, x, rowY, { font: 'SansBold', size: 7.8, color: BRAND.accentDeep });
           cell.lines.forEach((text, i) => this.line(text, x, rowY + 11 + i * 15, { font: 'Serif', size: 11.2, color: BRAND.ink }));
