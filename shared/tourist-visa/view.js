@@ -196,7 +196,7 @@ function questionRow(cfg, question, answers, entry, documents, declarations, cor
       .filter((d) => d && d.slot === question.slot)
       .map((d) => ({ name: String(d.name), size: d.size, sizeText: formatSize(d.size) }));
     // An optional slot with no files is "Not answered", like any optional question; a required one says what is missing.
-    const optional = question.required === false;
+    const optional = !engine.isFileRequired(cfg, question, answers);
     const none = optional ? NOT_ANSWERED : 'No files uploaded';
     return { ...base, kind: 'files', ...(optional ? { optional: true } : {}), files, empty: files.length === 0, value: files.length ? `${files.length} ${files.length === 1 ? 'file' : 'files'}` : none };
   }

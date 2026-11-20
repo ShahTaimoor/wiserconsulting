@@ -1,92 +1,117 @@
 // Run with: npm run test:unit   (from client/)
-// Task A: document slots that are conditional and optional, on the applicant's side: the dashboard line, readiness and the files kept from a different list.
-// The real config has only passport and funds, so these tests add four FILE questions to a COPY of it.
+// The document lists (config 1.5.0) on the applicant's side: the line at the top of the documents page, the "needed" or "(optional)" word,
+// the dashboard line, readiness and the files kept from a different list. The real config is used; the expected lists are written out by hand
+// in backend/tests/helpers/documentSlots.js.
 
 import test from "node:test";
 import assert from "node:assert/strict";
 import engine from "../shared/tourist-visa/engine.js";
+import slotHelper from "../../../backend/tests/helpers/documentSlots.js";
 import { buildChecklist, documentSummary, getReadiness } from "./touristVisaChecklist.ts";
-import { documentErrorMessage, DOCUMENT_ERROR_CODES } from "./touristVisaDocuments.ts";
+import { DOCUMENT_ERROR_CODES, PREPARED_BY_US, documentErrorMessage, documentsBasis } from "./touristVisaDocuments.ts";
 
-const real = engine.config;
-const file = (number, slot, extra) => ({ id: `q10_${number}`, number: `10.${number}`, section: "10D", label: `Document ${slot}`, type: "FILE", slot, maxFiles: 2, required: true, help: "Made-up guidance.", ...extra });
-const config = JSON.parse(JSON.stringify(real));
-config.questions.push(
-  file(8, "salary", { showWhen: { q: "q5_1", eq: "employed" } }),
-  file(9, "bizreg", { showWhen: { q: "q5_1", eq: "self_employed" } }),
-  file(10, "other", { required: false }),
-  file(11, "sponsor", { required: false, showWhen: { q: "q6_5", eq: true } })
-);
+const { config } = engine;
+const { SLOT_LIST, neededSlots, shownSlots, answersFor } = slotHelper;
 const doc = (slot, n = 1) => ({ id: `${slot}-${n}`, slot, size: 1000 });
-
 const SECTION_IDS = config.sections.map((s) => s.id);
 const allSaved = () => Object.fromEntries(SECTION_IDS.map((id) => [id, "saved"]));
-const draft = (documents, answers = {}, sectionStatus = allSaved()) => ({ status: "draft", sectionStatus, answers, documents });
+const draft = (documents, answers, sectionStatus = allSaved()) => ({ status: "draft", sectionStatus, answers, documents });
 const row10D = (app) => buildChecklist(config, app).parts.flatMap((p) => p.sections).find((s) => s.id === "10D");
 
-test("the test config is valid", () => {
-  assert.deepEqual(engine.validateConfig(config), []);
+test("the line at the top of the documents page says what the list is based on, and links back to question 5.1", () => {
+  const basis = (answers) => documentsBasis(config, answers);
+  assert.equal(basis({ q5_1: "self_employed" }).text, "Your list is based on your employment answer: Self-employed");
+  assert.equal(basis({ q5_1: "employed" }).text, "Your list is based on your employment answer: Employed");
+  for (const other of ["retired", "student", "homemaker", "unemployed", "other"]) {
+    assert.equal(basis({ q5_1: other }).text, "Your list is based on your employment answer: Shared documents only", other);
+  }
+  const unanswered = basis({});
+  assert.equal(unanswered.answered, false);
+  assert.match(unanswered.text, /not answered question 5\.1/);
+  assert.match(unanswered.text, /only the documents everyone needs are shown/);
+  assert.equal(documentsBasis(config, undefined).answered, false);
+  // the link goes to the section that holds question 5.1
+  assert.equal(basis({ q5_1: "employed" }).href, "/tourist-visa/5");
+  assert.equal(basis({ q5_1: "employed" }).linkText, "Change your answer to question 5.1");
 });
 
-test("the dashboard line names each slot by its label from the config, in order, and leaves out slots that are hidden", () => {
+test("the covering letter and the travel itinerary are information lines, not slots", () => {
+  assert.deepEqual([...PREPARED_BY_US], ["Covering letter: prepared by Wiser Consulting", "Travel itinerary: prepared by Wiser Consulting"]);
+  assert.equal(SLOT_LIST.some((s) => /cover|itinerary/i.test(s.slot + s.label)), false);
+  assert.equal(engine.getFileQuestions(config).some((q) => /cover|itinerary/i.test(q.slot + q.label)), false);
+});
+
+test("a slot is marked needed or optional from the answers: married, children and someone else pays flip it, a rule-less slot never changes", () => {
+  const needed = (answers, slot) => engine.isFileRequired(config, engine.getFileQuestions(config).find((q) => q.slot === slot), answers);
+  assert.equal(needed(answersFor({ employment: "retired", married: true }), "marriage"), true);
+  assert.equal(needed(answersFor({ employment: "retired", married: false }), "marriage"), false);
+  assert.equal(needed(answersFor({ employment: "retired", children: true }), "formb"), true);
+  assert.equal(needed(answersFor({ employment: "retired", children: false }), "school"), false);
+  assert.equal(needed(answersFor({ employment: "employed", sponsor: true }), "sponsorship"), true);
+  assert.equal(needed(answersFor({ employment: "employed", sponsor: false }), "sponsorship"), false);
+  assert.equal(needed({}, "passport"), true);
+  assert.equal(needed({}, "oldpassports"), false);
+  assert.equal(needed({ q5_1: "employed", q6_5: true, q2_13: "married", q4_7: true }, "other"), false);
+});
+
+test("the dashboard line names slots by their labels, three at most, and leaves out hidden ones", () => {
   const files = [doc("passport"), doc("funds"), doc("funds", 2), doc("salary")];
-  assert.equal(documentSummary(config, files, "10D", { q5_1: "employed" }), "Your passport or travel document (1 file), Evidence of funds (2 files), Document salary (1 file)");
-  // salary is hidden for a retired applicant: its file is not named
-  assert.equal(documentSummary(config, files, "10D", { q5_1: "retired" }), "Your passport or travel document (1 file), Evidence of funds (2 files)");
+  assert.equal(documentSummary(config, files, "10D", { q5_1: "retired" }), "Personal bank statement (2 files), New passport with entry and exit stamps (1 file)", "salary is hidden for a retired applicant");
+  assert.equal(documentSummary(config, files, "10D", { q5_1: "employed" }), "Salary slips (1 file), Personal bank statement (2 files), New passport with entry and exit stamps (1 file)");
   assert.equal(documentSummary(config, [], "10D", {}), "No files uploaded yet");
-  assert.equal(documentSummary(config, [doc("salary")], "10D", { q5_1: "retired" }), "No files uploaded yet", "only a hidden slot has a file");
+  assert.equal(documentSummary(config, [doc("salary")], "10D", { q5_1: "retired" }), "No files uploaded yet");
+  const many = [doc("hotels"), doc("flight"), doc("familyparents"), doc("taxpayer"), doc("nic")];
+  assert.match(documentSummary(config, many, "10D", {}), /^Hotel reservations \(.*\) \(1 file\), Flight reservation \(1 file\), Family registration certificate with parents and siblings \(1 file\) and 2 more$/);
 });
 
-test("the dashboard line stays short with many documents: three are named, the rest are counted", () => {
-  const files = [doc("passport"), doc("funds"), doc("salary"), doc("other"), doc("sponsor")];
-  const text = documentSummary(config, files, "10D", { q5_1: "employed", q6_5: true });
-  assert.equal(text, "Your passport or travel document (1 file), Evidence of funds (1 file), Document salary (1 file) and 2 more");
-  assert.equal(text.includes("sponsor"), false);
+test("readiness: the three situations need exactly their own documents", () => {
+  for (const employment of ["employed", "self_employed", "retired"]) {
+    const answers = answersFor({ employment });
+    const docs = neededSlots({ employment }).map((s) => doc(s));
+    assert.deepEqual(getReadiness(config, draft(docs, answers)), { ready: true, missing: [] }, employment);
+    const short = getReadiness(config, draft(docs.slice(1), answers));
+    assert.equal(short.ready, false, employment);
+    assert.deepEqual(short.missing.map((m) => m.id), ["10D"]);
+    assert.equal(row10D(draft(docs, answers)).state, "saved");
+    assert.equal(row10D(draft(docs.slice(1), answers)).state, "in_progress");
+  }
+  // employed documents do not satisfy a self-employed list, and the other way round
+  const employedFiles = neededSlots({ employment: "employed" }).map((s) => doc(s));
+  assert.equal(getReadiness(config, draft(employedFiles, answersFor({ employment: "self_employed" }))).ready, false);
+  const selfFiles = neededSlots({ employment: "self_employed" }).map((s) => doc(s));
+  assert.equal(getReadiness(config, draft(selfFiles, answersFor({ employment: "employed" }))).ready, false);
 });
 
-test("the documents row follows the slots on the list: a required conditional slot holds the row back, a hidden one does not", () => {
-  const retired = { q5_1: "retired" };
-  const employed = { q5_1: "employed" };
-  assert.equal(row10D(draft([doc("passport"), doc("funds")], retired)).state, "saved");
-  assert.equal(row10D(draft([doc("passport"), doc("funds")], employed)).state, "in_progress", "the salary document is still missing");
-  assert.equal(row10D(draft([doc("passport"), doc("funds"), doc("salary")], employed)).state, "saved");
-  assert.equal(row10D(draft([], employed)).state, "not_started");
-  // a file in a slot that is hidden for these answers does not complete anything
-  assert.equal(row10D(draft([doc("passport"), doc("salary")], retired)).state, "in_progress");
+test("readiness: an optional slot, or a slot made optional by the answers, never holds the submit back, and a slot made needed does", () => {
+  const retired = answersFor({ employment: "retired" });
+  const shared = neededSlots({ employment: "retired" }).map((s) => doc(s));
+  assert.equal(getReadiness(config, draft(shared, retired)).ready, true, "old passports, other and the family certificates are optional here");
+  assert.equal(getReadiness(config, draft(shared, answersFor({ employment: "retired", children: true }))).ready, false, "children: three more are needed");
+  const withChildren = [...shared, doc("familyspouse"), doc("formb"), doc("school")];
+  assert.equal(getReadiness(config, draft(withChildren, answersFor({ employment: "retired", children: true }))).ready, true);
+  // and back: the extra files stay and nothing is missing
+  assert.equal(getReadiness(config, draft(withChildren, retired)).ready, true);
 });
 
-test("readiness: only the required slots on the list are asked for, and an optional slot never holds the submit back", () => {
-  const retired = { q5_1: "retired" };
-  const employed = { q5_1: "employed" };
-  assert.equal(getReadiness(config, draft([doc("passport"), doc("funds")], retired)).ready, true, "salary, bizreg and the optional ones are not needed");
-  const noSalary = getReadiness(config, draft([doc("passport"), doc("funds")], employed));
-  assert.equal(noSalary.ready, false);
-  assert.equal(noSalary.missing[0].reason, "Upload a file for: Document salary");
-  assert.equal(getReadiness(config, draft([doc("passport"), doc("funds"), doc("salary")], employed)).ready, true, "the optional slot is empty and does not matter");
-  const none = getReadiness(config, draft([], employed));
-  assert.equal(none.missing[0].reason, "Upload a file for: Your passport or travel document, Evidence of funds and Document salary");
-  // a conditional optional slot (sponsor) with no files is never listed as missing
-  assert.equal(getReadiness(config, draft([doc("passport"), doc("funds")], { q5_1: "retired", q6_5: true })).ready, true);
+test("switching 5.1 after uploading: the employment files are files from a different list, shown apart, and nothing is missing", () => {
+  const employedFiles = neededSlots({ employment: "employed" }).map((s) => doc(s));
+  const retired = answersFor({ employment: "retired" });
+  assert.deepEqual(engine.getOrphanDocuments(config, employedFiles, retired).map((d) => d.slot), ["appointment", "confirmation", "noc", "salary"]);
+  assert.equal(getReadiness(config, draft(employedFiles, retired)).ready, true);
+  assert.equal(documentSummary(config, employedFiles, "10D", retired).includes("Salary slips"), false, "the dashboard line does not name them");
+  assert.deepEqual(engine.getOrphanDocuments(config, employedFiles, answersFor({ employment: "employed" })), []);
 });
 
-test("readiness: a files section made only of optional slots is not missing when it is empty", () => {
-  const optionalOnly = JSON.parse(JSON.stringify(config));
-  for (const q of optionalOnly.questions.filter((x) => x.type === "FILE")) q.required = false;
-  const result = getReadiness(optionalOnly, draft([], {}));
-  assert.equal(result.ready, true);
-  assert.equal(buildChecklist(optionalOnly, draft([], {})).parts.flatMap((p) => p.sections).find((s) => s.id === "10D").state, "not_started");
+test("every list shows its slots in the config order", () => {
+  for (const ctx of [{ employment: "employed" }, { employment: "self_employed" }, { employment: "retired" }, {}]) {
+    const visible = engine.getVisibleFileQuestions(config, answersFor(ctx), "10D").map((q) => q.slot);
+    assert.deepEqual(visible, shownSlots(ctx), JSON.stringify(ctx));
+  }
 });
 
-test("files kept from a different list: the engine finds them for the box on the documents page", () => {
-  const files = [doc("passport"), doc("salary"), doc("bizreg"), doc("longgone")];
-  assert.deepEqual(engine.getOrphanDocuments(config, files, { q5_1: "employed" }).map((d) => d.slot), ["bizreg", "longgone"]);
-  assert.deepEqual(engine.getOrphanDocuments(config, files, { q5_1: "self_employed" }).map((d) => d.slot), ["salary", "longgone"]);
-  assert.deepEqual(engine.getVisibleFileQuestions(config, { q5_1: "employed" }, "10D").map((q) => q.slot), ["passport", "funds", "salary", "other"]);
-});
-
-test("the new refusal has its own plain message, and the codes list knows it", () => {
+test("the refusal for a hidden slot has its own plain message, and the wording about waiting has no number", () => {
   assert.ok(DOCUMENT_ERROR_CODES.includes("SLOT_NOT_AVAILABLE"));
   assert.match(documentErrorMessage("SLOT_NOT_AVAILABLE"), /not on your list/);
   assert.match(documentErrorMessage("TOO_MANY_UPLOADS"), /wait/);
-  assert.equal(/\d/.test(documentErrorMessage("TOO_MANY_UPLOADS")), false, "the wording mentions waiting, not a number");
+  assert.equal(/\d/.test(documentErrorMessage("TOO_MANY_UPLOADS")), false);
 });

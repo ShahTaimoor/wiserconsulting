@@ -35,6 +35,7 @@ const { TouristVisaPdfService, fileNameFor } = require('../services/touristVisaP
 const { buildLetterModel } = require('../utils/touristVisaCoverLetterPdf');
 const { buildItineraryModel } = require('../utils/touristVisaItineraryPdf');
 const { SECTIONS, FILE_NAME } = require('./helpers/touristVisaFixtures');
+const { uploadRemainingShared } = require('./helpers/documentSlots');
 const { inspectPdf } = require('./helpers/pdfInspect');
 
 const DRAFT_MARK = 'DRAFT - NOT APPROVED';
@@ -112,6 +113,7 @@ async function submitted() {
   }
   assert.equal((await upload(person.token, 'passport', FILE_NAME)).status, 201);
   assert.equal((await upload(person.token, 'funds', 'bank-statement.pdf')).status, 201);
+  await uploadRemainingShared(upload, person.token);
   const res = await api('POST', '/applications/me/submit', { token: person.token, body: { declarationAccepted: true } });
   assert.equal(res.status, 200, res.text);
   return { ...person, appId, reference: res.json.data.application.reference };

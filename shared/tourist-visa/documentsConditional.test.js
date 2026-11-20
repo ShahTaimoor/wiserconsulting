@@ -177,10 +177,8 @@ test('review page: only the visible slots are printed; an empty optional slot re
   assert.deepEqual(rows.map((r) => r.id), ['q1_3', 'q1_6', 'q1_7']);
 });
 
-test('the real config keeps only the passport and funds slots, both required and unconditional, with their limits in the config', () => {
-  const files = engine.getFileQuestions(engine.config);
-  assert.deepEqual(files.map((q) => [q.slot, q.maxFiles, q.required, q.showWhen]), [['passport', 3, true, undefined], ['funds', 10, true, undefined]]);
-  assert.deepEqual(engine.getOrphanDocuments(engine.config, [doc('passport'), doc('funds')], {}), []);
-  assert.equal(engine.documentsComplete(engine.config, [doc('passport'), doc('funds')], {}), true);
-  assert.equal(engine.documentsComplete(engine.config, [doc('passport')], {}), false);
+test('the real config: a stored passport or funds file is never an orphan, and the old two-slot application list is unchanged by the new slots', () => {
+  const answers = { q5_1: 'retired' };
+  assert.deepEqual(engine.getOrphanDocuments(engine.config, [doc('passport'), doc('funds')], answers), []);
+  assert.deepEqual(engine.getOrphanDocuments(engine.config, [doc('salary'), doc('longgone')], answers).map((d) => d.slot), ['salary', 'longgone']);
 });

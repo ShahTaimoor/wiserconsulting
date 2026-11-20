@@ -31,6 +31,7 @@ const touristVisaRoutes = require('../routes/touristVisaRoutes');
 const touristVisaBodyParser = require('../middleware/touristVisaBodyParser');
 const { errorHandler } = require('../middleware/errorHandler');
 const engine = require('../shared/tourist-visa/engine');
+const { uploadRemainingShared, neededSlots, SLOT_LIST } = require('./helpers/documentSlots');
 
 let mongod;
 let server;
@@ -148,6 +149,7 @@ async function readyApplicant({ given, family, email } = {}) {
   }
   assert.equal((await upload(person.token, 'passport', FILE_NAME)).status, 201);
   assert.equal((await upload(person.token, 'funds', 'bank-statement.pdf')).status, 201);
+  await uploadRemainingShared(upload, person.token);
   return { ...person, appId };
 }
 async function submitted(options) {
@@ -320,7 +322,7 @@ test('the list: one row per submitted application with the reference, name, emai
   assert.equal(row.email, 'list.one@example.com');
   assert.equal(row.phone, '+44 7700 900123');
   assert.equal(row.status, 'submitted');
-  assert.equal(row.documentCount, 2);
+  assert.equal(row.documentCount, neededSlots({ employment: 'retired' }).length, 'one file in each needed slot');
   assert.ok(row.submittedAt);
   for (const needle of [...FORBIDDEN_IN_ANSWERS, SECRET_ID, SECRET_NI, FILE_NAME]) assert.equal(res.text.includes(needle), false, needle);
 });
@@ -475,9 +477,11 @@ test('the Overview: a call block first, then every section in words, with decryp
   assert.equal(rows.find((r) => r.id === 'q1_6').value, '1 March 2027');
   assert.equal(data.review.parts.length, 10);
 
-  assert.deepEqual(data.documents.map((d) => [d.slot, d.name]).sort(), [['funds', 'bank-statement.pdf'], ['passport', FILE_NAME]]);
+  const expectedFiles = neededSlots({ employment: 'retired' }).map((slot) => [slot, slot === 'passport' ? FILE_NAME : slot === 'funds' ? 'bank-statement.pdf' : `${slot}-file.pdf`]);
+  assert.deepEqual(data.documents.map((d) => [d.slot, d.name]).sort(), expectedFiles.sort());
+  assert.deepEqual(data.otherDocuments, [], 'every file is on the list');
   assert.ok(data.documents.every((d) => Object.keys(d).sort().join() === 'id,name,size,slot,type'));
-  assert.deepEqual(data.fileSlots, { q10_6: 'passport', q10_7: 'funds' });
+  assert.deepEqual(data.fileSlots, Object.fromEntries(SLOT_LIST.map((s) => [s.id, s.slot])));
   for (const needle of FORBIDDEN_IN_ANSWERS) assert.equal(res.text.includes(needle), false, `${needle} is not in the Overview`);
   assert.equal(fakeStorage.links.some((l) => res.text.includes(l.publicId)), false);
 });

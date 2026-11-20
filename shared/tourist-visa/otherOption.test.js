@@ -55,7 +55,7 @@ const S8 = { q8_1: 0, q8_2: true, q8_3: false, otherCountryTrips: [TRIP] };
 // ---------------------------------------------------------------------------
 
 test('config 1.4.0: exactly the chosen list questions allow Other, and each has the option with the value "other"', () => {
-  assert.equal(config.version, '1.4.1');
+  assert.equal(config.version, '1.5.0');
   const allowing = config.questions.filter((q) => q.allowOther).map((q) => q.id);
   assert.deepEqual(allowing, GETS_OTHER);
   for (const id of GETS_OTHER) {

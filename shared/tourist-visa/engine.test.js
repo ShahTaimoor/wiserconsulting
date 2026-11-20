@@ -12,6 +12,7 @@ const engine = require('./engine');
 const { config } = engine;
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
+const { SLOT_LIST, neededSlots, answersFor } = require('../../backend/tests/helpers/documentSlots');
 
 /** A copy of the config with drafts put back on a question, a group and both wordings, for proving that the draft mechanism still works. */
 const withDrafts = () => {
@@ -119,8 +120,8 @@ test('config: covers exactly the questions of Parts 1 to 8 in the spec (plus the
   for (let i = 1; i <= 5; i++) expected.add(`10.${i}`);
   for (const l of 'abcdef') expected.add(`10.1${l}`);
   expected.add('10.4a'); expected.add('10.5a');
-  // Part 10D (8c-2): the two document questions.
-  expected.add('10.6'); expected.add('10.7');
+  // Part 10D (8c-2, and the 22 document slots of config 1.5.0): 10.6 and 10.7 are the first two; 10.8 to 10.27 were added in 1.5.0.
+  for (let i = 6; i <= 27; i++) expected.add(`10.${i}`);
   // The text boxes of the Other (please write) answers carry the number of the question they belong to, so they add no number and no question of their own.
   const own = config.questions.filter((q) => !q.otherOf);
   const actual = new Set(own.map((q) => q.number));
@@ -148,7 +149,7 @@ test('config: no option is a [TBC] placeholder or a tbc_ value any more', () => 
 });
 
 test('config 1.0.x: the design was approved as final, so no draft marker is left anywhere', () => {
-  assert.equal(config.version, '1.4.1');
+  assert.equal(config.version, '1.5.0');
   assert.doesNotMatch(config.version, /draft/);
   assert.deepEqual(config.questions.filter((q) => q.draft).map((q) => q.number), []);
   assert.deepEqual(config.groups.filter((g) => g.draft).map((g) => g.id), []);
@@ -2412,7 +2413,7 @@ test('release check: the approved config exits 0 and says everything is releasab
   const run = spawnSync(process.execPath, [script], { encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
   assert.match(run.stdout, new RegExp(`Tourist Visa config ${config.version.replace(/\./g, '\\.')}`));
-  assert.match(run.stdout, /Tourist Visa config 1.4.1/);
+  assert.match(run.stdout, /Tourist Visa config 1\.5\.0/);
   for (const id of ['1', '2A', '3', '9A', '9B', '9C', '10A', '10B', '10C', '10D']) assert.match(run.stdout, new RegExp(`section ${id}: .*: releasable`), id);
   assert.doesNotMatch(run.stdout, /NEEDS SENIOR REVIEW|BLOCKED/);
   assert.match(run.stdout, /23 sections: 0 blocked, 0 need senior review only, 23 clean\./);
@@ -2709,8 +2710,8 @@ test('part 10: the encrypted fields are exactly 10.1, its six boxes, 10.5 and th
   for (const q of part10) assert.equal(q.draft, undefined, `${q.number} is final`);
   for (const q of part10.filter((x) => x.type === 'LNG')) assert.equal(q.rules.maxLen, 2000, q.number);
   assert.equal(config.questions.filter((q) => q.sensitive).length, 36, '27 earlier fields and 9 new ones');
-  // The only FILE questions are 10.6 and 10.7 (section 10D), and they store nothing.
-  assert.deepEqual(config.questions.filter((q) => q.type === 'FILE').map((q) => q.number), ['10.6', '10.7']);
+  // The only FILE questions are the 22 document slots 10.6 to 10.27 (section 10D), in the order of the lists, and they store nothing.
+  assert.deepEqual(config.questions.filter((q) => q.type === 'FILE').map((q) => q.number), SLOT_LIST.map((s) => s.number));
 });
 
 test('part 10: the new sections do not change the earlier ones', () => {
@@ -2758,7 +2759,7 @@ test('FILE question: validateConfig checks it', () => {
     ['with maxFiles 21', (c) => { c.questions[0].maxFiles = 21; }, /needs maxFiles/],
     ['with a fractional maxFiles', (c) => { c.questions[0].maxFiles = 2.5; }, /needs maxFiles/],
     ['sensitive', (c) => { c.questions[0].sensitive = true; }, /cannot be sensitive/],
-    ['a slot on another type', (c) => { c.questions[0].type = 'TXT'; }, /slot and maxFiles are only for FILE questions/],
+    ['a slot on another type', (c) => { c.questions[0].type = 'TXT'; }, /slot, maxFiles and requiredWhen are only for FILE questions/],
   ];
   for (const [name, mutate, pattern] of cases) {
     const c = clone(fileCfg());
@@ -2792,8 +2793,10 @@ test('documentsComplete is the rule step 8d uses: every slot needs at least one 
   assert.equal(engine.documentsComplete(cfg, [doc('passport')], {}), false);
   assert.equal(engine.documentsComplete(cfg, [doc('funds')], {}), false);
   assert.equal(engine.documentsComplete(cfg, [doc('passport'), doc('funds')], {}), true);
-  assert.equal(engine.documentsComplete(config, [doc('passport'), doc('funds')], {}), true, 'on the real config');
-  assert.equal(engine.documentsComplete(config, [doc('passport')], {}), false);
+  const shared = neededSlots({ employment: 'retired' }).map(doc);
+  assert.equal(engine.documentsComplete(config, shared, answersFor({ employment: 'retired' })), true, 'on the real config, for someone who needs only the shared documents');
+  assert.equal(engine.documentsComplete(config, shared.slice(1), answersFor({ employment: 'retired' })), false);
+  assert.equal(engine.documentsComplete(config, [doc('passport'), doc('funds')], answersFor({ employment: 'retired' })), false, 'the two old slots alone are no longer enough');
 });
 
 test('isFilesOnlySection: only a section made of file questions has nothing to save', () => {
@@ -2805,16 +2808,20 @@ test('isFilesOnlySection: only a section made of file questions has nothing to s
   assert.equal(engine.isFilesOnlySection(config, 'nope'), false);
 });
 
-test('section 10D: Part 10, always shown, two file questions in the passport and funds slots, both required to submit', () => {
+test('section 10D: Part 10, always shown, the 22 document slots, passport and funds keep their ids and limits', () => {
   assert.deepEqual(config.sections.find((s) => s.id === '10D'), { id: '10D', part: '10', title: 'Documents' });
   assert.equal(engine.isSectionVisible(config, '10D', {}), true);
   const files = engine.getFileQuestions(config);
-  assert.deepEqual(files.map((q) => [q.number, q.section, q.slot, q.required]), [['10.6', '10D', 'passport', true], ['10.7', '10D', 'funds', true]]);
-  assert.deepEqual(engine.getFileQuestions(config, '10D').length, 2);
+  assert.equal(files.length, 22);
+  assert.deepEqual(engine.getFileQuestions(config, '10D').length, 22);
   assert.deepEqual(engine.getFileQuestions(config, '10C'), []);
-  assert.deepEqual(engine.getVisibleQuestions(config, '10D', {}).map((q) => q.number), ['10.6', '10.7']);
-  assert.equal(config.questions.find((q) => q.id === 'q10_6').label, 'Your passport or travel document');
-  assert.equal(config.questions.find((q) => q.id === 'q10_7').label, 'Evidence of funds');
+  assert.deepEqual(engine.getVisibleQuestions(config, '10D', answersFor({ employment: 'employed' })).map((q) => q.slot), SLOT_LIST.filter((s) => s.shown !== 'self_employed').map((s) => s.slot), 'the employment slots follow 5.1');
+  assert.equal(config.questions.find((q) => q.id === 'q10_6').slot, 'passport');
+  assert.equal(config.questions.find((q) => q.id === 'q10_6').label, 'New passport with entry and exit stamps');
+  assert.equal(config.questions.find((q) => q.id === 'q10_7').slot, 'funds');
+  assert.equal(config.questions.find((q) => q.id === 'q10_7').label, 'Personal bank statement');
+  assert.equal(config.questions.find((q) => q.id === 'q10_6').maxFiles, 3);
+  assert.equal(config.questions.find((q) => q.id === 'q10_7').maxFiles, 10);
   for (const q of files) {
     assert.equal(q.draft, undefined, `${q.number} is final`);
     assert.equal(q.sensitive, undefined, `${q.number} stores no answer`);
@@ -2828,15 +2835,19 @@ test('section 10D: nothing to validate or save, and its question ids are not ans
   assert.deepEqual(r.data, {});
   assert.deepEqual(validate('10D', { q10_6: 'x' }).unknownKeys, ['q10_6']);
   assert.deepEqual(validate('10D', { q10_7: true }).unknownKeys, ['q10_7']);
-  const status = engine.documentsStatus(config, [doc('passport')], '10D', {});
+  const status = engine.documentsStatus(config, [doc('passport')], '10D', answersFor({ employment: 'retired' }));
   assert.equal(status.state, 'in_progress');
-  assert.deepEqual(status.slots.map((s) => [s.slot, s.count]), [['passport', 1], ['funds', 0]]);
+  assert.equal(status.slots.find((s) => s.slot === 'passport').count, 1);
+  assert.equal(status.slots.find((s) => s.slot === 'funds').count, 0);
 });
 
-test('section 10D: the guidance states the limit each slot carries (3 passport files, 10 funds files)', () => {
+test('section 10D: the guidance states the limit each slot carries, and the type and size limits', () => {
   const files = engine.getFileQuestions(config);
-  assert.deepEqual(files.map((q) => [q.slot, q.maxFiles]), [['passport', 3], ['funds', 10]]);
-  for (const q of files) assert.ok(q.help.includes(`up to ${q.maxFiles} files`), `${q.number}: ${q.help}`);
+  assert.deepEqual(files.map((q) => [q.slot, q.maxFiles]), SLOT_LIST.map((s) => [s.slot, s.max]));
+  for (const q of files) {
+    assert.ok(q.help.includes(`up to ${q.maxFiles} files`), `${q.number}: ${q.help}`);
+    assert.ok(q.help.includes('PDF, JPG or PNG') && q.help.includes('4 MB per file'), `${q.number}: ${q.help}`);
+  }
 });
 
 // ---------------------------------------------------------------------------

@@ -34,7 +34,7 @@ const PAIRS = [
 const question = (id) => config.questions.find((q) => q.id === id);
 
 test('config 1.2.0: every Family name question is optional and every Given names question next to it stays required', () => {
-  assert.equal(config.version, '1.4.1');
+  assert.equal(config.version, '1.5.0');
   for (const { given, family } of PAIRS) {
     assert.equal(question(family).required, false, `${family} is optional`);
     assert.equal(question(given).required, true, `${given} is still required`);

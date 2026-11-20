@@ -1,10 +1,10 @@
 {
-  "version": "1.4.1",
+  "version": "1.5.0",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
     "groupMax": 20,
-    "note": "Text answers: up to 200 characters for a short answer, up to 5,000 for a long one, and up to 20 entries in a repeating group. Documents: PDF, JPG or PNG, up to 4 MB per file and 120 MB in all; the passport up to 3 files and the evidence of funds up to 10. The values that are enforced for documents are in backend/config/touristVisaDocuments.js."
+    "note": "Text answers: up to 200 characters for a short answer, up to 5,000 for a long one, and up to 20 entries in a repeating group. Documents: PDF, JPG or PNG, up to 4 MB per file and 120 MB in all; each document has its own limit on the number of files (the passport up to 3 files and the funds up to 10 are two of them). The values that are enforced for documents are in backend/config/touristVisaDocuments.js."
   },
   "parts": [
     { "id": "1", "title": "Travel information" },
@@ -2570,26 +2570,312 @@
       "help": "Two letters, six numbers and a last letter A, B, C or D, for example AB 12 34 56 C. You can type it with or without spaces, in capitals or small letters."
     },
     {
-      "id": "q10_6",
-      "number": "10.6",
+      "id": "q10_8",
+      "number": "10.8",
       "section": "10D",
-      "label": "Your passport or travel document",
+      "label": "Hotel reservations (one per city or hotel, for example London and Scotland)",
       "type": "FILE",
-      "slot": "passport",
+      "slot": "hotels",
       "maxFiles": 3,
       "required": true,
-      "help": "A clear scan or photo of the page with your photo and personal details. You can upload up to 3 files, for example if the page does not fit in one picture."
+      "help": "Your hotel booking confirmations for the trip: one for each city or hotel. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 3 files."
+    },
+    {
+      "id": "q10_9",
+      "number": "10.9",
+      "section": "10D",
+      "label": "Flight reservation",
+      "type": "FILE",
+      "slot": "flight",
+      "maxFiles": 3,
+      "required": true,
+      "help": "Your flight reservation or booking that shows your travel dates. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 3 files."
+    },
+    {
+      "id": "q10_10",
+      "number": "10.10",
+      "section": "10D",
+      "label": "Marriage registration certificate",
+      "type": "FILE",
+      "slot": "marriage",
+      "maxFiles": 3,
+      "required": false,
+      "requiredWhen": {
+        "q": "q2_13",
+        "in": [
+          "married",
+          "civil_partnership"
+        ]
+      },
+      "help": "Your marriage registration certificate (or civil partnership certificate). Needed if you are married or in a civil partnership. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 3 files."
+    },
+    {
+      "id": "q10_11",
+      "number": "10.11",
+      "section": "10D",
+      "label": "Family registration certificate with spouse and children",
+      "type": "FILE",
+      "slot": "familyspouse",
+      "maxFiles": 3,
+      "required": false,
+      "requiredWhen": {
+        "any": [
+          {
+            "q": "q2_13",
+            "in": [
+              "married",
+              "civil_partnership"
+            ]
+          },
+          {
+            "q": "q4_7",
+            "eq": true
+          }
+        ]
+      },
+      "help": "Your family registration certificate that shows your spouse and your children. Needed if you are married or in a civil partnership, or if anyone relies on you for financial support. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 3 files."
+    },
+    {
+      "id": "q10_12",
+      "number": "10.12",
+      "section": "10D",
+      "label": "Family registration certificate with parents and siblings",
+      "type": "FILE",
+      "slot": "familyparents",
+      "maxFiles": 3,
+      "required": true,
+      "help": "Your family registration certificate that shows your parents and your brothers and sisters. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 3 files."
+    },
+    {
+      "id": "q10_13",
+      "number": "10.13",
+      "section": "10D",
+      "label": "Form (B) showing children registration with NADRA",
+      "type": "FILE",
+      "slot": "formb",
+      "maxFiles": 5,
+      "required": false,
+      "requiredWhen": {
+        "q": "q4_7",
+        "eq": true
+      },
+      "help": "Form (B) from NADRA that shows your children's registration. Needed if anyone relies on you for financial support. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 5 files."
+    },
+    {
+      "id": "q10_14",
+      "number": "10.14",
+      "section": "10D",
+      "label": "Children's school registration certificates",
+      "type": "FILE",
+      "slot": "school",
+      "maxFiles": 5,
+      "required": false,
+      "requiredWhen": {
+        "q": "q4_7",
+        "eq": true
+      },
+      "help": "A school registration certificate for each of your children who is at school. Needed if anyone relies on you for financial support. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 5 files."
+    },
+    {
+      "id": "q10_15",
+      "number": "10.15",
+      "section": "10D",
+      "label": "Business registration with Chamber of Commerce & Industry",
+      "type": "FILE",
+      "slot": "businessreg",
+      "maxFiles": 3,
+      "showWhen": {
+        "q": "q5_1",
+        "eq": "self_employed"
+      },
+      "required": true,
+      "help": "Your business registration with the Chamber of Commerce & Industry. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 3 files."
+    },
+    {
+      "id": "q10_16",
+      "number": "10.16",
+      "section": "10D",
+      "label": "Chamber membership registration card",
+      "type": "FILE",
+      "slot": "chambercard",
+      "maxFiles": 3,
+      "showWhen": {
+        "q": "q5_1",
+        "eq": "self_employed"
+      },
+      "required": true,
+      "help": "Your chamber membership registration card. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 3 files."
+    },
+    {
+      "id": "q10_17",
+      "number": "10.17",
+      "section": "10D",
+      "label": "Appointment letter",
+      "type": "FILE",
+      "slot": "appointment",
+      "maxFiles": 3,
+      "showWhen": {
+        "q": "q5_1",
+        "eq": "employed"
+      },
+      "required": true,
+      "help": "Your appointment letter from your employer. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 3 files."
+    },
+    {
+      "id": "q10_18",
+      "number": "10.18",
+      "section": "10D",
+      "label": "Job confirmation letter",
+      "type": "FILE",
+      "slot": "confirmation",
+      "maxFiles": 3,
+      "showWhen": {
+        "q": "q5_1",
+        "eq": "employed"
+      },
+      "required": true,
+      "help": "Your job confirmation letter from your employer. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 3 files."
+    },
+    {
+      "id": "q10_19",
+      "number": "10.19",
+      "section": "10D",
+      "label": "NOC letter",
+      "type": "FILE",
+      "slot": "noc",
+      "maxFiles": 3,
+      "showWhen": {
+        "q": "q5_1",
+        "eq": "employed"
+      },
+      "required": true,
+      "help": "A no-objection certificate (NOC) letter from your employer for this trip. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 3 files."
+    },
+    {
+      "id": "q10_20",
+      "number": "10.20",
+      "section": "10D",
+      "label": "Salary slips",
+      "type": "FILE",
+      "slot": "salary",
+      "maxFiles": 6,
+      "showWhen": {
+        "q": "q5_1",
+        "eq": "employed"
+      },
+      "required": true,
+      "help": "Your most recent salary slips. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 6 files."
+    },
+    {
+      "id": "q10_21",
+      "number": "10.21",
+      "section": "10D",
+      "label": "Taxpayer registration certificate",
+      "type": "FILE",
+      "slot": "taxpayer",
+      "maxFiles": 3,
+      "required": true,
+      "help": "Your taxpayer registration certificate. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 3 files."
     },
     {
       "id": "q10_7",
       "number": "10.7",
       "section": "10D",
-      "label": "Evidence of funds",
+      "label": "Personal bank statement",
       "type": "FILE",
       "slot": "funds",
       "maxFiles": 10,
       "required": true,
-      "help": "Documents that show money available to you which you can clearly access, for example recent bank statements. You can upload up to 10 files."
+      "help": "Your recent personal bank statements, which show money available to you that you can clearly access. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 10 files."
+    },
+    {
+      "id": "q10_22",
+      "number": "10.22",
+      "section": "10D",
+      "label": "Business bank statement",
+      "type": "FILE",
+      "slot": "businessbank",
+      "maxFiles": 10,
+      "showWhen": {
+        "q": "q5_1",
+        "eq": "self_employed"
+      },
+      "required": true,
+      "help": "Your recent business bank statements. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 10 files."
+    },
+    {
+      "id": "q10_23",
+      "number": "10.23",
+      "section": "10D",
+      "label": "Property documents (flat and car ownership)",
+      "type": "FILE",
+      "slot": "property",
+      "maxFiles": 5,
+      "required": true,
+      "help": "Documents that show property you own, for example a flat or a car. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 5 files."
+    },
+    {
+      "id": "q10_6",
+      "number": "10.6",
+      "section": "10D",
+      "label": "New passport with entry and exit stamps",
+      "type": "FILE",
+      "slot": "passport",
+      "maxFiles": 3,
+      "required": true,
+      "help": "A clear scan or photo of the page with your photo and personal details, and of the pages with your entry and exit stamps. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 3 files."
+    },
+    {
+      "id": "q10_24",
+      "number": "10.24",
+      "section": "10D",
+      "label": "Old passports with entry and exit stamps",
+      "type": "FILE",
+      "slot": "oldpassports",
+      "maxFiles": 5,
+      "required": false,
+      "help": "Your old passports, with the pages that have entry and exit stamps. Leave this out if you have none. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 5 files."
+    },
+    {
+      "id": "q10_25",
+      "number": "10.25",
+      "section": "10D",
+      "label": "National identity card",
+      "type": "FILE",
+      "slot": "nic",
+      "maxFiles": 3,
+      "required": true,
+      "help": "Your national identity card, front and back. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 3 files."
+    },
+    {
+      "id": "q10_26",
+      "number": "10.26",
+      "section": "10D",
+      "label": "Sponsorship letter",
+      "type": "FILE",
+      "slot": "sponsorship",
+      "maxFiles": 3,
+      "showWhen": {
+        "q": "q5_1",
+        "eq": "employed"
+      },
+      "required": false,
+      "requiredWhen": {
+        "q": "q6_5",
+        "eq": true
+      },
+      "help": "A letter from the person or organisation paying towards your visit. Needed if someone else is paying. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 3 files."
+    },
+    {
+      "id": "q10_27",
+      "number": "10.27",
+      "section": "10D",
+      "label": "Any other relevant documents",
+      "type": "FILE",
+      "slot": "other",
+      "maxFiles": 5,
+      "required": false,
+      "help": "Anything else you think will help your application. PDF, JPG or PNG, up to 4 MB per file. You can upload up to 5 files."
     }
   ]
 }
