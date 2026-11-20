@@ -1078,13 +1078,19 @@ function validateConfig(cfg) {
       if (typeof q.slot !== 'string' || !/^[a-z]+$/.test(q.slot)) err(`${w}: a FILE question needs a slot (lower-case letters)`);
       else if (fileSlots.has(q.slot)) err(`${w}: slot ${q.slot} is already used by ${fileSlots.get(q.slot)}`);
       else fileSlots.set(q.slot, q.id);
+      if (q.requiredWhen !== undefined) {
+        // "Always on the list, but needed only when ...": the slot is optional unless the rule is met. `required` must then say false
+        // (one way to write each meaning), and a slot that is hidden is never required whatever this says.
+        if (q.required !== false) err(`${w}: a FILE question with requiredWhen must have required: false`);
+        checkCondition(q.requiredWhen, q, `${w}.requiredWhen`);
+      }
       if (!Number.isInteger(q.maxFiles) || q.maxFiles < 1 || q.maxFiles > FILE_SLOT_MAX_FILES) err(`${w}: a FILE question needs maxFiles, a whole number from 1 to ${FILE_SLOT_MAX_FILES}`);
       for (const key of ['options', 'rules', 'group', 'items', 'helpCountries']) {
         if (q[key] !== undefined) err(`${w}: a FILE question has no ${key}`);
       }
       if (q.sensitive) err(`${w}: a FILE question stores no answer, so it cannot be sensitive`);
-    } else if (q.slot !== undefined || q.maxFiles !== undefined) {
-      err(`${w}: slot and maxFiles are only for FILE questions`);
+    } else if (q.slot !== undefined || q.maxFiles !== undefined || q.requiredWhen !== undefined) {
+      err(`${w}: slot, maxFiles and requiredWhen are only for FILE questions`);
     }
     if (r.withinYears !== undefined) {
       if (q.type !== 'DATE' && q.type !== 'MY') err(`${w}: rules.withinYears needs a DATE or MY question`);
@@ -1202,8 +1208,15 @@ function getVisibleFileQuestions(cfg, answers, sectionId) {
   return getFileQuestions(cfg, sectionId).filter((q) => isVisibleIn(cfg, q, answers, null));
 }
 
-/** Is a FILE question required (needs at least one file before submitting)? A missing flag counts as required. */
-const isFileRequired = (q) => q.required !== false;
+/**
+ * Does this FILE question need at least one file before submitting, for these answers? With a `requiredWhen` it is needed only
+ * while that rule is met (otherwise it is optional); without one, `required: false` is optional and anything else is needed.
+ * A slot that is not on the applicant's list (hidden by its showWhen) is never asked for: check visibility first.
+ */
+function isFileRequired(cfg, q, answers) {
+  if (q.requiredWhen) return evalCondition(cfg, q.requiredWhen, answers || {}, null);
+  return q.required !== false;
+}
 
 /**
  * Files that are not on this applicant's list: their slot is hidden for the current answers, or is not in this config at all
@@ -1231,7 +1244,7 @@ function documentsStatus(cfg, documents, sectionId, answers) {
     questionId: q.id,
     number: q.number,
     slot: q.slot,
-    required: isFileRequired(q),
+    required: isFileRequired(cfg, q, answers),
     count: list.filter((d) => d && d.slot === q.slot).length,
   }));
   const complete = slots.every((s) => !s.required || s.count > 0);
@@ -1270,6 +1283,7 @@ module.exports = {
   wordingOf,
   getFileQuestions,
   getVisibleFileQuestions,
+  isFileRequired,
   getOrphanDocuments,
   isFilesOnlySection,
   documentsStatus,

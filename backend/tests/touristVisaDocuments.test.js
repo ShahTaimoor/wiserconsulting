@@ -37,6 +37,7 @@ const detectFileType = require('../utils/detectFileType');
 const limits = require('../config/touristVisaDocuments');
 
 const { MAX_FILE_BYTES, MAX_TOTAL_BYTES, LINK_TTL_SECONDS } = limits;
+const { SLOT_LIST, neededSlots } = require('./helpers/documentSlots');
 
 let mongod;
 let server;
@@ -670,7 +671,7 @@ test('GET returns metadata and the limits only', async () => {
     maxFileBytes: MAX_FILE_BYTES,
     maxTotalBytes: MAX_TOTAL_BYTES,
     allowedTypes: ['application/pdf', 'image/jpeg', 'image/png'],
-    slots: { passport: { max: 3 }, funds: { max: 10 } },
+    slots: Object.fromEntries(SLOT_LIST.map((s) => [s.slot, { max: s.max }])),
   });
   const app = (await api('GET', '/applications/me', { token })).json.data.application;
   assert.deepEqual(Object.keys(app.documents[0]).sort(), VIEW_KEYS, 'the application view shows the same metadata');
@@ -959,7 +960,10 @@ test('constants: the limits are the agreed ones, in one place', () => {
   assert.equal(limits.MAX_TOTAL_BYTES, 120 * 1024 * 1024);
   assert.equal(limits.UPLOAD_RATE.max, 120);
   assert.equal(limits.UPLOAD_RATE.windowMs, 60 * 60 * 1000);
-  assert.deepEqual(Object.fromEntries(Object.entries(limits.SLOTS).map(([id, s]) => [id, s.max])), { passport: 3, funds: 10 });
+  // the exact list of slots and how many files each takes (the 22 document slots; the order is the order on screen)
+  assert.deepEqual(Object.entries(limits.SLOTS).map(([id, s]) => [id, s.max, s.question]), SLOT_LIST.map((s) => [s.slot, s.max, s.number]));
+  assert.equal(limits.SLOTS.passport.max, 3, 'passport keeps its limit');
+  assert.equal(limits.SLOTS.funds.max, 10, 'funds keeps its limit');
   assert.deepEqual(Object.keys(limits.FILE_TYPES), ['pdf', 'jpg', 'png']);
   assert.equal(limits.LINK_TTL_SECONDS, 120);
   assert.equal(limits.STORAGE.deliveryType, 'authenticated');
@@ -989,6 +993,10 @@ test('section 10D: not started with no files, in progress with one slot, saved w
 
   const funds = (await upload(token, { slot: 'funds', file: PNG() })).json.data.document;
   app = await appOf(token);
+  assert.equal(app.sectionStatus['10D'], 'in_progress', 'passport and funds are only two of the documents on the list');
+  assert.equal(app.documentsComplete, false);
+  for (const slot of neededSlots({}).filter((s) => s !== 'passport' && s !== 'funds')) assert.equal((await upload(token, { slot })).status, 201, slot);
+  app = await appOf(token);
   assert.equal(app.sectionStatus['10D'], 'saved');
   assert.equal(app.documentsComplete, true);
 
@@ -998,7 +1006,7 @@ test('section 10D: not started with no files, in progress with one slot, saved w
   assert.equal(app.documentsComplete, false);
 
   assert.equal((await remove(token, passport.id)).status, 200);
-  await remove(token, (await list(token)).json.data.documents[0].id);
+  for (const left of (await list(token)).json.data.documents) await remove(token, left.id);
   app = await appOf(token);
   assert.equal(app.sectionStatus['10D'], undefined, 'no files left: not started again');
 
@@ -1034,13 +1042,12 @@ test('section 10D: the files-only section cannot be saved, and it is the last pl
 test('section 10D: a locked application keeps its files and their status', async () => {
   freshStorage();
   const { token, appId } = await start();
-  await upload(token, { slot: 'passport' });
-  await upload(token, { slot: 'funds' });
+  for (const slot of neededSlots({})) await upload(token, { slot });
   await setStatus(appId, 'submitted');
   const app = await appOf(token);
   assert.equal(app.sectionStatus['10D'], 'saved');
   assert.equal(app.documentsComplete, true);
-  assert.equal(app.documents.length, 2);
+  assert.equal(app.documents.length, neededSlots({}).length);
 });
 
 test('the dashboard data for 10D never carries a link or storage id either', async () => {

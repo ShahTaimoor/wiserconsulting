@@ -97,9 +97,10 @@ class TouristVisaApplicationService {
     if (!application) {
       throw new AppError("You have not started a Tourist Visa application yet.", 404);
     }
-    const view = this.present(application);
+    const cfg = await this.configOf(application);
+    const view = this.present(application, cfg);
     // Which answers the team corrected, and when (a date only: never the old value and never the reason).
-    if (application.status !== "draft") view.corrections = await this.correctionMarks(application, await this.configOf(application));
+    if (application.status !== "draft") view.corrections = await this.correctionMarks(application, cfg);
     return view;
   }
 
@@ -122,7 +123,7 @@ class TouristVisaApplicationService {
    *    and the resume point skips them.
    * Nothing is written; the stored values are corrected the next time a section is saved.
    */
-  present(application) {
+  present(application, documentsConfig = this.config) {
     const view = toClient(application);
     // A declaration tick whose wording has changed since it was given (or that has no record) is shown
     // unticked, so the applicant ticks the words they are now shown. Stored answers are not touched.
@@ -142,14 +143,16 @@ class TouristVisaApplicationService {
     // this applicant's list (a slot hidden by their answers is ignored, and an optional slot never blocks). Not started with no
     // files, in progress with some, saved once every required slot has one. Saving a draft never needs them;
     // `documentsComplete` is what the submit step (8d) must check.
-    for (const section of engine.getVisibleSections(this.config, view.answers)) {
-      if (!engine.isFilesOnlySection(this.config, section.id)) continue;
-      const { state } = engine.documentsStatus(this.config, view.documents, section.id, view.answers);
+    // (For a submitted application the documents are read with the config it was submitted under, so an application from before
+    // a document was added is never shown as missing it.)
+    for (const section of engine.getVisibleSections(documentsConfig, view.answers)) {
+      if (!engine.isFilesOnlySection(documentsConfig, section.id)) continue;
+      const { state } = engine.documentsStatus(documentsConfig, view.documents, section.id, view.answers);
       if (state === "complete") statuses[section.id] = "saved";
       else if (state === "in_progress") statuses[section.id] = "in_progress";
       else delete statuses[section.id];
     }
-    view.documentsComplete = engine.documentsComplete(this.config, view.documents, view.answers);
+    view.documentsComplete = engine.documentsComplete(documentsConfig, view.documents, view.answers);
     view.sectionStatus = statuses;
     view.currentSection = this.resumeSection(statuses, view.answers);
     return view;
@@ -388,8 +391,8 @@ class TouristVisaApplicationService {
   async getReview(userId) {
     const application = await this.repository.findLatestByApplicant(userId);
     if (!application) throw new AppError("You have not started a Tourist Visa application yet.", 404, "APPLICATION_NOT_FOUND");
-    const view = this.present(application);
     const cfg = await this.configOf(application);
+    const view = this.present(application, cfg);
     const documents = view.documents.map((doc) => ({ slot: doc.slot, name: doc.name, size: doc.size }));
     const record = application.declarations && application.declarations.submit;
     const corrections = await this.correctionMarks(application, cfg);

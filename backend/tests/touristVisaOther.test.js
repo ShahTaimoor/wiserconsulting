@@ -37,6 +37,7 @@ const { buildTemplate } = require('../utils/touristVisaCoverLetterTemplate');
 const { substitute } = require('../utils/touristVisaCoverLetterChecks');
 const { detailsOf } = require('../utils/touristVisaItineraryPdf');
 const { FILE_NAME, SECTIONS } = require('./helpers/touristVisaFixtures');
+const { uploadRemainingShared } = require('./helpers/documentSlots');
 const { inspectPdf } = require('./helpers/pdfInspect');
 
 let replSet;
@@ -128,6 +129,7 @@ async function readyApplicant(section1 = S1) {
   }
   assert.equal((await upload(person.token, 'passport', FILE_NAME)).status, 201);
   assert.equal((await upload(person.token, 'funds', 'bank-statement.pdf')).status, 201);
+  await uploadRemainingShared(upload, person.token);
   return person;
 }
 async function submitted(section1 = S1) {
@@ -229,11 +231,11 @@ test('an application with Other chosen and no text (saved before the box existed
   assert.equal((await submit(person.token)).status, 200);
 });
 
-test('a whole application is submitted with an Other answer and without one, under config 1.4.1', async () => {
+test('a whole application is submitted with an Other answer and without one, under config 1.5.0', async () => {
   const withOther = await submitted(S1_OTHER);
   const a = await rawDoc(withOther.appId);
   assert.equal(a.status, 'submitted');
-  assert.equal(a.configVersion, '1.4.1');
+  assert.equal(a.configVersion, '1.5.0');
   assert.equal(a.answers.q1_1_other, WORDS);
   const snapshot = await TouristVisaConfigSnapshot.findById(a.configSha256).lean();
   assert.ok(JSON.parse(snapshot.json).questions.some((q) => q.id === 'q1_1_other'), 'the config it was submitted under has the text box');
