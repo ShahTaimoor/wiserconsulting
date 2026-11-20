@@ -3,6 +3,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import engine from "../shared/tourist-visa/engine.js";
+import slotHelper from "../../../backend/tests/helpers/documentSlots.js";
 import { buildChecklist, countHeldSections, documentSummary, getReadiness, isFormOpen } from "./touristVisaChecklist.ts";
 
 const { config } = engine;
@@ -168,6 +169,7 @@ test("countHeldSections counts sections, not items", () => {
 // ---------------------------------------------------------------------------
 
 const doc = (slot, n = 1) => ({ id: `d${slot}${n}`, slot, name: `${slot}-${n}.pdf`, size: 100, type: "application/pdf", uploadedAt: "2026-11-01T10:00:00.000Z" });
+const SHARED = slotHelper.neededSlots({ employment: "retired" }).map((slot) => doc(slot)); // the documents everyone needs: eight, one file each
 const row10D = (application) => buildChecklist(config, application).parts.flatMap((p) => p.sections).find((s) => s.id === "10D");
 
 test("10D is the last row of Part 10, and with no application it is not started with no detail", () => {
@@ -179,12 +181,13 @@ test("10D is the last row of Part 10, and with no application it is not started 
   assert.equal(part10.sections[3].detail, undefined);
 });
 
-test("10D: not started with no files, in progress with one slot, saved with both slots (the state follows the files)", () => {
+test("10D: not started with no files, in progress with some, saved with every needed slot (the state follows the files)", () => {
   const app = (documents, status = {}) => ({ sectionStatus: status, answers: {}, documents });
   assert.equal(row10D(app([])).state, "not_started");
   assert.equal(row10D(app([doc("passport")])).state, "in_progress");
   assert.equal(row10D(app([doc("funds"), doc("funds", 2)])).state, "in_progress");
-  assert.equal(row10D(app([doc("passport"), doc("funds")])).state, "saved");
+  assert.equal(row10D(app([doc("passport"), doc("funds")])).state, "in_progress", "the two old slots alone are not enough now");
+  assert.equal(row10D(app(SHARED)).state, "saved");
   // The files decide, not a status sent with them.
   assert.equal(row10D(app([doc("passport")], { "10D": "saved" })).state, "in_progress");
   assert.equal(row10D(app([], { "10D": "saved" })).state, "not_started");
@@ -193,21 +196,23 @@ test("10D: not started with no files, in progress with one slot, saved with both
 });
 
 test("10D: a complete documents section counts as saved on the dashboard, an in-progress one does not", () => {
-  const complete = buildChecklist(config, { sectionStatus: {}, answers: {}, documents: [doc("passport"), doc("funds")] });
+  const complete = buildChecklist(config, { sectionStatus: {}, answers: {}, documents: SHARED });
   const partial = buildChecklist(config, { sectionStatus: {}, answers: {}, documents: [doc("passport")] });
   assert.deepEqual([complete.saved, complete.total], [1, 22]);
   assert.deepEqual([partial.saved, partial.total], [0, 22]);
 });
 
-test("10D: the row says how many files each slot has", () => {
+test("10D: the row names the slots that have files, by label, in the order of the list", () => {
   const detail = (documents) => row10D({ sectionStatus: {}, answers: {}, documents }).detail;
+  const PASSPORT = "New passport with entry and exit stamps";
+  const FUNDS = "Personal bank statement";
   assert.equal(detail([]), "No files uploaded yet");
-  assert.equal(detail([doc("passport")]), "Your passport or travel document (1 file)");
-  assert.equal(detail([doc("passport"), doc("funds"), doc("funds", 2)]), "Your passport or travel document (1 file), Evidence of funds (2 files)");
-  assert.equal(detail([doc("passport"), doc("passport", 2), doc("passport", 3), doc("funds")]), "Your passport or travel document (3 files), Evidence of funds (1 file)");
-  assert.equal(detail([doc("funds", 1), doc("funds", 2)]), "Evidence of funds (2 files)", "a slot with no files is left out");
+  assert.equal(detail([doc("passport")]), PASSPORT + " (1 file)");
+  assert.equal(detail([doc("passport"), doc("funds"), doc("funds", 2)]), FUNDS + " (2 files), " + PASSPORT + " (1 file)");
+  assert.equal(detail([doc("passport"), doc("passport", 2), doc("passport", 3), doc("funds")]), FUNDS + " (1 file), " + PASSPORT + " (3 files)");
+  assert.equal(detail([doc("funds", 1), doc("funds", 2)]), FUNDS + " (2 files)", "a slot with no files is left out");
   assert.equal(documentSummary(config, undefined, undefined, {}), "No files uploaded yet");
-  assert.equal(documentSummary(config, [doc("passport")], "10D", {}), "Your passport or travel document (1 file)");
+  assert.equal(documentSummary(config, [doc("passport")], "10D", {}), PASSPORT + " (1 file)");
 });
 
 test("only the documents row has a detail line", () => {
@@ -224,13 +229,13 @@ const EVERY_SECTION = ["1", "2A", "2B", "2C", "2D", "3", "4B", "4C", "5", "6A", 
 const allSaved = (extra = {}) => ({ ...Object.fromEntries(EVERY_SECTION.map((id) => [id, "saved"])), ...extra });
 const draft = (sectionStatus, documents, answers = { q2_13: "single" }) => ({ status: "draft", sectionStatus, answers, documents });
 
-test("ready: every section that applies is saved and both documents are uploaded", () => {
-  const readiness = getReadiness(config, draft(allSaved(), [doc("passport"), doc("funds")]));
+test("ready: every section that applies is saved and every needed document is uploaded", () => {
+  const readiness = getReadiness(config, draft(allSaved(), SHARED));
   assert.deepEqual(readiness, { ready: true, missing: [] });
 });
 
 test("not ready: each section that is not saved is listed with why and a link, in form order", () => {
-  const readiness = getReadiness(config, draft(allSaved({ "2C": undefined, "6A": "needs_review", 8: undefined }), [doc("passport"), doc("funds")]));
+  const readiness = getReadiness(config, draft(allSaved({ "2C": undefined, "6A": "needs_review", 8: undefined }), SHARED));
   assert.equal(readiness.ready, false);
   assert.deepEqual(readiness.missing.map((m) => [m.id, m.title, m.state, m.reason, m.href]), [
     ["2C", "Address and living situation", "not_started", "Not started yet", "/tourist-visa/2C"],
@@ -242,20 +247,27 @@ test("not ready: each section that is not saved is listed with why and a link, i
 test("not ready: missing documents say which ones, by the name of the question", () => {
   const none = getReadiness(config, draft(allSaved(), []));
   assert.deepEqual(none.missing.map((m) => m.id), ["10D"]);
-  assert.equal(none.missing[0].reason, "Upload a file for: Your passport or travel document and Evidence of funds");
-  const onlyPassport = getReadiness(config, draft(allSaved(), [doc("passport")]));
-  assert.equal(onlyPassport.ready, false);
-  assert.equal(onlyPassport.missing[0].state, "in_progress");
-  assert.equal(onlyPassport.missing[0].reason, "Upload a file for: Evidence of funds");
-  const onlyFunds = getReadiness(config, draft(allSaved(), [doc("funds"), doc("funds", 2)]));
-  assert.equal(onlyFunds.missing[0].reason, "Upload a file for: Your passport or travel document");
-  assert.equal(getReadiness(config, draft(allSaved(), [doc("passport"), doc("funds")])).ready, true);
+  assert.equal(
+    none.missing[0].reason,
+    "Upload a file for: Hotel reservations (one per city or hotel, for example London and Scotland), Flight reservation, Family registration certificate with parents and siblings and 5 more",
+    "with many documents still to upload the line names three and counts the rest"
+  );
+  const without = (...slots) => SHARED.filter((d) => !slots.includes(d.slot));
+  const noPassport = getReadiness(config, draft(allSaved(), without("passport")));
+  assert.equal(noPassport.ready, false);
+  assert.equal(noPassport.missing[0].state, "in_progress");
+  assert.equal(noPassport.missing[0].reason, "Upload a file for: New passport with entry and exit stamps");
+  const twoMissing = getReadiness(config, draft(allSaved(), without("passport", "funds")));
+  assert.equal(twoMissing.missing[0].reason, "Upload a file for: Personal bank statement and New passport with entry and exit stamps");
+  assert.equal(getReadiness(config, draft(allSaved(), SHARED)).ready, true);
 });
 
 test("a section that does not apply is not asked for: 4A is only needed with a partner", () => {
-  const withPartner = getReadiness(config, draft(allSaved(), [doc("passport"), doc("funds")], { q2_13: "married" }));
+  const married = [...SHARED, doc("marriage"), doc("familyspouse")]; // married also needs two more documents
+  const withPartner = getReadiness(config, draft(allSaved(), married, { q2_13: "married" }));
   assert.deepEqual(withPartner.missing.map((m) => m.id), ["4A"]);
-  assert.equal(getReadiness(config, draft(allSaved({ "4A": "saved" }), [doc("passport"), doc("funds")], { q2_13: "married" })).ready, true);
+  assert.equal(getReadiness(config, draft(allSaved({ "4A": "saved" }), married, { q2_13: "married" })).ready, true);
+  assert.deepEqual(getReadiness(config, draft(allSaved({ "4A": "saved" }), SHARED, { q2_13: "married" })).missing.map((m) => m.id), ["10D"], "the shared files alone are not enough for someone married");
 });
 
 test("a fresh application is not ready and lists every section; nothing at all, or a submitted one, lists nothing", () => {

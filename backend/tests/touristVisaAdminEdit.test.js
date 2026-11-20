@@ -37,6 +37,7 @@ const touristVisaBodyParser = require('../middleware/touristVisaBodyParser');
 const { errorHandler } = require('../middleware/errorHandler');
 const engine = require('../shared/tourist-visa/engine');
 const { SECRET_ID, SECRET_NI, SECRET_DETAILS, FILE_NAME, SECTIONS } = require('./helpers/touristVisaFixtures');
+const { uploadRemainingShared } = require('./helpers/documentSlots');
 
 let replSet;
 let server;
@@ -116,6 +117,7 @@ async function readyApplicant({ given, family, email } = {}) {
   }
   assert.equal((await upload(person.token, 'passport', FILE_NAME)).status, 201);
   assert.equal((await upload(person.token, 'funds', 'bank-statement.pdf')).status, 201);
+  await uploadRemainingShared(upload, person.token);
   return { ...person, appId };
 }
 async function submitted(options) {

@@ -10,7 +10,36 @@
  */
 
 import type { DocumentLimits, TouristVisaDocument } from "@/services/touristVisaService";
+import { getQuestion } from "../shared/tourist-visa/engine.js";
+import type { Answers, TouristVisaConfig } from "../shared/tourist-visa/engine.js";
 import { formatDateTime } from "./touristVisaDate.ts";
+
+/** The employment question (5.1): its answer decides which employment documents are on the list. */
+export const EMPLOYMENT_QUESTION_ID = "q5_1";
+
+/** The employment answers that add documents to the list; every other answer shows the shared documents only. */
+const EMPLOYMENT_WITH_DOCUMENTS = ["employed", "self_employed"];
+
+/**
+ * The line at the top of the documents page: what the list is based on, and where to change it.
+ *  - answered with Employed or Self-employed: "Your list is based on your employment answer: Employed";
+ *  - answered with anything else: "... Shared documents only";
+ *  - not answered yet: says so, and the shared documents are shown.
+ */
+export function documentsBasis(config: TouristVisaConfig, answers: Answers | undefined): { text: string; href: string; linkText: string; answered: boolean } {
+  const question = getQuestion(config, EMPLOYMENT_QUESTION_ID);
+  const href = "/tourist-visa/" + (question?.section ?? "5");
+  const linkText = "Change your answer to question " + (question?.number ?? "5.1");
+  const value = answers?.[EMPLOYMENT_QUESTION_ID];
+  if (typeof value !== "string" || value === "") {
+    return { text: "You have not answered question " + (question?.number ?? "5.1") + " (your employment) yet, so only the documents everyone needs are shown.", href, linkText, answered: false };
+  }
+  const label = EMPLOYMENT_WITH_DOCUMENTS.includes(value) ? (question?.options as Array<{ value: string; label: string }> | undefined)?.find((o) => o.value === value)?.label ?? value : "Shared documents only";
+  return { text: "Your list is based on your employment answer: " + label, href, linkText, answered: true };
+}
+
+/** The two things Wiser Consulting prepares itself: shown as information on the documents page, never as uploads. */
+export const PREPARED_BY_US = ["Covering letter: prepared by Wiser Consulting", "Travel itinerary: prepared by Wiser Consulting"] as const;
 
 /** The codes the server's document routes answer with (backend/config/touristVisaDocuments.js). */
 export type DocumentErrorCode =

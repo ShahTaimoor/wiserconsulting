@@ -30,6 +30,7 @@ const touristVisaBodyParser = require('../middleware/touristVisaBodyParser');
 const { errorHandler } = require('../middleware/errorHandler');
 const engine = require('../shared/tourist-visa/engine');
 const { SECTIONS, FILE_NAME } = require('./helpers/touristVisaFixtures');
+const { uploadRemainingShared } = require('./helpers/documentSlots');
 
 let replSet;
 let server;
@@ -94,6 +95,7 @@ async function filledDraft() {
   for (const [id, answers] of SECTIONS()) assert.equal((await api('PUT', `/applications/me/sections/${id}`, { token: person.token, body: { answers } })).status, 200, id);
   assert.equal((await upload(person.token, 'passport', FILE_NAME)).status, 201);
   assert.equal((await upload(person.token, 'funds', 'bank-statement.pdf')).status, 201);
+  await uploadRemainingShared(upload, person.token);
   return { ...person, appId };
 }
 const oid = (id) => new mongoose.Types.ObjectId(id);
@@ -113,7 +115,7 @@ async function oldSnapshot() {
 }
 
 test('the config is 1.0.x with no draft marker and nothing held, and the release switches are unchanged', () => {
-  assert.equal(engine.config.version, '1.4.1');
+  assert.equal(engine.config.version, '1.5.0');
   assert.equal(JSON.stringify(engine.config).includes('"draft"'), false);
   assert.deepEqual(engine.getHeldSections(engine.config), []);
   // The server switch is read from the environment, exactly true: nothing about it depends on the config.

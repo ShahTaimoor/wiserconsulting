@@ -110,6 +110,8 @@ export interface MissingItem {
 
 /** "A", "A and B", "A, B and C": the documents still to upload, named in a sentence (long lists stay readable). */
 function joinLabels(labels: string[]): string {
+  // With many documents still to upload the line names the first three and counts the rest.
+  if (labels.length > SUMMARY_NAMED) return labels.slice(0, SUMMARY_NAMED).join(", ") + " and " + (labels.length - SUMMARY_NAMED) + " more";
   return labels.length <= 1 ? labels.join("") : labels.slice(0, -1).join(", ") + " and " + labels[labels.length - 1];
 }
 

@@ -32,6 +32,7 @@ const touristVisaRoutes = require('../routes/touristVisaRoutes');
 const touristVisaBodyParser = require('../middleware/touristVisaBodyParser');
 const { errorHandler } = require('../middleware/errorHandler');
 const { FILE_NAME, SECTIONS } = require('./helpers/touristVisaFixtures');
+const { uploadRemainingShared } = require('./helpers/documentSlots');
 const { inspectPdf } = require('./helpers/pdfInspect');
 
 let replSet;
@@ -133,6 +134,7 @@ async function readyApplicant(section8 = S8_NO) {
   }
   assert.equal((await upload(person.token, 'passport', FILE_NAME)).status, 201);
   assert.equal((await upload(person.token, 'funds', 'bank-statement.pdf')).status, 201);
+  await uploadRemainingShared(upload, person.token);
   return { ...person, appId };
 }
 async function submitted(section8 = S8_NO) {
@@ -248,18 +250,18 @@ test('an application with 8.3 never answered is not ready: section 8 is named, n
   assert.equal((await submit(person.token)).status, 200);
 });
 
-test('a whole application is submitted without older trips (8.3 No) and with two older trips, under config 1.4.1', async () => {
+test('a whole application is submitted without older trips (8.3 No) and with two older trips, under config 1.5.0', async () => {
   const without = await submitted(S8_NO);
   const a = await rawDoc(without.appId);
   assert.equal(a.status, 'submitted');
-  assert.equal(a.configVersion, '1.4.1');
+  assert.equal(a.configVersion, '1.5.0');
   assert.equal(a.answers.q8_3, false);
   assert.equal('olderCountryTrips' in a.answers, false);
 
   const withOlder = await submitted(S8_OLD);
   const b = await rawDoc(withOlder.appId);
   assert.equal(b.status, 'submitted');
-  assert.equal(b.configVersion, '1.4.1');
+  assert.equal(b.configVersion, '1.5.0');
   assert.equal(b.answers.q8_3, true);
   assert.equal(b.answers.olderCountryTrips.length, 2);
   const snapshot = await TouristVisaConfigSnapshot.findById(b.configSha256).lean();

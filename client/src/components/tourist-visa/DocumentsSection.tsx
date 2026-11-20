@@ -8,14 +8,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTouristVisa } from "@/context/TouristVisaContext";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
-import { config, getOrphanDocuments, getVisibleFileQuestions, getVisibleSections } from "@/shared/tourist-visa/engine";
+import { config, getOrphanDocuments, getVisibleFileQuestions, getVisibleSections, isFileRequired } from "@/shared/tourist-visa/engine";
 import type { Answers, Question } from "@/shared/tourist-visa/engine";
 import type { DocumentLimits, TouristVisaApplication, TouristVisaDocument } from "@/services/touristVisaService";
 import { isPreviewMode } from "@/utils/touristVisaChecklist";
 import {
+  PREPARED_BY_US,
   acceptAttribute,
   allowedTypesText,
   documentErrorMessage,
+  documentsBasis,
   formatBytes,
   formatUploadedAt,
   preCheckFile,
@@ -57,6 +59,7 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
   const part = config.parts.find((p) => p.id === section?.part);
   // Only the documents on this applicant's list (a slot hidden by their answers is not asked for).
   const questions = useMemo(() => getVisibleFileQuestions(config, application.answers as Answers, sectionId), [sectionId, application.answers]);
+  const basis = useMemo(() => documentsBasis(config, application.answers as Answers), [application.answers]);
   const applicable = useMemo(() => getVisibleSections(config, application.answers as Answers), [application.answers]);
   const sectionNumber = applicable.findIndex((s) => s.id === sectionId) + 1;
   const previousId = previousSectionId(config, sectionId, application.answers);
@@ -252,6 +255,15 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
             </div>
           )}
 
+          <div data-testid="documents-basis" className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-foreground">
+            <p>{basis.text}</p>
+            <p className="mt-1">
+              <Link href={basis.href} className="font-medium underline underline-offset-2">
+                {basis.linkText}
+              </Link>
+            </p>
+          </div>
+
           {limits && (
             <p className="text-sm text-muted-foreground">
               {allowedTypesText(limits)} files, up to {formatBytes(limits.maxFileBytes)} each. All your files together can be up to{" "}
@@ -267,6 +279,7 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
             const uploadingHere = uploading?.slot === slot;
             const panelId = `field-${question.id}`;
             const error = slotErrors[slot];
+            const needed = isFileRequired(config, question, application.answers as Answers);
 
             return (
               <section
@@ -277,10 +290,9 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
                 className="space-y-3 rounded-lg border border-border p-4"
               >
                 <h3 id={`${panelId}-title`} className="text-base font-semibold text-foreground">
-                  <span className="mr-2 font-normal text-muted-foreground">{question.number}</span>
                   {question.label}
                   <span className="ml-2 text-xs font-normal text-muted-foreground">
-                    {question.required === false ? "(optional)" : "(needed: at least one file to submit)"}
+                    {needed ? "(needed: at least one file to submit)" : "(optional)"}
                   </span>
                   {previewMode && question.draft && <DraftBadge note={question.draft} />}
                 </h3>
@@ -372,6 +384,12 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
               </section>
             );
           })}
+
+          <ul aria-label="Prepared by Wiser Consulting" data-testid="prepared-by-us" className="space-y-1 rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+            {PREPARED_BY_US.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
 
           {orphans.length > 0 && (
             <section aria-labelledby="other-files-title" data-testid="other-files" className="space-y-3 rounded-lg border border-dashed border-border p-4">

@@ -35,6 +35,7 @@ const { DEFAULT_GROQ_MODEL } = require('../config/ai');
 const { ITINERARY_PROMPT_VERSION, RETRY_REMINDER } = require('../config/touristVisaItineraryPrompt');
 const logger = require('../utils/logger');
 const { SECRET_ID, SECRET_NI, SECRET_DETAILS, FILE_NAME, SECTIONS } = require('./helpers/touristVisaFixtures');
+const { uploadRemainingShared } = require('./helpers/documentSlots');
 const { distinctDescriptions } = require('./helpers/itineraryAnswers');
 
 let replSet;
@@ -117,6 +118,7 @@ async function readyApplicant() {
   }
   assert.equal((await upload(person.token, 'passport', FILE_NAME)).status, 201);
   assert.equal((await upload(person.token, 'funds', 'bank-statement.pdf')).status, 201);
+  await uploadRemainingShared(upload, person.token);
   return { ...person, appId };
 }
 async function submitted() {

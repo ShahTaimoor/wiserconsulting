@@ -4,6 +4,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import backend from "../../../backend/config/touristVisaDocuments.js";
+import slotHelper from "../../../backend/tests/helpers/documentSlots.js";
 import {
   DOCUMENT_ERROR_CODES,
   acceptAttribute,
@@ -23,7 +24,9 @@ const doc = (slot, size = 1000) => ({ slot, size });
 test("the limits the tests use are the agreed ones: 4 MB a file, 3 passport and 10 funds files, 120 MB in all", () => {
   assert.equal(limits.maxFileBytes, 4 * MB);
   assert.equal(limits.maxTotalBytes, 120 * MB);
-  assert.deepEqual(limits.slots, { passport: { max: 3 }, funds: { max: 10 } });
+  assert.deepEqual(limits.slots, Object.fromEntries(slotHelper.SLOT_LIST.map((s) => [s.slot, { max: s.max }])));
+  assert.equal(limits.slots.passport.max, 3);
+  assert.equal(limits.slots.funds.max, 10);
   assert.deepEqual(limits.allowedTypes, ["application/pdf", "image/jpeg", "image/png"]);
 });
 

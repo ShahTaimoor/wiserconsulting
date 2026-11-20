@@ -32,6 +32,7 @@ const touristVisaRoutes = require('../routes/touristVisaRoutes');
 const touristVisaBodyParser = require('../middleware/touristVisaBodyParser');
 const { errorHandler } = require('../middleware/errorHandler');
 const engine = require('../shared/tourist-visa/engine');
+const { neededSlots } = require('./helpers/documentSlots');
 
 let mongod;
 let server;
@@ -146,7 +147,9 @@ const SECTIONS = [
 ];
 
 /** Saves every section (except those named in `skip`) and uploads the two documents (unless `files` says otherwise). */
-async function complete(person, { skip = [], files = ['passport', 'funds'] } = {}) {
+/** The documents the made-up applicant (retired, single, no dependants, no sponsor) needs: the shared list. */
+const SHARED_FILES = neededSlots({ employment: 'retired' });
+async function complete(person, { skip = [], files = SHARED_FILES } = {}) {
   for (const [id, answers] of SECTIONS) {
     if (skip.includes(id)) continue;
     const res = await put(person.token, id, answers);
@@ -349,15 +352,15 @@ test('saved answers that no longer pass the rules are counted, not shown', async
   assert.equal(res.text.includes('not-a-date'), false);
 });
 
-test('missing documents: one missing slot is one problem, both missing is two, in the documents section', async () => {
-  const noFunds = await complete(await start(), { files: ['passport'] });
+test('missing documents: one missing slot is one problem, all of them missing is one for each needed slot, in the documents section', async () => {
+  const noFunds = await complete(await start(), { files: SHARED_FILES.filter((slot) => slot !== 'funds') });
   const a = await submit(noFunds.token);
   assert.equal(a.status, 422);
   assert.deepEqual(a.json.sections, [{ id: '10D', problems: 1 }]);
 
   const none = await complete(await start(), { files: [] });
   const b = await submit(none.token);
-  assert.deepEqual(b.json.sections, [{ id: '10D', problems: 2 }]);
+  assert.deepEqual(b.json.sections, [{ id: '10D', problems: SHARED_FILES.length }], 'one problem for each needed document');
   assert.equal((await rawDoc(none.appId)).status, 'draft');
 });
 
@@ -693,7 +696,7 @@ for (const [label, family, storedFamily, expectedName] of [
       const res = await put(person.token, id, sent);
       assert.equal(res.status, 200, `${id}: ${JSON.stringify(res.json)}`);
     }
-    for (const slot of ['passport', 'funds']) assert.equal((await upload(person.token, slot, `${slot}-file.pdf`)).status, 201, slot);
+    for (const slot of SHARED_FILES) assert.equal((await upload(person.token, slot, `${slot}-file.pdf`)).status, 201, slot);
 
     // The saved answer: absent when empty (nothing is stored, nothing to decrypt), trimmed when typed.
     const before = await rawDoc(person.appId);

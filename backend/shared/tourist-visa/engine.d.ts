@@ -81,6 +81,8 @@ export interface Question {
   slot?: string;
   /** FILE only: most files the slot holds (the backend's upload limit for the slot is read from here). */
   maxFiles?: number;
+  /** FILE only: the slot is needed (at least one file to submit) only while this rule is met; otherwise it is optional. Needs required: false. */
+  requiredWhen?: Condition;
   /** Short items shown as a bulleted list under the question text. */
   items?: string[];
   /**
@@ -288,6 +290,8 @@ export interface DocumentsStatus {
 export function getFileQuestions(cfg: TouristVisaConfig, sectionId?: string): Question[];
 /** The FILE questions that are on this applicant's list: their showWhen is met by `answers`. */
 export function getVisibleFileQuestions(cfg: TouristVisaConfig, answers: Answers, sectionId?: string): Question[];
+/** Does this FILE question need at least one file, for these answers? (requiredWhen, else required.) Check it is visible first. */
+export function isFileRequired(cfg: TouristVisaConfig, question: Question, answers: Answers): boolean;
 /** Files whose slot is hidden for `answers` (or unknown to the config): kept, never blocking, removable while a draft. */
 export function getOrphanDocuments<T extends { slot: string }>(cfg: TouristVisaConfig, documents: T[] | undefined, answers: Answers): T[];
 /** A section made only of FILE questions: nothing to save, its files are saved as they are uploaded. */
