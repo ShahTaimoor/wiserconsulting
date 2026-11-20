@@ -1,5 +1,5 @@
 {
-  "version": "1.5.0",
+  "version": "1.6.0",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
@@ -41,6 +41,7 @@
     { "id": "10A", "part": "10", "title": "Convictions and other penalties" },
     { "id": "10B", "part": "10", "title": "Extra information" },
     { "id": "10C", "part": "10", "title": "Language and National Insurance number" },
+    { "id": "10E", "part": "10", "title": "Your plans in the UK" },
     { "id": "10D", "part": "10", "title": "Documents" }
   ],
   "declarations": {
@@ -88,8 +89,17 @@
       "entryLabel": "Place of stay",
       "gate": "q6_7",
       "max": 20,
-      "questions": ["q6_7a", "q6_7b", "q6_7c", "q6_7d"],
+      "questions": ["q6_7a", "q6_7b", "q6_7c", "q6_7d", "q6_7e"],
       "noOverlap": { "start": "q6_7c", "end": "q6_7d" }
+    },
+    {
+      "id": "plannedPlaces",
+      "section": "10E",
+      "entryLabel": "Place you will visit",
+      "gate": "q10_28",
+      "max": 10,
+      "questions": ["q10_28a", "q10_28b", "q10_28c"],
+      "noOverlap": { "start": "q10_28b", "end": "q10_28c" }
     },
     {
       "id": "companions",
@@ -1607,7 +1617,7 @@
       "label": "Which area or city do you expect to stay in?",
       "type": "TXT",
       "required": false,
-      "showWhen": { "q": "q6_7", "eq": false }
+      "showWhen": { "all": [{ "q": "q6_7", "eq": false }, { "not": { "q": "q10_28", "eq": true } }] }
     },
     {
       "id": "q6_7a",
@@ -1646,6 +1656,23 @@
       "required": true,
       "group": "accommodation",
       "rules": { "after": "q6_7c", "onOrBefore": "q1_7" }
+    },
+    {
+      "id": "q6_7e",
+      "number": "6.7e",
+      "section": "6C",
+      "label": "Who are you staying with?",
+      "type": "SEL",
+      "required": true,
+      "group": "accommodation",
+      "allowOther": true,
+      "otherPosition": "first",
+      "options": [
+        { "value": "paid_stay", "label": "A hotel or other paid stay" },
+        { "value": "family", "label": "Family" },
+        { "value": "friends", "label": "Friends" },
+        { "value": "other", "label": "Other (please write)" }
+      ]
     },
 
     {
@@ -2568,6 +2595,50 @@
       },
       "sensitive": true,
       "help": "Two letters, six numbers and a last letter A, B, C or D, for example AB 12 34 56 C. You can type it with or without spaces, in capitals or small letters."
+    },
+    {
+      "id": "q10_28",
+      "number": "10.28",
+      "section": "10E",
+      "label": "Do you already know which places you will visit?",
+      "type": "YN",
+      "required": true,
+      "help": "Answer Yes if you know the towns or cities you will stay in or visit, and when. Answer No if you do not know yet.",
+      "showWhen": { "q": "q6_7", "eq": false }
+    },
+    {
+      "id": "q10_28a",
+      "number": "10.28a",
+      "section": "10E",
+      "label": "Which place will you visit?",
+      "type": "SEL",
+      "required": true,
+      "group": "plannedPlaces",
+      "allowOther": true,
+      "otherPosition": "first",
+      "otherKind": "town",
+      "otherLabel": "Name of the town or city",
+      "options": { "from": "places" }
+    },
+    {
+      "id": "q10_28b",
+      "number": "10.28b",
+      "section": "10E",
+      "label": "When will you arrive there?",
+      "type": "DATE",
+      "required": true,
+      "group": "plannedPlaces",
+      "rules": { "onOrAfter": "q1_6", "onOrBefore": "q1_7" }
+    },
+    {
+      "id": "q10_28c",
+      "number": "10.28c",
+      "section": "10E",
+      "label": "When will you leave there?",
+      "type": "DATE",
+      "required": true,
+      "group": "plannedPlaces",
+      "rules": { "onOrAfter": "q10_28b", "onOrBefore": "q1_7" }
     },
     {
       "id": "q10_8",

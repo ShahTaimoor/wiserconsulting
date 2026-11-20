@@ -13,12 +13,14 @@
  * no landmark or sentence or opening repeated across days, travel days say the route, British English. 4 = the headings can carry the place
  * each day is spent in, worked out from the applicant's places of stay: write each day about that place only, a day with no place stays general
  * and names none (the wording is only added to the prompt when the itinerary is built from stays, but the version is for the whole prompt).
+ * 5 = the same, and the places the traveller plans to visit (config 1.6.0) are listed like places of stay; a place the applicant wrote is named in a
+ * heading only by its label, and its words are in the data block of the facts.
  *
  * There is deliberately NO sample itinerary, model day or stock phrasing in this prompt: every itinerary is to be written freshly from
  * the facts. The few quoted phrases are ones the model must NOT write.
  */
 
-const ITINERARY_PROMPT_VERSION = 4;
+const ITINERARY_PROMPT_VERSION = 5;
 
 const SYSTEM_PROMPT = [
   'You write the day-by-day descriptions of a proposed itinerary for a visit to the United Kingdom. The headings are fixed and are given to you with the facts: you write exactly one short description for each heading, in the same order, and nothing else.',
@@ -40,7 +42,7 @@ const SYSTEM_PROMPT = [
   '- The arrival day is for arriving and settling in. Where the facts suggest it (a move from one place to the next, a long stay), a day can be a travel day or a quieter day of rest.',
   '- The last heading is the traveller\'s departure from the United Kingdom. It says that the traveller leaves the United Kingdom or sets off on the journey home, in your own words. It never mentions a next destination, onward travel or any place outside the United Kingdom.',
   '- Never name a place the applicant did not name, other than the city of the stay.',
-  '- When the facts list places of stay with dates, a heading may say which place that day is spent in. Write that day about that place only (a day on which the traveller moves from one place to the next may name both, as the route). A heading that says no place applies is a general day: describe the kind of day and name no place at all. Never move a day to a different place than its heading gives.',
+  '- When the facts list places of stay with dates, a heading may say which place that day is spent in. Write that day about that place only (a day on which the traveller moves from one place to the next may name both, as the route). A heading that says no place applies is a general day: describe the kind of day and name no place at all. Never move a day to a different place than its heading gives. Places the traveller plans to visit are listed in the same way and are used in the same way. A place the applicant wrote is called by its label in a heading, and its name is only in the data block of the facts.',
   '',
   'What never to write:',
   '- Nothing that invents or implies a booking or a specific: no names of hotels, restaurants, shops or tour companies; nothing about flights, trains, tickets, reservations, prices, opening times, clock times, phone numbers or links; never say that anything is booked, reserved, confirmed or guaranteed.',
@@ -61,10 +63,12 @@ function placeNote(skeleton, i) {
   if (!skeleton.byStays) return '';
   const block = skeleton.blocks[i];
   if (!block.place) return ' (no place applies: keep this day general and name no place)';
+  // A place the applicant wrote is named by its label here; its words are only in the delimited data block of the facts.
+  const name = (p) => (skeleton.stayLabels && skeleton.stayLabels[p]) || p;
   const before = i > 0 ? skeleton.blocks[i - 1].place : null;
   const others = block.places.filter((p) => p !== block.place);
-  if (skeleton.mode === 'weeks') return ` (mostly in ${block.place}${others.length ? `; also ${others.join(', ')}` : ''})`;
-  return before && before !== block.place ? ` (the day of the move: from ${before} to ${block.place})` : ` (in ${block.place})`;
+  if (skeleton.mode === 'weeks') return ` (mostly in ${name(block.place)}${others.length ? `; also ${others.map(name).join(', ')}` : ''})`;
+  return before && before !== block.place ? ` (the day of the move: from ${name(before)} to ${name(block.place)})` : ` (in ${name(block.place)})`;
 }
 
 /** The user message: the headings (how many, and which are the arrival and departure days), the facts, and the task. */

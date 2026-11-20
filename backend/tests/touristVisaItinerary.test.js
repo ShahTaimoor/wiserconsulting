@@ -914,7 +914,7 @@ test('American spellings in an AI itinerary are stored in British spelling; prom
   assert.match(text, /Explore the centre of the old city and its favourite theatre, travelling on foot at an easy pace\./);
   assert.equal(/\b(?:center|favorite|theater|traveling)\b/.test(text), false);
   const [row] = await rowsOf(app.appId);
-  assert.equal(row.promptVersion, 4);
-  assert.equal(ITINERARY_PROMPT_VERSION, 4);
+  assert.equal(row.promptVersion, 5);
+  assert.equal(ITINERARY_PROMPT_VERSION, 5);
   aiOff();
 });

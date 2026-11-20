@@ -15,9 +15,9 @@ const questions = cfg.questions;
 const spec = (id, extra = {}) => ({ key: `probe_${id}`, section: 'Probe', label: 'Probe', kind: 'value', id, ...extra });
 
 /** EVERY question id the itinerary reads. Adding to this list is a decision: the handover lists the same ids. */
-const ALLOWED_IDS = ['q1_1', 'q1_2', 'q1_3', 'q1_4', 'q1_5', 'q1_6', 'q1_7', 'q6_7', 'q6_7b', 'q6_7c', 'q6_7d', 'q6_7x', 'q6_7y'];
+const ALLOWED_IDS = ['q1_1', 'q1_2', 'q1_3', 'q1_4', 'q1_5', 'q1_6', 'q1_7', 'q6_7', 'q6_7b', 'q6_7c', 'q6_7d', 'q6_7e', 'q6_7x', 'q6_7y', 'q10_28', 'q10_28a', 'q10_28b', 'q10_28c'];
 /** The ids only the itinerary reads (the places of stay: the gate, the dates; and the town of the address, which the cover letter reads too). The cover letter never reads them. */
-const ITINERARY_ONLY = ['q6_7', 'q6_7c', 'q6_7d'];
+const ITINERARY_ONLY = ['q6_7', 'q6_7c', 'q6_7d', 'q6_7e', 'q10_28', 'q10_28a', 'q10_28b', 'q10_28c'];
 
 const SUBMITTED = new Date('2026-11-03T10:00:00Z');
 const answers = () => ({
@@ -49,7 +49,7 @@ test('the itinerary allowlist is exactly these question ids, is safe against the
   for (const id of ALLOWED_IDS) assert.ok(engine.getQuestion(cfg, id), id);
 });
 
-test('only questions of Part 1 and of 6C (the stay) can ever be read; nothing of the excluded categories can be on the list', () => {
+test('only questions of Part 1, of 6C (the stay) and of 10E (the planned places) can ever be read; nothing of the excluded categories can be on the list', () => {
   const allowed = new Set(itinerary.allowedIds());
   const bySection = (ids) => questions.filter((q) => ids.includes(q.section)).map((q) => q.id);
   for (const [category, sections] of Object.entries(itinerary.EXCLUDED_SECTIONS)) {
@@ -89,7 +89,7 @@ test('the cover letter\'s own allowlist is unchanged by this: its rules still re
   for (const id of itinerary.allowedIds()) if (!ITINERARY_ONLY.includes(id)) assert.ok(coverIds.has(id), `${id} is not a cover letter fact`);
   // ... and the cover letter still refuses the stays' dates and gate, exactly as before.
   for (const id of ITINERARY_ONLY) assert.equal(coverIds.has(id), false, `${id} must stay out of the cover letter`);
-  for (const id of ['q6_7a', 'q6_7c', 'q6_7d', 'q6_7']) assert.ok(cover.validateAllowlist([...cover.SPECS, spec(id)]).some((p) => p.startsWith(`${id}:`)), `the cover letter still refuses ${id}`);
+  for (const id of ['q6_7a', 'q6_7c', 'q6_7d', 'q6_7', 'q6_7e', 'q10_28', 'q10_28a', 'q10_28b', 'q10_28c']) assert.ok(cover.validateAllowlist([...cover.SPECS, spec(id)]).some((p) => p.startsWith(`${id}:`)), `the cover letter still refuses ${id}`);
   assert.ok(cover.validateAllowlist([...cover.SPECS, spec('q6_7a')]).some((p) => p.startsWith('q6_7a:')));
 });
 
@@ -206,9 +206,9 @@ test('the facts are the same for the same answers and different when a fact the 
   assert.equal(build({ ...answers(), q5_7: { amount: 1, currency: 'GBP' }, q2_32: { countryCode: '+44', number: '1' }, q6_2: { amount: 7, currency: 'GBP' }, q9_1: false }).canonical, one, 'money, a phone number and Part 9 are not used');
 });
 
-test('each layer of the allowlist refuses on its own: the allowed sections are exactly 1 and 6C, and a section outside them is refused even if the forbidden list were empty', () => {
-  assert.deepEqual([...itinerary.ALLOWED_SECTIONS], ['1', '6C']);
-  assert.deepEqual([...itinerary.ITINERARY_RULES.allowedSections], ['1', '6C']);
+test('each layer of the allowlist refuses on its own: the allowed sections are exactly 1, 6C and 10E, and a section outside them is refused even if the forbidden list were empty', () => {
+  assert.deepEqual([...itinerary.ALLOWED_SECTIONS], ['1', '6C', '10E']);
+  assert.deepEqual([...itinerary.ITINERARY_RULES.allowedSections], ['1', '6C', '10E']);
   const noForbiddenList = { ...itinerary.ITINERARY_RULES, forbiddenSections: [] };
   for (const q of questions) {
     if (itinerary.ALLOWED_SECTIONS.includes(q.section) || itinerary.allowedIds().includes(q.id)) continue;

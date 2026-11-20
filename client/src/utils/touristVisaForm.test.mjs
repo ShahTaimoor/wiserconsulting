@@ -59,7 +59,7 @@ const V5 = {
 const V6A = { q6_1: "savings", q6_2: gbp(8000), q6_3: gbp(1500), q6_4: gbp(900), q6_5: false };
 const STAY = {
   q6_7a: "Test Hotel", q6_7b: { line1: "2 Test Road", town: "Testtown", country: "GB" },
-  q6_7c: "2027-03-01", q6_7d: "2027-03-08",
+  q6_7c: "2027-03-01", q6_7d: "2027-03-08", q6_7e: "family",
 };
 const V6C = { q6_7: true, accommodation: [STAY, { ...STAY, q6_7a: "Second Hotel", q6_7c: "2027-03-08", q6_7d: "2027-03-15" }] };
 // Parts 7 and 8. Dates are worked out from today because the shared rules check them against the clock.
@@ -90,7 +90,7 @@ const V10D = {};
 const ALL = {
   1: V1, "2A": V2A, "2B": { ...V2B, q2_13: "married" }, "2C": V2C, "2D": V2D, 3: V3, "4A": V4A, "4B": V4B, "4C": V4C,
   5: V5, "6A": V6A, "6B": { q6_6: false }, "6C": V6C, "6D": { q6_8: false }, 7: V7, 8: V8,
-  "9A": V9A, "9B": V9B, "9C": V9C, "10A": V10A, "10B": V10B, "10C": V10C, "10D": V10D,
+  "9A": V9A, "9B": V9B, "9C": V9C, "10A": V10A, "10B": V10B, "10C": V10C, "10E": {}, "10D": V10D, // 10E (the planned places) is empty here: 6.7 is Yes above
 };
 
 const payload = (section, values, saved = {}) => buildPayload(cfg, section, values, saved).answers;
@@ -152,9 +152,17 @@ test("next and previous section follow the form order", () => {
   assert.equal(nextSectionId(cfg, "9C"), "10A");
   assert.equal(nextSectionId(cfg, "10A"), "10B");
   assert.equal(nextSectionId(cfg, "10B"), "10C");
-  assert.equal(nextSectionId(cfg, "10C"), "10D");
+  assert.equal(nextSectionId(cfg, "10C"), "10E");
+  // With the answers, the section of the planned places is skipped unless 6.7 is No (it would be empty).
+  assert.equal(nextSectionId(cfg, "10C", { q6_7: true }), "10D");
+  assert.equal(nextSectionId(cfg, "10C", {}), "10D");
+  assert.equal(nextSectionId(cfg, "10C", { q6_7: false }), "10E");
+  assert.equal(nextSectionId(cfg, "10E", { q6_7: false }), "10D");
+  assert.equal(previousSectionId(cfg, "10D", { q6_7: true }), "10C");
+  assert.equal(previousSectionId(cfg, "10D", { q6_7: false }), "10E");
   assert.equal(nextSectionId(cfg, "10D"), null);
-  assert.equal(previousSectionId(cfg, "10D"), "10C");
+  assert.equal(previousSectionId(cfg, "10D"), "10E");
+  assert.equal(previousSectionId(cfg, "10E"), "10C");
   assert.equal(previousSectionId(cfg, "10A"), "9C");
   assert.equal(previousSectionId(cfg, "9A"), "8");
   assert.equal(previousSectionId(cfg, "6A"), "5");

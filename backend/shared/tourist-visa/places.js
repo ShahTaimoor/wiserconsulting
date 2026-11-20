@@ -64,4 +64,31 @@ function placeOfTown(town) {
   return PLAIN_TOWN.test(text) ? text : null;
 }
 
-module.exports = { PLACES, CAPITAL_ONLY, PLAIN_TOWN, placesIn, placeOfTown };
+/** Words that make a typed place an address or a stay (a street, a hotel...), not the name of a town or city. Lower case. */
+const NOT_A_PLACE_WORDS = new Set([
+  'hotel', 'hotels', 'inn', 'hostel', 'hostels', 'motel', 'lodge', 'resort', 'bnb', 'guesthouse', 'guest', 'apartment', 'apartments', 'flat', 'flats', 'villa',
+  'street', 'road', 'avenue', 'lane', 'drive', 'crescent', 'terrace', 'gardens', 'boulevard', 'highway', 'postcode', 'floor', 'house', 'rd', 'ave',
+]);
+
+/** The most words the name of a town or city may have in a box the applicant types into ("Stoke on Trent", "Royal Leamington Spa"). */
+const MAX_TOWN_WORDS = 3;
+
+/**
+ * Is this typed text the name of a town or city, and nothing more? The rules: the plain-town rule above (letters, spaces, apostrophes and
+ * hyphens only; no digit, comma, bracket or tag; 2 to 40 characters), at most three words, and none of the words of an address or a stay
+ * (street, road, hotel, flat...). A place of the list above is always accepted, whatever its words ("Hampton Court"). Used on the server (the
+ * form's rule and the itinerary's facts), so a hand-made request cannot get past it.
+ */
+function isTownName(text) {
+  const typed = typeof text === 'string' ? text.trim().replace(/\s+/g, ' ') : '';
+  if (!typed || !PLAIN_TOWN.test(typed)) return false;
+  if (CANONICAL.has(typed.replace(/[’‘]/g, "'").toLowerCase())) return true;
+  const words = typed.split(' ');
+  if (words.length > MAX_TOWN_WORDS) return false;
+  return !words.some((word) => NOT_A_PLACE_WORDS.has(word.toLowerCase()));
+}
+
+/** The places of the list, A to Z, as { value, label } options for a drop-down (the value is the name). */
+const PLACE_OPTIONS = Object.freeze([...PLACES].sort((a, b) => a.localeCompare(b, 'en')).map((name) => Object.freeze({ value: name, label: name })));
+
+module.exports = { PLACES, CAPITAL_ONLY, PLAIN_TOWN, NOT_A_PLACE_WORDS, MAX_TOWN_WORDS, PLACE_OPTIONS, placesIn, placeOfTown, isTownName };

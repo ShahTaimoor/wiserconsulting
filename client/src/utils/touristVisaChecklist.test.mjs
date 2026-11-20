@@ -14,7 +14,7 @@ test("the checklist follows the shared config: parts and sections in form order,
   assert.deepEqual(checklist.parts.map((p) => p.sections.map((s) => s.id)), [
     ["1"], ["2A", "2B", "2C", "2D"], ["3"], ["4B", "4C"], ["5"], ["6A", "6B", "6C", "6D"], ["7"], ["8"], ["9A", "9B", "9C"], ["10A", "10B", "10C", "10D"],
   ]);
-  assert.equal(checklist.total, config.sections.length - 1, "4A is hidden until 2.13 indicates a partner");
+  assert.equal(checklist.total, config.sections.length - 2, "4A is hidden until 2.13 indicates a partner, and 10E (your plans in the UK) until 6.7 is No");
   assert.equal(checklist.parts[1].sections[0].title, "Name, email and contact preferences");
 });
 

@@ -36,7 +36,7 @@ function richAnswers() {
     payers: Array.from({ length: 5 }, (_, i) => ({ q6_5b: 'relative', q6_5c: `Payer ${i}`, q6_5d: 'parent', q6_5e: 'PK', q6_5f: { amount: 800, currency: 'GBP' }, q6_5g: ['travel', 'accommodation'] })),
     q6_6: true, ukFamily: Array.from({ length: 10 }, (_, i) => ({ q6_6b: 'sibling', q6_6c: `Relative ${i}`, q6_6d: 'Manchester', q6_6e: 'GB', q6_6f: 'GB', q6_6g: 'british_citizen' })),
     q6_7: true,
-    accommodation: Array.from({ length: 20 }, (_, i) => ({ q6_7a: `Stay ${i}`, q6_7b: { line1: `${i + 1} Sample Street`, line2: 'Flat 2', town: 'Manchester', postcode: 'M1 1AA', country: 'GB' }, q6_7c: '2027-03-01', q6_7d: '2027-03-02' })),
+    accommodation: Array.from({ length: 20 }, (_, i) => ({ q6_7a: `Stay ${i}`, q6_7b: { line1: `${i + 1} Sample Street`, line2: 'Flat 2', town: 'Manchester', postcode: 'M1 1AA', country: 'GB' }, q6_7c: '2027-03-01', q6_7d: '2027-03-02', q6_7e: 'family' })),
     q7_1: true, ukVisas: [{ q7_2a: '2023-04', q7_2b: 'visit', q7_2c: 'REF-FAKE-0001' }],
     q7_4: true, q7_5: 20, ukVisits: Array.from({ length: 20 }, (_, i) => ({ q7_5a: 'tourism', q7_5b: '2021-08', q7_5c: { days: i + 1 } })),
     q8_1: 3, q8_2: true, q8_3: false, otherCountryTrips: Array.from({ length: 10 }, () => ({ q8_2a: 'AE', q8_2b: 'tourism', q8_2c: '2024-01-02', q8_2d: '2024-01-09' })),

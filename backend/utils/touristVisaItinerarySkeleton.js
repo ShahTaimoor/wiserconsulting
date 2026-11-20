@@ -115,7 +115,10 @@ function placeBlocks(skeleton, stays) {
     ...block,
     allowed: block.places.length === 0 ? [] : unique([(blocks[i - 1] || {}).places || [], block.places, (blocks[i + 1] || {}).places || []]),
   }));
-  return { ...skeleton, blocks: withAllowed, byStays: true, stayPlaces: unique(stays.map((s) => (s.place ? [s.place] : []))) };
+  // A place the applicant WROTE (under Other) is told to the AI by its label ("Place 2 written by the applicant"), never by the words they typed.
+  const stayLabels = {};
+  for (const s of stays) if (s.written && s.place && s.label && !stayLabels[s.place]) stayLabels[s.place] = s.label;
+  return { ...skeleton, blocks: withAllowed, byStays: true, stayPlaces: unique(stays.map((s) => (s.place ? [s.place] : []))), stayLabels };
 }
 
 module.exports = { buildSkeleton, parseDate, dayName, LONG_STAY_NIGHTS, MAX_NIGHTS, WEEKDAYS, MONTHS };

@@ -134,9 +134,12 @@ class TouristVisaApplicationService {
       for (const id of stale) delete view.answers[id];
     }
     const statuses = {};
-    for (const section of engine.getVisibleSections(this.config, view.answers)) {
+    // A draft is checked against today's config. A submitted application keeps the config it was submitted under (as its documents do), so a question
+    // added since (such as 6.7e, who they stay with) is never asked of it and never shown as missing.
+    const cfg = application.status === "draft" ? this.config : documentsConfig;
+    for (const section of engine.getVisibleSections(cfg, view.answers)) {
       const state = view.sectionStatus[section.id];
-      if (state === "saved" && !this.sectionStillValid(section.id, view.answers)) statuses[section.id] = "needs_review";
+      if (state === "saved" && !this.sectionStillValid(section.id, view.answers, cfg)) statuses[section.id] = "needs_review";
       else if (state) statuses[section.id] = state;
     }
     // A section made only of file questions (10D) has no stored status: it follows the uploaded files, for the slots that are on
@@ -154,7 +157,7 @@ class TouristVisaApplicationService {
     }
     view.documentsComplete = engine.documentsComplete(documentsConfig, view.documents, view.answers);
     view.sectionStatus = statuses;
-    view.currentSection = this.resumeSection(statuses, view.answers);
+    view.currentSection = this.resumeSection(statuses, view.answers, cfg);
     return view;
   }
 
@@ -440,8 +443,7 @@ class TouristVisaApplicationService {
   }
 
   /** Answer keys that belong to a section: its questions and its repeating groups. */
-  sectionKeys(sectionId) {
-    const cfg = this.config;
+  sectionKeys(sectionId, cfg = this.config) {
     return [
       ...cfg.questions.filter((q) => q.section === sectionId && !q.group && q.type !== "FILE").map((q) => q.id),
       ...(cfg.groups || []).filter((g) => g.section === sectionId).map((g) => g.id),
@@ -474,20 +476,20 @@ class TouristVisaApplicationService {
   }
 
   /** Does the section's stored answers still pass validation against the given application answers? */
-  sectionStillValid(sectionId, answers) {
+  sectionStillValid(sectionId, answers, cfg = this.config) {
     const stored = {};
-    for (const id of this.sectionKeys(sectionId)) if (answers[id] !== undefined) stored[id] = answers[id];
-    return engine.validateSection(z, this.config, sectionId, stored, answers).success;
+    for (const id of this.sectionKeys(sectionId, cfg)) if (answers[id] !== undefined) stored[id] = answers[id];
+    return engine.validateSection(z, cfg, sectionId, stored, answers).success;
   }
 
   /**
    * Where the applicant resumes: the first section that applies and is not saved, or the
    * last one that applies when all are. Sections that do not apply are skipped.
    */
-  resumeSection(statuses, answers) {
-    const sections = engine.getVisibleSections(this.config, answers || {});
+  resumeSection(statuses, answers, cfg = this.config) {
+    const sections = engine.getVisibleSections(cfg, answers || {});
     const next = sections.find((s) => statuses[s.id] !== "saved");
-    return (next || sections[sections.length - 1] || this.config.sections[0]).id;
+    return (next || sections[sections.length - 1] || cfg.sections[0]).id;
   }
 }
 

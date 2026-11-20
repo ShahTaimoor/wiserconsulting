@@ -96,7 +96,7 @@ test('config: covers exactly the questions of Parts 1 to 8 in the spec (plus the
   for (const l of 'abcdef') { expected.add(`4.7${l}`); expected.add(`4.8${l}`); }
   for (let i = 1; i <= 9; i++) expected.add(`5.${i}`);
   for (let i = 1; i <= 8; i++) expected.add(`6.${i}`);
-  for (const l of 'abcd') expected.add(`6.7${l}`);
+  for (const l of 'abcde') expected.add(`6.7${l}`); // 6.7e (who they stay with) was added in config 1.6.0
   for (const l of 'abcdefghijkl') expected.add(`5.1${l}`); // other employment statuses (7c)
   expected.add('6.1a');
   for (const l of 'bcdefg') { expected.add(`6.5${l}`); expected.add(`6.6${l}`); } // payers and relatives in the UK (7c)
@@ -122,6 +122,9 @@ test('config: covers exactly the questions of Parts 1 to 8 in the spec (plus the
   expected.add('10.4a'); expected.add('10.5a');
   // Part 10D (8c-2, and the 22 document slots of config 1.5.0): 10.6 and 10.7 are the first two; 10.8 to 10.27 were added in 1.5.0.
   for (let i = 6; i <= 27; i++) expected.add(`10.${i}`);
+  // Part 10E (config 1.6.0): the places the applicant plans to visit when they have no address.
+  expected.add('10.28');
+  for (const l of 'abc') expected.add(`10.28${l}`);
   // The text boxes of the Other (please write) answers carry the number of the question they belong to, so they add no number and no question of their own.
   const own = config.questions.filter((q) => !q.otherOf);
   const actual = new Set(own.map((q) => q.number));
@@ -129,10 +132,10 @@ test('config: covers exactly the questions of Parts 1 to 8 in the spec (plus the
   assert.equal(own.length, expected.size);
 });
 
-test('config: sections are 1, 2A-2D, 3, 4A-4C, 5, 6A-6D, 7, 8, 9A-9C, 10A-10D and every question belongs to one', () => {
+test('config: sections are 1, 2A-2D, 3, 4A-4C, 5, 6A-6D, 7, 8, 9A-9C, 10A-10C, 10E, 10D and every question belongs to one', () => {
   assert.deepEqual(
     config.sections.map((s) => s.id),
-    ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C', '10D']
+    ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C', '10E', '10D']
   );
   assert.deepEqual(config.parts.map((p) => p.id), ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']);
   const ids = new Set(config.sections.map((s) => s.id));
@@ -149,7 +152,7 @@ test('config: no option is a [TBC] placeholder or a tbc_ value any more', () => 
 });
 
 test('config 1.0.x: the design was approved as final, so no draft marker is left anywhere', () => {
-  assert.equal(config.version, '1.5.0');
+  assert.equal(config.version, '1.6.0');
   assert.doesNotMatch(config.version, /draft/);
   assert.deepEqual(config.questions.filter((q) => q.draft).map((q) => q.number), []);
   assert.deepEqual(config.groups.filter((g) => g.draft).map((g) => g.id), []);
@@ -921,7 +924,7 @@ const EMPLOYED = {
 const S6A = { q6_1: 'savings', q6_2: gbp(8000), q6_3: gbp(1500), q6_4: gbp(900), q6_5: false };
 const STAY = {
   q6_7a: 'Test Hotel', q6_7b: { line1: '2 Test Road', town: 'Testtown', country: 'GB' },
-  q6_7c: '2027-03-01', q6_7d: '2027-03-08',
+  q6_7c: '2027-03-01', q6_7d: '2027-03-08', q6_7e: 'family',
 };
 const stayOn = (from, to) => ({ ...STAY, q6_7c: from, q6_7d: to });
 // Section 1 as saved: arrive 2027-03-01, leave 2027-03-15.
@@ -1028,7 +1031,7 @@ test('part 6C: a Yes on 6.7 needs at least one place of stay; a No asks for the 
   assert.equal(ok.success, true, JSON.stringify(ok.errors));
   const blank = validate('6C', { q6_7: true, accommodation: [{}] }, TRIP);
   assert.deepEqual(Object.keys(blank.errors).sort(), [
-    'accommodation.0.q6_7a', 'accommodation.0.q6_7b', 'accommodation.0.q6_7c', 'accommodation.0.q6_7d',
+    'accommodation.0.q6_7a', 'accommodation.0.q6_7b', 'accommodation.0.q6_7c', 'accommodation.0.q6_7d', 'accommodation.0.q6_7e',
   ]);
 });
 
@@ -2413,10 +2416,10 @@ test('release check: the approved config exits 0 and says everything is releasab
   const run = spawnSync(process.execPath, [script], { encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
   assert.match(run.stdout, new RegExp(`Tourist Visa config ${config.version.replace(/\./g, '\\.')}`));
-  assert.match(run.stdout, /Tourist Visa config 1\.5\.0/);
-  for (const id of ['1', '2A', '3', '9A', '9B', '9C', '10A', '10B', '10C', '10D']) assert.match(run.stdout, new RegExp(`section ${id}: .*: releasable`), id);
+  assert.match(run.stdout, /Tourist Visa config 1\.6\.0/);
+  for (const id of ['1', '2A', '3', '9A', '9B', '9C', '10A', '10B', '10C', '10E', '10D']) assert.match(run.stdout, new RegExp(`section ${id}: .*: releasable`), id);
   assert.doesNotMatch(run.stdout, /NEEDS SENIOR REVIEW|BLOCKED/);
-  assert.match(run.stdout, /23 sections: 0 blocked, 0 need senior review only, 23 clean\./);
+  assert.match(run.stdout, /24 sections: 0 blocked, 0 need senior review only, 24 clean\./);
   assert.match(run.stdout, /Submit: final declaration approved wording; text shown after submitting approved wording\./);
   assert.match(run.stdout, /All sections are releasable\./);
   assert.equal(run.stderr, '', 'nothing is reported as open');
@@ -2439,7 +2442,7 @@ test('release check: one draft marker put back makes it exit 2 and name the item
     const draft = runWith((c) => { c.questions.find((q) => q.id === 'q3_1').draft = 'Draft: one default we chose.'; });
     assert.equal(draft.status, 2, 'one draft on one question');
     assert.match(draft.stdout, /section 3: .*NEEDS SENIOR REVIEW \(1 draft\)/);
-    assert.match(draft.stdout, /23 sections: 0 blocked, 1 need senior review only, 22 clean\./);
+    assert.match(draft.stdout, /24 sections: 0 blocked, 1 need senior review only, 23 clean\./);
     assert.match(draft.stderr, /3\.1: Draft: one default we chose\./);
     assert.equal(runWith((c) => { c.groups.find((g) => g.id === 'parents').draft = 'Draft: x.'; }).status, 2, 'one draft on a group');
     assert.equal(runWith((c) => { c.declarations.submit.draft = 'Draft: x.'; }).status, 2, 'draft declaration wording');

@@ -111,7 +111,7 @@ const S6A = { q6_1: 'savings', q6_2: gbp(8000), q6_3: gbp(1500), q6_4: gbp(900),
 const S6B = { q6_6: false };
 const STAY = {
   q6_7a: 'Test Hotel', q6_7b: { line1: '2 Test Road', town: 'Testtown', country: 'GB' },
-  q6_7c: '2027-03-01', q6_7d: '2027-03-08',
+  q6_7c: '2027-03-01', q6_7d: '2027-03-08', q6_7e: 'family',
 };
 const stayOn = (from, to, name = 'Test Hotel') => ({ ...STAY, q6_7a: name, q6_7c: from, q6_7d: to });
 const S6C = { q6_7: true, accommodation: [STAY, stayOn('2027-03-08', '2027-03-15', 'Second Test Hotel')] };

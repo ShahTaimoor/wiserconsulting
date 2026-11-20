@@ -29,9 +29,13 @@ export interface QuestionOption {
 export type OptionsSpec =
   | QuestionOption[]
   | { from: 'countries' }
+  /** The places of the fixed list (places.js), A to Z; a question that allows Other also gets its Other option. */
+  | { from: 'places' }
   | { from: 'answers'; questions: string[] };
 
 export interface QuestionRules {
+  /** TXT: the answer must be the name of a town or city and nothing more (at most three words, no digits, no address or hotel words). */
+  townName?: boolean;
   /** DATE/MY must be later than the answer(s) to these earlier questions. */
   after?: string | string[];
   /** DATE/MY must be the same day as, or later than, the answer(s) to these earlier questions. */
@@ -97,6 +101,12 @@ export interface Question {
    * as <id>_other. The companion question is made by the engine (see otherOf); it is not written in the config file.
    */
   allowOther?: boolean;
+  /** With allowOther: "first" shows the Other option at the top of the list; "last" (the default) leaves the list as written. */
+  otherPosition?: 'first' | 'last';
+  /** With allowOther: "town" makes the written text pass the town-name rule. */
+  otherKind?: 'town';
+  /** With allowOther: the label of the text box (the default is "Please write your answer"). */
+  otherLabel?: string;
   /** The text box of an Other answer: the id of the list question it belongs to. Made by the engine. */
   otherOf?: string;
   /**

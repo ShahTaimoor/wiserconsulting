@@ -15,6 +15,7 @@
 
 const rawConfig = require('./questions.json');
 const countries = require('./countries.json');
+const { PLACE_OPTIONS, isTownName } = require('./places');
 
 const TYPES = [
   'TXT', 'LNG', 'DATE', 'MY', 'NUM', 'DUR', 'AMT', 'YN',
@@ -48,6 +49,11 @@ const NORMALIZERS = {
 //   text      required, trimmed, at most OTHER_MAX characters, no angle brackets (the same TXT rules as other short answers)
 //   otherOf   the id of the question it belongs to (the review, the PDFs and the facts read the text through this)
 //
+// Three optional settings on the question (all generic, none special to one question):
+//   otherPosition  "first" puts the Other option at the TOP of the list the applicant sees (the default, "last", leaves the list as written)
+//   otherKind      "town" makes the written text pass the town-name rule (rules.townName: a town or city, nothing more)
+//   otherLabel     the label of the text box (the default is "Please write your answer")
+//
 // The shape of the choice itself is untouched: it stays the option value "other". Nothing here is stored in the config file, so the
 // stored answers and the file stay as they are; the expanded config is what a submission records as its snapshot.
 
@@ -56,6 +62,9 @@ const OTHER_SUFFIX = '_other';
 const OTHER_LABEL = 'Please write your answer';
 const OTHER_MAX = 100;
 const OTHER_PATTERN = Object.freeze({ regex: '^[^<>]*$', message: 'Do not use the < or > characters' });
+const OTHER_OPTION = Object.freeze({ value: OTHER_VALUE, label: 'Other (please write)' });
+// What a typed place is refused with (rules.townName).
+const TOWN_NAME_MESSAGE = 'Write only the name of a town or city';
 
 /** The companion text question of a list question that allows Other. */
 function otherCompanionOf(q) {
@@ -63,12 +72,12 @@ function otherCompanionOf(q) {
     id: `${q.id}${OTHER_SUFFIX}`,
     number: q.number,
     section: q.section,
-    label: OTHER_LABEL,
+    label: typeof q.otherLabel === 'string' && q.otherLabel ? q.otherLabel : OTHER_LABEL,
     type: 'TXT',
     required: true,
     ...(q.group ? { group: q.group } : {}),
     showWhen: q.type === 'CHK' ? { q: q.id, includes: OTHER_VALUE } : { q: q.id, eq: OTHER_VALUE },
-    rules: { maxLen: OTHER_MAX, pattern: { regex: OTHER_PATTERN.regex, message: OTHER_PATTERN.message } },
+    rules: { maxLen: OTHER_MAX, pattern: { regex: OTHER_PATTERN.regex, message: OTHER_PATTERN.message }, ...(q.otherKind === 'town' ? { townName: true } : {}) },
     otherOf: q.id,
   };
 }
@@ -302,12 +311,25 @@ function getVisibleSections(cfg, answers) {
   return cfg.sections.filter((s) => isSectionVisible(cfg, s.id, answers));
 }
 
+/** A question that allows Other with otherPosition "first" shows that option at the top of its list. Anything else is left as it is. */
+function orderOther(q, list) {
+  if (!q || q.allowOther !== true || q.otherPosition !== 'first') return list;
+  const other = list.find((option) => option.value === OTHER_VALUE);
+  return other ? [other, ...list.filter((option) => option !== other)] : list;
+}
+
 function resolveOptionsIn(cfg, q, flat, entry) {
+  return orderOther(q, optionsOf(cfg, q, flat, entry));
+}
+
+function optionsOf(cfg, q, flat, entry) {
   const o = q.options;
   if (Array.isArray(o)) return o;
   if (q.type === 'CTRY' || (o && o.from === 'countries')) {
     return countries.map((c) => ({ value: c.code, label: c.name }));
   }
+  // The places of the fixed list (places.js), A to Z; a question that allows Other gets its Other option after them (orderOther may move it up).
+  if (o && o.from === 'places') return q.allowOther === true ? [...PLACE_OPTIONS, OTHER_OPTION] : PLACE_OPTIONS;
   if (o && o.from === 'answers') {
     const idx = indexOf(cfg);
     const seen = new Set();
@@ -351,7 +373,19 @@ function conditionRefs(cond, out = []) {
 function waitingForGate(cfg, q, flat, entry) {
   // The written text of an Other answer is never "waiting": without the choice it belongs to, it is not kept.
   if (q.otherOf) return false;
-  return conditionRefs(q.showWhen).some((id) => scopeGet(flat, entry, id) === undefined);
+  if (!conditionRefs(q.showWhen).some((id) => scopeGet(flat, entry, id) === undefined)) return false;
+  // A condition that several answers control (6.7y: "6.7 is No, and 10.28 is not Yes") is waiting only while an unanswered one could still
+  // make it true. When an answered one already settles it (6.7 is Yes), the question is hidden for good, not waiting.
+  return couldBeShown(cfg, q.showWhen, flat, entry, true);
+}
+
+/** Could this condition come out as `want`, given that a leaf whose question is unanswered may still be answered either way? */
+function couldBeShown(cfg, c, flat, entry, want) {
+  if (c.all) return want ? c.all.every((x) => couldBeShown(cfg, x, flat, entry, true)) : c.all.some((x) => couldBeShown(cfg, x, flat, entry, false));
+  if (c.any) return want ? c.any.some((x) => couldBeShown(cfg, x, flat, entry, true)) : c.any.every((x) => couldBeShown(cfg, x, flat, entry, false));
+  if (c.not) return couldBeShown(cfg, c.not, flat, entry, !want);
+  if (scopeGet(flat, entry, c.q) === undefined) return true;
+  return evalCondition(cfg, c, flat, entry) === want;
 }
 
 /**
@@ -417,9 +451,13 @@ function typeSchema(z, cfg, q) {
       // rules.normalize tidies the answer first (the tidied value is what is stored). rules.pattern:
       // { regex, message } must then match the whole answer (for example a National Insurance number).
       const tidy = rules.normalize ? base.transform(NORMALIZERS[rules.normalize]) : base;
-      if (!rules.pattern) return tidy;
-      const matches = z.string().regex(new RegExp(rules.pattern.regex), rules.pattern.message);
-      return rules.normalize ? tidy.pipe(matches) : base.regex(new RegExp(rules.pattern.regex), rules.pattern.message);
+      let schema = tidy;
+      if (rules.pattern) {
+        const matches = z.string().regex(new RegExp(rules.pattern.regex), rules.pattern.message);
+        schema = rules.normalize ? tidy.pipe(matches) : base.regex(new RegExp(rules.pattern.regex), rules.pattern.message);
+      }
+      // rules.townName: the answer must be the name of a town or city and nothing more (the same check the itinerary makes again).
+      return rules.townName ? schema.refine((value) => isTownName(value), TOWN_NAME_MESSAGE) : schema;
     }
     case 'LNG':
       return str(rules.maxLen || lim.lngMax || 5000);
@@ -961,7 +999,9 @@ function validateConfig(cfg) {
       else if (target.type !== 'CHK') err(`${where}: "includes" needs a CHK question (${c.q})`);
       else if (Array.isArray(target.options) && !target.options.some((opt) => opt.value === c.includes)) err(`${where}: "includes" ${c.includes} is not an option of ${c.q}`);
     }
-    if (order.get(c.q) >= order.get(q.id)) err(`${where}: must refer to an earlier question than itself (${c.q})`);
+    // A question may look at a LATER one only when it is optional (an unanswered later gate can then never block anything) and the rule is its showWhen.
+    const laterOk = q.required === false && q.type !== 'FILE' && where.endsWith('.showWhen');
+    if (order.get(c.q) >= order.get(q.id) && !laterOk) err(`${where}: must refer to an earlier question than itself (${c.q})`);
   };
 
   const fileSlots = new Map();
@@ -980,11 +1020,17 @@ function validateConfig(cfg) {
     else if (q.number !== q.id.slice(1).replace('_', '.')) err(`${w}: number ${q.number} does not match id`);
     if (q.allowOther !== undefined) {
       if (q.allowOther !== true) err(`${w}: allowOther must be true or left out`);
-      else if ((q.type !== 'SEL' && q.type !== 'CHK') || !Array.isArray(q.options)) err(`${w}: allowOther is only for SEL or CHK questions with their own option list`);
-      else if (!q.options.some((opt) => opt.value === OTHER_VALUE)) err(`${w}: allowOther needs an option with the value "${OTHER_VALUE}"`);
-      else if (q.options.some((opt) => opt.value === OTHER_VALUE && opt.exclusive)) err(`${w}: the Other option cannot be exclusive`);
+      else if ((q.type !== 'SEL' && q.type !== 'CHK') || !(Array.isArray(q.options) || (q.type === 'SEL' && q.options && q.options.from === 'places'))) err(`${w}: allowOther is only for SEL or CHK questions with their own option list (or a SEL that takes its options from the places list)`);
+      else if (Array.isArray(q.options) && !q.options.some((opt) => opt.value === OTHER_VALUE)) err(`${w}: allowOther needs an option with the value "${OTHER_VALUE}"`);
+      else if (Array.isArray(q.options) && q.options.some((opt) => opt.value === OTHER_VALUE && opt.exclusive)) err(`${w}: the Other option cannot be exclusive`);
       if (!/^q\d+_\d+[a-z]?$/.test(q.id)) err(`${w}: a question that allows Other must have an ordinary id`);
     }
+    for (const key of ['otherPosition', 'otherKind', 'otherLabel']) {
+      if (q[key] !== undefined && q.allowOther !== true) err(`${w}: ${key} is only for a question that allows Other`);
+    }
+    if (q.otherPosition !== undefined && q.otherPosition !== 'first' && q.otherPosition !== 'last') err(`${w}: otherPosition must be "first" or "last"`);
+    if (q.otherKind !== undefined && q.otherKind !== 'town') err(`${w}: otherKind must be "town"`);
+    if (q.otherLabel !== undefined && (typeof q.otherLabel !== 'string' || !q.otherLabel.trim())) err(`${w}: otherLabel must be words`);
     if (!sectionIds.has(q.section)) err(`${w}: unknown section ${q.section}`);
     if (!q.label) err(`${w}: label is required`);
     if (!TYPES.includes(q.type)) err(`${w}: unknown type ${q.type}`);
@@ -1019,6 +1065,8 @@ function validateConfig(cfg) {
         }
       } else if (o && o.from === 'countries') {
         // ok
+      } else if (o && o.from === 'places') {
+        if (q.type !== 'SEL') err(`${w}: options from the places list are only for SEL questions`);
       } else if (o && o.from === 'answers') {
         if (!Array.isArray(o.questions) || !o.questions.length) err(`${w}: options.questions is required`);
         else for (const id of o.questions) {
@@ -1065,6 +1113,10 @@ function validateConfig(cfg) {
         if (!p.regex.startsWith('^') || !p.regex.endsWith('$')) err(`${w}: rules.pattern.regex must match the whole answer (start with ^ and end with $)`);
         try { new RegExp(p.regex); } catch { err(`${w}: rules.pattern.regex is not a valid expression`); }
       }
+    }
+    if (r.townName !== undefined) {
+      if (q.type !== 'TXT') err(`${w}: rules.townName is only for TXT`);
+      else if (r.townName !== true) err(`${w}: rules.townName must be true`);
     }
     if (r.normalize !== undefined) {
       if (q.type !== 'TXT') err(`${w}: rules.normalize is only for TXT`);

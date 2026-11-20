@@ -27,7 +27,7 @@
 
 const engine = require('./engine');
 const view = require('./view');
-const { placesIn, placeOfTown } = require('./places');
+const { PLACES, placesIn, placeOfTown, isTownName } = require('./places');
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MAX_FREE_TEXT = 500;
@@ -43,6 +43,9 @@ const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
 // The allowlist
 // ---------------------------------------------------------------------------
 
+/** Who a traveller stays with, in neutral words (the choice only; the words typed under Other are never used). */
+const WITH_WORDS = Object.freeze({ paid_stay: 'in a paid stay', family: 'with family', friends: 'with friends', other: 'elsewhere' });
+
 /**
  * kind:
  *   value  one answer, in words (optionally `words`: the exact words to use for chosen options)
@@ -51,8 +54,10 @@ const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
  *   part   one part of an address (town or country only)
  *   count  how many entries a repeating group has (when its Yes/No is Yes)
  *   list   a few chosen fields of each entry of a repeating group
- *   stays  the places of stay of a repeating group, as { town, place, from, to } by entry: only the TOWN of the address (never the name or the
- *          rest of it) and the two dates; read by the itinerary alone (its rules name the question ids: townId, fromId, toId)
+ *   stays  the places of stay (or the places they plan to visit) of a repeating group, as { town, place, from, to } by entry: only the TOWN of
+ *          the address (never the name or the rest of it), or the place chosen from the list (a place WRITTEN under Other only when it is the name
+ *          of a town or city, and then as data), and the two dates; and, for a stay, who with in neutral words. Read by the itinerary alone (its
+ *          rules name the question ids: townId or placeId, fromId, toId, withId)
  *   stay   length of the visit from two dates     since  time since a month, as at the day of the application
  *   token  a name held back as a placeholder
  * withholdIf { id, value }: the fact is left out when that answer has that value (a medical visit).
@@ -151,6 +156,7 @@ const EXCLUDED_IDS = Object.freeze({
   'Health and medical treatment': ['q2_31', 'q2_31a', 'q2_31b', 'q2_31c', 'q2_31d', 'q2_31e'],
   'UK driving licence': ['q2_30', 'q2_30a'],
   'Visa and application reference numbers, immigration history': ['q7_1', 'q7_2a', 'q7_2b', 'q7_2c', 'q7_3', 'q7_3b', 'q7_3c', 'q7_3d', 'q7_3e', 'q7_3f', 'q7_6', 'q7_6b', 'q7_6c', 'q7_6d', 'q7_7', 'q7_7a', 'q7_7b', 'q7_7c', 'q7_7d', 'q7_5a'],
+  'Places the applicant plans to visit, and who they stay with (only the itinerary reads them, as places and dates)': ['q6_7e', 'q6_7e_other', 'q10_28', 'q10_28a', 'q10_28a_other', 'q10_28b', 'q10_28c'],
   'People as individuals (only counts are used): companions, group organiser, dependants, parents, relatives in the UK, payers\' names': ['q1_2a', 'q1_2b', 'q1_3a', 'q1_3b', 'q1_3c', 'q1_3d', 'q1_3e', 'q4_7a', 'q4_7b', 'q4_7c', 'q4_7d', 'q4_7e', 'q4_7f', 'q4_8g', 'q4_8a', 'q4_8b', 'q4_8c', 'q4_8d', 'q4_8e', 'q4_8f', 'q4_8h', 'q4_8i', 'q6_5c', 'q6_6', 'q6_6b', 'q6_6c', 'q6_6d', 'q6_6e', 'q6_6f', 'q6_6g'],
   'Employer details other than the placeholder; earlier employer; how they are supported': ['q5_5', 'q5_9', 'q5_1k', 'q5_1l'],
   'Public funds received': ['q6_8', 'q6_8b', 'q6_8c', 'q6_8d', 'q6_8e'],
@@ -211,7 +217,9 @@ function validateAllowlist(specs = SPECS, cfg = engine.config, rules = COVER_LET
     const readIds = spec.kind === 'list' ? (spec.fields || []).map((field) => field.id) : (spec.id ? [spec.id] : []);
     for (const id of readIds) {
       const read = engine.getQuestion(cfg, id);
-      if (read && read.allowOther === true && spec.kind !== 'value') problems.push(`${id}: allows Other, which only a value fact can carry`);
+      // (A places-of-stay fact reads the choice of its place and of who the traveller stays with, and passes the words written under Other of the place as data.)
+      const stayChoice = spec.kind === 'stays' && (id === spec.placeId || id === spec.withId);
+      if (read && read.allowOther === true && spec.kind !== 'value' && !stayChoice) problems.push(`${id}: allows Other, which only a value fact can carry`);
     }
     for (const id of idsOfSpec(spec)) {
       const question = engine.getQuestion(cfg, id);
@@ -521,24 +529,57 @@ function buildFactsFor(specs, rules, cfg, answers, options = {}) {
         break;
       }
       case 'stays': {
-        // The places of stay, for the itinerary: the town of each address (the same "is this a town" check as the towns above, never
-        // anything else of the address) and the two dates. An entry without both dates is not a stay we can place. Its `place` is a name
-        // of the fixed list, else the plain town as typed, else null (the stay then has no place we can name).
+        // The places of stay (or the places the applicant plans to visit), for the itinerary: for a stay, the town of each address (the same
+        // "is this a town" check as the towns above, never anything else of the address); for a planned place, the place chosen from the list, or
+        // the words written under Other when (and only when) they are the name of a town or city; and the two dates. An entry without both
+        // dates is not a place we can put on a day. Its `place` is a name of the fixed list, else the plain town as typed, else null (it then
+        // has no place we can name). The words written under Other travel only as a delimited data block, never in a heading or a line.
         if (spec.gate) { const gate = visibleValue(cfg, spec.gate, safeAnswers, null); if (!gate || gate.raw !== true) break; }
         const ISO = /^\d{4}-\d{2}-\d{2}$/;
+        const prefix = spec.prefix || 'Stay';
         const stays = [];
         for (const entry of entriesOf(spec.group).slice(0, spec.max)) {
           const from = visibleValue(cfg, spec.fromId, safeAnswers, entry);
           const to = visibleValue(cfg, spec.toId, safeAnswers, entry);
           if (!from || !to || typeof from.raw !== 'string' || typeof to.raw !== 'string' || !ISO.test(from.raw) || !ISO.test(to.raw)) continue;
-          const found = visibleValue(cfg, spec.townId, safeAnswers, entry);
-          const typed = found && isObject(found.raw) && typeof found.raw.town === 'string' ? found.raw.town.trim() : '';
-          const town = typed && !NOT_A_TOWN.test(typed) ? cleanFreeText(typed, tokens, redactions) : null;
-          stays.push({ town: town || null, place: town ? placeOfTown(town) : null, from: from.raw, to: to.raw, fromText: describe(from, entry), toText: describe(to, entry) });
+          let town = null;
+          let place = null;
+          let written = false;
+          if (spec.placeId) {
+            const chosen = visibleValue(cfg, spec.placeId, safeAnswers, entry);
+            if (chosen && typeof chosen.raw === 'string') {
+              if (engine.isOtherChosen(chosen.question, chosen.raw)) {
+                const typed = engine.writtenOther(cfg, chosen.question, safeAnswers, entry);
+                if (typed && isTownName(typed)) {
+                  town = cleanFreeText(typed, tokens, redactions);
+                  place = isTownName(town) ? placeOfTown(town) : null;
+                  written = place !== null && !PLACES.includes(place);
+                }
+              } else if (PLACES.includes(chosen.raw)) {
+                town = chosen.raw;
+                place = chosen.raw;
+              }
+            }
+          } else {
+            const found = visibleValue(cfg, spec.townId, safeAnswers, entry);
+            const typed = found && isObject(found.raw) && typeof found.raw.town === 'string' ? found.raw.town.trim() : '';
+            town = typed && !NOT_A_TOWN.test(typed) ? cleanFreeText(typed, tokens, redactions) : null;
+            place = town ? placeOfTown(town) : null;
+          }
+          // Who the traveller stays with, in neutral words only (never the words they typed under Other).
+          const withChoice = spec.withId ? visibleValue(cfg, spec.withId, safeAnswers, entry) : null;
+          const withWords = withChoice && typeof withChoice.raw === 'string' && Object.prototype.hasOwnProperty.call(WITH_WORDS, withChoice.raw) ? WITH_WORDS[withChoice.raw] : null;
+          const stay = { town: town || null, place, from: from.raw, to: to.raw, fromText: describe(from, entry), toText: describe(to, entry) };
+          if (spec.placeId) stay.source = 'place';
+          if (written) { stay.written = true; stay.label = `${prefix} ${stays.length + 1} written by the applicant`; }
+          if (withWords) stay.withWords = withWords;
+          stays.push(stay);
         }
         if (stays.length) {
           rawValues[spec.key] = stays;
-          add(spec, stays.map((s, i) => `Stay ${i + 1}: ${s.place || 'place not given'}, from ${s.fromText} to ${s.toText}`));
+          add(spec, stays.map((s, i) => `${prefix} ${i + 1}: ${s.written ? 'a place written by the applicant (see the written places)' : s.place || 'place not given'}, from ${s.fromText} to ${s.toText}${s.withWords ? `, ${s.withWords}` : ''}`));
+          const writtenPlaces = stays.map((s, i) => (s.written ? `${prefix} ${i + 1}: ${s.place}` : null)).filter(Boolean);
+          if (writtenPlaces.length) add({ key: `${spec.key}Written`, section: spec.section, label: 'Places written by the applicant', kind: 'text' }, writtenPlaces.join('\n'), { free: true, data: true });
         }
         break;
       }

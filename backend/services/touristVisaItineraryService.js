@@ -47,7 +47,7 @@ const startOfUtcDay = (date) => new Date(Date.UTC(date.getUTCFullYear(), date.ge
 
 const BLOCKER_MESSAGES = {
   ITINERARY_DATES_MISSING: "The itinerary needs the arrival and departure dates. Fix the answers to the questions listed, then try again.",
-  ITINERARY_STAYS_INVALID: "The places of stay cannot make an itinerary (each stay must leave after it arrives, stay inside the dates of the visit, and not overlap another stay). Fix the answers to the questions listed, then try again.",
+  ITINERARY_STAYS_INVALID: "The places of stay cannot make an itinerary (each stay, or place to visit, must leave on or after it arrives, stay inside the dates of the visit, and not overlap another). Fix the answers to the questions listed, then try again.",
   ITINERARY_DATES_INVALID: "The arrival and departure dates cannot make an itinerary (the departure must not be before the arrival, and the visit can be at most six months). Fix the answers to the questions listed, then try again.",
 };
 

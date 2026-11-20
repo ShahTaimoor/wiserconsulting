@@ -32,6 +32,7 @@ const SECTIONS = (given = 'Testfirst', family = 'Testlast', email = 'test.applic
   ['10A', { q10_1: ['conviction'], q10_1a: SECRET_DETAILS }],
   ['10B', {}],
   ['10C', { q10_4: 'other', q10_4a: 'Sindhi', q10_5: true, q10_5a: SECRET_NI }],
+  ['10E', { q10_28: false }], // 6.7 is No above, so 10.28 (do you know the places you will visit) is asked; No leaves the places out
 ];
 
 /** All the answers of a complete application as one object (what the server stores, decrypted). */

@@ -42,6 +42,13 @@ function oldConfig() {
   const cfg = clone(realConfig);
   cfg.version = '1.4.1';
   cfg.questions = cfg.questions.filter((q) => q.type !== 'FILE' || q.slot === 'passport' || q.slot === 'funds');
+  // ... and without what config 1.6.0 added (6.7e, and the section of the planned places), which an application of that time never had
+  const NEW = ['q6_7e', 'q6_7e_other', 'q10_28', 'q10_28a', 'q10_28a_other', 'q10_28b', 'q10_28c'];
+  cfg.questions = cfg.questions.filter((q) => !NEW.includes(q.id));
+  cfg.sections = cfg.sections.filter((s) => s.id !== '10E');
+  cfg.groups = cfg.groups.filter((g) => g.id !== 'plannedPlaces');
+  for (const g of cfg.groups) g.questions = g.questions.filter((id) => !NEW.includes(id));
+  cfg.questions.find((q) => q.id === 'q6_7y').showWhen = { q: 'q6_7', eq: false };
   // the order it had then: passport first, funds second
   const files = cfg.questions.filter((q) => q.type === 'FILE');
   const [funds, passport] = [files.find((q) => q.slot === 'funds'), files.find((q) => q.slot === 'passport')];
@@ -163,6 +170,7 @@ async function draft(employment = RETIRED) {
   const created = await api('POST', '/applications', { token: person.token });
   const appId = created.json.data.application.id;
   for (const [id, answers] of SECTIONS()) {
+    if (!applicationService.config.sections.some((s) => s.id === id)) continue; // an older config has no section 10E (the places they plan to visit)
     const res = await put(person.token, id, id === '5' ? employment : answers);
     assert.equal(res.status, 200, `${id}: ${JSON.stringify(res.json)}`);
   }
@@ -471,7 +479,11 @@ test('a draft that already had passport and funds files keeps them; the new need
   assert.equal(app.documents.length, 2, 'the files stay');
   assert.equal(app.documentsComplete, false);
   assert.equal(app.sectionStatus['10D'], 'in_progress');
-  assert.equal(problems10D(await submit(person.token)).problems, 6, 'the six new shared documents');
+  const refused = await submit(person.token);
+  assert.equal(problems10D(refused).problems, 6, 'the six new shared documents');
+  // 6.7 is No in this application, so the new section of the places they plan to visit (config 1.6.0) is asked of this draft too: expected.
+  assert.deepEqual((refused.json.sections || []).find((s) => s.id === '10E'), { id: '10E', problems: 1 });
+  assert.equal((await put(person.token, '10E', { q10_28: false })).status, 200);
   await uploadAll(person.token, neededSlots({ employment: 'retired' }).filter((s) => s !== 'passport' && s !== 'funds'));
   assert.equal((await submit(person.token)).status, 200);
 });

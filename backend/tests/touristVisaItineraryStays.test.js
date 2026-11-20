@@ -25,7 +25,7 @@ const SUBMITTED = new Date('2026-11-03T10:00:00Z');
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const ENV = { AI_ENABLED: 'true', AI_PROVIDER: 'groq', GROQ_API_KEY: 'gsk_fake_itinerary_key', NODE_ENV: 'test' };
 
-const stay = (town, from, to, extra = {}) => ({ q6_7a: 'SECRET-HOTEL-NAME', q6_7b: { line1: 'SECRET-STREET 12', town, postcode: 'SECRET-POSTCODE', country: 'GB' }, q6_7c: from, q6_7d: to, ...extra });
+const stay = (town, from, to, extra = {}) => ({ q6_7a: 'SECRET-HOTEL-NAME', q6_7b: { line1: 'SECRET-STREET 12', town, postcode: 'SECRET-POSTCODE', country: 'GB' }, q6_7c: from, q6_7d: to, q6_7e: 'family', ...extra });
 const trip = (accommodation, extra = {}) => ({
   q1_1: 'tourism', q1_4: 'holiday', q1_5: 'Nothing specific.', q1_6: '2027-03-15', q1_7: '2027-03-25', q2_1: 'Test', q2_2: 'Person', q6_7: true, accommodation, ...extra,
 });
