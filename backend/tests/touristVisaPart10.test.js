@@ -93,6 +93,8 @@ const CHOICES = [
   ['out_of_court', 'q10_1d'], ['civil_judgment', 'q10_1e'], ['immigration_penalty', 'q10_1f'],
 ];
 const SECTIONS10 = [['10A', S10A], ['10B', {}], ['10C', S10C]];
+// The application below has 6.7 No, which opens 10E (the places they plan to visit): it is answered No, and then the documents section is the one to resume on.
+const S10E = ['10E', { q10_28: false }];
 
 // Parts 1 to 9, for the "application saved before Part 10" tests.
 const ADDRESS = { line1: '1 Test Street', town: 'Testville', country: 'GB' };
@@ -366,7 +368,7 @@ test('an application saved before Part 10: its answers, ticks and statuses are u
   assert.equal(app.currentSection, '10A');
   assert.equal(Object.keys(app.answers).some((id) => id.startsWith('q10_')), false);
 
-  for (const [section, answers] of SECTIONS10) assert.equal((await put(token, section, answers)).status, 200, section);
+  for (const [section, answers] of [...SECTIONS10, S10E]) assert.equal((await put(token, section, answers)).status, 200, section);
   const after = await rawDoc(appId);
   for (const [id, value] of Object.entries(before.answers)) assert.deepEqual(after.answers[id], value, `${id} is unchanged`);
   assert.deepEqual(after.declarations, before.declarations, 'Part 10 has no declaration ticks, so no record is added');
@@ -382,7 +384,7 @@ test('an application saved before Part 10: its answers, ticks and statuses are u
 test('Part 10 sections can be saved in any order, an unknown section is still a 404 and an unknown key still a 400', async () => {
   const { token } = await start();
   for (const [section, answers] of [...SECTIONS10].reverse()) assert.equal((await put(token, section, answers)).status, 200, section);
-  assert.equal((await put(token, '10E', {})).status, 404);
+  assert.equal((await put(token, '10F', {})).status, 404);
   assert.equal((await put(token, '10D', {})).status, 400, 'the documents section has no answers to save');
   assert.equal((await put(token, '10A', { ...S10A, q10_99: true })).status, 400);
   assert.equal((await put(token, '10A', { ...S10A, q10_4: 'english' })).status, 400, 'a question of another section is not accepted here');

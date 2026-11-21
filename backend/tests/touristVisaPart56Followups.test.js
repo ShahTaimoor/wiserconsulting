@@ -99,7 +99,7 @@ const PAYER = { q6_5b: 'relative', q6_5c: 'Testpayer', q6_5d: 'parent', q6_5e: '
 const RELATIVE = { q6_6b: 'sibling', q6_6c: 'Testrelative', q6_6d: 'Testsurname', q6_6e: '1985-04-02', q6_6f: 'GB', q6_6g: 'british_citizen' };
 const STAY = {
   q6_7a: 'Test Hotel', q6_7b: { line1: '2 Test Road', town: 'Testtown', country: 'GB' },
-  q6_7c: '2027-03-01', q6_7d: '2027-03-08',
+  q6_7c: '2027-03-01', q6_7d: '2027-03-08', q6_7e: 'family',
 };
 const FUNDS = { q6_8b: 'housing_benefit', q6_8c: '2023-01', q6_8d: '2023-06', q6_8e: gbp(250) };
 

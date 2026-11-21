@@ -144,6 +144,7 @@ const SECTIONS = [
   ['10A', { q10_1: ['conviction'], q10_1a: SECRET_DETAILS }],
   ['10B', {}],
   ['10C', { q10_4: 'english', q10_5: true, q10_5a: SECRET_NI }],
+  ['10E', { q10_28: false }], // 6.7 is No above, so 10.28 (do you know the places you will visit?) is asked
 ];
 
 /** Saves every section (except those named in `skip`) and uploads the two documents (unless `files` says otherwise). */

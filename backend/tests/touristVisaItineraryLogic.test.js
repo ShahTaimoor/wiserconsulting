@@ -299,7 +299,7 @@ test('template: with no place named it uses the city of the stay, else the plain
   assert.equal(checks.validateDescriptions(london, { mode: 'days', named: [], stay: ['London'] }).ok, true);
 
   // A town that is not on our list: read from the town of an address (a plain town), never from the free-text area.
-  const address = { q6_7a: 'A place', q6_7b: { line1: '1 Test Street', town: 'Reading', postcode: 'RG1 1AA', country: 'GB' }, q6_7c: '2027-03-15', q6_7d: '2027-04-02' };
+  const address = { q6_7a: 'A place', q6_7b: { line1: '1 Test Street', town: 'Reading', postcode: 'RG1 1AA', country: 'GB' }, q6_7c: '2027-03-15', q6_7d: '2027-04-02', q6_7e: 'family' };
   const town = build(base({ q1_5: 'Nothing specific.', q6_7: true, q6_7x: undefined, q6_7y: undefined, accommodation: [address] }));
   const reading = buildTemplateDescriptions(town, skeletonOf(town));
   assert.match(reading[0], /^Arrive in Reading/);
@@ -849,8 +849,8 @@ test('the template never uses the banned wording of the polish step, ends every 
 // Prompt version 3: specific but safe days; the repetition checks; British spelling
 // ---------------------------------------------------------------------------
 
-test('prompt version 4 (3 plus the places of stay): one or two specific, well-known sights a day, a landmark only when certain, never booked, ticketed, timed or priced', () => {
-  assert.equal(ITINERARY_PROMPT_VERSION, 4);
+test('prompt version 5 (3 plus the places of stay and of planned places): one or two specific, well-known sights a day, a landmark only when certain, never booked, ticketed, timed or priced', () => {
+  assert.equal(ITINERARY_PROMPT_VERSION, 5);
   assert.match(SYSTEM_PROMPT, /each ordinary day describes one or two specific, well-known sights or activities in that day's city, naming real landmarks \(such as a famous museum, castle, abbey, cathedral, park, market or historic street\), in plain factual wording/);
   assert.match(SYSTEM_PROMPT, /Name a landmark only if you are certain that it exists in that city; if you are not sure, describe the kind of place instead/);
   assert.match(SYSTEM_PROMPT, /Never present anything as booked, ticketed, timed or priced\./);

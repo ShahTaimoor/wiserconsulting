@@ -4,7 +4,7 @@
 import type { TouristVisaConfig } from './engine';
 import type { FactRules, FactSpec, Facts } from './coverLetterFacts';
 
-/** One place of stay (6.7): the town of its address (null when it is not a town), the place we can name for it (null when none) and the two dates. */
+/** One place of stay (6.7), or place the applicant plans to visit (10.28): the town of its address (null when it is not a town), the place we can name for it (null when none) and the two dates. */
 export interface Stay {
   town: string | null;
   place: string | null;
@@ -14,6 +14,14 @@ export interface Stay {
   /** The dates in words, "15 March 2027". */
   fromText: string;
   toText: string;
+  /** "place" for a place the applicant plans to visit (10.28), absent for a place of stay (6.7). */
+  source?: 'place';
+  /** True for a place the applicant wrote under Other (a town or city that is not on the list). */
+  written?: boolean;
+  /** For a written place, how the AI is told of it: "Place 2 written by the applicant" (never the words typed). */
+  label?: string;
+  /** Who the traveller stays with, in neutral words: "with family", "in a paid stay"... (a stay only). */
+  withWords?: string;
 }
 
 export type StayPlan =
@@ -52,3 +60,4 @@ export function stayRange(from: string, to: string): string;
 /** An ISO date as a day number (UTC), or null when it is not a real date. */
 export function dayNumber(value: unknown): number | null;
 export const STAY_QUESTIONS: ReadonlyArray<string>;
+export const PLACE_QUESTIONS: ReadonlyArray<string>;

@@ -120,8 +120,12 @@ test('planStays: no stay with a place is the trip alone; stays come back in date
 test('planStays: a stay that leaves before it arrives, starts before the visit, ends after it, or overlaps another is refused with the questions to fix', () => {
   const bad = (stays) => itinerary.planStays(stays, '2027-03-15', '2027-03-25');
   const refused = { mode: 'invalid', questions: ['6.7c', '6.7d'] };
+  // The places the applicant plans to visit (10.28) are stays from here on, and name their own questions.
+  const place = (name, from, to) => ({ ...S(name, from, to), source: 'place' });
+  assert.deepEqual(bad([place('London', '2027-03-18', '2027-03-15')]), { mode: 'invalid', questions: ['10.28b', '10.28c'] });
   assert.deepEqual(bad([S('London', '2027-03-18', '2027-03-15')]), refused, 'leaves before it arrives');
-  assert.deepEqual(bad([S('London', '2027-03-18', '2027-03-18')]), refused, 'leaves the day it arrives');
+  // Config 1.6.0: a place the traveller plans to visit may be left the day it is reached (a day trip), so one day is a usable place.
+  assert.equal(bad([S('London', '2027-03-18', '2027-03-18')]).mode, 'stays', 'leaves the day it arrives');
   assert.deepEqual(bad([S('London', '2027-03-10', '2027-03-18')]), refused, 'starts before the visit');
   assert.deepEqual(bad([S('London', '2027-03-20', '2027-03-30')]), refused, 'ends after the visit');
   assert.deepEqual(bad([S('London', '2027-03-15', '2027-03-20'), S('Oxford', '2027-03-19', '2027-03-22')]), refused, 'overlaps the one before');

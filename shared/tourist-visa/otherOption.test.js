@@ -19,7 +19,10 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
 const validate = (sectionId, incoming, existing, opts) => engine.validateSection(z, config, sectionId, incoming, existing, { today: '2026-10-28', ...opts });
 
 // The questions that get Other, and the ones that were left out on purpose (with the reason), as reported to the senior.
-const GETS_OTHER = ['q1_1', 'q1_2b', 'q1_3a', 'q1_4', 'q2_3c', 'q2_5', 'q2_8', 'q2_23c', 'q4_7a', 'q6_6b', 'q6_6g', 'q6_7x', 'q6_8b', 'q7_2b', 'q7_3c', 'q7_5a', 'q8_2b', 'q8_3b'];
+// 6.7e (who the traveller stays with, config 1.6.0) is one of them: its Other option is shown first. The 18 from config 1.4.0 keep Other last.
+const GETS_OTHER = ['q1_1', 'q1_2b', 'q1_3a', 'q1_4', 'q2_3c', 'q2_5', 'q2_8', 'q2_23c', 'q4_7a', 'q6_6b', 'q6_6g', 'q6_7x', 'q6_7e', 'q6_8b', 'q7_2b', 'q7_3c', 'q7_5a', 'q8_2b', 'q8_3b'];
+// 10.28a (config 1.6.0) takes its options from the list of places, so its Other is added by the engine, first, and its box asks for a town or city.
+const GETS_OTHER_PLACES = ['q10_28a'];
 const LEFT_OUT = {
   q2_9: 'its options are the email addresses the applicant entered',
   q2_10: 'its options are the email addresses the applicant entered',
@@ -55,9 +58,9 @@ const S8 = { q8_1: 0, q8_2: true, q8_3: false, otherCountryTrips: [TRIP] };
 // ---------------------------------------------------------------------------
 
 test('config 1.4.0: exactly the chosen list questions allow Other, and each has the option with the value "other"', () => {
-  assert.equal(config.version, '1.5.0');
+  assert.equal(config.version, '1.6.0');
   const allowing = config.questions.filter((q) => q.allowOther).map((q) => q.id);
-  assert.deepEqual(allowing, GETS_OTHER);
+  assert.deepEqual(allowing, [...GETS_OTHER, ...GETS_OTHER_PLACES]);
   for (const id of GETS_OTHER) {
     const q = engine.getQuestion(config, id);
     assert.ok(['SEL', 'CHK'].includes(q.type), id);
@@ -82,7 +85,7 @@ test('config 1.4.0: no Yes/No question and no country selector allows Other, and
 
 test('config 1.4.0: every list question is either given Other or listed as left out, with a reason (nothing is forgotten)', () => {
   const listLike = config.questions.filter((q) => !q.otherOf && (q.type === 'SEL' || q.type === 'CHK'));
-  const unclassified = listLike.filter((q) => !GETS_OTHER.includes(q.id) && !(q.id in LEFT_OUT)).map((q) => q.id);
+  const unclassified = listLike.filter((q) => !GETS_OTHER.includes(q.id) && !GETS_OTHER_PLACES.includes(q.id) && !(q.id in LEFT_OUT)).map((q) => q.id);
   assert.deepEqual(unclassified, [], 'a list question was neither given Other nor excluded on purpose');
 });
 
@@ -114,7 +117,7 @@ test('expandOther: does not change what it is given, can be run again, and adds 
   const before = JSON.stringify(raw);
   const once = engine.expandOther(raw);
   assert.equal(JSON.stringify(raw), before, 'the input is untouched');
-  assert.equal(once.questions.length, raw.questions.length + GETS_OTHER.length);
+  assert.equal(once.questions.length, raw.questions.length + GETS_OTHER.length + GETS_OTHER_PLACES.length);
   assert.equal(engine.expandOther(once), once, 'an expanded config is returned as it is');
   const none = clone(raw);
   for (const q of none.questions) delete q.allowOther;
@@ -464,7 +467,9 @@ test('the questions the cover letter and the itinerary read that allow Other are
   const readByCover = cover.allowedIds().filter((id) => engine.getQuestion(config, id).allowOther);
   assert.deepEqual(readByCover.sort(), ['q1_1', 'q1_4', 'q6_7x']);
   const readByItinerary = itinerary.allowedIds().filter((id) => engine.getQuestion(config, id).allowOther);
-  assert.deepEqual(readByItinerary.sort(), ['q1_1', 'q1_4', 'q6_7x']);
+  // The itinerary alone also reads who the traveller stays with (6.7e) and the places they plan to visit (10.28a), as choices: what is written under Other is
+  // never read for 6.7e, and for 10.28a only when it is the name of a town or city, and then as data.
+  assert.deepEqual(readByItinerary.sort(), ['q10_28a', 'q1_1', 'q1_4', 'q6_7e', 'q6_7x']);
   // None of the payer questions (read inline in the letter) has Other: that is why they were left out.
   for (const id of ['q6_5b', 'q6_5d', 'q6_5g']) assert.equal(engine.getQuestion(config, id).allowOther, undefined, id);
 });
@@ -479,6 +484,7 @@ test('a config from before Other (no allowOther, no text boxes) still validates,
   old.questions = old.questions.filter((q) => !q.otherOf);
   for (const q of old.questions) {
     delete q.allowOther;
+    delete q.otherPosition; delete q.otherKind; delete q.otherLabel; // the 1.6.0 settings of Other are not known there either
     if (q.id === 'q1_1') q.options.find((o) => o.value === 'other').label = 'Another reason';
   }
   for (const g of old.groups) g.questions = g.questions.filter((id) => !id.endsWith('_other'));

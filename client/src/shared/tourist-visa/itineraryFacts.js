@@ -51,14 +51,17 @@ const SPECS = Object.freeze([
   pick('accommodationArea'),
   pick('accommodationTowns'),
   // The places of stay (6.7b to 6.7d): the town of each address and the arrival and leaving dates, nothing else of the entry.
-  { key: 'stays', section: 'Where they will stay in the UK', label: 'Places of stay, with dates', kind: 'stays', group: 'accommodation', gate: 'q6_7', townId: 'q6_7b', fromId: 'q6_7c', toId: 'q6_7d', max: 20, fields: [{ id: 'q6_7b' }, { id: 'q6_7c' }, { id: 'q6_7d' }] },
+  // `withId` (6.7e, who they stay with) only exists in the configs from 1.6.0: an older config simply has no such word (optionalIds).
+  { key: 'stays', section: 'Where they will stay in the UK', label: 'Places of stay, with dates', kind: 'stays', group: 'accommodation', gate: 'q6_7', townId: 'q6_7b', fromId: 'q6_7c', toId: 'q6_7d', withId: 'q6_7e', optionalIds: ['q6_7e'], max: 20, fields: [{ id: 'q6_7b' }, { id: 'q6_7c' }, { id: 'q6_7d' }, { id: 'q6_7e' }] },
+  // The places an applicant with no address (6.7 No) says they will visit, with dates: they behave exactly like the places of stay.
+  { key: 'plannedPlaces', section: 'Places they plan to visit', label: 'Places they plan to visit, with dates', kind: 'stays', prefix: 'Place', group: 'plannedPlaces', gate: 'q10_28', placeId: 'q10_28a', fromId: 'q10_28b', toId: 'q10_28c', max: 10, fields: [{ id: 'q10_28a' }, { id: 'q10_28b' }, { id: 'q10_28c' }] },
 ].map((spec) => Object.freeze({ ...spec })));
 
 /** The derived fact: the places named, in order. Not a question of its own. */
 const PLACES_SPEC = Object.freeze({ key: 'places', section: 'The visit', label: 'Places the applicant named, in order', kind: 'value', oneLine: true });
 
 /** The only sections the itinerary reads. */
-const ALLOWED_SECTIONS = Object.freeze(['1', '6C']);
+const ALLOWED_SECTIONS = Object.freeze(['1', '6C', '10E']);
 
 /** Whole sections that can never feed it, by what they hold (for the handover and the tests). */
 const EXCLUDED_SECTIONS = Object.freeze({
@@ -119,10 +122,20 @@ function validateItineraryAllowlist(specs = SPECS, cfg = engine.config) {
  *   places   the well-known places named in the trip description, in order (also a line in the facts, when there are any)
  * `raw.arrival` and `raw.departure` are the stored dates (or missing).
  */
+/** A spec without the questions it can do without (optionalIds) that the given config does not have. */
+function trimSpec(spec, cfg) {
+  if (!Array.isArray(spec.optionalIds)) return spec;
+  const missing = spec.optionalIds.filter((id) => !engine.getQuestion(cfg, id));
+  if (!missing.length) return spec;
+  const copy = { ...spec, fields: (spec.fields || []).filter((field) => !missing.includes(field.id)) };
+  if (missing.includes(spec.withId)) delete copy.withId;
+  return Object.freeze(copy);
+}
+
 function buildItineraryFacts(cfg, answers, options = {}) {
   // An application keeps the config it was submitted under, so an allowlist question that config does not have is simply not read (never a
   // refusal to run): the facts are the ones that config can give. The real config is checked in full by validateItineraryAllowlist.
-  const specs = SPECS.filter((spec) => cover.allowedIds([spec]).every((id) => engine.getQuestion(cfg, id)));
+  const specs = SPECS.map((spec) => trimSpec(spec, cfg)).filter((spec) => cover.allowedIds([spec]).every((id) => engine.getQuestion(cfg, id)));
   const facts = cover.buildFactsFor(specs, ITINERARY_RULES, cfg, answers, {
     ...options,
     derive: ({ values, add }) => {
@@ -133,7 +146,8 @@ function buildItineraryFacts(cfg, answers, options = {}) {
   facts.places = Array.isArray(facts.values.places) ? facts.values.places : [];
   // The places of stay as { town, place, from, to, fromText, toText } (never sent as such: the AI gets the lines of the "stays" fact), and the
   // plan they make with the dates of the visit.
-  facts.stays = Array.isArray(facts.raw.stays) ? facts.raw.stays : [];
+  // The places of stay (6.7 Yes) or the places they plan to visit (6.7 No): the two never both have entries, and both are "stays" from here on.
+  facts.stays = [...(Array.isArray(facts.raw.stays) ? facts.raw.stays : []), ...(Array.isArray(facts.raw.plannedPlaces) ? facts.raw.plannedPlaces : [])];
   facts.stayPlan = planStays(facts.stays, facts.raw.arrival, facts.raw.departure);
 
   // The AI does not need the applicant's name at all: no name line (a name part in the free text is still a token).
@@ -168,6 +182,8 @@ function stayRange(from, to) {
 
 /** The questions to fix when the stays contradict each other or the dates of the visit. */
 const STAY_QUESTIONS = Object.freeze(['6.7c', '6.7d']);
+/** The same for the places the applicant plans to visit (10.28), which are read as stays. */
+const PLACE_QUESTIONS = Object.freeze(['10.28b', '10.28c']);
 
 /**
  * What the places of stay make of the visit, worked out again from the stored dates (never trusted):
@@ -184,11 +200,14 @@ function planStays(stays, arrival, departure) {
   const first = dayNumber(arrival);
   const last = dayNumber(departure);
   if (first === null || last === null || last < first) return { mode: 'trip' }; // the visit's own dates are refused elsewhere, with their own code
+  // The questions to fix are the ones of the kind of place it is: the places of stay (6.7c, 6.7d) or the places to visit (10.28b, 10.28c).
+  const fix = list.some((s) => s && s.source === 'place') ? PLACE_QUESTIONS : STAY_QUESTIONS;
   const sorted = list.map((s) => ({ ...s, a: dayNumber(s.from), b: dayNumber(s.to) })).sort((x, y) => (x.a === null ? Infinity : x.a) - (y.a === null ? Infinity : y.a));
   for (let i = 0; i < sorted.length; i += 1) {
     const s = sorted[i];
-    if (s.a === null || s.b === null || s.b <= s.a || s.a < first || s.b > last) return { mode: 'invalid', questions: [...STAY_QUESTIONS] };
-    if (i > 0 && s.a < sorted[i - 1].b) return { mode: 'invalid', questions: [...STAY_QUESTIONS] };
+    // A place may be left the day it is reached (a day trip): the form lets a planned place do so; a stay with an address always leaves after it arrives.
+    if (s.a === null || s.b === null || s.b < s.a || s.a < first || s.b > last) return { mode: 'invalid', questions: [...fix] };
+    if (i > 0 && s.a < sorted[i - 1].b) return { mode: 'invalid', questions: [...fix] };
   }
   return { mode: 'stays', stays: sorted.map(({ a, b, ...rest }) => rest) };
 }
@@ -221,6 +240,7 @@ module.exports = {
   stayRange,
   dayNumber,
   STAY_QUESTIONS,
+  PLACE_QUESTIONS,
   SPECS,
   PLACES_SPEC,
   ALLOWED_SECTIONS,
