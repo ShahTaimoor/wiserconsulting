@@ -64,6 +64,11 @@ const siteSettingsSchema = new mongoose.Schema(
     heroTabletPublicId: { type: String, default: null },
     heroDesktopUrl: { type: String, default: null },
     heroDesktopPublicId: { type: String, default: null },
+    // Several banner pictures per screen size (a slideshow). The single fields above are the older one-picture form: they are
+    // still read when a size has no list yet, and are moved into the list when the first extra picture is added.
+    heroMobileImages: { type: [{ url: String, publicId: String }], default: [] },
+    heroTabletImages: { type: [{ url: String, publicId: String }], default: [] },
+    heroDesktopImages: { type: [{ url: String, publicId: String }], default: [] },
     socialLinks: {
       type: socialLinksSchema,
       default: {},

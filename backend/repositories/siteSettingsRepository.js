@@ -41,14 +41,50 @@ class SiteSettingsRepository {
     return settings;
   }
 
-  /** Sets or clears (url = null) the hero banner picture of one screen size: "mobile", "tablet" or "desktop". */
+  /** Clears (url = null) the hero banner of one screen size: the older single picture and the whole list. */
   async updateHeroBanner(device, url, publicId) {
     const prefix = `hero${device.charAt(0).toUpperCase()}${device.slice(1)}`;
+    const set = { [`${prefix}Url`]: url, [`${prefix}PublicId`]: publicId };
+    if (url === null) set[`${prefix}Images`] = [];
     const settings = await SiteSettings.findOneAndUpdate(
       {},
-      { $set: { [`${prefix}Url`]: url, [`${prefix}PublicId`]: publicId } },
+      { $set: set },
       { new: true, upsert: true, setDefaultsOnInsert: true },
     );
+
+    if (!settings) {
+      throw new AppError("Site settings not found", 404);
+    }
+
+    return settings;
+  }
+
+  /**
+   * Adds one picture to the list of a screen size. `legacy` ({ url, publicId }) is the older single picture of that size, when it is
+   * the only one so far: it is moved into the list (first) and its single fields are cleared.
+   */
+  async addHeroImage(device, url, publicId, legacy = null) {
+    const prefix = `hero${device.charAt(0).toUpperCase()}${device.slice(1)}`;
+    const items = [...(legacy ? [{ url: legacy.url, publicId: legacy.publicId }] : []), { url, publicId }];
+    const update = { $push: { [`${prefix}Images`]: { $each: items } } };
+    if (legacy) update.$set = { [`${prefix}Url`]: null, [`${prefix}PublicId`]: null };
+    const settings = await SiteSettings.findOneAndUpdate({}, update, { new: true, upsert: true, setDefaultsOnInsert: true });
+
+    if (!settings) {
+      throw new AppError("Site settings not found", 404);
+    }
+
+    return settings;
+  }
+
+  /** Removes one picture of a screen size: an item of the list by its id, or the older single picture (imageId "legacy"). */
+  async removeHeroImage(device, imageId) {
+    const prefix = `hero${device.charAt(0).toUpperCase()}${device.slice(1)}`;
+    const update =
+      imageId === "legacy"
+        ? { $set: { [`${prefix}Url`]: null, [`${prefix}PublicId`]: null } }
+        : { $pull: { [`${prefix}Images`]: { _id: imageId } } };
+    const settings = await SiteSettings.findOneAndUpdate({}, update, { new: true, upsert: true, setDefaultsOnInsert: true });
 
     if (!settings) {
       throw new AppError("Site settings not found", 404);

@@ -5,6 +5,12 @@ interface SocialLinks {
   instagram?: string;
 }
 
+/** One banner picture of a screen size (the older single picture of a size is shown with the id "legacy" by the admin screen). */
+export interface HeroImage {
+  _id: string;
+  url: string;
+}
+
 export interface SiteSettings {
   websiteTitle: string;
   emailAddress: string;
@@ -14,6 +20,9 @@ export interface SiteSettings {
   heroMobileUrl?: string | null;
   heroTabletUrl?: string | null;
   heroDesktopUrl?: string | null;
+  heroMobileImages?: HeroImage[];
+  heroTabletImages?: HeroImage[];
+  heroDesktopImages?: HeroImage[];
   socialLinks?: SocialLinks;
   stat1Value?: string;
   stat1Label?: string;
@@ -71,6 +80,15 @@ export const siteSettingsService = {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
       body: formData,
+    });
+    const json = await assertResponse(response);
+    return json.data;
+  },
+
+  async removeHeroImage(device: HeroBannerDevice, imageId: string, token: string): Promise<SiteSettings> {
+    const response = await fetch(`${API_URL}/site-settings/hero-banner/${device}/${encodeURIComponent(imageId)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
     });
     const json = await assertResponse(response);
     return json.data;
