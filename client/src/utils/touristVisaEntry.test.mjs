@@ -490,12 +490,12 @@ test("POPUP: open, UK tourist visa, assessment sent: the panel with the button r
 
 test("POPUP: loading, closed or failed, or another visa, or no success yet: exactly as before (the form, and the three-second close after success)", () => {
   for (const availability of ["loading", "closed"]) {
-    const sent = popup({ availability, success: "Your assessment was submitted." });
+    const sent = popup({ availability, success: "Your assessment was submitted.", user: USER });
     assert.equal(sent.html.includes("Continue to your full application"), false, availability);
     assert.equal(sent.html.includes("full-application-panel"), false);
     assert.equal(sent.html.includes('id="assessment-form"'), true, "the form is still there");
     assert.deepEqual(sent.timeouts, [3000], `${availability}: it still closes after three seconds`);
-    const idle = popup({ availability, success: null });
+    const idle = popup({ availability, success: null, user: USER });
     assert.equal(idle.html.includes("Continue to your full application"), false);
     assert.deepEqual(idle.timeouts, []);
   }

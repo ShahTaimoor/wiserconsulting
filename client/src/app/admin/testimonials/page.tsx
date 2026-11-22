@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus, BadgeCheck, BadgeX, Star } from "lucide-react";
+import { Pencil, Trash2, Plus, Star } from "lucide-react";
 import { testimonialService, Testimonial } from "@/services/testimonialService";
+import { SheetPage, SheetToolbar, SheetTable, SheetMessage, SheetLoading, SheetButton, Thead, Th, Tr, Td, EmptyRow, Pill, sheetInput } from "@/components/admin/Sheet";
 import TestimonialFormModal from "@/components/admin/TestimonialFormModal";
 import { getInitials } from "@/lib/utils";
 
@@ -111,131 +112,96 @@ const AdminTestimonials = () => {
 
   if (!mounted || loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading testimonials...</p>
-        </div>
-      </div>
+      <SheetPage title="Client Testimonials">
+        <SheetLoading label="Loading testimonials..." />
+      </SheetPage>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center"><p className="text-red-600">{error}</p></div>
-      </div>
+      <SheetPage title="Client Testimonials">
+        <SheetMessage>{error}</SheetMessage>
+      </SheetPage>
     );
   }
 
   return (
-    <div className="h-full bg-gray-100 p-4 sm:p-6 rounded-xl w-full">
-      <div className="max-w-7xl mx-auto w-full">
-        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6 w-full">
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Client Testimonials</h1>
-            <button
-              onClick={openAddModal}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-            >
-              <Plus className="h-4 w-4" />
-              Add Testimonial
-            </button>
-          </div>
-
-          {testimonials.length === 0 ? (
-            <div className="text-center py-16 text-gray-500">
-              No testimonials yet. Click &quot;Add Testimonial&quot; to create the first one.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {testimonials.map((testimonial) => (
-                <div
-                  key={testimonial._id}
-                  className={`relative rounded-xl border overflow-hidden bg-white shadow-sm transition ${
-                    testimonial.isActive ? "border-slate-200" : "border-slate-200 opacity-60"
-                  }`}
-                >
-                  <div className="relative h-40 w-full bg-slate-100">
+    <>
+      <SheetPage
+        title="Client Testimonials"
+        subtitle="Reviews shown on the public website. Hidden rows are not shown to visitors."
+        actions={
+          <SheetButton tone="primary" onClick={openAddModal} className="px-3 py-1.5">
+            <Plus className="h-4 w-4" /> Add Testimonial
+          </SheetButton>
+        }
+      >
+        <SheetTable count={testimonials.length} unit="testimonials" minWidth={900}>
+          <Thead>
+            <Th className="w-16">Photo</Th>
+            <Th>Client</Th>
+            <Th>Role</Th>
+            <Th className="w-20">Rating</Th>
+            <Th>Review</Th>
+            <Th className="w-28">Website</Th>
+            <Th className="w-44 text-center">Actions</Th>
+          </Thead>
+          <tbody>
+            {testimonials.length === 0 ? (
+              <EmptyRow colSpan={7}>No testimonials yet. Click &quot;Add Testimonial&quot; to create the first one.</EmptyRow>
+            ) : (
+              testimonials.map((testimonial, index) => (
+                <Tr key={testimonial._id} n={index + 1} muted={!testimonial.isActive}>
+                  <Td>
                     {testimonial.clientPhotoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={testimonial.clientPhotoUrl}
-                        alt={testimonial.clientName}
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={testimonial.clientPhotoUrl} alt={testimonial.clientName} className="h-10 w-10 rounded object-cover" />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-slate-200 text-2xl font-bold text-slate-500">
+                      <div className="flex h-10 w-10 items-center justify-center rounded bg-slate-200 text-xs font-bold text-slate-500">
                         {getInitials(testimonial.clientName)}
                       </div>
                     )}
-                    <div className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-white/95 px-2 py-1 text-[11px] font-bold text-slate-800 shadow-md">
-                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                  </Td>
+                  <Td className="font-medium">{testimonial.clientName}</Td>
+                  <Td className="text-slate-600">{testimonial.roleOrCaption || "-"}</Td>
+                  <Td>
+                    <span className="inline-flex items-center gap-1 font-semibold">
+                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                       {testimonial.rating}
-                    </div>
-                    <div className="absolute top-2 left-2">
-                      {testimonial.isActive ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-800 text-[10px] font-bold uppercase tracking-wide">
-                          <BadgeCheck className="h-3 w-3" /> Visible
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-wide">
-                          <BadgeX className="h-3 w-3" /> Hidden
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="p-4">
-                    <h3 className="font-bold text-gray-900 truncate">{testimonial.clientName}</h3>
-                    {testimonial.roleOrCaption && (
-                      <p className="text-sm text-gray-500 truncate">{testimonial.roleOrCaption}</p>
-                    )}
-                    <p className="mt-1 text-xs text-gray-400 line-clamp-2">{testimonial.reviewText}</p>
-
-                    <div className="mt-4 flex items-center gap-2">
-                      <button
-                        onClick={() => handleToggleActive(testimonial)}
-                        disabled={togglingId === testimonial._id}
-                        className={`flex-1 px-3 py-1.5 text-xs font-bold rounded-lg transition disabled:opacity-50 ${
-                          testimonial.isActive
-                            ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                            : "bg-green-600 text-white hover:bg-green-700"
-                        }`}
-                      >
+                    </span>
+                  </Td>
+                  <Td className="max-w-[320px]">
+                    <span className="line-clamp-2 text-slate-600">{testimonial.reviewText}</span>
+                  </Td>
+                  <Td>{testimonial.isActive ? <Pill tone="green">Visible</Pill> : <Pill tone="gray">Hidden</Pill>}</Td>
+                  <Td>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <SheetButton onClick={() => handleToggleActive(testimonial)} disabled={togglingId === testimonial._id} tone={testimonial.isActive ? "neutral" : "success"}>
                         {testimonial.isActive ? "Hide" : "Show"}
-                      </button>
-                      <button
-                        onClick={() => openEditModal(testimonial)}
-                        className="p-1.5 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition"
-                        aria-label="Edit"
-                      >
+                      </SheetButton>
+                      <SheetButton tone="dark" onClick={() => openEditModal(testimonial)} aria-label="Edit" title="Edit">
                         <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
+                      </SheetButton>
+                      <SheetButton
+                        tone={pendingDeleteId === testimonial._id ? "primary" : "danger"}
+                        className={pendingDeleteId === testimonial._id ? "!bg-red-600 hover:!bg-red-700" : ""}
                         onClick={() => handleDeleteClick(testimonial._id)}
                         onBlur={() => setPendingDeleteId((current) => (current === testimonial._id ? null : current))}
-                        className={`p-1.5 rounded-lg transition ${
-                          pendingDeleteId === testimonial._id
-                            ? "bg-red-600 text-white hover:bg-red-700"
-                            : "bg-red-50 text-red-600 hover:bg-red-100"
-                        }`}
                         aria-label={pendingDeleteId === testimonial._id ? "Confirm delete" : "Delete"}
                         title={pendingDeleteId === testimonial._id ? "Click again to confirm delete" : "Delete"}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                        {pendingDeleteId === testimonial._id && "Confirm"}
+                      </SheetButton>
                     </div>
-                    {pendingDeleteId === testimonial._id && (
-                      <p className="mt-2 text-[11px] text-red-600 font-medium">Click delete again to confirm.</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+                  </Td>
+                </Tr>
+              ))
+            )}
+          </tbody>
+        </SheetTable>
+      </SheetPage>
 
       <TestimonialFormModal
         isOpen={showModal}
@@ -243,7 +209,7 @@ const AdminTestimonials = () => {
         onSaved={handleSaved}
         editingTestimonial={editingTestimonial}
       />
-    </div>
+    </>
   );
 };
 
