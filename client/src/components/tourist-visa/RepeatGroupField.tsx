@@ -3,6 +3,9 @@
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { isVisible, resolveOptions } from "@/shared/tourist-visa/engine";
+import { rollingPeriods } from "@/shared/tourist-visa/funds";
+import { ENTRY_GRID_CLASS, cellClass, layoutCells } from "@/utils/touristVisaLayout";
+import { flowOfQuestion } from "@/utils/touristVisaMoney";
 import type { Answers, GroupEntry, Question, RepeatGroup, TouristVisaConfig } from "@/shared/tourist-visa/engine";
 import { subErrors as subErrorsFor } from "@/utils/touristVisaForm";
 import { DraftBadge, QuestionField, TbcBadge } from "./QuestionField";
@@ -38,6 +41,8 @@ export function RepeatGroupField({ cfg, group, members, entries: savedEntries, c
   const max = Math.min(group.max, cfg.limits.groupMax);
   const groupError = errors[group.id];
   const counted = count !== undefined;
+  // A group of rolling periods (the months of a bank statement) names the period of each entry: "Month 1 (20 May to 19 June)".
+  const periods = group.entryPeriod ? rollingPeriods(merged[group.entryPeriod.start], merged[group.entryPeriod.end], count ?? 0) : [];
   const entries = counted ? Array.from({ length: count }, (_, i) => savedEntries[i] ?? {}) : savedEntries;
 
   return (
@@ -63,6 +68,7 @@ export function RepeatGroupField({ cfg, group, members, entries: savedEntries, c
           <fieldset key={index} className={`relative min-w-0 space-y-4 rounded-lg border border-border bg-muted/30 p-4 ${removable ? "pt-12" : ""}`}>
             <legend className="mb-1 p-0 pr-24 text-sm font-semibold text-foreground">
               {group.entryLabel} {index + 1}
+              {periods[index] ? ` (${periods[index].label})` : ""}
             </legend>
             {removable && (
               <Button
@@ -77,25 +83,36 @@ export function RepeatGroupField({ cfg, group, members, entries: savedEntries, c
                 Remove
               </Button>
             )}
-            {members
-              .filter((member) => isVisible(cfg, member.id, merged as Answers, entry as GroupEntry))
-              .map((member) => {
-                const key = `${group.id}.${index}.${member.id}`;
+            <div className={ENTRY_GRID_CLASS}>
+              {layoutCells(members).map((cell) => {
+                const field = (member: Question) => {
+                  const key = `${group.id}.${index}.${member.id}`;
+                  return (
+                    <QuestionField
+                      key={member.id}
+                      cfg={cfg}
+                      question={member}
+                      idBase={`field-${group.id}-${index}-${member.id}`}
+                      value={entry[member.id]}
+                      onChange={(value) => onEntryChange(index, member.id, value)}
+                      options={resolveOptions(cfg, member.id, merged as Answers, entry as GroupEntry)}
+                      error={errors[key]}
+                      subErrors={subErrorsFor(errors, key)}
+                      previewMode={previewMode}
+                      flow={flowOfQuestion(member, entry)}
+                    />
+                  );
+                };
+                const companion = cell.companion && isVisible(cfg, cell.companion.id, merged as Answers, entry as GroupEntry) ? cell.companion : undefined;
+                if (!isVisible(cfg, cell.question.id, merged as Answers, entry as GroupEntry)) return null;
                 return (
-                  <QuestionField
-                    key={member.id}
-                    cfg={cfg}
-                    question={member}
-                    idBase={`field-${group.id}-${index}-${member.id}`}
-                    value={entry[member.id]}
-                    onChange={(value) => onEntryChange(index, member.id, value)}
-                    options={resolveOptions(cfg, member.id, merged as Answers, entry as GroupEntry)}
-                    error={errors[key]}
-                    subErrors={subErrorsFor(errors, key)}
-                    previewMode={previewMode}
-                  />
+                  <div key={cell.question.id} className={cellClass(cell, companion ? "space-y-4" : "")}>
+                    {field(cell.question)}
+                    {companion && field(companion)}
+                  </div>
                 );
               })}
+            </div>
           </fieldset>
         );
       })}

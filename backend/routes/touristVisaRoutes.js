@@ -16,6 +16,7 @@ const touristVisaOriginGuard = require('../middleware/touristVisaOriginGuard');
 const { submitLimiter } = require('../middleware/touristVisaLimits');
 const touristVisaAdminRoutes = require('./touristVisaAdminRoutes');
 const touristVisaRatesController = require('../controllers/touristVisaRatesController');
+const touristVisaFundsController = require('../controllers/touristVisaFundsController');
 const touristVisaErrorHandler = require('../middleware/touristVisaErrorHandler');
 const touristVisaFeatureGate = require('../middleware/touristVisaFeatureGate');
 const { isTouristVisaEnabled } = touristVisaFeatureGate;
@@ -45,6 +46,9 @@ router.use('/admin', isAdmin, touristVisaAdminRoutes);
 // Exchange rates for the currency helper: any signed-in user, behind the feature gate and the general rate limiter.
 // It takes no input and sends nothing about the user to any provider (services/touristVisaRatesService.js).
 router.get('/rates', touristVisaRatesController.get);
+
+// What the bank activity section needs to show (percentages and the floor): any signed-in user. Never the staff-only indicator's thresholds.
+router.get('/funds-settings', touristVisaFundsController.settings);
 
 // Create a draft application (or return the existing one)
 router.post(

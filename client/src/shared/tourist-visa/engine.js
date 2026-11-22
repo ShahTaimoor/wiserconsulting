@@ -16,6 +16,7 @@
 const rawConfig = require('./questions.json');
 const countries = require('./countries.json');
 const { PLACE_OPTIONS, isTownName } = require('./places');
+const funds = require('./funds');
 
 const TYPES = [
   'TXT', 'LNG', 'DATE', 'MY', 'NUM', 'DUR', 'AMT', 'YN',
@@ -30,6 +31,18 @@ const REQUIRED_MSG = 'This question is required';
 const FILE_SLOT_MAX_FILES = 20;
 const COUNTRY_CODES = new Set(countries.map((c) => c.code));
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+// Settings the config refers to by NAME (a derived condition's percentage): they are not in questions.json. The server sets them from
+// backend/config/touristVisaFunds.js; the form gets them from the server (so the numbers exist in one place only). Numbers only.
+let SETTINGS = Object.freeze({});
+function setSettings(values) {
+  const clean = {};
+  if (values && typeof values === 'object') for (const [key, value] of Object.entries(values)) if (typeof value === 'number' && Number.isFinite(value) && !UNSAFE_KEYS.has(key)) clean[key] = value;
+  SETTINGS = Object.freeze(clean);
+}
+function getSettings() {
+  return SETTINGS;
+}
 // rules.normalize: how a TXT answer is tidied before its pattern is checked and before it is stored.
 const NORMALIZERS = {
   uppercase_no_spaces: (s) => s.replace(/\s+/g, '').toUpperCase(),
@@ -78,6 +91,7 @@ function otherCompanionOf(q) {
     ...(q.group ? { group: q.group } : {}),
     showWhen: q.type === 'CHK' ? { q: q.id, includes: OTHER_VALUE } : { q: q.id, eq: OTHER_VALUE },
     rules: { maxLen: OTHER_MAX, pattern: { regex: OTHER_PATTERN.regex, message: OTHER_PATTERN.message }, ...(q.otherKind === 'town' ? { townName: true } : {}) },
+    ...(q.sensitive === true ? { sensitive: true } : {}),
     otherOf: q.id,
   };
 }
@@ -246,7 +260,27 @@ function groupGateOpen(cfg, group, flat) {
   return !!gate && isVisibleIn(cfg, gate, flat, null) && flat[group.gate] === true;
 }
 
+// Named derived conditions: a rule that is true or false from several answers and a setting, not from one answer. Pure; false whenever a piece is missing.
+const DERIVED_CONDITIONS = {
+  // The value is more than the setting's percent above the average of the total over the statement's months (a month of a statement far above the others).
+  aboveAverage(c, flat, entry) {
+    const percent = SETTINGS[c.setting];
+    if (typeof percent !== 'number') return false;
+    const months = funds.statementMonths(scopeGet(flat, entry, c.start), scopeGet(flat, entry, c.end), { min: c.min, max: c.max });
+    return funds.isAboveAverage(scopeGet(flat, entry, c.value), scopeGet(flat, entry, c.total), months, percent);
+  },
+};
+
+/** The number of entries a group with `countFrom` has, from the answers of its own section; undefined while it cannot be worked out. */
+function derivedCount(g, answers) {
+  const months = g && g.countFrom && g.countFrom.months;
+  if (!months || !answers) return undefined;
+  const n = funds.statementMonths(answers[months.start], answers[months.end], { min: months.min, max: months.max });
+  return n === null ? undefined : n;
+}
+
 function evalCondition(cfg, c, flat, entry) {
+  if (c.derived) return Object.prototype.hasOwnProperty.call(DERIVED_CONDITIONS, c.derived) ? DERIVED_CONDITIONS[c.derived](c, flat, entry) : false;
   if (c.all) return c.all.every((x) => evalCondition(cfg, x, flat, entry));
   if (c.any) return c.any.some((x) => evalCondition(cfg, x, flat, entry));
   if (c.not) return !evalCondition(cfg, c.not, flat, entry);
@@ -360,6 +394,7 @@ function conditionRefs(cond, out = []) {
   if (!cond || typeof cond !== 'object') return out;
   if (Array.isArray(cond.all) || Array.isArray(cond.any)) (cond.all || cond.any).forEach((c) => conditionRefs(c, out));
   else if (cond.not) conditionRefs(cond.not, out);
+  else if (typeof cond.derived === 'string') out.push(...[cond.value, cond.total, cond.start, cond.end].filter((id) => typeof id === 'string'));
   else if (typeof cond.q === 'string') out.push(cond.q);
   return out;
 }
@@ -384,6 +419,7 @@ function couldBeShown(cfg, c, flat, entry, want) {
   if (c.all) return want ? c.all.every((x) => couldBeShown(cfg, x, flat, entry, true)) : c.all.some((x) => couldBeShown(cfg, x, flat, entry, false));
   if (c.any) return want ? c.any.some((x) => couldBeShown(cfg, x, flat, entry, true)) : c.any.every((x) => couldBeShown(cfg, x, flat, entry, false));
   if (c.not) return couldBeShown(cfg, c.not, flat, entry, !want);
+  if (c.derived) return conditionRefs(c).some((id) => scopeGet(flat, entry, id) === undefined) || evalCondition(cfg, c, flat, entry) === want;
   if (scopeGet(flat, entry, c.q) === undefined) return true;
   return evalCondition(cfg, c, flat, entry) === want;
 }
@@ -600,6 +636,17 @@ function relationalIssues(cfg, q, value, flat, entry, today) {
     if (value > limit) issues.push({ path: [], message: 'Cannot be in the future' });
   }
 
+  // The period between a start date and this (end) date must cover a number of months in a range: the statement of "Your bank activity".
+  if (rules.periodMonths && typeof value === 'string') {
+    const startId = rules.periodMonths.start;
+    const ref = idx.byId.get(startId);
+    if (ref && isVisibleIn(cfg, ref, flat, entry)) {
+      const months = funds.monthsBetween(scopeGet(flat, entry, startId), value);
+      const { min, max } = rules.periodMonths;
+      if (months !== null && (months < min || months > max)) issues.push({ path: [], message: `The period must cover between ${min} and ${max} months` });
+    }
+  }
+
   // A look-back window ("in the past 10 years"), counted from today. A month and year is
   // accepted from the month `withinYears` ago, so the whole of that month counts.
   if (rules.withinYears && typeof value === 'string') {
@@ -705,10 +752,10 @@ function validateSection(z, cfg, sectionId, incoming, existing, opts) {
     const raw = cleaned[g.id];
     const max = Math.min(g.max || Infinity, (cfg.limits && cfg.limits.groupMax) || Infinity);
     const min = g.min || 1;
-    if (g.count) {
-      // The number of entries is whatever the count question says. When that question has no
-      // valid answer it shows its own error, so the group stays quiet.
-      const n = data[g.count];
+    if (g.count || g.countFrom) {
+      // The number of entries is whatever the count question says (or, for a group with countFrom, whatever the dates of the section make of it).
+      // When that has no valid answer it shows its own error, so the group stays quiet.
+      const n = g.count ? data[g.count] : derivedCount(g, data);
       if (!Number.isInteger(n)) continue;
       // The count may be larger than the group allows (7.5 takes up to 99 visits, 20 are listed):
       // then exactly `max` entries are asked for, the most recent ones.
@@ -802,6 +849,18 @@ function validateSection(z, cfg, sectionId, incoming, existing, opts) {
     }
   }
 
+  // Pass 3: the figures of the section must add up (cfg.checks). A check only runs when every figure it uses is there and valid.
+  for (const check of cfg.checks || []) {
+    if (check.section !== sectionId || errors[check.errorOn]) continue;
+    const left = checkSum(check.left, data);
+    const right = funds.amountOf(data[check.right]);
+    if (left === null || right === null) continue;
+    if (Math.abs(left - Math.round(right * 100)) > Math.round(check.tolerance * 100)) {
+      const say = (cents) => `${check.currency} ${funds.formatPkr(cents / 100)}`;
+      errors[check.errorOn] = check.message.replace('{left}', say(left)).replace('{right}', say(Math.round(right * 100)));
+    }
+  }
+
   return {
     success: Object.keys(errors).length === 0 && unknownKeys.length === 0,
     data,
@@ -809,6 +868,25 @@ function validateSection(z, cfg, sectionId, incoming, existing, opts) {
     removed,
     unknownKeys,
   };
+}
+
+/** The left side of a check in cents: the signed sum of its terms (an answer, or one answer of every entry of a group); null when a figure is missing. */
+function checkSum(terms, data) {
+  let total = 0;
+  for (const term of terms) {
+    if (term.group) {
+      const entries = data[term.group];
+      if (!Array.isArray(entries) || !entries.length) return null;
+      const sum = funds.sumCents(entries.map((entry) => (entry ? entry[term.q] : undefined)));
+      if (sum === null) return null;
+      total += term.sign * sum;
+    } else {
+      const n = funds.amountOf(data[term.q]);
+      if (n === null) return null;
+      total += term.sign * Math.round(n * 100);
+    }
+  }
+  return total;
 }
 
 // ---------------------------------------------------------------------------
@@ -974,8 +1052,22 @@ function validateConfig(cfg) {
 
   const checkCondition = (c, q, where, negated = false) => {
     if (!c || typeof c !== 'object') return err(`${where}: condition must be an object`);
-    const forms = ['all', 'any', 'not', 'q'].filter((k) => k in c);
-    if (forms.length !== 1) return err(`${where}: condition needs exactly one of all, any, not, q`);
+    const forms = ['all', 'any', 'not', 'q', 'derived'].filter((k) => k in c);
+    if (forms.length !== 1) return err(`${where}: condition needs exactly one of all, any, not, q, derived`);
+    if ('derived' in c) {
+      if (!Object.prototype.hasOwnProperty.call(DERIVED_CONDITIONS, c.derived)) return err(`${where}: unknown derived condition ${c.derived}`);
+      for (const key of ['value', 'total', 'start', 'end']) {
+        const ref = byId.get(c[key]);
+        if (!ref) err(`${where}: ${key} refers to unknown question ${c[key]}`);
+        else {
+          if ((key === 'start' || key === 'end') ? ref.type !== 'DATE' : ref.type !== 'AMT') err(`${where}: ${key} ${c[key]} must be a ${key === 'start' || key === 'end' ? 'DATE' : 'AMT'} question`);
+          if (order.get(c[key]) >= order.get(q.id)) err(`${where}: must refer to an earlier question than itself (${c[key]})`);
+        }
+      }
+      if (typeof c.setting !== 'string' || !c.setting) err(`${where}: needs the name of a setting`);
+      for (const key of ['min', 'max']) if (c[key] !== undefined && (!Number.isInteger(c[key]) || c[key] < 1)) err(`${where}: ${key} must be a whole number from 1`);
+      return undefined;
+    }
     if (c.all || c.any) {
       const list = c.all || c.any;
       if (!Array.isArray(list) || !list.length) return err(`${where}: all/any needs a non-empty array`);
@@ -1024,6 +1116,13 @@ function validateConfig(cfg) {
       else if (Array.isArray(q.options) && !q.options.some((opt) => opt.value === OTHER_VALUE)) err(`${w}: allowOther needs an option with the value "${OTHER_VALUE}"`);
       else if (Array.isArray(q.options) && q.options.some((opt) => opt.value === OTHER_VALUE && opt.exclusive)) err(`${w}: the Other option cannot be exclusive`);
       if (!/^q\d+_\d+[a-z]?$/.test(q.id)) err(`${w}: a question that allows Other must have an ordinary id`);
+    }
+    if (q.helper !== undefined && !['fundsLimits'].includes(q.helper)) err(`${w}: unknown helper ${q.helper}`);
+    if (q.flow !== undefined && (q.type !== 'AMT' || !['credit', 'debit'].includes(q.flow))) err(`${w}: flow must be "credit" or "debit" and only for an AMT question`);
+    if (q.flowFrom !== undefined) {
+      const from = byId.get(q.flowFrom);
+      if (q.type !== 'AMT' || q.flow !== undefined) err(`${w}: flowFrom is only for an AMT question without a flow of its own`);
+      else if (!from || from.type !== 'SEL' || from.group !== q.group || !Array.isArray(from.options) || !['credit', 'debit'].every((v) => from.options.some((o) => o.value === v))) err(`${w}: flowFrom ${q.flowFrom} must be a SEL question of the same group with the options credit and debit`);
     }
     for (const key of ['otherPosition', 'otherKind', 'otherLabel']) {
       if (q[key] !== undefined && q.allowOther !== true) err(`${w}: ${key} is only for a question that allows Other`);
@@ -1174,6 +1273,14 @@ function validateConfig(cfg) {
       }
     }
     if (r.durationMode !== undefined && !['single', 'parts'].includes(r.durationMode)) err(`${w}: rules.durationMode must be single or parts`);
+    if (r.periodMonths !== undefined) {
+      const pm = r.periodMonths || {};
+      const startQ = byId.get(pm.start);
+      if (q.type !== 'DATE') err(`${w}: rules.periodMonths needs a DATE question`);
+      if (!startQ || startQ.type !== 'DATE') err(`${w}: rules.periodMonths.start must be a DATE question`);
+      else if (order.get(startQ.id) >= order.get(q.id)) err(`${w}: rules.periodMonths.start must be an earlier question`);
+      if (!Number.isInteger(pm.min) || !Number.isInteger(pm.max) || pm.min < 1 || pm.max < pm.min) err(`${w}: rules.periodMonths needs whole numbers min (from 1) and max (at least min)`);
+    }
 
     if (q.group !== undefined) {
       const g = groups.get(q.group);
@@ -1194,6 +1301,24 @@ function validateConfig(cfg) {
     if (g.tbc !== undefined && (typeof g.tbc !== 'string' || !g.tbc)) err(`${w}: tbc must be a non-empty string`);
     if (g.draft !== undefined && (typeof g.draft !== 'string' || !g.draft.trim())) err(`${w}: draft must be a non-empty string`);
     if (g.min !== undefined && (!Number.isInteger(g.min) || g.min < 1 || g.min > g.max)) err(`${w}: min must be an integer from 1 to max`);
+    if (g.countFrom !== undefined) {
+      const months = (g.countFrom && g.countFrom.months) || {};
+      if (g.count !== undefined) err(`${w}: count and countFrom cannot be used together`);
+      for (const [what, id] of [['start', months.start], ['end', months.end]]) {
+        const m = byId.get(id);
+        if (!m || m.type !== 'DATE' || m.group || m.section !== g.section) err(`${w}: countFrom.months.${what} must be a DATE question of the same section that is not a group member`);
+        else for (const member of g.questions || []) if (order.get(id) >= order.get(member)) err(`${w}: countFrom ${what} must come before member ${member}`);
+      }
+      for (const key of ['min', 'max']) if (months[key] !== undefined && (!Number.isInteger(months[key]) || months[key] < 1)) err(`${w}: countFrom.months.${key} must be a whole number from 1`);
+    }
+    if (g.entryPeriod !== undefined) {
+      const { start, end } = g.entryPeriod || {};
+      for (const [what, id] of [['start', start], ['end', end]]) {
+        const m = byId.get(id);
+        if (!m || m.type !== 'DATE' || m.group || m.section !== g.section) err(`${w}: entryPeriod.${what} must be a DATE question of the same section that is not a group member`);
+      }
+      if (g.countFrom === undefined) err(`${w}: entryPeriod needs countFrom`);
+    }
     if (g.noOverlap !== undefined) {
       const { start, end } = g.noOverlap || {};
       for (const [what, id] of [['start', start], ['end', end]]) {
@@ -1234,6 +1359,38 @@ function validateConfig(cfg) {
         if (gate && order.get(gate.id) >= order.get(id)) err(`${w}: gate must come before member ${id}`);
       }
     }
+  }
+
+  // Checks that the figures of a section add up (cfg.checks).
+  const checkIds = new Set();
+  for (const ck of cfg.checks || []) {
+    const w = `check ${ck && ck.id}`;
+    if (!ck || typeof ck.id !== 'string' || !ck.id) { err('a check needs an id'); continue; }
+    if (checkIds.has(ck.id)) err(`${w}: listed twice`);
+    checkIds.add(ck.id);
+    if (!sectionIds.has(ck.section)) err(`${w}: unknown section ${ck.section}`);
+    const amount = (id, what) => {
+      const m = byId.get(id);
+      if (!m || m.type !== 'AMT' || m.section !== ck.section) err(`${w}: ${what} ${id} must be an AMT question of the section`);
+      return m;
+    };
+    if (!Array.isArray(ck.left) || !ck.left.length) err(`${w}: left needs terms`);
+    else for (const term of ck.left) {
+      if (!term || ![1, -1].includes(term.sign)) { err(`${w}: every term needs a sign of 1 or -1`); continue; }
+      const m = amount(term.q, 'term');
+      if (term.group !== undefined && m && m.group !== term.group) err(`${w}: term ${term.q} is not a member of group ${term.group}`);
+      if (term.group === undefined && m && m.group) err(`${w}: term ${term.q} is a group member: name its group`);
+    }
+    const right = amount(ck.right, 'right');
+    if (right && right.group) err(`${w}: right must not be a group member`);
+    const target = byId.get(ck.errorOn);
+    if (!target || target.section !== ck.section || target.group) err(`${w}: errorOn must be a question of the section that is not a group member`);
+    if (typeof ck.tolerance !== 'number' || !(ck.tolerance >= 0)) err(`${w}: tolerance must be a number from 0`);
+    if (typeof ck.currency !== 'string' || !ck.currency) err(`${w}: currency is needed`);
+    if (typeof ck.message !== 'string' || !ck.message.includes('{left}') || !ck.message.includes('{right}')) err(`${w}: message must contain {left} and {right}`);
+  }
+  for (const s of cfg.sections) {
+    if (s.helper !== undefined && !['funds'].includes(s.helper)) err(`section ${s.id}: unknown helper ${s.helper}`);
   }
 
   return errs;
@@ -1338,6 +1495,9 @@ module.exports = {
   isFileRequired,
   getOrphanDocuments,
   isFilesOnlySection,
+  setSettings,
+  getSettings,
+  derivedCount,
   documentsStatus,
   documentsComplete,
   isSectionReleasable,

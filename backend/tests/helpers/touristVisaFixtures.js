@@ -8,6 +8,14 @@ const SECRET_DETAILS = 'MADE-UP-DETAILS-OF-A-CONVICTION';
 const FILE_NAME = 'MADE-UP-FILE-NAME-passport.pdf';
 const ADDRESS = { line1: '1 Test Street', town: 'Testville', country: 'GB' };
 const gbp = (amount) => ({ amount, currency: 'GBP' });
+const pkr = (amount) => ({ amount, currency: 'PKR' });
+
+/** The bank activity (section 10F, config 1.7.0): six rolling months whose credits and debits add up to the totals, and opening + credit - debit = closing. Made-up figures. */
+const BANK_ACTIVITY = {
+  q10_29: '2026-06-20', q10_30: '2026-12-19', q10_31: pkr(500000), q10_32: pkr(700000), q10_33: pkr(1200000), q10_34: pkr(1000000),
+  bankMonths: [100000, 200000, 150000, 250000, 150000, 150000].map((debit) => ({ q10_35a: pkr(200000), q10_35b: pkr(debit) })),
+  q10_36: false,
+};
 
 /** [sectionId, answers] for every section of a complete application. */
 const SECTIONS = (given = 'Testfirst', family = 'Testlast', email = 'test.applicant@example.com') => [
@@ -32,10 +40,11 @@ const SECTIONS = (given = 'Testfirst', family = 'Testlast', email = 'test.applic
   ['10A', { q10_1: ['conviction'], q10_1a: SECRET_DETAILS }],
   ['10B', {}],
   ['10C', { q10_4: 'other', q10_4a: 'Sindhi', q10_5: true, q10_5a: SECRET_NI }],
+  ['10F', BANK_ACTIVITY],
   ['10E', { q10_28: false }], // 6.7 is No above, so 10.28 (do you know the places you will visit) is asked; No leaves the places out
 ];
 
 /** All the answers of a complete application as one object (what the server stores, decrypted). */
 const fullAnswers = (...args) => Object.assign({}, ...SECTIONS(...args).map(([, answers]) => answers));
 
-module.exports = { SECRET_ID, SECRET_NI, SECRET_DETAILS, FILE_NAME, ADDRESS, gbp, SECTIONS, fullAnswers };
+module.exports = { SECRET_ID, SECRET_NI, SECRET_DETAILS, FILE_NAME, ADDRESS, gbp, pkr, BANK_ACTIVITY, SECTIONS, fullAnswers };

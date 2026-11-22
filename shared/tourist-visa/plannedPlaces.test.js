@@ -32,7 +32,7 @@ const other = (text, from = '2027-03-01', to = '2027-03-05') => place('other', f
 
 test('the new section is the second-last one, the documents section is still last, and no existing section or question id moved', () => {
   const ids = config.sections.map((s) => s.id);
-  assert.deepEqual(ids.slice(-3), ['10C', '10E', '10D']);
+  assert.deepEqual(ids.slice(-4), ['10C', '10F', '10E', '10D']); // 10F, the bank activity (config 1.7.0), came after this section
   assert.equal(ids[ids.length - 1], '10D');
   assert.equal(ids[ids.length - 2], '10E');
   assert.equal(config.sections.find((s) => s.id === '10E').title, 'Your plans in the UK');
@@ -50,7 +50,7 @@ test('the questions of the new section sit together in the list, right before th
   const runs = sectionOrder.filter((id, i) => id !== sectionOrder[i - 1]);
   assert.equal(runs.filter((id) => id === '10E').length, 1, '10E is one run of questions');
   assert.equal(runs.filter((id) => id === '10D').length, 1, '10D is one run of questions');
-  assert.deepEqual(runs.slice(-3), ['10C', '10E', '10D']);
+  assert.deepEqual(runs.slice(-4), ['10C', '10F', '10E', '10D']);
 });
 
 test('6.7 Yes hides the whole new section; 6.7 No shows it, and the planned places only after "Yes"', () => {
@@ -243,9 +243,9 @@ test('Other is the first option of the two new lists, and still the last option 
   }
   assert.deepEqual(engine.resolveOptions(config, 'q6_7e', {}, {}).map((o) => o.value), ['other', 'paid_stay', 'family', 'friends']);
   const existing = config.questions.filter((q) => q.allowOther && !['q6_7e', 'q10_28a'].includes(q.id));
-  assert.equal(existing.length, 19 - 1);
+  assert.equal(existing.length, 19, 'the 18 of config 1.4.0 and 10.37e (config 1.7.0), none of which has a position setting');
   assert.equal(existing.filter((q) => engine.resolveOptions(config, q.id, {}, {})[0].value === 'other').length, 0, 'none of them starts with Other');
-  assert.equal(existing.filter((q) => { const o = engine.resolveOptions(config, q.id, {}, {}); return o[o.length - 1].value === 'other'; }).length >= 17, true, 'Other is still last in them');
+  assert.equal(existing.filter((q) => { const o = engine.resolveOptions(config, q.id, {}, {}); return o[o.length - 1].value === 'other'; }).length >= 18, true, 'Other is still last in them');
   for (const q of existing) {
     assert.equal(q.otherPosition, undefined, `${q.id} has no position setting`);
     // Exactly the list as it is written in the config (the Other option where it was put, which for most is last): the engine moves nothing.

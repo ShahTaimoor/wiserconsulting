@@ -17,6 +17,7 @@ const defaultAudit = require("../repositories/touristVisaAuditRepository");
 const defaultApplications = require("./touristVisaApplicationService");
 const defaultDocuments = require("./touristVisaDocumentService");
 const engine = require("../shared/tourist-visa/engine");
+require("../config/touristVisaFunds"); // loads the bank activity settings into the shared engine (the explanations of unusual months)
 const { buildReview } = require("../shared/tourist-visa/view");
 const { summaryOf, telHref } = require("../utils/touristVisaSummary");
 const { AppError } = require("../middleware/errorHandler");

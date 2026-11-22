@@ -358,7 +358,7 @@ export default function TouristVisaReviewPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-14">
+    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-14 lg:max-w-[1400px] lg:px-8">
       <Button asChild variant="ghost" size="sm" className="mb-6 -ml-3">
         <Link href="/tourist-visa">
           <ArrowLeft className="mr-2 h-4 w-4" aria-hidden />

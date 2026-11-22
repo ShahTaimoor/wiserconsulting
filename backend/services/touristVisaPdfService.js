@@ -25,6 +25,7 @@ const defaultLetterService = require('./touristVisaCoverLetterService');
 const defaultItineraryService = require('./touristVisaItineraryService');
 const { buildItineraryFacts } = require('../shared/tourist-visa/itineraryFacts');
 const { buildReview, fullName } = require('../shared/tourist-visa/view');
+require("../config/touristVisaFunds"); // loads the bank activity settings into the shared engine (the explanations of unusual months)
 const { pdfFileName } = require('../utils/pdfFileName');
 const { buildHeaderRows, buildAnswersModel, unprintableSection, renderAnswersPdf } = require('../utils/touristVisaAnswersPdf');
 const { senderOf, buildLetterModel, unprintableIn, renderCoverLetterPdf } = require('../utils/touristVisaCoverLetterPdf');

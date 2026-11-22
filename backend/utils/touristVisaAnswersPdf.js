@@ -14,6 +14,7 @@
  */
 
 const engine = require('../shared/tourist-visa/engine');
+require("../config/touristVisaFunds"); // loads the bank activity settings into the shared engine (the explanations of unusual months)
 const view = require('../shared/tourist-visa/view');
 const { PdfBuilder } = require('./pdf/pdfBuilder');
 const { normalizePdfText, findUnprintable } = require('./pdf/pdfText');

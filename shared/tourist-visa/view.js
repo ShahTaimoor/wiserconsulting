@@ -27,6 +27,7 @@
  */
 
 const engine = require('./engine');
+const funds = require('./funds');
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const NOT_ANSWERED = 'Not answered';
@@ -212,13 +213,24 @@ function questionRow(cfg, question, answers, entry, documents, declarations, cor
 
   if (!hasValue(value)) return { ...base, kind: 'value', value: NOT_ANSWERED, empty: true };
   const { text, items } = readValue(cfg, question, value, answers, entry);
-  return { ...base, kind: 'value', value: text, ...(items ? { items } : {}) };
+  // Money coming in or going out (display only): the form and the review show a green + or a red − with it.
+  const flow = question.type === 'AMT' ? flowOf(question, entry) : null;
+  return { ...base, kind: 'value', value: text, ...(items ? { items } : {}), ...(flow ? { flow } : {}) };
+}
+
+/** The way money goes for an amount question, from its own flow or, in a group entry, from the answer it follows: "credit", "debit" or null. Display only. */
+function flowOf(question, entry) {
+  if (question.flow === 'credit' || question.flow === 'debit') return question.flow;
+  const type = question.flowFrom && isObject(entry) ? entry[question.flowFrom] : undefined;
+  return type === 'credit' || type === 'debit' ? type : null;
 }
 
 function groupRow(cfg, group, answers, documents, declarations, corrections) {
   const entries = Array.isArray(answers[group.id]) ? answers[group.id] : [];
   // The written text of an Other answer is shown with its choice ("Other: ..."), not as a row of its own.
   const members = group.questions.map((id) => engine.getQuestion(cfg, id)).filter((q) => q && !q.otherOf);
+  // A group of rolling periods (the months of a bank statement) names each entry's period: "Month 1 (20 May to 19 June)".
+  const periods = group.entryPeriod ? funds.rollingPeriods(answers[group.entryPeriod.start], answers[group.entryPeriod.end], entries.length) : [];
   return {
     id: group.id,
     number: null,
@@ -228,7 +240,7 @@ function groupRow(cfg, group, answers, documents, declarations, corrections) {
     empty: entries.length === 0,
     value: entries.length === 0 ? 'No entries' : `${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}`,
     entries: entries.map((entry, index) => ({
-      title: `${group.entryLabel} ${index + 1}`,
+      title: `${group.entryLabel} ${index + 1}${periods[index] ? ` (${periods[index].label})` : ''}`,
       rows: members
         .filter((m) => engine.isVisible(cfg, m.id, answers, isObject(entry) ? entry : {}))
         .map((m) => questionRow(cfg, m, answers, isObject(entry) ? entry : {}, documents, declarations, corrections, correctionKey(m.id, index))),

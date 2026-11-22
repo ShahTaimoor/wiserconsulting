@@ -85,12 +85,18 @@ const V9C = { q9_8: false, q9_9: false, q9_10: false };
 const V10A = { q10_1: ["none"] };
 const V10B = {};
 const V10C = { q10_4: "english", q10_5: false };
+// The bank activity (10F): six rolling months whose credits and debits add up to the totals, and the closing balance follows from the opening one.
+const pkr = (amount) => ({ amount, currency: "PKR" });
+const V10F = {
+  q10_29: "2026-06-20", q10_30: "2026-12-19", q10_31: pkr(500000), q10_32: pkr(700000), q10_33: pkr(1200000), q10_34: pkr(1000000),
+  bankMonths: [100000, 200000, 150000, 250000, 150000, 150000].map((debit) => ({ q10_35a: pkr(200000), q10_35b: pkr(debit) })), q10_36: false,
+};
 // Documents: nothing to answer; the files are the application's documents.
 const V10D = {};
 const ALL = {
   1: V1, "2A": V2A, "2B": { ...V2B, q2_13: "married" }, "2C": V2C, "2D": V2D, 3: V3, "4A": V4A, "4B": V4B, "4C": V4C,
   5: V5, "6A": V6A, "6B": { q6_6: false }, "6C": V6C, "6D": { q6_8: false }, 7: V7, 8: V8,
-  "9A": V9A, "9B": V9B, "9C": V9C, "10A": V10A, "10B": V10B, "10C": V10C, "10E": {}, "10D": V10D, // 10E (the planned places) is empty here: 6.7 is Yes above
+  "9A": V9A, "9B": V9B, "9C": V9C, "10A": V10A, "10B": V10B, "10C": V10C, "10F": V10F, "10E": {}, "10D": V10D, // 10E (the planned places) is empty here: 6.7 is Yes above
 };
 
 const payload = (section, values, saved = {}) => buildPayload(cfg, section, values, saved).answers;
@@ -152,17 +158,20 @@ test("next and previous section follow the form order", () => {
   assert.equal(nextSectionId(cfg, "9C"), "10A");
   assert.equal(nextSectionId(cfg, "10A"), "10B");
   assert.equal(nextSectionId(cfg, "10B"), "10C");
-  assert.equal(nextSectionId(cfg, "10C"), "10E");
-  // With the answers, the section of the planned places is skipped unless 6.7 is No (it would be empty).
-  assert.equal(nextSectionId(cfg, "10C", { q6_7: true }), "10D");
-  assert.equal(nextSectionId(cfg, "10C", {}), "10D");
-  assert.equal(nextSectionId(cfg, "10C", { q6_7: false }), "10E");
+  assert.equal(nextSectionId(cfg, "10C"), "10F");
+  assert.equal(nextSectionId(cfg, "10F"), "10E");
+  // With the answers, the section of the planned places is skipped unless 6.7 is No (it would be empty); the bank activity always applies.
+  assert.equal(nextSectionId(cfg, "10C", { q6_7: true }), "10F");
+  assert.equal(nextSectionId(cfg, "10F", { q6_7: true }), "10D");
+  assert.equal(nextSectionId(cfg, "10F", {}), "10D");
+  assert.equal(nextSectionId(cfg, "10F", { q6_7: false }), "10E");
   assert.equal(nextSectionId(cfg, "10E", { q6_7: false }), "10D");
-  assert.equal(previousSectionId(cfg, "10D", { q6_7: true }), "10C");
+  assert.equal(previousSectionId(cfg, "10D", { q6_7: true }), "10F");
   assert.equal(previousSectionId(cfg, "10D", { q6_7: false }), "10E");
   assert.equal(nextSectionId(cfg, "10D"), null);
   assert.equal(previousSectionId(cfg, "10D"), "10E");
-  assert.equal(previousSectionId(cfg, "10E"), "10C");
+  assert.equal(previousSectionId(cfg, "10E"), "10F");
+  assert.equal(previousSectionId(cfg, "10F"), "10C");
   assert.equal(previousSectionId(cfg, "10A"), "9C");
   assert.equal(previousSectionId(cfg, "9A"), "8");
   assert.equal(previousSectionId(cfg, "6A"), "5");
@@ -491,7 +500,8 @@ test("next and previous section skip a section that does not apply (4A without a
   assert.equal(nextSectionId(cfg, "4C", single), "5");
   assert.equal(nextSectionId(cfg, "8", single), "9A");
   assert.equal(nextSectionId(cfg, "9C", single), "10A");
-  assert.equal(nextSectionId(cfg, "10C", single), "10D");
+  assert.equal(nextSectionId(cfg, "10C", single), "10F");
+  assert.equal(nextSectionId(cfg, "10F", single), "10D");
   assert.equal(nextSectionId(cfg, "10D", single), null);
   assert.equal(previousSectionId(cfg, "1", single), null);
   assert.equal(nextSectionId(cfg, "3"), "4A", "without answers the plain order is used");

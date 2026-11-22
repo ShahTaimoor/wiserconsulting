@@ -23,6 +23,8 @@ export interface ReviewRow {
   value: string;
   /** True when there is nothing to show for it (not answered, no files, no entries). */
   empty?: boolean;
+  /** An amount of money coming in ("credit") or going out ("debit"): display only, so that a + or a − can be shown with it. */
+  flow?: 'credit' | 'debit';
   /** A multiple-choice answer, one text per ticked choice. */
   items?: string[];
   /** For a declaration tick: when it was given. */

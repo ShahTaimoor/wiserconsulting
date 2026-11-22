@@ -8,6 +8,7 @@ import { dateErrorMessage } from "@/utils/touristVisaDate";
 import { helpCountryNames, hintFor } from "@/utils/touristVisaForm";
 import { FIELD_RENDERERS, GROUPED_TYPES, INLINE_LABEL_TYPES } from "./fields";
 import { CurrencyHelper } from "./CurrencyHelper";
+import type { MoneyFlow } from "@/utils/touristVisaMoney";
 
 interface QuestionFieldProps {
   cfg: TouristVisaConfig;
@@ -23,6 +24,8 @@ interface QuestionFieldProps {
   subErrors: Record<string, string>;
   /** Preview mode marks questions that still carry a tbc flag. */
   previewMode: boolean;
+  /** An amount question: money coming in or going out, for the coloured sign beside the field (display only). */
+  flow?: MoneyFlow | null;
 }
 
 /** The questions today's config gives the currency helper; an older snapshot (admin Edit form) falls back to this. */
@@ -62,7 +65,7 @@ export function DraftBadge({ note }: { note: string }) {
  * type, and the error message. Everything is tied together for screen readers with
  * label/legend and aria-describedby, and the control is reachable by keyboard.
  */
-export function QuestionField({ cfg, question, idBase, value, onChange, options, error: reportedError, subErrors, previewMode }: QuestionFieldProps) {
+export function QuestionField({ cfg, question, idBase, value, onChange, options, error: reportedError, subErrors, previewMode, flow = null }: QuestionFieldProps) {
   const Renderer = FIELD_RENDERERS[question.type];
   // A date question whose text is not a date says so in plain words that name the format, whatever generic words the engine used.
   const error = question.type === "DATE" ? dateErrorMessage(value, reportedError) : reportedError;
@@ -78,6 +81,7 @@ export function QuestionField({ cfg, question, idBase, value, onChange, options,
     <>
       {!question.otherOf && <span className="mr-2 font-normal text-muted-foreground">{question.number}</span>}
       {question.label}
+      {flow && <span className="sr-only"> ({flow === "credit" ? "money in" : "money out"})</span>}
       {question.required ? (
         <>
           <span aria-hidden className="ml-1 text-red-600 dark:text-red-400">*</span>
@@ -134,6 +138,7 @@ export function QuestionField({ cfg, question, idBase, value, onChange, options,
       required={question.required}
       describedBy={describedBy}
       limit={limit}
+      flow={flow}
     />
   );
 

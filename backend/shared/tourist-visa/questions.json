@@ -1,5 +1,5 @@
 {
-  "version": "1.6.0",
+  "version": "1.7.0",
   "limits": {
     "txtMax": 200,
     "lngMax": 5000,
@@ -41,6 +41,7 @@
     { "id": "10A", "part": "10", "title": "Convictions and other penalties" },
     { "id": "10B", "part": "10", "title": "Extra information" },
     { "id": "10C", "part": "10", "title": "Language and National Insurance number" },
+    { "id": "10F", "part": "10", "title": "Your bank activity", "helper": "funds" },
     { "id": "10E", "part": "10", "title": "Your plans in the UK" },
     { "id": "10D", "part": "10", "title": "Documents" }
   ],
@@ -100,6 +101,44 @@
       "max": 10,
       "questions": ["q10_28a", "q10_28b", "q10_28c"],
       "noOverlap": { "start": "q10_28b", "end": "q10_28c" }
+    },
+    {
+      "id": "bankMonths",
+      "section": "10F",
+      "entryLabel": "Month",
+      "max": 12,
+      "countFrom": {
+        "months": {
+          "start": "q10_29",
+          "end": "q10_30",
+          "min": 1,
+          "max": 12
+        }
+      },
+      "entryPeriod": {
+        "start": "q10_29",
+        "end": "q10_30"
+      },
+      "questions": [
+        "q10_35a",
+        "q10_35b",
+        "q10_35c"
+      ]
+    },
+    {
+      "id": "largeTransactions",
+      "section": "10F",
+      "entryLabel": "Large transaction",
+      "gate": "q10_36",
+      "max": 20,
+      "questions": [
+        "q10_37a",
+        "q10_37b",
+        "q10_37c",
+        "q10_37d",
+        "q10_37e",
+        "q10_37f"
+      ]
     },
     {
       "id": "companions",
@@ -205,6 +244,63 @@
       "gate": "q8_3",
       "max": 20,
       "questions": ["q8_3a", "q8_3b", "q8_3c", "q8_3d"]
+    }
+  ],
+  "checks": [
+    {
+      "id": "balance",
+      "section": "10F",
+      "errorOn": "q10_32",
+      "left": [
+        {
+          "q": "q10_31",
+          "sign": 1
+        },
+        {
+          "q": "q10_33",
+          "sign": 1
+        },
+        {
+          "q": "q10_34",
+          "sign": -1
+        }
+      ],
+      "right": "q10_32",
+      "tolerance": 1,
+      "currency": "PKR",
+      "message": "Your opening balance plus the credits, minus the debits, comes to {left}, but the closing balance you entered is {right}. Please check the figures against the statement."
+    },
+    {
+      "id": "monthlyCredits",
+      "section": "10F",
+      "errorOn": "q10_33",
+      "left": [
+        {
+          "group": "bankMonths",
+          "q": "q10_35a",
+          "sign": 1
+        }
+      ],
+      "right": "q10_33",
+      "tolerance": 1,
+      "currency": "PKR",
+      "message": "Your monthly credits add up to {left} but the statement total is {right}. Please check them against the statement."
+    },
+    {
+      "id": "monthlyDebits",
+      "section": "10F",
+      "errorOn": "q10_34",
+      "left": [
+        {
+          "group": "bankMonths",
+          "q": "q10_35b",
+          "sign": 1
+        }
+      ],
+      "right": "q10_34",
+      "tolerance": 1,
+      "currency": "PKR",
+      "message": "Your monthly debits add up to {left} but the statement total is {right}. Please check them against the statement."
     }
   ],
   "questions": [
@@ -2595,6 +2691,297 @@
       },
       "sensitive": true,
       "help": "Two letters, six numbers and a last letter A, B, C or D, for example AB 12 34 56 C. You can type it with or without spaces, in capitals or small letters."
+    },
+    {
+      "id": "q10_29",
+      "number": "10.29",
+      "section": "10F",
+      "label": "Statement start date",
+      "type": "DATE",
+      "required": true,
+      "help": "The first date of the bank statement you will submit as evidence of funds (yours or your sponsor's)."
+    },
+    {
+      "id": "q10_30",
+      "number": "10.30",
+      "section": "10F",
+      "label": "Statement end date",
+      "type": "DATE",
+      "required": true,
+      "rules": {
+        "after": "q10_29",
+        "periodMonths": {
+          "start": "q10_29",
+          "min": 1,
+          "max": 12
+        }
+      }
+    },
+    {
+      "id": "q10_31",
+      "number": "10.31",
+      "section": "10F",
+      "label": "Opening balance (PKR)",
+      "type": "AMT",
+      "required": true,
+      "sensitive": true,
+      "rules": {
+        "currencies": [
+          "PKR"
+        ],
+        "max": 1000000000
+      },
+      "help": "Exactly as printed on the statement. All amounts in this section are in Pakistani rupees (PKR)."
+    },
+    {
+      "id": "q10_32",
+      "number": "10.32",
+      "section": "10F",
+      "label": "Closing balance (PKR)",
+      "type": "AMT",
+      "required": true,
+      "sensitive": true,
+      "rules": {
+        "currencies": [
+          "PKR"
+        ],
+        "max": 1000000000
+      },
+      "help": "Exactly as printed on the statement."
+    },
+    {
+      "id": "q10_33",
+      "flow": "credit",
+      "number": "10.33",
+      "section": "10F",
+      "label": "Total credit (PKR)",
+      "type": "AMT",
+      "required": true,
+      "sensitive": true,
+      "rules": {
+        "currencies": [
+          "PKR"
+        ],
+        "max": 1000000000
+      },
+      "help": "The TOTAL credit for the whole period, as printed on the totals line of the statement."
+    },
+    {
+      "id": "q10_34",
+      "flow": "debit",
+      "number": "10.34",
+      "section": "10F",
+      "label": "Total debit (PKR)",
+      "type": "AMT",
+      "required": true,
+      "sensitive": true,
+      "rules": {
+        "currencies": [
+          "PKR"
+        ],
+        "max": 1000000000
+      },
+      "help": "The TOTAL debit for the whole period, as printed on the totals line of the statement."
+    },
+    {
+      "id": "q10_35a",
+      "flow": "credit",
+      "number": "10.35a",
+      "section": "10F",
+      "label": "This month's total credit (PKR)",
+      "type": "AMT",
+      "required": true,
+      "sensitive": true,
+      "group": "bankMonths",
+      "rules": {
+        "currencies": [
+          "PKR"
+        ],
+        "max": 1000000000
+      },
+      "help": "Add up the credits of this month's period from the statement."
+    },
+    {
+      "id": "q10_35b",
+      "flow": "debit",
+      "number": "10.35b",
+      "section": "10F",
+      "label": "This month's total debit (PKR)",
+      "type": "AMT",
+      "required": true,
+      "sensitive": true,
+      "group": "bankMonths",
+      "rules": {
+        "currencies": [
+          "PKR"
+        ],
+        "max": 1000000000
+      },
+      "help": "Add up the debits of this month's period from the statement."
+    },
+    {
+      "id": "q10_35c",
+      "number": "10.35c",
+      "section": "10F",
+      "label": "Why was this month higher?",
+      "type": "TXT",
+      "required": true,
+      "sensitive": true,
+      "group": "bankMonths",
+      "help": "This month's credits or debits are well above the average of the whole period. Say briefly why.",
+      "rules": {
+        "maxLen": 200
+      },
+      "showWhen": {
+        "any": [
+          {
+            "derived": "aboveAverage",
+            "value": "q10_35a",
+            "total": "q10_33",
+            "start": "q10_29",
+            "end": "q10_30",
+            "setting": "spikePercent",
+            "min": 1,
+            "max": 12
+          },
+          {
+            "derived": "aboveAverage",
+            "value": "q10_35b",
+            "total": "q10_34",
+            "start": "q10_29",
+            "end": "q10_30",
+            "setting": "spikePercent",
+            "min": 1,
+            "max": 12
+          }
+        ]
+      }
+    },
+    {
+      "id": "q10_36",
+      "number": "10.36",
+      "section": "10F",
+      "type": "YN",
+      "required": true,
+      "label": "Was there any single credit or debit above the amounts shown below that was not your regular salary, regular business income or normal living costs?",
+      "helper": "fundsLimits"
+    },
+    {
+      "id": "q10_37a",
+      "number": "10.37a",
+      "section": "10F",
+      "label": "Date of the transaction",
+      "type": "DATE",
+      "required": true,
+      "group": "largeTransactions",
+      "rules": {
+        "onOrAfter": "q10_29",
+        "onOrBefore": "q10_30"
+      }
+    },
+    {
+      "id": "q10_37b",
+      "number": "10.37b",
+      "section": "10F",
+      "label": "Was it a credit or a debit?",
+      "type": "SEL",
+      "required": true,
+      "group": "largeTransactions",
+      "options": [
+        {
+          "value": "credit",
+          "label": "Credit (money in)"
+        },
+        {
+          "value": "debit",
+          "label": "Debit (money out)"
+        }
+      ]
+    },
+    {
+      "id": "q10_37c",
+      "flowFrom": "q10_37b",
+      "number": "10.37c",
+      "section": "10F",
+      "label": "Amount (PKR)",
+      "type": "AMT",
+      "required": true,
+      "sensitive": true,
+      "group": "largeTransactions",
+      "rules": {
+        "currencies": [
+          "PKR"
+        ],
+        "max": 1000000000
+      }
+    },
+    {
+      "id": "q10_37d",
+      "number": "10.37d",
+      "section": "10F",
+      "label": "Who it came from, or what it was for",
+      "type": "TXT",
+      "required": true,
+      "sensitive": true,
+      "group": "largeTransactions",
+      "rules": {
+        "maxLen": 100
+      }
+    },
+    {
+      "id": "q10_37e",
+      "number": "10.37e",
+      "section": "10F",
+      "label": "Reason",
+      "type": "SEL",
+      "required": true,
+      "sensitive": true,
+      "group": "largeTransactions",
+      "allowOther": true,
+      "options": [
+        {
+          "value": "gift",
+          "label": "A gift from family or friends"
+        },
+        {
+          "value": "property_sale",
+          "label": "Sale of property or a vehicle"
+        },
+        {
+          "value": "business_income",
+          "label": "Business income"
+        },
+        {
+          "value": "loan",
+          "label": "A loan received"
+        },
+        {
+          "value": "savings_moved",
+          "label": "Savings moved from another account"
+        },
+        {
+          "value": "refund",
+          "label": "A refund"
+        },
+        {
+          "value": "other",
+          "label": "Other (please write)"
+        }
+      ]
+    },
+    {
+      "id": "q10_37f",
+      "number": "10.37f",
+      "section": "10F",
+      "label": "Details",
+      "type": "TXT",
+      "required": true,
+      "sensitive": true,
+      "group": "largeTransactions",
+      "help": "Say a little more about this transaction.",
+      "rules": {
+        "maxLen": 200
+      }
     },
     {
       "id": "q10_28",

@@ -22,11 +22,11 @@ test("the section 10E is on the checklist only while 6.7 is No, and it is second
   assert.equal(ids({}).includes("10E"), false, "6.7 is not answered yet: nothing to ask");
   const withIt = ids({ q6_7: false });
   assert.equal(withIt.includes("10E"), true);
-  assert.deepEqual(withIt.slice(-3), ["10C", "10E", "10D"]);
-  assert.equal(nextSectionId(cfg, "10C", { q6_7: false }), "10E");
-  assert.equal(nextSectionId(cfg, "10C", { q6_7: true }), "10D");
+  assert.deepEqual(withIt.slice(-4), ["10C", "10F", "10E", "10D"]);
+  assert.equal(nextSectionId(cfg, "10F", { q6_7: false }), "10E");
+  assert.equal(nextSectionId(cfg, "10F", { q6_7: true }), "10D");
   assert.equal(previousSectionId(cfg, "10D", { q6_7: false }), "10E");
-  assert.equal(previousSectionId(cfg, "10D", { q6_7: true }), "10C");
+  assert.equal(previousSectionId(cfg, "10D", { q6_7: true }), "10F");
 });
 
 test("the form shows the Yes/No first, and the places and their Other box only after a Yes", () => {

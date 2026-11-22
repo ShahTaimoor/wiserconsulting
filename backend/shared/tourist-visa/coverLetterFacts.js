@@ -146,7 +146,7 @@ const TOKEN_SOURCES = Object.freeze({
 // ---------------------------------------------------------------------------
 
 /** Whole sections that can never feed the letter: names and emails, telephone, passport, the spouse, Parts 9 and 10. */
-const FORBIDDEN_SECTIONS = Object.freeze(['2A', '2D', '3', '4A', '9A', '9B', '9C', '10A', '10B', '10C', '10D']);
+const FORBIDDEN_SECTIONS = Object.freeze(['2A', '2D', '3', '4A', '9A', '9B', '9C', '10A', '10B', '10C', '10D', '10F']);
 
 /** Questions in other sections that can never be facts, grouped by why. */
 const EXCLUDED_IDS = Object.freeze({
@@ -156,6 +156,7 @@ const EXCLUDED_IDS = Object.freeze({
   'Health and medical treatment': ['q2_31', 'q2_31a', 'q2_31b', 'q2_31c', 'q2_31d', 'q2_31e'],
   'UK driving licence': ['q2_30', 'q2_30a'],
   'Visa and application reference numbers, immigration history': ['q7_1', 'q7_2a', 'q7_2b', 'q7_2c', 'q7_3', 'q7_3b', 'q7_3c', 'q7_3d', 'q7_3e', 'q7_3f', 'q7_6', 'q7_6b', 'q7_6c', 'q7_6d', 'q7_7', 'q7_7a', 'q7_7b', 'q7_7c', 'q7_7d', 'q7_5a'],
+  'Bank activity: the figures of the bank statement the applicant submits (balances, totals, each month, large transactions and why); read by staff only, never by the AI': ['q10_29', 'q10_30', 'q10_31', 'q10_32', 'q10_33', 'q10_34', 'q10_35a', 'q10_35b', 'q10_35c', 'q10_36', 'q10_37a', 'q10_37b', 'q10_37c', 'q10_37d', 'q10_37e', 'q10_37e_other', 'q10_37f'],
   'Places the applicant plans to visit, and who they stay with (only the itinerary reads them, as places and dates)': ['q6_7e', 'q6_7e_other', 'q10_28', 'q10_28a', 'q10_28a_other', 'q10_28b', 'q10_28c'],
   'People as individuals (only counts are used): companions, group organiser, dependants, parents, relatives in the UK, payers\' names': ['q1_2a', 'q1_2b', 'q1_3a', 'q1_3b', 'q1_3c', 'q1_3d', 'q1_3e', 'q4_7a', 'q4_7b', 'q4_7c', 'q4_7d', 'q4_7e', 'q4_7f', 'q4_8g', 'q4_8a', 'q4_8b', 'q4_8c', 'q4_8d', 'q4_8e', 'q4_8f', 'q4_8h', 'q4_8i', 'q6_5c', 'q6_6', 'q6_6b', 'q6_6c', 'q6_6d', 'q6_6e', 'q6_6f', 'q6_6g'],
   'Employer details other than the placeholder; earlier employer; how they are supported': ['q5_5', 'q5_9', 'q5_1k', 'q5_1l'],

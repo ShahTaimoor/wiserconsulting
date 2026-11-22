@@ -30,10 +30,13 @@ import {
   type FormValues,
 } from "@/utils/touristVisaForm";
 import { ErrorSummary } from "./ErrorSummary";
+import { FundsHelper } from "./FundsHelper";
 import { QuestionField } from "./QuestionField";
 import { RepeatGroupField } from "./RepeatGroupField";
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
 import { asRecord } from "./fields/types";
+import { GRID_CLASS, WIDE_CELL_CLASS, cellClass, layoutCells } from "@/utils/touristVisaLayout";
+import { flowOfQuestion } from "@/utils/touristVisaMoney";
 import { notifySaved, notifySaveFailed } from "./notify";
 
 type SaveMode = "continue" | "dashboard";
@@ -70,6 +73,8 @@ export function SectionForm({ sectionId, application }: SectionFormProps) {
   const section = config.sections.find((s) => s.id === sectionId);
   const part = config.parts.find((p) => p.id === section?.part);
   const items = useMemo(() => sectionItems(config, sectionId), [sectionId]);
+  // The questions as cells of the grid on a wide screen (an Other box is part of the cell of its question).
+  const cells = useMemo(() => new Map(layoutCells(items.flatMap((i) => (i.kind === "question" ? [i.question] : []))).map((cell) => [cell.question.id, cell])), [items]);
 
   // Answers saved in the other sections, which conditions and option lists can depend on.
   const saved = application.answers;
@@ -210,6 +215,8 @@ export function SectionForm({ sectionId, application }: SectionFormProps) {
         <CardContent className="space-y-6">
           <ErrorSummary items={errorItems} onGo={focusControl} />
 
+          {section.helper === "funds" && <FundsHelper part="top" answers={merged} />}
+
           {banner && (
             <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
@@ -224,44 +231,55 @@ export function SectionForm({ sectionId, application }: SectionFormProps) {
           )}
 
           {/* A disabled fieldset disables every control inside it while saving or once locked. */}
-          <fieldset disabled={busy || locked} className="min-w-0 space-y-6 border-0 p-0">
+          <fieldset disabled={busy || locked} className={`min-w-0 border-0 p-0 ${GRID_CLASS}`}>
             {items.map((item) => {
               if (item.kind === "question") {
-                const { question } = item;
+                const cell = cells.get(item.question.id);
+                if (!cell) return null; // the box of an Other answer: shown inside the cell of its question
+                const { question, companion } = cell;
                 if (!isVisible(config, question.id, merged as Answers)) return null;
-                return (
+                const field = (q: typeof question) => (
                   <QuestionField
-                    key={question.id}
+                    key={q.id}
                     cfg={config}
-                    question={question}
-                    idBase={`field-${question.id}`}
-                    value={values[question.id]}
-                    onChange={(value) => setAnswer(question.id, value)}
-                    options={resolveOptions(config, question.id, merged as Answers)}
-                    error={errors[question.id]}
-                    subErrors={subErrors(errors, question.id)}
+                    question={q}
+                    idBase={`field-${q.id}`}
+                    value={values[q.id]}
+                    onChange={(value) => setAnswer(q.id, value)}
+                    options={resolveOptions(config, q.id, merged as Answers)}
+                    error={errors[q.id]}
+                    subErrors={subErrors(errors, q.id)}
                     previewMode={previewMode}
+                    flow={flowOfQuestion(q)}
                   />
+                );
+                return (
+                  <div key={question.id} className={cellClass(cell, companion ? "space-y-6" : "space-y-3")}>
+                    {field(question)}
+                    {companion && isVisible(config, companion.id, merged as Answers) && field(companion)}
+                    {question.helper === "fundsLimits" && <FundsHelper part="limits" answers={merged} />}
+                  </div>
                 );
               }
               if (!isGroupOpen(config, item.group, merged)) return null;
               const entries = Array.isArray(values[item.group.id]) ? (values[item.group.id] as unknown[]) : [];
               return (
-                <RepeatGroupField
-                  key={item.group.id}
-                  cfg={config}
-                  group={item.group}
-                  members={item.members}
-                  entries={entries}
-                  count={groupEntryCount(config, item.group, merged)}
-                  reported={item.group.count && typeof merged[item.group.count] === "number" ? (merged[item.group.count] as number) : undefined}
-                  merged={merged}
-                  errors={errors}
-                  previewMode={previewMode}
-                  onEntryChange={(index, questionId, value) => setEntryAnswer(item.group.id, index, questionId, value)}
-                  onAdd={() => addEntry(item.group.id)}
-                  onRemove={(index) => removeEntry(item.group.id, index)}
-                />
+                <div key={item.group.id} className={`min-w-0 ${WIDE_CELL_CLASS}`}>
+                  <RepeatGroupField
+                    cfg={config}
+                    group={item.group}
+                    members={item.members}
+                    entries={entries}
+                    count={groupEntryCount(config, item.group, merged)}
+                    reported={item.group.count && typeof merged[item.group.count] === "number" ? (merged[item.group.count] as number) : undefined}
+                    merged={merged}
+                    errors={errors}
+                    previewMode={previewMode}
+                    onEntryChange={(index, questionId, value) => setEntryAnswer(item.group.id, index, questionId, value)}
+                    onAdd={() => addEntry(item.group.id)}
+                    onRemove={(index) => removeEntry(item.group.id, index)}
+                  />
+                </div>
               );
             })}
           </fieldset>

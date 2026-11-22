@@ -20,7 +20,8 @@ const validate = (sectionId, incoming, existing, opts) => engine.validateSection
 
 // The questions that get Other, and the ones that were left out on purpose (with the reason), as reported to the senior.
 // 6.7e (who the traveller stays with, config 1.6.0) is one of them: its Other option is shown first. The 18 from config 1.4.0 keep Other last.
-const GETS_OTHER = ['q1_1', 'q1_2b', 'q1_3a', 'q1_4', 'q2_3c', 'q2_5', 'q2_8', 'q2_23c', 'q4_7a', 'q6_6b', 'q6_6g', 'q6_7x', 'q6_7e', 'q6_8b', 'q7_2b', 'q7_3c', 'q7_5a', 'q8_2b', 'q8_3b'];
+const GETS_OTHER = ['q1_1', 'q1_2b', 'q1_3a', 'q1_4', 'q2_3c', 'q2_5', 'q2_8', 'q2_23c', 'q4_7a', 'q6_6b', 'q6_6g', 'q6_7x', 'q6_7e', 'q6_8b', 'q7_2b', 'q7_3c', 'q7_5a', 'q8_2b', 'q8_3b', 'q10_37e'];
+// 10.37e (the reason of a large transaction, config 1.7.0) is one of them too, with Other last like the 18 of 1.4.0.
 // 10.28a (config 1.6.0) takes its options from the list of places, so its Other is added by the engine, first, and its box asks for a town or city.
 const GETS_OTHER_PLACES = ['q10_28a'];
 const LEFT_OUT = {
@@ -45,6 +46,7 @@ const LEFT_OUT = {
   q7_7a: 'a declaration of immigration problems, with its own details box',
   q8_1a: 'a fixed list of places that are counted',
   q10_1: 'a declaration (Part 10A): a fixed list with a details box for each choice',
+  q10_37b: 'credit or debit: a fixed meaning (config 1.7.0)',
   q10_4: 'its own Other already opens a question that asks which language (10.4a)',
 };
 
@@ -58,7 +60,7 @@ const S8 = { q8_1: 0, q8_2: true, q8_3: false, otherCountryTrips: [TRIP] };
 // ---------------------------------------------------------------------------
 
 test('config 1.4.0: exactly the chosen list questions allow Other, and each has the option with the value "other"', () => {
-  assert.equal(config.version, '1.6.0');
+  assert.equal(config.version, '1.7.0');
   const allowing = config.questions.filter((q) => q.allowOther).map((q) => q.id);
   assert.deepEqual(allowing, [...GETS_OTHER, ...GETS_OTHER_PLACES]);
   for (const id of GETS_OTHER) {

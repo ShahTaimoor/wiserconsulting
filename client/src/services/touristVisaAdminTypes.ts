@@ -99,6 +99,7 @@ export type AuditAction =
   | "itinerary_view"
   | "itinerary_edit"
   | "itinerary_approve"
+  | "funds_check_view"
   | "pdf_export";
 
 /** Which PDF was made, and who asked for it (a pdf_export row holds nothing else). */
@@ -247,4 +248,67 @@ export interface ItineraryView extends CoverLetterView {
   versions: ItineraryVersion[];
   /** Null when the dates allow an itinerary. */
   blocker: ItineraryBlocker | null;
+}
+
+// ---------------------------------------------------------------------------
+// The staff-only funds check (bank activity): a helper for staff, never a decision. Never sent to an applicant.
+// ---------------------------------------------------------------------------
+
+/** An amount in rupees and, when the rate is known, in pounds. */
+export interface PkrAndGbp {
+  pkr: number | null;
+  gbp: number | null;
+}
+
+export type FundsBadge = "green" | "amber" | "red" | "grey";
+
+export interface FundsMonthRow {
+  label: string;
+  credit: PkrAndGbp;
+  debit: PkrAndGbp;
+  creditHigh: boolean;
+  debitHigh: boolean;
+  /** What the applicant wrote for a month they were asked to explain. */
+  explanation: string | null;
+}
+
+export interface FundsLargeTransaction {
+  date: string | null;
+  type: string | null;
+  amount: PkrAndGbp;
+  who: string | null;
+  reason: string | null;
+  details: string | null;
+}
+
+export interface FundsCheckLine {
+  passed: boolean;
+  left: number | null;
+  right: number;
+}
+
+export interface FundsCheck {
+  /** False for an application submitted before the bank activity questions existed. */
+  collected: boolean;
+  badge: FundsBadge;
+  headline: string;
+  reason?: string;
+  helper: string;
+  notes: string[];
+  rates: { asOf: string; stale: boolean; pkrPerGbp: number } | null;
+  figures?: {
+    period: { start: string; end: string; months: number };
+    opening: PkrAndGbp;
+    closing: PkrAndGbp;
+    totalCredit: PkrAndGbp;
+    totalDebit: PkrAndGbp;
+    averageCredit: PkrAndGbp;
+    averageDebit: PkrAndGbp;
+    singleTransactionLimits: { credit: number | null; debit: number | null };
+    months: FundsMonthRow[];
+    largeTransactions: FundsLargeTransaction[];
+  };
+  checks?: { balance: FundsCheckLine; monthlyCredits: FundsCheckLine; monthlyDebits: FundsCheckLine };
+  planned?: { gbp: number; personalGbp: number; othersGbp: number } | null;
+  comparison?: { closingGbp: number | null; plannedGbp: number; percentOfPlanned: number | null };
 }

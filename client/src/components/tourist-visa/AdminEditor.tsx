@@ -36,6 +36,7 @@ import {
 } from "@/utils/touristVisaForm";
 import { describeEditFailure, lineTitle, previewSummaryText, problemsText, reasonState } from "@/utils/touristVisaAdmin";
 import { asRecord } from "./fields/types";
+import { flowOfQuestion } from "@/utils/touristVisaMoney";
 
 interface AdminEditorProps {
   applicationId: string;
@@ -466,6 +467,7 @@ export function AdminEditor({ applicationId, reference, startSectionId, readToke
                     error={sectionErrors[question.id]}
                     subErrors={subErrors(sectionErrors, question.id)}
                     previewMode={previewMode}
+                    flow={flowOfQuestion(question)}
                   />
                 );
                 if (question.type !== "ACK") return field;

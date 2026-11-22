@@ -15,6 +15,7 @@ import type {
   ChangePreview,
   ChangeRecordView,
   EditForm,
+  FundsCheck,
   NoteKind,
 } from "./touristVisaAdminTypes";
 
@@ -435,6 +436,22 @@ export const touristVisaService = {
     const { status, json } = await request("/rates", "GET", token);
     if (status < 200 || status >= 300) throw failure(status, json);
     return json?.data;
+  },
+
+  /** What the bank activity section needs to show (percentages and the floor); the caller checks it (readFundsSettings). */
+  async getFundsSettings(token: string): Promise<unknown> {
+    const { status, json } = await request("/funds-settings", "GET", token);
+    if (status < 200 || status >= 300) throw failure(status, json);
+    return json?.data;
+  },
+
+  /** The staff-only funds check of one submitted application (the administrator's call). */
+  async adminFundsCheck(token: string, id: string): Promise<FundsCheck> {
+    const { status, json } = await request(`/admin/applications/${encodeURIComponent(id)}/funds-check`, "GET", token);
+    if (status < 200 || status >= 300) throw failure(status, json);
+    const data = json?.data as unknown as FundsCheck | undefined;
+    if (!data || typeof data.badge !== "string") throw new TouristVisaApiError(502, "The server sent an unexpected response.");
+    return data;
   },
 
   // -------------------------------------------------------------------------
