@@ -16,14 +16,15 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   ChevronRight,
+  ChevronsUpDown,
 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useTouristVisaAvailability } from "@/hooks/useTouristVisaOpen";
 import { useSettings } from "@/context/SettingsContext";
 import { useAppSelector } from "@/redux/hooks";
 
 export const navData: NavItem[] = [
   // Admin Section
-  { label: "Manage", isSection: true },
   { title: "Form Submissions", icon: FileCheck2, href: "/admin/products" },
   { title: "Contact Submissions", icon: MessagesSquare, href: "/admin/contacts" },
   { title: "Approved Visas", icon: ShieldCheck, href: "/admin/approved-visas" },
@@ -31,11 +32,13 @@ export const navData: NavItem[] = [
   { title: "Merge PDFs", icon: Combine, href: "/admin/orders" },
 
   // Dashboards Section
-  { label: "Insights", isSection: true },
+  { label: "", isSection: true }, // a divider, no heading
   { title: "Analytics", icon: ChartNoAxesCombined, href: "/admin/analytics" },
 
-  // Site
-  { label: "Website", isSection: true },
+];
+
+// Settings and the website link live in the account menu at the bottom of the sidebar.
+const accountMenu: NavItem[] = [
   { title: "Settings", icon: SlidersHorizontal, href: "/admin/settings" },
   { title: "Switch to Website", icon: Globe, href: "/" },
 ];
@@ -88,8 +91,11 @@ export function AppSidebar() {
         {/* Links */}
         <SidebarContent className="min-h-0 flex-1 overflow-hidden">
           <ScrollArea className="h-full">
-            <nav aria-label="Admin" className="px-3 pb-4 pt-3">
+            <nav aria-label="Admin" className="px-3 pb-4 pt-4">
               {items.map((item, index) => {
+                if (item.isSection && !item.label) {
+                  return <div key={`divider-${index}`} className="mx-3 my-3 h-px bg-slate-200/80" />;
+                }
                 if (item.isSection) {
                   return (
                     <p key={item.label || index} className="px-3 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 first:pt-1">
@@ -128,12 +134,35 @@ export function AppSidebar() {
 
         {/* Signed-in account */}
         {user && (
-          <div className="m-3 mt-0 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">{initialsOf(user.name)}</span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-900">{user.name}</p>
-              <p className="text-xs text-slate-500">Administrator</p>
-            </div>
+          <div className="m-3 mt-0">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-left transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">{initialsOf(user.name)}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-900">{user.name}</p>
+                    <p className="text-xs text-slate-500">Administrator</p>
+                  </div>
+                  <ChevronsUpDown className="h-4 w-4 shrink-0 text-slate-400" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-56 rounded-xl p-1.5">
+                {accountMenu.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <DropdownMenuItem key={item.title} asChild className="cursor-pointer gap-3 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 focus:bg-emerald-50 focus:text-emerald-700">
+                      <Link href={item.href || "#"}>
+                        {Icon && <Icon className="h-[18px] w-[18px]" strokeWidth={2} />}
+                        {item.title}
+                      </Link>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </div>
