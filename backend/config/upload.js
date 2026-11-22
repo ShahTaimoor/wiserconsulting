@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const r2 = require('./r2');
 const detectFileType = require('../utils/detectFileType');
+const securityLog = require('../utils/securityLog');
 const { AppError } = require('../middleware/errorHandler');
 
 // Create uploads directory if it doesn't exist (temporary files before they go to R2, and local-only uploads)
@@ -40,6 +41,7 @@ const fileFilter = (req, file, cb) => {
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
+    securityLog.record('upload_rejected', req, { reason: 'declared_type_not_allowed', field: file.fieldname });
     cb(new Error('Invalid file type. Only images, PDF, DOC, DOCX are allowed.'), false);
   }
 };
@@ -81,6 +83,7 @@ const storeFilesInR2 = async (req, res, next) => {
     for (const files of Object.values(req.files)) {
       for (const file of files) {
         if (!detectFileType(file.buffer)) {
+          securityLog.record('upload_rejected', req, { reason: 'content_not_pdf_jpg_png', field: file.fieldname });
           return next(new AppError('Only PDF, JPG and PNG files are accepted.', 400));
         }
       }

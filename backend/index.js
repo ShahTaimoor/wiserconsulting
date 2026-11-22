@@ -45,6 +45,8 @@ const app = express();
 // that proxy) is used by the rate limiters and the logs; without it every visitor would look like 127.0.0.1 and share one
 // limit. The number is how many proxies are in front: raise it only if another one (a load balancer, a CDN) is added.
 app.set("trust proxy", 1);
+// Security log (one JSON line per refused request, failed sign-in, rate limit or admin change; see utils/securityLog.js).
+app.use(require("./utils/securityLog").securityAudit);
 
 // Middlewares
 const allowedOrigins = getAllowedOrigins();
