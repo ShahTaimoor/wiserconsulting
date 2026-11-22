@@ -77,6 +77,15 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
     };
   }, [success, error, dispatch, onClose, offerFullApplication]);
 
+  // An error left over from something else (for example looking up the customer's earlier application) must not greet the person
+  // when the form opens: only what happens to THIS form is shown.
+  useEffect(() => {
+    if (isOpen) {
+      dispatch(clearError());
+      setNotification(null);
+    }
+  }, [isOpen, dispatch]);
+
   // Closing from the panel (or the X) also forgets the success, so the popup opens as a fresh form next time, as it does after the automatic close.
   const handleClose = () => {
     if (offerFullApplication) {

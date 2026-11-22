@@ -152,12 +152,17 @@ const formSubmissionSlice = createSlice({
         if (action.payload.success && action.payload.data?.submission) {
           state.currentSubmission = action.payload.data.submission;
         } else {
-          state.error = action.payload.message || 'No submission found';
+          // A customer who has not applied yet simply has no submission: that is a normal state, not an error to show anywhere.
+          state.currentSubmission = null;
         }
       })
       .addCase(fetchCustomerSubmission.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || 'Failed to fetch submission';
+        if (/not found|no submission/i.test(String(action.payload ?? ''))) {
+          state.currentSubmission = null;
+        } else {
+          state.error = action.payload || 'Failed to fetch submission';
+        }
       })
 
     // Rename Document
