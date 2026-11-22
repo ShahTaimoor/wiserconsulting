@@ -49,14 +49,22 @@ export interface Document {
 }
 
 export interface AdminComment {
+  _id?: string;
   documentId: string;
   documentName: string;
   comment: string;
+  voiceRef?: string;
+  voiceMime?: string;
+  voiceSeconds?: number;
   createdAt: string;
 }
 
 export interface CustomerComment {
+  _id?: string;
   message: string;
+  voiceRef?: string;
+  voiceMime?: string;
+  voiceSeconds?: number;
   createdAt: string;
 }
 

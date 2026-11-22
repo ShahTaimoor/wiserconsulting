@@ -31,11 +31,11 @@ test('every route that uses validate() is covered by a test in this file', () =>
     const text = fs.readFileSync(path.join(routesDir, file), 'utf8');
     for (const match of text.matchAll(/validate\(/g)) using.push(`${file}:${match.index}`);
   }
-  // 18 uses: user 4, admin settings 1, site settings 2, approved visas 2, testimonials 2, assessment 1, form submissions 6.
-  assert.equal(using.length, 18);
+  // 21 uses: user 4, admin settings 1, site settings 2, approved visas 2, testimonials 2, assessment 1, form submissions 9 (6 + the 3 voice note routes).
+  assert.equal(using.length, 21);
   const byFile = {};
   for (const entry of using) byFile[entry.split(':')[0]] = (byFile[entry.split(':')[0]] || 0) + 1;
-  assert.deepEqual(byFile, { 'adminSettingsRoutes.js': 1, 'approvedVisaRoutes.js': 2, 'assessmentRoutes.js': 1, 'formSubmissionRoutes.js': 6, 'siteSettingsRoutes.js': 2, 'testimonialRoutes.js': 2, 'userRoutes.js': 4 });
+  assert.deepEqual(byFile, { 'adminSettingsRoutes.js': 1, 'approvedVisaRoutes.js': 2, 'assessmentRoutes.js': 1, 'formSubmissionRoutes.js': 9, 'siteSettingsRoutes.js': 2, 'testimonialRoutes.js': 2, 'userRoutes.js': 4 });
 });
 
 // ---------------------------------------------------------------------------------------------- users (strict)

@@ -59,6 +59,10 @@ const errorHandler = (err, req, res, next) => {
       const message = err.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
       error = new AppError(message, 400);
     }
+    // A file over the upload limit (multer): the sender's mistake, not a server fault
+    else if (err.name === 'MulterError') {
+      error = new AppError(err.code === 'LIMIT_FILE_SIZE' ? 'The file is too large.' : 'The upload was not accepted.', err.code === 'LIMIT_FILE_SIZE' ? 413 : 400);
+    }
     // Unknown/unexpected errors
     else {
       logger.error('Unexpected error:', err);

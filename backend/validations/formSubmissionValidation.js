@@ -69,7 +69,36 @@ const getFileUrlSchema = z.object({
   })
 });
 
+const seconds = z.string().regex(/^\d{1,3}$/, 'Invalid length').optional();
+
+// A voice note: the recording itself is the multipart file "voice"; only its length (seconds) comes in the body.
+const addAdminVoiceSchema = z.object({
+  params: z.object({
+    submissionId: z.string().min(1, 'Submission ID is required'),
+    documentId: z.string().min(1, 'Document ID is required')
+  }),
+  body: z.object({ seconds })
+});
+
+const addCustomerVoiceSchema = z.object({
+  params: z.object({
+    submissionId: z.string().min(1, 'Submission ID is required')
+  }),
+  body: z.object({ seconds })
+});
+
+const getVoiceUrlSchema = z.object({
+  params: z.object({
+    submissionId: z.string().min(1, 'Submission ID is required'),
+    kind: z.enum(['admin', 'customer']),
+    commentId: z.string().min(1, 'Comment ID is required')
+  })
+});
+
 module.exports = {
+  addAdminVoiceSchema,
+  addCustomerVoiceSchema,
+  getVoiceUrlSchema,
   createSubmissionSchema,
   updateStatusSchema,
   addAdminCommentSchema,

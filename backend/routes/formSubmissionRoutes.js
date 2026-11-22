@@ -15,8 +15,13 @@ const {
   addCustomerCommentSchema,
   getSubmissionByEmailSchema,
   deleteSubmissionSchema,
-  getFileUrlSchema
+  getFileUrlSchema,
+  addAdminVoiceSchema,
+  addCustomerVoiceSchema,
+  getVoiceUrlSchema
 } = require('../validations/formSubmissionValidation');
+const { uploadAudio } = require('../config/upload');
+const { uploadLimiter } = require('../middleware/rateLimiter');
 
 // Get all form submissions (with pagination)
 router.get(
@@ -51,6 +56,35 @@ router.post(
   requireOwnerBySubmissionId,
   validate(addCustomerCommentSchema),
   formSubmissionController.addCustomerComment.bind(formSubmissionController)
+);
+
+// Voice notes. Recording: administrators on a document, customers on their own submission. Listening: the owner or an administrator.
+router.post(
+  '/form-submissions/:submissionId/documents/:documentId/voice',
+  isAuthorized,
+  isAdmin,
+  uploadLimiter,
+  uploadAudio.single('voice'),
+  validate(addAdminVoiceSchema),
+  formSubmissionController.addAdminVoice.bind(formSubmissionController)
+);
+
+router.post(
+  '/form-submissions/:submissionId/customer-voice',
+  isAuthorized,
+  requireOwnerBySubmissionId,
+  uploadLimiter,
+  uploadAudio.single('voice'),
+  validate(addCustomerVoiceSchema),
+  formSubmissionController.addCustomerVoice.bind(formSubmissionController)
+);
+
+router.get(
+  '/form-submissions/:submissionId/voice/:kind/:commentId',
+  isAuthorized,
+  requireOwnerBySubmissionId,
+  validate(getVoiceUrlSchema),
+  formSubmissionController.getVoiceUrl.bind(formSubmissionController)
 );
 
 // Get customer submission (signed in, and the e-mail must be the user's own; an administrator may read any)

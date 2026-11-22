@@ -7,20 +7,17 @@ import Image from 'next/image';
 import AssessmentForm from './AssessmentForm';
 import ApprovedVisasShowcase from './ApprovedVisasShowcase';
 import {
-  FileCheck2,
   CheckCircle2,
   Clock,
   Shield,
   Award,
   TrendingUp,
   Mail,
-  MapPin,
-  Upload,
-  Loader2,
-  X
+  MapPin
 } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { StatCountUp } from '@/components/StatCountUp';
+import { CommentsModal } from '@/components/comments/CommentsModal';
 import { OPEN_ASSESSMENT_EVENT } from '@/utils/assessmentForm';
 import { OPEN_COMMENTS_EVENT, setCommentsViewed, useCommentsViewed } from '@/utils/commentsPanel';
 import { RootState, AppDispatch } from '@/redux/store';
@@ -34,12 +31,6 @@ interface AuthState {
 }
 
 type Country = { name: string; image: string };
-type AdminComment = {
-  documentId: string;
-  documentName: string;
-  comment: string;
-  createdAt: string;
-};
 
 const VisaConsultation: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -128,18 +119,6 @@ const VisaConsultation: React.FC = () => {
     }
     prevCommentsLength.current = adminComments.length;
   }, [adminComments.length]);
-
-  const groupCommentsByDocument = (comments: AdminComment[]) => {
-    const grouped: { [key: string]: { name: string; comments: AdminComment[] } } = {};
-    comments.forEach((c) => {
-      const id = c.documentId;
-      if (!grouped[id]) {
-        grouped[id] = { name: c.documentName, comments: [] };
-      }
-      grouped[id].comments.push(c);
-    });
-    return grouped;
-  };
 
   const handleReuploadFile = (docId: string, file: File) => {
     setReuploadFiles(prev => ({ ...prev, [docId]: file }));
@@ -406,153 +385,18 @@ const VisaConsultation: React.FC = () => {
 
       {/* Comments (opened from the navbar) */}
       {mounted && user && (
-        <>
-          {/* Comments popup */}
-          <AnimatePresence>
-            {showComments && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setShowComments(false)}
-                className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-sm"
-              >
-                <motion.div
-                  role="dialog"
-                  aria-modal="true"
-                  aria-label="Admin comments"
-                  initial={{ opacity: 0, scale: 0.95, y: 12 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: 12 }}
-                  transition={{ duration: 0.2 }}
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
-                >
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div className="px-6 py-4 bg-slate-900 text-white border-b border-slate-700 flex justify-between items-center">
-                <div>
-                  <h3 className="text-lg font-semibold">Admin Comments</h3>
-                  <p className="text-sm text-slate-300 mt-1">Review feedback on your documents</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowComments(false)}
-                  aria-label="Close comments"
-                  className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-300 transition hover:bg-slate-800 hover:text-white"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
-                {adminComments.length > 0 ? (
-                  <div className="space-y-6">
-                    {Object.entries(groupCommentsByDocument(adminComments)).map(([docId, data]) => {
-                      const doc = currentSubmission?.documents.find(d => d._id === docId);
-                      if (!doc) return null; // Skip if document is deleted
-                      return (
-                        <div key={docId} className="mb-6">
-                          <div className="flex items-center gap-3 mb-3 pb-2 border-b border-slate-200">
-                            {doc?.cloudinaryUrl && (
-                              <div
-                                onClick={() => doc.mimetype.startsWith('image/') && setPreviewImageUrl(doc.cloudinaryUrl || null)}
-                                className={`relative w-12 h-12 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200 ${doc.mimetype.startsWith('image/') ? 'cursor-zoom-in hover:border-slate-400 transition-colors' : ''}`}
-                              >
-                                {doc.mimetype.startsWith('image/') ? (
-                                  <Image
-                                    src={doc.cloudinaryUrl}
-                                    alt={data.name}
-                                    fill
-                                    className="object-cover"
-                                    unoptimized
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center bg-slate-200">
-                                    <FileCheck2 className="w-6 h-6 text-slate-400" />
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                            <div className="flex-1">
-                              <h4 className="font-semibold text-sm text-slate-900 break-all">
-                                {data.name}
-                              </h4>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="file"
-                                id={`reupload-${docId}`}
-                                className="hidden"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) {
-                                    handleReuploadFile(docId, file);
-                                  }
-                                }}
-                                accept="image/*,.pdf,.doc,.docx"
-                              />
-                              <label
-                                htmlFor={`reupload-${docId}`}
-                                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 cursor-pointer transition-colors"
-                              >
-                                <Upload className="w-3 h-3" />
-                                Re-upload
-                              </label>
-                              {reuploadFiles[docId] && (
-                                <button
-                                  onClick={() => handleReuploadSubmit(docId)}
-                                  disabled={reuploadingDocId === docId}
-                                  className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                  {reuploadingDocId === docId ? (
-                                    <>
-                                      <Loader2 className="w-3 h-3 animate-spin" />
-                                      Uploading...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <CheckCircle2 className="w-3 h-3" />
-                                      Submit
-                                    </>
-                                  )}
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                          <div className="space-y-3">
-                            {data.comments.map((c, i) => (
-                              <div
-                                key={i}
-                                className="bg-slate-50 p-4 rounded-lg border-l-4 border-slate-600"
-                              >
-                                <p className="text-sm text-slate-800 leading-relaxed break-all">{c.comment}</p>
-                                <span className="text-xs text-slate-500 mt-2 block">
-                                  {new Date(c.createdAt).toLocaleDateString('en-US', {
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric'
-                                  })}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center">
-                    <FileCheck2 className="w-12 h-12 text-slate-300 mb-4" />
-                    <p className="text-slate-500">No comments yet.</p>
-                    <p className="text-sm text-slate-400 mt-2">Check back later for updates</p>
-                  </div>
-                )}
-              </div>
-            </div>
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </>
+        <CommentsModal
+          isOpen={showComments}
+          onClose={() => setShowComments(false)}
+          submission={currentSubmission}
+          adminComments={adminComments}
+          reuploadFiles={reuploadFiles}
+          reuploadingDocId={reuploadingDocId}
+          onReuploadFile={handleReuploadFile}
+          onReuploadSubmit={handleReuploadSubmit}
+          onPreviewImage={setPreviewImageUrl}
+          onReplySent={() => { if (user?.email) dispatch(fetchAdminComments(user.email)); }}
+        />
       )}
 
       <AssessmentForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} />

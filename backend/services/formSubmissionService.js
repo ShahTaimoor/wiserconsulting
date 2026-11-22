@@ -4,6 +4,8 @@
  */
 
 const formSubmissionRepository = require("../repositories/formSubmissionRepository");
+const detectAudioType = require('../utils/detectAudioType');
+const securityLog = require('../utils/securityLog');
 const escapeHtml = require('../utils/escapeHtml');
 const { AppError } = require("../middleware/errorHandler");
 const logger = require("../utils/logger");
@@ -168,6 +170,84 @@ class FormSubmissionService {
       commentData,
     );
     return { message: "Comment added successfully" };
+  }
+
+  /**
+   * Stores a recorded voice note in the PRIVATE bucket and returns the fields kept on the comment.
+   * What the bytes are comes from their first bytes only; anything that is not audio is refused.
+   */
+  async storeVoice(file, seconds) {
+    if (!file || !file.buffer) {
+      throw new AppError("No voice recording provided", 400);
+    }
+    const type = detectAudioType(file.buffer);
+    if (!type) {
+      securityLog.record("upload_rejected", { method: "POST" }, { reason: "voice_content_not_audio" });
+      throw new AppError("The recording is not a valid audio file.", 400);
+    }
+    const stored = await r2.uploadBuffer(file.buffer, {
+      folder: "voice-notes",
+      mimetype: type.mime,
+      originalName: `voice.${type.ext}`,
+      visibility: "private",
+      baseName: "voice",
+    });
+    const length = Math.min(180, Math.max(0, parseInt(seconds, 10) || 0));
+    return { voiceRef: stored.secure_url, voiceMime: type.mime, voiceSeconds: length };
+  }
+
+  /**
+   * Admin: a voice note on a document (the customer is e-mailed that there is one to listen to)
+   */
+  async addAdminVoice(submissionId, documentId, file, seconds) {
+    const submission = await formSubmissionRepository.findById(submissionId);
+    if (!submission) {
+      throw new AppError("Submission not found", 404);
+    }
+    const document = submission.documents.id(documentId);
+    if (!document) {
+      throw new AppError("Document not found", 404);
+    }
+
+    const voice = await this.storeVoice(file, seconds);
+    await formSubmissionRepository.addAdminComment(submissionId, {
+      documentId,
+      documentName: document.originalname,
+      comment: "",
+      ...voice,
+      createdAt: new Date(),
+    });
+    await this.sendCommentEmail(submission, document, "We left you a voice note. Please sign in to your account and open Comments to listen to it.");
+    return { message: "Voice note saved and email sent successfully" };
+  }
+
+  /**
+   * Customer: a voice reply
+   */
+  async addCustomerVoice(submissionId, file, seconds) {
+    const submission = await formSubmissionRepository.findById(submissionId);
+    if (!submission) {
+      throw new AppError("Submission not found", 404);
+    }
+    const voice = await this.storeVoice(file, seconds);
+    await formSubmissionRepository.addCustomerComment(submissionId, { message: "", ...voice, createdAt: new Date() });
+    return { message: "Voice note added successfully" };
+  }
+
+  /**
+   * A short-lived signed link to listen to one voice note (the route has already checked who is asking)
+   */
+  async getVoiceUrl(submissionId, kind, commentId) {
+    const submission = await formSubmissionRepository.findById(submissionId);
+    if (!submission) {
+      throw new AppError("Submission not found", 404);
+    }
+    const list = kind === "admin" ? submission.adminComments : submission.customerComments;
+    const comment = list && list.id ? list.id(commentId) : null;
+    if (!comment || !comment.voiceRef) {
+      throw new AppError("Voice note not found", 404);
+    }
+    return { url: await r2.resolveUrl(comment.voiceRef, { ttlSeconds: 600 }), mime: comment.voiceMime, seconds: comment.voiceSeconds };
   }
 
   /**

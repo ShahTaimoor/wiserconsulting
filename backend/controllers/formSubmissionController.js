@@ -105,6 +105,33 @@ class FormSubmissionController {
   })
 
   /**
+   * Admin voice note on a document
+   */
+  addAdminVoice = asyncHandler(async (req, res) => {
+    const { submissionId, documentId } = req.params;
+    const result = await formSubmissionService.addAdminVoice(submissionId, documentId, req.file, req.body.seconds);
+    return ApiResponse.success(res, result, 'Voice note saved and email sent successfully', 201);
+  })
+
+  /**
+   * Customer voice reply
+   */
+  addCustomerVoice = asyncHandler(async (req, res) => {
+    const { submissionId } = req.params;
+    const result = await formSubmissionService.addCustomerVoice(submissionId, req.file, req.body.seconds);
+    return ApiResponse.success(res, result, 'Voice note added successfully', 201);
+  })
+
+  /**
+   * A short-lived link to listen to a voice note
+   */
+  getVoiceUrl = asyncHandler(async (req, res) => {
+    const { submissionId, kind, commentId } = req.params;
+    const result = await formSubmissionService.getVoiceUrl(submissionId, kind, commentId);
+    return ApiResponse.success(res, result, 'Voice note link created');
+  })
+
+  /**
    * Delete submission (soft delete)
    */
   deleteSubmission = asyncHandler(async (req, res) => {

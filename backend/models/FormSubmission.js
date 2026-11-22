@@ -77,6 +77,9 @@ const formSubmissionSchema = new mongoose.Schema(
             documentId: String,
             documentName: String,
             comment: String,
+            voiceRef: String, // r2://private/<key> of a recorded voice note (empty for a text comment)
+            voiceMime: String,
+            voiceSeconds: Number,
             createdAt: {
                 type: Date,
                 default: Date.now
@@ -84,6 +87,9 @@ const formSubmissionSchema = new mongoose.Schema(
         }],
         customerComments: [{
             message: String,
+            voiceRef: String, // r2://private/<key> of a recorded voice note (empty for a text comment)
+            voiceMime: String,
+            voiceSeconds: Number,
             createdAt: {
                 type: Date,
                 default: Date.now

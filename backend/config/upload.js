@@ -49,6 +49,14 @@ const fileFilter = (req, file, cb) => {
 const limits = { fileSize: 10 * 1024 * 1024 }; // 10MB limit
 
 // Assessment documents (passports, bank statements ...) arrive in memory and are then stored in the PRIVATE R2 bucket.
+// Voice notes: audio only, kept in memory (small), 5 MB at most. What the bytes really are is checked again in the service.
+const audioFileFilter = (req, file, cb) => {
+  if (/^(audio|video)\//.test(file.mimetype || '')) return cb(null, true);
+  securityLog.record('upload_rejected', req, { reason: 'voice_declared_type_not_allowed' });
+  return cb(new AppError('Only a voice recording can be uploaded here.', 400), false);
+};
+const uploadAudio = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1 }, fileFilter: audioFileFilter });
+
 const uploadToR2 = multer({ storage: multer.memoryStorage(), limits, fileFilter });
 const uploadToLocal = multer({ storage: localStorage, limits, fileFilter });
 
@@ -168,6 +176,7 @@ const processFiles = (files, uploadType = 'r2') => {
 };
 
 module.exports = {
+  uploadAudio,
   uploadToR2,
   uploadToLocal,
   uploadFields,
