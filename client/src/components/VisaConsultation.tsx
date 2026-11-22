@@ -8,8 +8,6 @@ import AssessmentForm from './AssessmentForm';
 import ApprovedVisasShowcase from './ApprovedVisasShowcase';
 import {
   FileCheck2,
-  ChevronRight,
-  ChevronLeft,
   CheckCircle2,
   Clock,
   Shield,
@@ -18,11 +16,13 @@ import {
   Mail,
   MapPin,
   Upload,
-  Loader2
+  Loader2,
+  X
 } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { StatCountUp } from '@/components/StatCountUp';
 import { OPEN_ASSESSMENT_EVENT } from '@/utils/assessmentForm';
+import { OPEN_COMMENTS_EVENT, setCommentsViewed, useCommentsViewed } from '@/utils/commentsPanel';
 import { RootState, AppDispatch } from '@/redux/store';
 import { fetchAdminComments, fetchCustomerSubmission } from '@/redux/slices/formSubmission/formSubmissionSlice';
 import { useSettings } from '@/context/SettingsContext';
@@ -48,17 +48,28 @@ const VisaConsultation: React.FC = () => {
   // The "Get Free Assessment" button is in the navbar: it opens this form, directly on this page or through /?assessment=open.
   useEffect(() => {
     const open = () => setIsFormOpen(true);
+    const openComments = () => {
+      setShowComments(true);
+      setCommentsViewed(true);
+    };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setShowComments(false); };
+    window.addEventListener('keydown', onKey);
     window.addEventListener(OPEN_ASSESSMENT_EVENT, open);
-    if (new URLSearchParams(window.location.search).get("assessment") === "open") {
-      open();
-      window.history.replaceState(null, "", window.location.pathname);
-    }
-    return () => window.removeEventListener(OPEN_ASSESSMENT_EVENT, open);
+    window.addEventListener(OPEN_COMMENTS_EVENT, openComments);
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("assessment") === "open") open();
+    if (params.get("comments") === "open") openComments();
+    if (params.has("assessment") || params.has("comments")) window.history.replaceState(null, "", window.location.pathname);
+    return () => {
+      window.removeEventListener(OPEN_ASSESSMENT_EVENT, open);
+      window.removeEventListener(OPEN_COMMENTS_EVENT, openComments);
+      window.removeEventListener('keydown', onKey);
+    };
   }, []);
   const [showComments, setShowComments] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
-  const [hasViewedComments, setHasViewedComments] = useState(false);
+  const hasViewedComments = useCommentsViewed();
   const [reuploadingDocId, setReuploadingDocId] = useState<string | null>(null);
   const [reuploadFiles, setReuploadFiles] = useState<{ [key: string]: File }>({});
   const typedEl = useRef<HTMLSpanElement>(null);
@@ -113,7 +124,7 @@ const VisaConsultation: React.FC = () => {
   // Reset viewed status only if NEW comments arrive
   useEffect(() => {
     if (adminComments.length > prevCommentsLength.current) {
-      setHasViewedComments(false);
+      setCommentsViewed(false);
     }
     prevCommentsLength.current = adminComments.length;
   }, [adminComments.length]);
@@ -393,25 +404,10 @@ const VisaConsultation: React.FC = () => {
         </div>
       </section>
 
-      {/* Comments Toggle Button */}
+      {/* Comments (opened from the navbar) */}
       {mounted && user && (
         <>
-          <button
-            onClick={() => {
-              setShowComments(!showComments);
-              if (!showComments) setHasViewedComments(true);
-            }}
-            className={`fixed top-40 right-0 z-50 p-3 rounded-l-xl shadow-xl transition-all border border-slate-700 hover:shadow-2xl ${showComments ? 'bg-slate-800 text-white translate-x-1' : 'bg-slate-900 text-white'
-              }`}
-          >
-            {showComments ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-            {adminComments.filter(c => currentSubmission?.documents.some(d => d._id === c.documentId)).length > 0 && !hasViewedComments && !showComments && (
-              <span className="absolute -top-2 -left-2 bg-red-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg animate-pulse">
-                {adminComments.filter(c => currentSubmission?.documents.some(d => d._id === c.documentId)).length}
-              </span>
-            )}
-          </button>
-
+          {/* Comments popup */}
           <AnimatePresence>
             {showComments && (
               <motion.div
@@ -419,24 +415,33 @@ const VisaConsultation: React.FC = () => {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setShowComments(false)}
-                className="fixed inset-0 bg-slate-900/10 backdrop-blur-[1px] z-30"
-              />
-            )}
-          </AnimatePresence>
-
-          {/* Comments Panel */}
-          <motion.div
-            initial={{ x: "100%" }}
-            animate={{ x: showComments ? 0 : "100%" }}
-            transition={{ type: "tween", duration: 0.3 }}
-            className="fixed top-20 right-0 w-[calc(100vw-1rem)] sm:w-96 h-[85vh] bg-white shadow-2xl border-l border-slate-200 rounded-l-2xl overflow-hidden z-40"
-          >
-            <div className="h-full flex flex-col">
+                className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-sm"
+              >
+                <motion.div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Admin comments"
+                  initial={{ opacity: 0, scale: 0.95, y: 12 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 12 }}
+                  transition={{ duration: 0.2 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+                >
+            <div className="flex min-h-0 flex-1 flex-col">
               <div className="px-6 py-4 bg-slate-900 text-white border-b border-slate-700 flex justify-between items-center">
                 <div>
                   <h3 className="text-lg font-semibold">Admin Comments</h3>
                   <p className="text-sm text-slate-300 mt-1">Review feedback on your documents</p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowComments(false)}
+                  aria-label="Close comments"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                >
+                  <X size={20} />
+                </button>
               </div>
               <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
                 {adminComments.length > 0 ? (
@@ -543,7 +548,10 @@ const VisaConsultation: React.FC = () => {
                 )}
               </div>
             </div>
-          </motion.div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </>
       )}
 

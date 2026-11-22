@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Menu, X, Phone, LogOut, User as UserIcon } from "lucide-react";
+import { Menu, X, Phone, LogOut, MessageSquare, User as UserIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { logout } from "@/redux/slices/auth/authSlice";
@@ -10,6 +10,8 @@ import { useSettings } from "@/context/SettingsContext";
 
 import { usePathname, useRouter } from "next/navigation";
 import { requestAssessmentForm } from "@/utils/assessmentForm";
+import { requestCommentsPanel, useCommentsViewed } from "@/utils/commentsPanel";
+import { fetchAdminComments } from "@/redux/slices/formSubmission/formSubmissionSlice";
 import { isAdminRole } from "@/utils/authRole";
 import { LayoutDashboard } from "lucide-react";
 import {
@@ -34,6 +36,18 @@ const Navbar = () => {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
   const { settings, loading: settingsLoading } = useSettings();
+  const commentsViewed = useCommentsViewed();
+  const adminComments = useAppSelector((state) => state.formSubmission.adminComments);
+  const currentSubmission = useAppSelector((state) => state.formSubmission.currentSubmission);
+  // Only the comments on this customer's own documents are counted.
+  const commentCount = adminComments.filter((c) => currentSubmission?.documents.some((d) => d._id === c.documentId)).length;
+  // The home page loads the comments itself; on any other page the navbar does, so the red counter is right everywhere.
+  useEffect(() => {
+    if (user?.email && pathname !== "/" && !isAdminRole(user.role)) {
+      dispatch(fetchAdminComments(user.email));
+    }
+  }, [user?.email, user?.role, pathname, dispatch]);
+  const openComments = () => requestCommentsPanel(pathname, (url) => router.push(url));
 
   const displayLogo = settings.logoUrl || "/logo.png";
   const displayTitle = settings.websiteTitle || "WISER CONSULTING";
@@ -200,6 +214,21 @@ const Navbar = () => {
                 >
                   Fill Form
                 </button>
+                {mounted && user && (
+                  <button
+                    type="button"
+                    onClick={openComments}
+                    className="relative inline-flex items-center justify-center gap-1.5 rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-800 transition hover:border-emerald-400 hover:text-emerald-600"
+                  >
+                    <MessageSquare size={14} />
+                    Comments
+                    {commentCount > 0 && !commentsViewed && (
+                      <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white shadow animate-pulse">
+                        {commentCount}
+                      </span>
+                    )}
+                  </button>
+                )}
                 {mounted && user ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -324,6 +353,21 @@ const Navbar = () => {
                 >
                   Fill Form
                 </button>
+                {mounted && user && (
+                  <button
+                    type="button"
+                    onClick={openComments}
+                    className="relative inline-flex items-center justify-center gap-1.5 rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-800 transition hover:border-emerald-400 hover:text-emerald-600"
+                  >
+                    <MessageSquare size={14} />
+                    Comments
+                    {commentCount > 0 && !commentsViewed && (
+                      <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white shadow animate-pulse">
+                        {commentCount}
+                      </span>
+                    )}
+                  </button>
+                )}
                 {mounted && user ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -513,6 +557,19 @@ const Navbar = () => {
                     >
                       Fill Form
                     </button>
+                    {mounted && user && (
+                      <button
+                        type="button"
+                        onClick={() => { handleClose(); openComments(); }}
+                        className="relative inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-600 bg-slate-900/90 px-8 py-3 text-sm font-semibold text-slate-100 transition hover:border-emerald-300"
+                      >
+                        <MessageSquare size={16} />
+                        Comments
+                        {commentCount > 0 && !commentsViewed && (
+                          <span className="ml-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">{commentCount}</span>
+                        )}
+                      </button>
+                    )}
                     {mounted && user ? (
                       <motion.div 
                         className="flex flex-row flex-wrap items-center justify-between gap-3 px-2 py-4 border-t border-slate-800"

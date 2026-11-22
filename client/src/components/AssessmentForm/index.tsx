@@ -32,6 +32,7 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
     formData,
     validationErrors,
     isSubmitting,
+    preparing,
     handleInputChange,
     handleFileChange,
     removeFile,
@@ -170,6 +171,7 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
                 onFileChange={handleFileChangeWrapper}
                 onRemoveFile={handleRemoveFile}
                 onPreviewImage={setPreviewImage}
+                preparing={preparing}
             />
           </div>
 
@@ -185,7 +187,7 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
             <div className="flex gap-3">
               <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || preparing !== null}
                   className="px-6 py-2.5 bg-slate-900 text-white rounded-lg font-semibold hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isSubmitting ? (

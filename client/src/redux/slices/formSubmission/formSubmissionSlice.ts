@@ -201,7 +201,10 @@ const formSubmissionSlice = createSlice({
       })
       .addCase(fetchAdminComments.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || 'Failed to fetch admin comments';
+        // No application yet is a normal state (nothing to comment on), not an error to show.
+        if (!/not found|no submission/i.test(String(action.payload ?? ''))) {
+          state.error = action.payload || 'Failed to fetch admin comments';
+        }
         state.adminComments = [];
       });
   },

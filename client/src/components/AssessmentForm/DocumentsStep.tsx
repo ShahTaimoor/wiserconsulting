@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle2, FileText, Image as ImageIcon, Upload, X } from 'lucide-react';
-import { FormData } from '@/hooks/useAssessmentForm';
+import { CheckCircle2, FileText, Image as ImageIcon, Loader2, Upload, X } from 'lucide-react';
+import { FormData, fileNotes } from '@/hooks/useAssessmentForm';
 
 interface DocumentsStepProps {
   formData: FormData;
   validationErrors: Record<string, string>;
-  onFileChange: (field: keyof FormData) => (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onFileChange: (field: keyof FormData) => (e: React.ChangeEvent<HTMLInputElement>) => void | Promise<void>;
   onRemoveFile: (field: keyof FormData, index: number) => void;
   onPreviewImage: (url: string) => void;
+  preparing?: { field: string; name: string } | null;
 }
 
 type Requirement = 'optional';
@@ -46,6 +47,7 @@ export const DocumentsStep: React.FC<DocumentsStepProps> = ({
   onFileChange,
   onRemoveFile,
   onPreviewImage,
+  preparing = null,
 }) => {
   const [dragOver, setDragOver] = useState<string | null>(null);
   const uploadedCount = documentFields.filter(({ field }) => (formData[field] as File[]).length > 0).length;
@@ -114,14 +116,21 @@ export const DocumentsStep: React.FC<DocumentsStepProps> = ({
                     </span>
                   </td>
                   <td className={CELL}>
+                    {preparing && preparing.field === field && (
+                      <p role="status" aria-live="polite" className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-sky-700">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Preparing {preparing.name}...
+                      </p>
+                    )}
                     {files.length === 0 ? (
-                      <span className="text-xs text-slate-400">No file yet</span>
+                      !(preparing && preparing.field === field) && <span className="text-xs text-slate-400">No file yet</span>
                     ) : (
                       <div className="flex flex-wrap gap-1.5">
                         {files.map((file, index) => {
                           const isImage = file.type.startsWith('image/');
+                          const note = fileNotes.get(file);
                           return (
-                            <span key={`${file.name}-${index}`} className="inline-flex max-w-[220px] items-center gap-1.5 rounded-md border border-slate-200 bg-white py-1 pl-2 pr-1 text-xs text-slate-700">
+                            <span key={`${file.name}-${index}`} title={note} className="inline-flex max-w-[260px] items-center gap-1.5 rounded-md border border-slate-200 bg-white py-1 pl-2 pr-1 text-xs text-slate-700">
                               {isImage ? <ImageIcon className="h-3.5 w-3.5 shrink-0 text-sky-600" /> : <FileText className="h-3.5 w-3.5 shrink-0 text-slate-500" />}
                               {isImage ? (
                                 <button type="button" onClick={() => onPreviewImage(URL.createObjectURL(file))} className="truncate text-left hover:underline" title="Preview">
@@ -131,6 +140,7 @@ export const DocumentsStep: React.FC<DocumentsStepProps> = ({
                                 <span className="truncate" title={file.name}>{file.name}</span>
                               )}
                               <span className="shrink-0 text-[10px] text-slate-400">{sizeText(file.size)}</span>
+                              {note && <span className="shrink-0 rounded bg-emerald-50 px-1 text-[10px] font-semibold text-emerald-700">smaller</span>}
                               <button
                                 type="button"
                                 onClick={() => onRemoveFile(field, index)}
@@ -143,6 +153,11 @@ export const DocumentsStep: React.FC<DocumentsStepProps> = ({
                           );
                         })}
                       </div>
+                    )}
+                    {files.some((file) => fileNotes.get(file)) && (
+                      <p className="mt-1.5 text-[11px] font-medium text-emerald-700">
+                        {files.map((file) => fileNotes.get(file)).filter(Boolean).join(' · ')}
+                      </p>
                     )}
                   </td>
                   <td className={`${CELL} text-center`}>
