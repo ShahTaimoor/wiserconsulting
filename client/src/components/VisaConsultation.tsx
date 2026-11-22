@@ -4,26 +4,22 @@ import React, { useState, useEffect, useRef } from 'react';
 import Typed from 'typed.js';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import Link from 'next/link';
 import AssessmentForm from './AssessmentForm';
-import StarButton from '@/components/ui/star-button';
 import ApprovedVisasShowcase from './ApprovedVisasShowcase';
 import {
-  FileCheck2,
-  ArrowRight,
-  ChevronRight,
-  ChevronLeft,
   CheckCircle2,
   Clock,
   Shield,
   Award,
   TrendingUp,
   Mail,
-  MapPin,
-  Upload,
-  Loader2
+  MapPin
 } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
+import { StatCountUp } from '@/components/StatCountUp';
+import { CommentsModal } from '@/components/comments/CommentsModal';
+import { OPEN_ASSESSMENT_EVENT } from '@/utils/assessmentForm';
+import { OPEN_COMMENTS_EVENT, setCommentsViewed, useCommentsViewed } from '@/utils/commentsPanel';
 import { RootState, AppDispatch } from '@/redux/store';
 import { fetchAdminComments, fetchCustomerSubmission } from '@/redux/slices/formSubmission/formSubmissionSlice';
 import { useSettings } from '@/context/SettingsContext';
@@ -35,20 +31,36 @@ interface AuthState {
 }
 
 type Country = { name: string; image: string };
-type AdminComment = {
-  documentId: string;
-  documentName: string;
-  comment: string;
-  createdAt: string;
-};
 
 const VisaConsultation: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const [isFormOpen, setIsFormOpen] = useState(false);
+
+  // The "Get Free Assessment" button is in the navbar: it opens this form, directly on this page or through /?assessment=open.
+  useEffect(() => {
+    const open = () => setIsFormOpen(true);
+    const openComments = () => {
+      setShowComments(true);
+      setCommentsViewed(true);
+    };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setShowComments(false); };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener(OPEN_ASSESSMENT_EVENT, open);
+    window.addEventListener(OPEN_COMMENTS_EVENT, openComments);
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("assessment") === "open") open();
+    if (params.get("comments") === "open") openComments();
+    if (params.has("assessment") || params.has("comments")) window.history.replaceState(null, "", window.location.pathname);
+    return () => {
+      window.removeEventListener(OPEN_ASSESSMENT_EVENT, open);
+      window.removeEventListener(OPEN_COMMENTS_EVENT, openComments);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, []);
   const [showComments, setShowComments] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
-  const [hasViewedComments, setHasViewedComments] = useState(false);
+  const hasViewedComments = useCommentsViewed();
   const [reuploadingDocId, setReuploadingDocId] = useState<string | null>(null);
   const [reuploadFiles, setReuploadFiles] = useState<{ [key: string]: File }>({});
   const typedEl = useRef<HTMLSpanElement>(null);
@@ -62,7 +74,7 @@ const VisaConsultation: React.FC = () => {
 
     const options = {
       strings: [
-        "Your Journey to<br><span class=\"block mt-3 bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300\">Global Opportunities</span>"
+        "Your Journey to<br><span class=\"block mt-2 bg-clip-text text-transparent bg-gradient-to-r from-emerald-300 via-teal-200 to-sky-300\">Global Opportunities</span>"
       ],
       startDelay: 300,
       typeSpeed: 40,
@@ -103,22 +115,10 @@ const VisaConsultation: React.FC = () => {
   // Reset viewed status only if NEW comments arrive
   useEffect(() => {
     if (adminComments.length > prevCommentsLength.current) {
-      setHasViewedComments(false);
+      setCommentsViewed(false);
     }
     prevCommentsLength.current = adminComments.length;
   }, [adminComments.length]);
-
-  const groupCommentsByDocument = (comments: AdminComment[]) => {
-    const grouped: { [key: string]: { name: string; comments: AdminComment[] } } = {};
-    comments.forEach((c) => {
-      const id = c.documentId;
-      if (!grouped[id]) {
-        grouped[id] = { name: c.documentName, comments: [] };
-      }
-      grouped[id].comments.push(c);
-    });
-    return grouped;
-  };
 
   const handleReuploadFile = (docId: string, file: File) => {
     setReuploadFiles(prev => ({ ...prev, [docId]: file }));
@@ -271,87 +271,100 @@ const VisaConsultation: React.FC = () => {
             />
           </picture>
         )}
-        <div className="absolute inset-0 bg-slate-900/70 z-10" />
+        {/* Overlay: a dark navy wash that is heavier at the top (readable navbar) and the bottom, with a soft green glow and a faint grid */}
+        <div className="absolute inset-0 z-10 bg-gradient-to-b from-slate-950/90 via-slate-900/70 to-slate-950/90" />
+        <div className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(60%_50%_at_50%_35%,rgba(16,185,129,0.14),transparent_70%)]" />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-10 opacity-[0.07] [background-image:linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] [background-size:56px_56px] [mask-image:radial-gradient(70%_60%_at_50%_40%,#000,transparent)]"
+        />
 
-        <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+        <div className="relative z-20 mx-auto flex max-w-5xl flex-col items-center px-4 pb-24 pt-32 text-center sm:px-6 lg:px-8">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="space-y-10"
+            transition={{ duration: 0.7, ease: "easeOut" }}
+            className="flex flex-col items-center"
           >
-            <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 mb-4">
-              <Clock className="w-4 h-4 text-white" />
-              <span className="text-sm text-white font-medium">Trusted Visa Consultants Since 2009</span>
+            <div className="inline-flex items-center gap-2.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 backdrop-blur-sm">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+              </span>
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100 sm:text-[13px]">Trusted Visa Consultants Since 2009</span>
             </div>
 
-            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-white leading-[0.95] tracking-tight min-h-[140px] sm:min-h-[160px] md:min-h-[180px] lg:min-h-[220px]">
+            <h1 className="mt-8 min-h-[2.2em] text-4xl font-bold leading-[1.08] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl">
               <span ref={typedEl}></span>
             </h1>
 
-            <p className="text-xl md:text-2xl text-slate-200 max-w-3xl mx-auto leading-relaxed">
+            <div className="mx-auto mt-6 h-px w-20 bg-gradient-to-r from-transparent via-emerald-300/70 to-transparent" />
+
+            <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg md:text-xl">
               Expert visa consultation services for students, professionals, and families.
               Get personalized immigration solutions tailored to your needs.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-              <StarButton
-                onClick={() => setIsFormOpen(true)}
-              >
-                Get Free Assessment
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </StarButton>
-              <Link href="/contact">
-                <motion.button
-                  whileHover={{ scale: 1.05, y: -2 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="px-8 py-4 bg-transparent text-white font-semibold rounded-lg text-lg border-2 border-white hover:bg-white/10 transition-all block"
-                >
-                  Learn More
-                </motion.button>
-              </Link>
-            </div>
+            <ul className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-slate-200">
+              {[
+                { icon: <CheckCircle2 className="h-4 w-4 text-emerald-300" />, text: 'Expert document review' },
+                { icon: <Shield className="h-4 w-4 text-emerald-300" />, text: 'Your files kept secure' },
+                { icon: <Award className="h-4 w-4 text-emerald-300" />, text: 'Personal guidance, start to finish' },
+              ].map((item) => (
+                <li key={item.text} className="flex items-center gap-2">
+                  {item.icon}
+                  <span>{item.text}</span>
+                </li>
+              ))}
+            </ul>
           </motion.div>
+        </div>
+
+        {/* A quiet cue that there is more below */}
+        <div aria-hidden="true" className="absolute bottom-8 left-1/2 z-20 -translate-x-1/2">
+          <div className="flex h-10 w-6 items-start justify-center rounded-full border border-white/30 p-1.5">
+            <motion.span
+              className="h-2 w-1 rounded-full bg-white/70"
+              animate={{ y: [0, 14, 0], opacity: [1, 0.2, 1] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+            />
+          </div>
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="py-16 relative bg-white border-b border-slate-100 overflow-hidden">
-        {/* Subtle background gradient to make it look "light" and elegant */}
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-50/50 to-white z-0" />
+      {/* Stats Section: one connected band, hairline dividers, count-up numbers */}
+      <section className="relative bg-slate-50 py-14 sm:py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mb-8 text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-emerald-600">Our track record</p>
+            <h2 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Trusted by applicants, backed by results</h2>
+          </div>
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 lg:gap-8">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="grid grid-cols-2 lg:grid-cols-4 gap-px overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 shadow-[0_10px_40px_-12px_rgba(15,23,42,0.18)]"
+          >
             {stats.map((stat, index) => (
-              <motion.div
+              <div
                 key={index}
-                initial={{ opacity: 0, y: 30, scale: 0.95 }}
-                whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{ duration: 0.6, delay: index * 0.1, ease: "easeOut" }}
-                whileHover={{ y: -8, scale: 1.02 }}
-                className="group relative flex flex-col items-center p-8 bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.03)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] border border-slate-200 hover:border-slate-300 transition-all duration-500"
+                className="group relative flex flex-col items-center bg-white px-4 py-8 sm:px-6 sm:py-10 text-center transition-colors duration-300 hover:bg-slate-50"
               >
-                {/* Light color glow on hover behind the card */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-50/60 to-amber-50/60 opacity-0 group-hover:opacity-100 rounded-3xl transition-opacity duration-500" />
-
-                <div className="relative z-20 inline-flex items-center justify-center w-20 h-20 bg-slate-50 border border-blue-50 rounded-2xl mb-6 text-slate-600 group-hover:bg-white group-hover:text-amber-600 group-hover:border-amber-200 group-hover:shadow-md group-hover:-translate-y-2 group-hover:rotate-3 transition-all duration-500">
-                  {/* Subtle inner glow for icon container */}
-                  <div className="absolute inset-0 bg-amber-400 opacity-0 group-hover:opacity-10 blur-xl rounded-2xl transition-opacity duration-500"></div>
-                  <div className="relative z-10">
-                    {stat.icon}
-                  </div>
+                <span className="absolute inset-x-0 top-0 h-0.5 origin-left scale-x-0 bg-emerald-500 transition-transform duration-500 group-hover:scale-x-100" />
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100 transition-colors duration-300 group-hover:bg-emerald-600 group-hover:text-white">
+                  {stat.icon}
                 </div>
-
-                <div className="relative z-20 text-3xl md:text-4xl lg:text-5xl font-extrabold text-slate-900 mb-2 tracking-tight group-hover:text-slate-800 transition-colors">
-                  {stat.value}
+                <div className="text-3xl sm:text-4xl lg:text-5xl font-bold tabular-nums tracking-tight text-slate-900">
+                  <StatCountUp value={stat.value} />
                 </div>
-                <div className="relative z-20 text-xs md:text-sm font-bold text-slate-500 uppercase tracking-wider group-hover:text-amber-600 transition-colors duration-300 text-center">
+                <div className="mt-2 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                   {stat.label}
                 </div>
-              </motion.div>
+              </div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -404,158 +417,20 @@ const VisaConsultation: React.FC = () => {
         </div>
       </section>
 
-      {/* Comments Toggle Button */}
+      {/* Comments (opened from the navbar) */}
       {mounted && user && (
-        <>
-          <button
-            onClick={() => {
-              setShowComments(!showComments);
-              if (!showComments) setHasViewedComments(true);
-            }}
-            className={`fixed top-40 right-0 z-50 p-3 rounded-l-xl shadow-xl transition-all border border-slate-700 hover:shadow-2xl ${showComments ? 'bg-slate-800 text-white translate-x-1' : 'bg-slate-900 text-white'
-              }`}
-          >
-            {showComments ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-            {adminComments.filter(c => currentSubmission?.documents.some(d => d._id === c.documentId)).length > 0 && !hasViewedComments && !showComments && (
-              <span className="absolute -top-2 -left-2 bg-red-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg animate-pulse">
-                {adminComments.filter(c => currentSubmission?.documents.some(d => d._id === c.documentId)).length}
-              </span>
-            )}
-          </button>
-
-          <AnimatePresence>
-            {showComments && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setShowComments(false)}
-                className="fixed inset-0 bg-slate-900/10 backdrop-blur-[1px] z-30"
-              />
-            )}
-          </AnimatePresence>
-
-          {/* Comments Panel */}
-          <motion.div
-            initial={{ x: "100%" }}
-            animate={{ x: showComments ? 0 : "100%" }}
-            transition={{ type: "tween", duration: 0.3 }}
-            className="fixed top-20 right-0 w-[calc(100vw-1rem)] sm:w-96 h-[85vh] bg-white shadow-2xl border-l border-slate-200 rounded-l-2xl overflow-hidden z-40"
-          >
-            <div className="h-full flex flex-col">
-              <div className="px-6 py-4 bg-slate-900 text-white border-b border-slate-700 flex justify-between items-center">
-                <div>
-                  <h3 className="text-lg font-semibold">Admin Comments</h3>
-                  <p className="text-sm text-slate-300 mt-1">Review feedback on your documents</p>
-                </div>
-              </div>
-              <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
-                {adminComments.length > 0 ? (
-                  <div className="space-y-6">
-                    {Object.entries(groupCommentsByDocument(adminComments)).map(([docId, data]) => {
-                      const doc = currentSubmission?.documents.find(d => d._id === docId);
-                      if (!doc) return null; // Skip if document is deleted
-                      return (
-                        <div key={docId} className="mb-6">
-                          <div className="flex items-center gap-3 mb-3 pb-2 border-b border-slate-200">
-                            {doc?.cloudinaryUrl && (
-                              <div
-                                onClick={() => doc.mimetype.startsWith('image/') && setPreviewImageUrl(doc.cloudinaryUrl || null)}
-                                className={`relative w-12 h-12 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200 ${doc.mimetype.startsWith('image/') ? 'cursor-zoom-in hover:border-slate-400 transition-colors' : ''}`}
-                              >
-                                {doc.mimetype.startsWith('image/') ? (
-                                  <Image
-                                    src={doc.cloudinaryUrl}
-                                    alt={data.name}
-                                    fill
-                                    className="object-cover"
-                                    unoptimized
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center bg-slate-200">
-                                    <FileCheck2 className="w-6 h-6 text-slate-400" />
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                            <div className="flex-1">
-                              <h4 className="font-semibold text-sm text-slate-900 break-all">
-                                {data.name}
-                              </h4>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="file"
-                                id={`reupload-${docId}`}
-                                className="hidden"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) {
-                                    handleReuploadFile(docId, file);
-                                  }
-                                }}
-                                accept="image/*,.pdf,.doc,.docx"
-                              />
-                              <label
-                                htmlFor={`reupload-${docId}`}
-                                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 cursor-pointer transition-colors"
-                              >
-                                <Upload className="w-3 h-3" />
-                                Re-upload
-                              </label>
-                              {reuploadFiles[docId] && (
-                                <button
-                                  onClick={() => handleReuploadSubmit(docId)}
-                                  disabled={reuploadingDocId === docId}
-                                  className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                  {reuploadingDocId === docId ? (
-                                    <>
-                                      <Loader2 className="w-3 h-3 animate-spin" />
-                                      Uploading...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <CheckCircle2 className="w-3 h-3" />
-                                      Submit
-                                    </>
-                                  )}
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                          <div className="space-y-3">
-                            {data.comments.map((c, i) => (
-                              <div
-                                key={i}
-                                className="bg-slate-50 p-4 rounded-lg border-l-4 border-slate-600"
-                              >
-                                <p className="text-sm text-slate-800 leading-relaxed break-all">{c.comment}</p>
-                                <span className="text-xs text-slate-500 mt-2 block">
-                                  {new Date(c.createdAt).toLocaleDateString('en-US', {
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric'
-                                  })}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center">
-                    <FileCheck2 className="w-12 h-12 text-slate-300 mb-4" />
-                    <p className="text-slate-500">No comments yet.</p>
-                    <p className="text-sm text-slate-400 mt-2">Check back later for updates</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        </>
+        <CommentsModal
+          isOpen={showComments}
+          onClose={() => setShowComments(false)}
+          submission={currentSubmission}
+          adminComments={adminComments}
+          reuploadFiles={reuploadFiles}
+          reuploadingDocId={reuploadingDocId}
+          onReuploadFile={handleReuploadFile}
+          onReuploadSubmit={handleReuploadSubmit}
+          onPreviewImage={setPreviewImageUrl}
+          onReplySent={() => { if (user?.email) dispatch(fetchAdminComments(user.email)); }}
+        />
       )}
 
       <AssessmentForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} />

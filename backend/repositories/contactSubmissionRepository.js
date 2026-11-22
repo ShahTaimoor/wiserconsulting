@@ -105,6 +105,8 @@ class ContactSubmissionRepository {
   async search(searchTerm, page = 1, limit = 10) {
     try {
       const skip = (page - 1) * limit;
+      // the search text is literal text, never a pattern (a crafted pattern can hang the database)
+      searchTerm = String(searchTerm ?? '').slice(0, 100).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const query = {
         isDeleted: false,
         $or: [

@@ -1,4 +1,5 @@
 const contactSubmissionRepository = require("../repositories/contactSubmissionRepository");
+const escapeHtml = require('../utils/escapeHtml');
 const logger = require("../utils/logger");
 const nodemailer = require("nodemailer");
 
@@ -40,12 +41,12 @@ class ContactSubmissionService {
         subject: "We received your contact request - Wiser Consulting",
         html: `
                     <h2>Thank you for reaching out to Wiser Consulting</h2>
-                    <p>Dear ${submission.name},</p>
+                    <p>Dear ${escapeHtml(submission.name)},</p>
                     <p>We have received your contact request and will get back to you as soon as possible.</p>
                     <hr>
                     <p><strong>Your Message Details:</strong></p>
-                    <p><strong>Subject:</strong> ${submission.subject}</p>
-                    <p><strong>Message:</strong> ${submission.message}</p>
+                    <p><strong>Subject:</strong> ${escapeHtml(submission.subject)}</p>
+                    <p><strong>Message:</strong> ${escapeHtml(submission.message)}</p>
                     <hr>
                     <p>If you have any urgent matters, please call us at the contact number provided on our website.</p>
                     <p>Best regards,<br>Wiser Consulting Team</p>
@@ -65,15 +66,15 @@ class ContactSubmissionService {
       const mailOptions = {
         from: process.env.EMAIL_USER,
         to: process.env.ADMIN_EMAIL || process.env.EMAIL_USER,
-        subject: `New Contact Form Submission - ${submission.name}`,
+        subject: `New Contact Form Submission - ${escapeHtml(submission.name)}`,
         html: `
                     <h2>New Contact Form Submission</h2>
-                    <p><strong>Name:</strong> ${submission.name}</p>
-                    <p><strong>Email:</strong> ${submission.email}</p>
-                    <p><strong>Phone:</strong> ${submission.phone}</p>
-                    <p><strong>Subject:</strong> ${submission.subject}</p>
+                    <p><strong>Name:</strong> ${escapeHtml(submission.name)}</p>
+                    <p><strong>Email:</strong> ${escapeHtml(submission.email)}</p>
+                    <p><strong>Phone:</strong> ${escapeHtml(submission.phone)}</p>
+                    <p><strong>Subject:</strong> ${escapeHtml(submission.subject)}</p>
                     <p><strong>Message:</strong></p>
-                    <p>${submission.message}</p>
+                    <p>${escapeHtml(submission.message)}</p>
                     <hr>
                     <p><strong>Submission Date:</strong> ${new Date(submission.createdAt).toLocaleString()}</p>
                     <p><a href="${process.env.ADMIN_PANEL_URL || "http://localhost:3000"}/admin/contacts">View in Admin Panel</a></p>
@@ -167,13 +168,13 @@ class ContactSubmissionService {
       const mailOptions = {
         from: process.env.EMAIL_USER,
         to: submission.email,
-        subject: `Re: ${submission.subject} - Wiser Consulting`,
+        subject: `Re: ${escapeHtml(submission.subject)} - Wiser Consulting`,
         html: `
                     <h2>Response to Your Contact Request</h2>
-                    <p>Dear ${submission.name},</p>
+                    <p>Dear ${escapeHtml(submission.name)},</p>
                     <p>Thank you for contacting us. Here is our response:</p>
                     <hr>
-                    <p>${submission.adminReply.message}</p>
+                    <p>${escapeHtml(submission.adminReply.message)}</p>
                     <hr>
                     <p>If you have any further questions, please feel free to contact us.</p>
                     <p>Best regards,<br>Wiser Consulting Team</p>

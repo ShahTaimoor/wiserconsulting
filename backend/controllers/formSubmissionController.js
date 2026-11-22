@@ -17,8 +17,12 @@ class FormSubmissionController {
     const { processFiles } = require("../config/upload");
     const uploadType = req.route.path.includes('local') ? 'local' : 'r2';
 
+    // Who applied comes from the signed-in account, never from the form: the customer later finds the submission by this e-mail.
     const submissionData = {
       ...req.body,
+      name: req.user.name,
+      email: req.user.email,
+      phone: req.body.phone || req.user.phone || '',
       documents: req.files ? processFiles(req.files, uploadType) : [],
       status: 'pending'
     };
@@ -98,6 +102,33 @@ class FormSubmissionController {
     const result = await formSubmissionService.addCustomerComment(submissionId, message);
 
     return ApiResponse.success(res, result, 'Comment added successfully');
+  })
+
+  /**
+   * Admin voice note on a document
+   */
+  addAdminVoice = asyncHandler(async (req, res) => {
+    const { submissionId, documentId } = req.params;
+    const result = await formSubmissionService.addAdminVoice(submissionId, documentId, req.file, req.body.seconds);
+    return ApiResponse.success(res, result, 'Voice note saved and email sent successfully', 201);
+  })
+
+  /**
+   * Customer voice reply
+   */
+  addCustomerVoice = asyncHandler(async (req, res) => {
+    const { submissionId } = req.params;
+    const result = await formSubmissionService.addCustomerVoice(submissionId, req.file, req.body.seconds);
+    return ApiResponse.success(res, result, 'Voice note added successfully', 201);
+  })
+
+  /**
+   * A short-lived link to listen to a voice note
+   */
+  getVoiceUrl = asyncHandler(async (req, res) => {
+    const { submissionId, kind, commentId } = req.params;
+    const result = await formSubmissionService.getVoiceUrl(submissionId, kind, commentId);
+    return ApiResponse.success(res, result, 'Voice note link created');
   })
 
   /**

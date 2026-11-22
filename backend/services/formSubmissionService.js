@@ -4,6 +4,9 @@
  */
 
 const formSubmissionRepository = require("../repositories/formSubmissionRepository");
+const detectAudioType = require('../utils/detectAudioType');
+const securityLog = require('../utils/securityLog');
+const escapeHtml = require('../utils/escapeHtml');
 const { AppError } = require("../middleware/errorHandler");
 const logger = require("../utils/logger");
 const nodemailer = require("nodemailer");
@@ -96,7 +99,8 @@ class FormSubmissionService {
     if (!submission) {
       throw new AppError("Submission not found", 404);
     }
-    return submission;
+    // Private R2 documents are stored as r2://private/<key>; the owner gets signed links that expire in an hour.
+    return await this.addFileUrls(submission);
   }
 
   /**
@@ -166,6 +170,84 @@ class FormSubmissionService {
       commentData,
     );
     return { message: "Comment added successfully" };
+  }
+
+  /**
+   * Stores a recorded voice note in the PRIVATE bucket and returns the fields kept on the comment.
+   * What the bytes are comes from their first bytes only; anything that is not audio is refused.
+   */
+  async storeVoice(file, seconds) {
+    if (!file || !file.buffer) {
+      throw new AppError("No voice recording provided", 400);
+    }
+    const type = detectAudioType(file.buffer);
+    if (!type) {
+      securityLog.record("upload_rejected", { method: "POST" }, { reason: "voice_content_not_audio" });
+      throw new AppError("The recording is not a valid audio file.", 400);
+    }
+    const stored = await r2.uploadBuffer(file.buffer, {
+      folder: "voice-notes",
+      mimetype: type.mime,
+      originalName: `voice.${type.ext}`,
+      visibility: "private",
+      baseName: "voice",
+    });
+    const length = Math.min(180, Math.max(0, parseInt(seconds, 10) || 0));
+    return { voiceRef: stored.secure_url, voiceMime: type.mime, voiceSeconds: length };
+  }
+
+  /**
+   * Admin: a voice note on a document (the customer is e-mailed that there is one to listen to)
+   */
+  async addAdminVoice(submissionId, documentId, file, seconds) {
+    const submission = await formSubmissionRepository.findById(submissionId);
+    if (!submission) {
+      throw new AppError("Submission not found", 404);
+    }
+    const document = submission.documents.id(documentId);
+    if (!document) {
+      throw new AppError("Document not found", 404);
+    }
+
+    const voice = await this.storeVoice(file, seconds);
+    await formSubmissionRepository.addAdminComment(submissionId, {
+      documentId,
+      documentName: document.originalname,
+      comment: "",
+      ...voice,
+      createdAt: new Date(),
+    });
+    await this.sendCommentEmail(submission, document, "We left you a voice note. Please sign in to your account and open Comments to listen to it.");
+    return { message: "Voice note saved and email sent successfully" };
+  }
+
+  /**
+   * Customer: a voice reply
+   */
+  async addCustomerVoice(submissionId, file, seconds) {
+    const submission = await formSubmissionRepository.findById(submissionId);
+    if (!submission) {
+      throw new AppError("Submission not found", 404);
+    }
+    const voice = await this.storeVoice(file, seconds);
+    await formSubmissionRepository.addCustomerComment(submissionId, { message: "", ...voice, createdAt: new Date() });
+    return { message: "Voice note added successfully" };
+  }
+
+  /**
+   * A short-lived signed link to listen to one voice note (the route has already checked who is asking)
+   */
+  async getVoiceUrl(submissionId, kind, commentId) {
+    const submission = await formSubmissionRepository.findById(submissionId);
+    if (!submission) {
+      throw new AppError("Submission not found", 404);
+    }
+    const list = kind === "admin" ? submission.adminComments : submission.customerComments;
+    const comment = list && list.id ? list.id(commentId) : null;
+    if (!comment || !comment.voiceRef) {
+      throw new AppError("Voice note not found", 404);
+    }
+    return { url: await r2.resolveUrl(comment.voiceRef, { ttlSeconds: 600 }), mime: comment.voiceMime, seconds: comment.voiceSeconds };
   }
 
   /**
@@ -286,18 +368,18 @@ class FormSubmissionService {
       const mailOptions = {
         from: process.env.EMAIL_USER,
         to: submission.email,
-        subject: `Document Review Update - ${submission.name}`,
+        subject: `Document Review Update - ${escapeHtml(submission.name)}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #2563eb;">Document Review Update</h2>
-            <p>Dear ${submission.name},</p>
+            <p>Dear ${escapeHtml(submission.name)},</p>
             <p>Your visa assessment application has been reviewed. Here's an update:</p>
             
             <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <h3 style="color: #374151; margin-top: 0;">Document: ${document.originalname}</h3>
+              <h3 style="color: #374151; margin-top: 0;">Document: ${escapeHtml(document.originalname)}</h3>
               <p style="color: #6b7280; margin-bottom: 10px;"><strong>Admin Comment:</strong></p>
               <p style="background-color: white; padding: 15px; border-radius: 6px; border-left: 4px solid #2563eb;">
-                ${comment}
+                ${escapeHtml(comment)}
               </p>
             </div>
             
@@ -306,9 +388,9 @@ class FormSubmissionService {
             <div style="background-color: #dbeafe; padding: 15px; border-radius: 6px; margin: 20px 0;">
               <p style="margin: 0; color: #1e40af;">
                 <strong>Application Details:</strong><br>
-                Destination: ${submission.destinationCountry}<br>
-                Visa Type: ${submission.visaType}<br>
-                Status: ${submission.status}
+                Destination: ${escapeHtml(submission.destinationCountry)}<br>
+                Visa Type: ${escapeHtml(submission.visaType)}<br>
+                Status: ${escapeHtml(submission.status)}
               </p>
             </div>
             

@@ -103,7 +103,7 @@ export default function AdminTouristVisaListPage() {
   const filtered = q !== "" || status !== "" || flag !== "";
 
   if (availability === "loading") return <AvailabilityLoading />;
-  if (availability === "closed") return <ClosedNotice homeHref="/admin/users" homeLabel="Back to the admin area" />;
+  if (availability === "closed") return <ClosedNotice homeHref="/admin/products" homeLabel="Back to the admin area" />;
 
   return (
     <div className="mx-auto w-full max-w-6xl px-2 py-4 sm:px-4 sm:py-6">

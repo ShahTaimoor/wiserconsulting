@@ -14,23 +14,8 @@ class ReuploadService {
    */
   async reuploadDocument(documentId, file, userEmail) {
     try {
-      console.log('🔍 Re-upload request details:');
-      console.log('- Document ID:', documentId);
-      console.log('- Document ID type:', typeof documentId);
-      console.log('- Document ID length:', documentId ? documentId.length : 'N/A');
-      console.log('- User email:', userEmail);
-      console.log('- File name:', file.originalname);
-      console.log('- File size:', file.size);
-      console.log('- File type:', file.mimetype);
-      console.log('- File path:', file.path);
       
-      // Special debugging for the specific document ID mentioned
-      if (documentId === '69f87ef80c336f0e1de5ee72') {
-        console.log('🎯 Processing specific document ID: 69f87ef80c336f0e1de5ee72');
-      }
-
       // Find the form submission that contains this document by user email
-      console.log('🔍 Searching for submission...');
       const mongoose = require('mongoose');
       
       // Try to convert documentId to ObjectId if it's a valid string
@@ -41,26 +26,19 @@ class ReuploadService {
         docId = documentId;
       }
       
-      console.log('🔍 Using document ID:', docId, '(original:', documentId + ')');
       
       const submission = await FormSubmission.findOne({
         'documents._id': docId,
         email: userEmail
       });
 
-      console.log('📊 Search result:', submission ? 'Found' : 'Not found');
       
       if (!submission) {
-        console.log('❌ Submission not found. Checking all submissions for this user...');
         const allUserSubmissions = await FormSubmission.find({ email: userEmail });
-        console.log(`📊 Found ${allUserSubmissions.length} submissions for user:`, userEmail);
         
         if (allUserSubmissions.length > 0) {
-          console.log('📋 Document IDs in user submissions:');
           allUserSubmissions.forEach((sub, index) => {
-            console.log(`  Submission ${index + 1}:`);
             sub.documents.forEach((doc, docIndex) => {
-              console.log(`    Document ${docIndex + 1}: ${doc._id} (${doc.originalname || doc.fieldName})`);
             });
           });
         }
@@ -73,22 +51,14 @@ class ReuploadService {
         doc => doc._id.toString() === documentId || doc._id.equals(docId)
       );
 
-      console.log('📊 Document index found:', documentIndex);
-      console.log('📋 Total documents in submission:', submission.documents.length);
 
       if (documentIndex === -1) {
-        console.log('❌ Document not found in array');
-        console.log('📋 Available document IDs:');
         submission.documents.forEach((doc, index) => {
-          console.log(`  ${index}: ${doc._id} (${doc.originalname || doc.fieldName})`);
         });
-        console.log('📋 Looking for ID:', documentId, 'or ObjectId:', docId);
         throw new AppError('Document not found', 404);
       }
 
       const oldDocument = submission.documents[documentIndex];
-      console.log('📄 Old document details:');
-      console.log('- Original name:', oldDocument.originalname);
       // Delete the old file from R2 if it is one of ours (an old Cloudinary file has nothing to delete here)
       if (oldDocument.uploadType === 'r2' && oldDocument.cloudinaryPublicId) {
         try {
@@ -133,7 +103,6 @@ class ReuploadService {
       }
 
       // Update the document with new file information
-      console.log('🔄 Updating document with new file information...');
       submission.documents[documentIndex] = {
         ...oldDocument,
         fieldName: oldDocument.fieldName,
@@ -149,18 +118,14 @@ class ReuploadService {
       };
 
       // Remove admin comments for this specific document since it's being re-uploaded
-      console.log('🧹 Removing admin comments for this document...');
       const initialCommentsCount = submission.adminComments.length;
       submission.adminComments = submission.adminComments.filter(
         comment => comment.documentId !== documentId
       );
       const removedCommentsCount = initialCommentsCount - submission.adminComments.length;
-      console.log(`📊 Removed ${removedCommentsCount} admin comments`);
 
       // Save the updated submission
-      console.log('💾 Saving updated submission...');
       await submission.save();
-      console.log('✅ Submission saved successfully');
 
       return {
         documentId: documentId,

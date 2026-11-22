@@ -4,17 +4,19 @@
 
 const { z } = require('zod');
 
+// The form is documents only: who applied comes from the account, and the travel details are optional (kept for older clients).
+const optionalText = z.string().trim().optional();
 const createSubmissionSchema = z.object({
   body: z.object({
-    name: z.string().min(1, 'Name is required').trim(),
+    name: optionalText,
     email: z.string().email('Invalid email format').trim().toLowerCase().optional().or(z.literal('')),
-    phone: z.string().min(1, 'Phone is required').trim(),
-    destinationCountry: z.string().min(1, 'Destination country is required').trim(),
-    otherCountry: z.string().trim().optional(),
-    visaType: z.string().min(1, 'Visa type is required').trim(),
-    fromDate: z.string().min(1, 'From date is required'),
-    toDate: z.string().min(1, 'To date is required'),
-    purpose: z.string().min(1, 'Purpose is required').trim()
+    phone: optionalText,
+    destinationCountry: optionalText,
+    otherCountry: optionalText,
+    visaType: optionalText,
+    fromDate: z.string().optional(),
+    toDate: z.string().optional(),
+    purpose: optionalText
   })
 });
 
@@ -67,7 +69,36 @@ const getFileUrlSchema = z.object({
   })
 });
 
+const seconds = z.string().regex(/^\d{1,3}$/, 'Invalid length').optional();
+
+// A voice note: the recording itself is the multipart file "voice"; only its length (seconds) comes in the body.
+const addAdminVoiceSchema = z.object({
+  params: z.object({
+    submissionId: z.string().min(1, 'Submission ID is required'),
+    documentId: z.string().min(1, 'Document ID is required')
+  }),
+  body: z.object({ seconds })
+});
+
+const addCustomerVoiceSchema = z.object({
+  params: z.object({
+    submissionId: z.string().min(1, 'Submission ID is required')
+  }),
+  body: z.object({ seconds })
+});
+
+const getVoiceUrlSchema = z.object({
+  params: z.object({
+    submissionId: z.string().min(1, 'Submission ID is required'),
+    kind: z.enum(['admin', 'customer']),
+    commentId: z.string().min(1, 'Comment ID is required')
+  })
+});
+
 module.exports = {
+  addAdminVoiceSchema,
+  addCustomerVoiceSchema,
+  getVoiceUrlSchema,
   createSubmissionSchema,
   updateStatusSchema,
   addAdminCommentSchema,

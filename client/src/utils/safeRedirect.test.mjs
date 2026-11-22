@@ -14,7 +14,7 @@ test("accepts plain same-site paths, unchanged", () => {
     "/tourist-visa/2A",
     "/tourist-visa/2A?tab=1&x=a%20b",
     "/tourist-visa#top",
-    "/admin/users",
+    "/admin/products",
     "/a/b-c_d.e~f",
     "/path?next=%2Ftourist-visa", // an encoded slash inside a query value is just data
     "/caf%C3%A9", // an encoded non-ASCII letter
@@ -151,7 +151,7 @@ test("never returns anything but the original string or null", () => {
 test("postLoginDestination keeps the existing defaults when there is no valid next", () => {
   for (const next of [null, undefined, "", "//evil.example", "https://evil.example", "/\\evil.example", "/login", 42]) {
     assert.equal(postLoginDestination(false, next), "/", `user, next=${JSON.stringify(next)}`);
-    assert.equal(postLoginDestination(true, next), "/admin/users", `admin, next=${JSON.stringify(next)}`);
+    assert.equal(postLoginDestination(true, next), "/admin/products", `admin, next=${JSON.stringify(next)}`);
   }
 });
 

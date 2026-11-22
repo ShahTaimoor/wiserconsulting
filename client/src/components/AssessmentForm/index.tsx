@@ -9,33 +9,11 @@ import { useTouristVisaEntry } from "@/hooks/useTouristVisaEntry";
 import { shouldOfferFullApplication } from "@/utils/safeRedirect";
 import Image from 'next/image';
 import { motion } from "framer-motion";
-import { X, CheckCircle2, Loader2 } from "lucide-react";
-import { PersonalInfoStep } from "./PersonalInfoStep";
-import { TravelDetailsStep } from "./TravelDetailsStep";
+import { X, CheckCircle2, Loader2, LogIn } from "lucide-react";
+import Link from "next/link";
 import { DocumentsStep } from "./DocumentsStep";
-import { StepIndicator } from "./StepIndicator";
 import { FullApplicationPanel } from "./FullApplicationPanel";
 import { Notification } from "./Notification";
-
-const countries = [
-  "United Kingdom",
-  "United States",
-  "Canada",
-  "Australia",
-  "Germany",
-  "France",
-  "Italy",
-  "Spain",
-  "Netherlands",
-  "Switzerland",
-  "New Zealand",
-  "Singapore",
-  "Japan",
-  "South Korea",
-  "Other",
-];
-
-const visaTypes = ["Tourist Visa", "Student Visa", "Transit Visa"];
 
 interface AssessmentFormProps {
   isOpen: boolean;
@@ -52,16 +30,13 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
 
   const {
     formData,
-    currentStep,
     validationErrors,
     isSubmitting,
+    preparing,
     handleInputChange,
     handleFileChange,
     removeFile,
-    handleNextStep,
-    handlePreviousStep,
     handleSubmit,
-    setCurrentStep,
   } = useAssessmentForm(onClose);
 
   // Step 8i: once a tourist visa assessment for the United Kingdom has been sent, and only while the online application is open (the
@@ -103,6 +78,15 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
     };
   }, [success, error, dispatch, onClose, offerFullApplication]);
 
+  // An error left over from something else (for example looking up the customer's earlier application) must not greet the person
+  // when the form opens: only what happens to THIS form is shown.
+  useEffect(() => {
+    if (isOpen) {
+      dispatch(clearError());
+      setNotification(null);
+    }
+  }, [isOpen, dispatch]);
+
   // Closing from the panel (or the X) also forgets the success, so the popup opens as a fresh form next time, as it does after the automatic close.
   const handleClose = () => {
     if (offerFullApplication) {
@@ -134,7 +118,7 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
         <div className="bg-slate-900 text-white px-8 py-6 flex justify-between items-center border-b border-slate-700">
           <div>
             <h2 className="text-2xl font-bold mb-1">Free Visa Assessment</h2>
-            <p className="text-sm text-slate-300">Complete the form to get started</p>
+            <p className="text-sm text-slate-300">Upload your documents to get started</p>
           </div>
           <button
             onClick={handleClose}
@@ -145,9 +129,6 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
           </button>
         </div>
 
-        {/* Step Indicator */}
-        {!offerFullApplication && <StepIndicator currentStep={currentStep} />}
-
         {/* Notification */}
         {notification && (
           <Notification type={notification.type} message={notification.message} />
@@ -156,42 +137,42 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
         {/* The way on to the full application (only while it is open, after a UK tourist visa assessment was sent) */}
         {offerFullApplication && <FullApplicationPanel href={touristVisaEntry.href} onClose={handleClose} />}
 
+        {/* Signed out: the application is tied to the account (name and e-mail come from it) */}
+        {!offerFullApplication && !user && (
+          <div className="flex flex-1 flex-col items-center justify-center gap-5 p-10 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+              <LogIn className="h-7 w-7" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-900">Please sign in to continue</h3>
+              <p className="mt-2 max-w-md text-sm text-slate-600">
+                Sign in or create a free account to upload your documents. You will be able to follow the review and read our comments in your account.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Link href="/login" onClick={handleClose} className="rounded-lg bg-slate-900 px-6 py-2.5 font-semibold text-white transition-colors hover:bg-slate-800">
+                Sign In
+              </Link>
+              <Link href="/register" onClick={handleClose} className="rounded-lg border border-slate-300 px-6 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-slate-50">
+                Sign Up
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Form */}
-        {!offerFullApplication && (
+        {!offerFullApplication && user && (
         <form onSubmit={handleSubmit} id="assessment-form" className="flex flex-col flex-1 min-h-0">
           {/* Form Body - Scrollable Content */}
           <div className="flex-1 overflow-y-auto p-8 space-y-8" style={{ scrollBehavior: 'smooth' }}>
-            {/* Step 1: Personal Info */}
-            {currentStep === 1 && (
-              <PersonalInfoStep
-                formData={formData}
-                user={user}
-                validationErrors={validationErrors}
-                onInputChange={handleInputChange}
-              />
-            )}
-
-            {/* Step 2: Travel Info */}
-            {currentStep === 2 && (
-              <TravelDetailsStep
-                formData={formData}
-                validationErrors={validationErrors}
-                onInputChange={handleInputChange}
-                countries={countries}
-                visaTypes={visaTypes}
-              />
-            )}
-
-            {/* Step 3: Documents */}
-            {currentStep === 3 && (
-              <DocumentsStep
+            <DocumentsStep
                 formData={formData}
                 validationErrors={validationErrors}
                 onFileChange={handleFileChangeWrapper}
                 onRemoveFile={handleRemoveFile}
                 onPreviewImage={setPreviewImage}
-              />
-            )}
+                preparing={preparing}
+            />
           </div>
 
           {/* Footer Actions */}
@@ -204,27 +185,9 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
               Cancel
             </button>
             <div className="flex gap-3">
-              {currentStep > 1 && (
-                <button
-                  type="button"
-                  onClick={handlePreviousStep}
-                  className="px-6 py-2.5 border border-slate-300 rounded-lg text-slate-700 font-semibold hover:bg-white transition-colors"
-                >
-                  Previous
-                </button>
-              )}
-              {currentStep < 3 ? (
-                <button
-                  type="button"
-                  onClick={handleNextStep}
-                  className="px-6 py-2.5 bg-slate-900 text-white rounded-lg font-semibold hover:bg-slate-800 transition-colors shadow-sm"
-                >
-                  Next Step
-                </button>
-              ) : (
-                <button
+              <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || preparing !== null}
                   className="px-6 py-2.5 bg-slate-900 text-white rounded-lg font-semibold hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isSubmitting ? (
@@ -239,7 +202,6 @@ const AssessmentForm: React.FC<AssessmentFormProps> = ({ isOpen, onClose }) => {
                     </>
                   )}
                 </button>
-              )}
             </div>
           </div>
         </form>

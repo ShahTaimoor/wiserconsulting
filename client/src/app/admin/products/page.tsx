@@ -17,6 +17,9 @@ import { renameDocumentAction } from '@/redux/slices/formSubmission/formSubmissi
 import { filterSubmissionsByStatus, getFileUrl } from '@/utils/filterHelpers';
 import { downloadFile } from '@/utils/fileDownload';
 import { FormSubmission, AdminComment, CustomerComment } from '@/services/adminService';
+import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
+import { VoicePlayer } from '@/components/voice/VoicePlayer';
+import { sendAdminVoice } from '@/services/voiceService';
 
 const AdminFormSubmissions = () => {
   const dispatch = useAppDispatch();
@@ -128,6 +131,13 @@ const AdminFormSubmissions = () => {
     } catch (error) {
       toast.error(`Failed to save comment: ${error instanceof Error ? error.message : 'Failed to save comment'}`);
     }
+  };
+
+  const handleSendVoice = async (documentId: string, blob: Blob, seconds: number) => {
+    if (!selectedSubmissionId) throw new Error('No submission selected');
+    await sendAdminVoice(selectedSubmissionId, documentId, blob, seconds);
+    toast.success('Voice note sent and email sent to customer!');
+    await dispatch(fetchSubmissions());
   };
 
   const handleRenameDocument = (documentId: string, currentName: string) => {
@@ -421,6 +431,21 @@ const AdminFormSubmissions = () => {
                               Save Comment
                             </button>
 
+                            <div className="mt-2">
+                              <VoiceRecorder onSend={(blob, seconds) => handleSendVoice(doc._id, blob, seconds)} />
+                            </div>
+
+                            {(selectedSubmission.adminComments ?? []).filter((c: AdminComment) => c.documentId === doc._id && c.voiceRef && c._id).length > 0 && (
+                              <div className="mt-2 flex flex-col gap-1.5">
+                                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Voice notes sent</span>
+                                {(selectedSubmission.adminComments ?? [])
+                                  .filter((c: AdminComment) => c.documentId === doc._id && c.voiceRef && c._id)
+                                  .map((c: AdminComment) => (
+                                    <VoicePlayer key={c._id} submissionId={selectedSubmission._id} kind="admin" commentId={c._id as string} seconds={c.voiceSeconds} />
+                                  ))}
+                              </div>
+                            )}
+
                             {doc.comment && (
                               <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-800 break-all">
                                 <strong>Comment:</strong> {doc.comment}
@@ -446,7 +471,11 @@ const AdminFormSubmissions = () => {
                             <span className="text-sm font-semibold text-gray-800">Customer Message</span>
                             <span className="text-xs text-gray-400">{new Date(comment.createdAt).toLocaleDateString()}</span>
                           </div>
-                          <p className="text-sm text-gray-600 break-all">{comment.message}</p>
+                          {comment.voiceRef && comment._id ? (
+                            <VoicePlayer submissionId={selectedSubmission._id} kind="customer" commentId={comment._id} seconds={comment.voiceSeconds} />
+                          ) : (
+                            <p className="text-sm text-gray-600 break-all">{comment.message}</p>
+                          )}
                         </div>
                       ))}
                     </div>

@@ -19,12 +19,14 @@ const formSubmissionSchema = new mongoose.Schema(
         },
         phone: {
             type: String,
-            required: true,
+            required: false,
+            default: '',
             trim: true,
         },
         destinationCountry: {
             type: String,
-            required: true,
+            required: false,
+            default: '',
             trim: true,
         },
         otherCountry: {
@@ -33,20 +35,24 @@ const formSubmissionSchema = new mongoose.Schema(
         },
         visaType: {
             type: String,
-            required: true,
+            required: false,
+            default: '',
             trim: true,
         },
         fromDate: {
             type: String,
-            required: true,
+            required: false,
+            default: '',
         },
         toDate: {
             type: String,
-            required: true,
+            required: false,
+            default: '',
         },
         purpose: {
             type: String,
-            required: true,
+            required: false,
+            default: '',
             trim: true,
         },
         documents: [{
@@ -71,6 +77,9 @@ const formSubmissionSchema = new mongoose.Schema(
             documentId: String,
             documentName: String,
             comment: String,
+            voiceRef: String, // r2://private/<key> of a recorded voice note (empty for a text comment)
+            voiceMime: String,
+            voiceSeconds: Number,
             createdAt: {
                 type: Date,
                 default: Date.now
@@ -78,6 +87,9 @@ const formSubmissionSchema = new mongoose.Schema(
         }],
         customerComments: [{
             message: String,
+            voiceRef: String, // r2://private/<key> of a recorded voice note (empty for a text comment)
+            voiceMime: String,
+            voiceSeconds: Number,
             createdAt: {
                 type: Date,
                 default: Date.now

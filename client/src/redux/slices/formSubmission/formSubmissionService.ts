@@ -49,14 +49,22 @@ export interface Document {
 }
 
 export interface AdminComment {
+  _id?: string;
   documentId: string;
   documentName: string;
   comment: string;
+  voiceRef?: string;
+  voiceMime?: string;
+  voiceSeconds?: number;
   createdAt: string;
 }
 
 export interface CustomerComment {
+  _id?: string;
   message: string;
+  voiceRef?: string;
+  voiceMime?: string;
+  voiceSeconds?: number;
   createdAt: string;
 }
 
@@ -132,9 +140,12 @@ export const submitAssessment = async (formData: FormSubmissionData): Promise<Fo
     }
   });
 
-  // Use the Cloudinary endpoint (or local if preferred)
+  // Documents go to private storage (Cloudflare R2) through this endpoint
+  // The server needs the sign-in token: the applicant's name and e-mail come from the account.
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const response = await fetch(`${API_URL}/submit-assessment`, {
     method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formDataToSend,
   });
 
@@ -149,10 +160,13 @@ export const submitAssessment = async (formData: FormSubmissionData): Promise<Fo
 
 // ✅ Get customer submission
 export const getCustomerSubmission = async (email: string): Promise<CustomerSubmissionResponse> => {
-  const response = await fetch(`${API_URL}/form-submissions/customer-submission/${email}`, {
+  // The signed-in customer's own submission: the sign-in token is required by the server.
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const response = await fetch(`${API_URL}/form-submissions/customer-submission/${encodeURIComponent(email)}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
 

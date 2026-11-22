@@ -3,13 +3,12 @@
 import { Sidebar, SidebarContent } from "@/components/ui/sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { NavItem, NavMain } from "@/components/shadcn-space/blocks/sidebar-06/nav-main";
-import { PieChart, CircleUserRound, ClipboardList, Notebook, ExternalLink, Mail, Settings, BadgeCheck, MessageSquareQuote, Plane } from "lucide-react";
+import { PieChart, ClipboardList, Notebook, ExternalLink, Mail, Settings, BadgeCheck, MessageSquareQuote, Plane } from "lucide-react";
 import { useTouristVisaAvailability } from "@/hooks/useTouristVisaOpen";
 
 export const navData: NavItem[] = [
   // Admin Section
   { label: "Admin Panel", isSection: true },
-  { title: "Users", icon: CircleUserRound, href: "/admin/users" },
   { title: "Form Submissions", icon: ClipboardList, href: "/admin/products" },
   { title: "Contact Submissions", icon: Mail, href: "/admin/contacts" },
   { title: "Approved Visas", icon: BadgeCheck, href: "/admin/approved-visas" },

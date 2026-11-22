@@ -92,14 +92,22 @@ export interface Document {
 }
 
 export interface AdminComment {
+  _id?: string;
   documentId: string;
   documentName: string;
   comment: string;
+  voiceRef?: string;
+  voiceMime?: string;
+  voiceSeconds?: number;
   createdAt: string;
 }
 
 export interface CustomerComment {
+  _id?: string;
   message: string;
+  voiceRef?: string;
+  voiceMime?: string;
+  voiceSeconds?: number;
   createdAt: string;
 }
 
@@ -280,12 +288,18 @@ export interface CompressPDFsRequest {
   customerName: string;
 }
 
+// Merging and compressing documents is an administrator action: the sign-in token is sent.
+const authJsonHeaders = (): Record<string, string> => {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return token
+    ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+    : { 'Content-Type': 'application/json' };
+};
+
 export const mergePDFs = async (request: MergePDFsRequest): Promise<Blob> => {
   const response = await fetch(`${API_URL}/merge-pdfs`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: authJsonHeaders(),
     body: JSON.stringify(request),
   });
 
@@ -299,9 +313,7 @@ export const mergePDFs = async (request: MergePDFsRequest): Promise<Blob> => {
 export const compressPDFs = async (request: CompressPDFsRequest): Promise<Blob> => {
   const response = await fetch(`${API_URL}/compress-pdfs`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: authJsonHeaders(),
     body: JSON.stringify(request),
   });
 

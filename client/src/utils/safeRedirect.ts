@@ -149,7 +149,7 @@ export function nextQuery(next: string | null): string {
  * defaults (admins to the admin panel, everyone else to the home page).
  */
 export function postLoginDestination(isAdmin: boolean, rawNext: unknown): string {
-  return touristVisaNextPath(rawNext) ?? (isAdmin ? "/admin/users" : "/");
+  return touristVisaNextPath(rawNext) ?? (isAdmin ? "/admin/products" : "/");
 }
 
 // ---------------------------------------------------------------------------

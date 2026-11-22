@@ -142,8 +142,8 @@ const AdminSettingsForm = () => {
         const file = e.target.files?.[0];
         if (file) {
             // Validate file type
-            if (!file.type.startsWith("image/")) {
-                toast.error("Please select an image file");
+            if (!["image/png", "image/jpeg"].includes(file.type)) {
+                toast.error("Logo must be a JPG or PNG image");
                 return;
             }
 
@@ -333,10 +333,13 @@ const AdminSettingsForm = () => {
                                     <span className="text-sm text-gray-600">
                                         Click to upload or drag and drop
                                     </span>
+                                    <span className="mt-1 block text-xs text-gray-400">
+                                        JPG or PNG, up to 5MB. Also used as the browser-tab icon.
+                                    </span>
                                 </div>
                                 <input
                                     type="file"
-                                    accept="image/*"
+                                    accept="image/png,image/jpeg"
                                     onChange={handleLogoChange}
                                     className="hidden"
                                 />

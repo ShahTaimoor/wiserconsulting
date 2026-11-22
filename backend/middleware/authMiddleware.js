@@ -14,7 +14,9 @@ const isAuthorized = async (req, res, next) => {
         }
         
         // Fallback to cookies if no Authorization header
-        if (!token) {
+        // (only for requests that cannot change anything: a cookie is sent by the browser on its own, so accepting it for
+        // POST/PUT/DELETE would let another website act as the signed-in user)
+        if (!token && ['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
             const cookies = req.cookies || {};
             token = cookies.token;
         }

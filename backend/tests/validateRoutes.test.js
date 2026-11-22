@@ -31,11 +31,11 @@ test('every route that uses validate() is covered by a test in this file', () =>
     const text = fs.readFileSync(path.join(routesDir, file), 'utf8');
     for (const match of text.matchAll(/validate\(/g)) using.push(`${file}:${match.index}`);
   }
-  // 19 uses: user 4, admin settings 1, site settings 2, approved visas 2, testimonials 2, assessment 2, form submissions 6.
-  assert.equal(using.length, 19);
+  // 21 uses: user 4, admin settings 1, site settings 2, approved visas 2, testimonials 2, assessment 1, form submissions 9 (6 + the 3 voice note routes).
+  assert.equal(using.length, 21);
   const byFile = {};
   for (const entry of using) byFile[entry.split(':')[0]] = (byFile[entry.split(':')[0]] || 0) + 1;
-  assert.deepEqual(byFile, { 'adminSettingsRoutes.js': 1, 'approvedVisaRoutes.js': 2, 'assessmentRoutes.js': 2, 'formSubmissionRoutes.js': 6, 'siteSettingsRoutes.js': 2, 'testimonialRoutes.js': 2, 'userRoutes.js': 4 });
+  assert.deepEqual(byFile, { 'adminSettingsRoutes.js': 1, 'approvedVisaRoutes.js': 2, 'assessmentRoutes.js': 1, 'formSubmissionRoutes.js': 9, 'siteSettingsRoutes.js': 2, 'testimonialRoutes.js': 2, 'userRoutes.js': 4 });
 });
 
 // ---------------------------------------------------------------------------------------------- users (strict)
@@ -161,18 +161,21 @@ test('POST and PUT /api/approved-visas: a legitimate request passes the validati
   assert.equal((await app.call('POST', '/api/approved-visas', { form: { clientName: 'x', countryName: 'y' }, token: person.token })).status, 403);
 });
 
-// ---------------------------------------------------------------------------------------------- the public assessment (no sign-in)
+// ---------------------------------------------------------------------------------------------- the assessment (documents only, sign-in required)
 
-for (const url of ['/api/submit-assessment', '/api/submit-assessment-local']) {
-  test(`POST ${url}: a normal assessment is saved; fields the form does not have (isDeleted, status) cannot be set through it`, async () => {
-    const res = await app.call('POST', url, { form: { ...SUBMISSION, email: `${url.endsWith('local') ? 'local' : 'cloud'}@example.com`, isDeleted: 'true', status: 'completed' } });
+for (const url of ['/api/submit-assessment']) {
+  test(`POST ${url}: needs a sign-in; the name and e-mail come from the account; isDeleted and status cannot be set through it`, async () => {
+    assert.equal((await app.call('POST', url, { form: { ...SUBMISSION } })).status, 401, 'no sign-in');
+    const res = await app.call('POST', url, { token: person.token, form: { ...SUBMISSION, name: 'Someone Else', email: 'other@example.com', isDeleted: 'true', status: 'completed' } });
     assert.equal(res.status, 201);
     const row = await app.models.FormSubmission.findById(res.json.data.submissionId).lean();
-    assert.equal(row.name, SUBMISSION.name);
+    assert.equal(row.name, person.user.name, 'the name is the account name, not the one in the form');
+    assert.equal(row.email, person.user.email.toLowerCase());
     assert.equal(row.status, 'pending');
     assert.equal(row.isDeleted, false, 'isDeleted was in the body and is no longer carried to the database');
-    const missing = await app.call('POST', url, { form: { ...SUBMISSION, purpose: '' } });
-    assert.equal(missing.status, 400);
+    // the travel details are optional now: documents only is a valid assessment
+    const bare = await app.call('POST', url, { token: person.token, form: {} });
+    assert.equal(bare.status, 201);
   });
 }
 
@@ -194,16 +197,23 @@ test('the form submission routes (status, admin comment, customer comment, by em
   assert.equal((await app.call('PUT', `/api/form-submissions/${id}/documents/${documentId}/comment`, { body: { comment: 'Please send a clearer copy.' }, token: admin.token })).status, 200);
   assert.equal((await app.call('PUT', `/api/form-submissions/${id}/documents/${documentId}/comment`, { body: { comment: '' }, token: admin.token })).status, 400);
 
-  // POST /form-submissions/:submissionId/customer-comment (no sign-in at the moment: a separate finding, not changed here)
-  assert.equal((await app.call('POST', `/api/form-submissions/${id}/customer-comment`, { body: { message: 'Thank you.' } })).status, 200);
-  assert.equal((await app.call('POST', `/api/form-submissions/${id}/customer-comment`, { body: { message: '' } })).status, 400);
+  // POST /form-submissions/:submissionId/customer-comment (the customer who owns it, or an administrator)
+  const owner = await app.makeUser({ role: 0, email: 'routes@example.com' });
+  assert.equal((await app.call('POST', `/api/form-submissions/${id}/customer-comment`, { body: { message: 'Thank you.' } })).status, 401);
+  assert.equal((await app.call('POST', `/api/form-submissions/${id}/customer-comment`, { body: { message: 'Thank you.' }, token: person.token })).status, 403);
+  assert.equal((await app.call('POST', `/api/form-submissions/${id}/customer-comment`, { body: { message: 'Thank you.' }, token: owner.token })).status, 200);
+  assert.equal((await app.call('POST', `/api/form-submissions/${id}/customer-comment`, { body: { message: '' }, token: owner.token })).status, 400);
 
   // GET /form-submissions/customer-submission/:email
-  assert.equal((await app.call('GET', '/api/form-submissions/customer-submission/routes@example.com')).status, 200);
-  assert.equal((await app.call('GET', '/api/form-submissions/customer-submission/not-an-email')).status, 400);
+  assert.equal((await app.call('GET', '/api/form-submissions/customer-submission/routes@example.com')).status, 401);
+  assert.equal((await app.call('GET', '/api/form-submissions/customer-submission/routes@example.com', { token: person.token })).status, 403);
+  assert.equal((await app.call('GET', '/api/form-submissions/customer-submission/routes@example.com', { token: owner.token })).status, 200);
+  assert.equal((await app.call('GET', '/api/form-submissions/customer-submission/not-an-email', { token: admin.token })).status, 400);
 
   // GET /form-submissions/file/:submissionId/:documentId
-  const file = await app.call('GET', `/api/form-submissions/file/${id}/${documentId}`);
+  assert.equal((await app.call('GET', `/api/form-submissions/file/${id}/${documentId}`)).status, 401);
+  assert.equal((await app.call('GET', `/api/form-submissions/file/${id}/${documentId}`, { token: person.token })).status, 403);
+  const file = await app.call('GET', `/api/form-submissions/file/${id}/${documentId}`, { token: owner.token });
   assert.equal(file.status, 200);
   assert.equal(file.json.data.fileUrl, 'https://example.invalid/p.pdf');
 
