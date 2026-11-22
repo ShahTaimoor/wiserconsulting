@@ -12,7 +12,7 @@ test("the checklist follows the shared config: parts and sections in form order,
   const checklist = buildChecklist(config, null);
   assert.deepEqual(checklist.parts.map((p) => p.id), ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]);
   assert.deepEqual(checklist.parts.map((p) => p.sections.map((s) => s.id)), [
-    ["1"], ["2A", "2B", "2C", "2D"], ["3"], ["4B", "4C"], ["5"], ["6A", "6B", "6C", "6D"], ["7"], ["8"], ["9A", "9B", "9C"], ["10A", "10B", "10C", "10D"],
+    ["1"], ["2A", "2B", "2C", "2D"], ["3"], ["4B", "4C"], ["5"], ["6A", "6B", "6C", "6D"], ["7"], ["8"], ["9A", "9B", "9C"], ["10A", "10B", "10C", "10F", "10D"],
   ]);
   assert.equal(checklist.total, config.sections.length - 2, "4A is hidden until 2.13 indicates a partner, and 10E (your plans in the UK) until 6.7 is No");
   assert.equal(checklist.parts[1].sections[0].title, "Name, email and contact preferences");
@@ -32,9 +32,9 @@ test("saved and needs-review sections are reported, everything else is not start
     3: "not_started", "4B": "not_started", "4C": "not_started",
     5: "not_started", "6A": "not_started", "6B": "not_started", "6C": "not_started", "6D": "not_started",
     7: "not_started", 8: "not_started", "9A": "not_started", "9B": "not_started", "9C": "not_started",
-    "10A": "not_started", "10B": "not_started", "10C": "not_started", "10D": "not_started",
+    "10A": "not_started", "10B": "not_started", "10C": "not_started", "10F": "not_started", "10D": "not_started",
   });
-  assert.deepEqual([checklist.saved, checklist.needsReview, checklist.total], [2, 1, 22]);
+  assert.deepEqual([checklist.saved, checklist.needsReview, checklist.total], [2, 1, 23]);
 });
 
 test("unexpected status values from the server are treated as not started", () => {
@@ -63,11 +63,11 @@ test("changing 2.13 adds or removes the 4A row, and the counts follow", () => {
   const status = { 1: "saved", "2A": "saved", "2B": "saved", "2C": "saved", "2D": "saved", 3: "saved", "4B": "saved", "4C": "saved" };
   const single = buildChecklist(config, { sectionStatus: status, answers: { q2_13: "single" } });
   assert.equal(rows(single).includes("4A"), false);
-  assert.deepEqual([single.saved, single.total], [8, 22], "the eight sections of Parts 1-4 are saved; Parts 5-10 are not started");
+  assert.deepEqual([single.saved, single.total], [8, 23], "the eight sections of Parts 1-4 are saved; Parts 5-10 are not started");
 
   const married = buildChecklist(config, { sectionStatus: status, answers: { q2_13: "married" } });
-  assert.deepEqual(rows(married), ["1", "2A", "2B", "2C", "2D", "3", "4A", "4B", "4C", "5", "6A", "6B", "6C", "6D", "7", "8", "9A", "9B", "9C", "10A", "10B", "10C", "10D"]);
-  assert.deepEqual([married.saved, married.total], [8, 23]);
+  assert.deepEqual(rows(married), ["1", "2A", "2B", "2C", "2D", "3", "4A", "4B", "4C", "5", "6A", "6B", "6C", "6D", "7", "8", "9A", "9B", "9C", "10A", "10B", "10C", "10F", "10D"]);
+  assert.deepEqual([married.saved, married.total], [8, 24]);
   const row = married.parts[3].sections.find((s) => s.id === "4A");
   assert.equal(row.state, "not_started");
 });
@@ -175,10 +175,12 @@ const row10D = (application) => buildChecklist(config, application).parts.flatMa
 test("10D is the last row of Part 10, and with no application it is not started with no detail", () => {
   const checklist = buildChecklist(config, null);
   const part10 = checklist.parts.find((p) => p.id === "10");
-  assert.deepEqual(part10.sections.map((s) => s.id), ["10A", "10B", "10C", "10D"]);
-  assert.equal(part10.sections[3].title, "Documents");
-  assert.equal(part10.sections[3].state, "not_started");
-  assert.equal(part10.sections[3].detail, undefined);
+  assert.deepEqual(part10.sections.map((s) => s.id), ["10A", "10B", "10C", "10F", "10D"]);
+  const last = part10.sections[part10.sections.length - 1];
+  assert.equal(last.title, "Documents");
+  assert.equal(last.state, "not_started");
+  assert.equal(last.detail, undefined);
+  assert.equal(part10.sections[3].title, "Your bank activity", "the bank activity comes before the plans in the UK (when 6.7 is No) and the documents");
 });
 
 test("10D: not started with no files, in progress with some, saved with every needed slot (the state follows the files)", () => {
@@ -198,8 +200,8 @@ test("10D: not started with no files, in progress with some, saved with every ne
 test("10D: a complete documents section counts as saved on the dashboard, an in-progress one does not", () => {
   const complete = buildChecklist(config, { sectionStatus: {}, answers: {}, documents: SHARED });
   const partial = buildChecklist(config, { sectionStatus: {}, answers: {}, documents: [doc("passport")] });
-  assert.deepEqual([complete.saved, complete.total], [1, 22]);
-  assert.deepEqual([partial.saved, partial.total], [0, 22]);
+  assert.deepEqual([complete.saved, complete.total], [1, 23]);
+  assert.deepEqual([partial.saved, partial.total], [0, 23]);
 });
 
 test("10D: the row names the slots that have files, by label, in the order of the list", () => {
@@ -225,7 +227,7 @@ test("only the documents row has a detail line", () => {
 // Step 8d: is the draft ready to review and submit?
 // ---------------------------------------------------------------------------
 
-const EVERY_SECTION = ["1", "2A", "2B", "2C", "2D", "3", "4B", "4C", "5", "6A", "6B", "6C", "6D", "7", "8", "9A", "9B", "9C", "10A", "10B", "10C"];
+const EVERY_SECTION = ["1", "2A", "2B", "2C", "2D", "3", "4B", "4C", "5", "6A", "6B", "6C", "6D", "7", "8", "9A", "9B", "9C", "10A", "10B", "10C", "10F"];
 const allSaved = (extra = {}) => ({ ...Object.fromEntries(EVERY_SECTION.map((id) => [id, "saved"])), ...extra });
 const draft = (sectionStatus, documents, answers = { q2_13: "single" }) => ({ status: "draft", sectionStatus, answers, documents });
 
@@ -273,7 +275,7 @@ test("a section that does not apply is not asked for: 4A is only needed with a p
 test("a fresh application is not ready and lists every section; nothing at all, or a submitted one, lists nothing", () => {
   const fresh = getReadiness(config, draft({}, []));
   assert.equal(fresh.ready, false);
-  assert.equal(fresh.missing.length, 22);
+  assert.equal(fresh.missing.length, 23);
   assert.equal(getReadiness(config, null).ready, false);
   assert.deepEqual(getReadiness(config, null).missing, []);
   const submitted = getReadiness(config, { status: "submitted", sectionStatus: allSaved(), answers: {}, documents: [] });

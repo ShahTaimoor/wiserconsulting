@@ -7,6 +7,7 @@ import { TouristVisaProvider } from "@/context/TouristVisaContext";
 import { loginUrlWithNext } from "@/utils/safeRedirect";
 import { useTouristVisaAvailability } from "@/hooks/useTouristVisaOpen";
 import { AvailabilityLoading, ClosedNotice } from "@/components/tourist-visa/ClosedNotice";
+import { useFundsSettings } from "@/hooks/useFundsSettings";
 
 /**
  * The site Navbar is transparent with white text until the page is scrolled, which
@@ -34,6 +35,22 @@ function NavbarBackdrop() {
       }`}
     />
   );
+}
+
+/**
+ * Waits for the bank activity settings (a plain request, once per page load) before the pages are shown: the form needs them to know which month
+ * of a statement must be explained. A failure is not waited for: the section then simply asks for no explanation it cannot work out.
+ */
+function FundsSettingsGate({ children }: { children: ReactNode }) {
+  const settings = useFundsSettings();
+  if (settings === undefined) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center" role="status" aria-label="Loading">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-emerald-600" />
+      </div>
+    );
+  }
+  return <>{children}</>;
 }
 
 /**
@@ -72,7 +89,9 @@ export default function TouristVisaLayout({ children }: { children: ReactNode })
           <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-emerald-600" />
         </div>
       ) : (
-        <TouristVisaProvider>{children}</TouristVisaProvider>
+        <TouristVisaProvider>
+          <FundsSettingsGate>{children}</FundsSettingsGate>
+        </TouristVisaProvider>
       )}
     </>
   );

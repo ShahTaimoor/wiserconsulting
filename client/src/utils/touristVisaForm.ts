@@ -11,7 +11,7 @@
  * file for the unit tests; Next.js and TypeScript resolve it the same way.
  */
 
-import { getCountries, getVisibleSections, isFilesOnlySection, isSectionVisible, isVisible, resolveOptions } from "../shared/tourist-visa/engine.js";
+import { derivedCount, getCountries, getVisibleSections, isFilesOnlySection, isSectionVisible, isVisible, resolveOptions } from "../shared/tourist-visa/engine.js";
 import type { Answers, GroupEntry, Question, RepeatGroup, TouristVisaConfig } from "../shared/tourist-visa/engine.js";
 import type { AnswerChange } from "@/services/touristVisaAdminTypes";
 
@@ -154,7 +154,7 @@ export function initialValues(
     const entries = values[group.id];
     const open = group.gate === undefined || values[group.gate] === true;
     // A count-driven group shows as many entries as its count question says, so it needs no starter entry.
-    if (open && !group.count && !(Array.isArray(entries) && entries.length > 0)) {
+    if (open && !group.count && !group.countFrom && !(Array.isArray(entries) && entries.length > 0)) {
       values[group.id] = Array.from({ length: group.min ?? 1 }, () => ({}));
     }
   }
@@ -186,6 +186,8 @@ export function mergedAnswers(
  * removes entries.
  */
 export function groupEntryCount(cfg: TouristVisaConfig, group: RepeatGroup, answers: Record<string, unknown>): number | undefined {
+  // A group whose entries follow two dates of its section (the months of a bank statement): as many as the dates make, 0 while they cannot.
+  if (group.countFrom) return derivedCount(group, answers) ?? 0;
   if (!group.count) return undefined;
   const n = answers[group.count];
   const limit = Math.min(group.max, cfg.limits.groupMax);
@@ -420,6 +422,8 @@ export function hintFor(cfg: TouristVisaConfig, question: Question): string | un
     if (numbers.length === 1) parts.push(`Must be ${words} the date in question ${numbers[0]}.`);
     else if (numbers.length > 1) parts.push(`Must be ${words} the dates in questions ${numbers.slice(0, -1).join(", ")} and ${numbers[numbers.length - 1]}.`);
   }
+  const period = question.rules?.periodMonths;
+  if (period) parts.push(`Must cover between ${period.min} and ${period.max} months.`);
   if (question.rules?.notFuture) parts.push("Cannot be in the future.");
   if (question.rules?.withinYears) parts.push(`Must be within the past ${question.rules.withinYears} years.`);
   if (question.rules?.olderThanYears) parts.push(`Must be more than ${question.rules.olderThanYears} years ago.`);

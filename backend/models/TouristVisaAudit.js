@@ -22,6 +22,8 @@ const ACTIONS = [
     'cover_letter_generate', 'cover_letter_view', 'cover_letter_edit', 'cover_letter_approve',
     // The itinerary (same fields as the cover letter's rows: the version, the source, the model's name, the prompt version; never any text)
     'itinerary_generate', 'itinerary_view', 'itinerary_edit', 'itinerary_approve',
+    // The staff-only funds check (ids and a time only; never a figure)
+    'funds_check_view',
     // A PDF was made (step 8h): the type of document and who asked for it, never any of its content
     'pdf_export',
 ];

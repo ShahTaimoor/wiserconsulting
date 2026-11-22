@@ -29,6 +29,7 @@ const documentService = require('../services/touristVisaDocumentService');
 const applicationService = require('../services/touristVisaApplicationService');
 const { TouristVisaApplicationService, generateReference, REFERENCE_ALPHABET } = applicationService;
 const touristVisaRoutes = require('../routes/touristVisaRoutes');
+const { BANK_ACTIVITY } = require('./helpers/touristVisaFixtures');
 const touristVisaBodyParser = require('../middleware/touristVisaBodyParser');
 const { errorHandler } = require('../middleware/errorHandler');
 const engine = require('../shared/tourist-visa/engine');
@@ -144,6 +145,7 @@ const SECTIONS = [
   ['10A', { q10_1: ['conviction'], q10_1a: SECRET_DETAILS }],
   ['10B', {}],
   ['10C', { q10_4: 'english', q10_5: true, q10_5a: SECRET_NI }],
+  ['10F', BANK_ACTIVITY], // the bank activity (config 1.7.0)
   ['10E', { q10_28: false }], // 6.7 is No above, so 10.28 (do you know the places you will visit?) is asked
 ];
 

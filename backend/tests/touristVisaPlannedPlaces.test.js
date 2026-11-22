@@ -299,7 +299,7 @@ test('the answers PDF has a heading for the planned places, with the same table 
   const model = modelOf(answers);
   const sections = model.parts.flatMap((p) => p.sections);
   const ids = sections.map((s) => s.id);
-  assert.deepEqual(ids.slice(-3), ['10C', '10E', '10D'].filter((id) => ids.includes(id)).slice(-3), 'the section sits before the documents');
+  assert.deepEqual(ids.slice(-4), ['10C', '10F', '10E', '10D'], 'the section sits after the bank activity and before the documents');
   const section = sections.find((s) => s.id === '10E');
   assert.ok(section, 'the planned places have a heading');
   assert.equal(section.title, 'Your plans in the UK');

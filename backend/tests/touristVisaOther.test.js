@@ -231,11 +231,11 @@ test('an application with Other chosen and no text (saved before the box existed
   assert.equal((await submit(person.token)).status, 200);
 });
 
-test('a whole application is submitted with an Other answer and without one, under config 1.6.0', async () => {
+test('a whole application is submitted with an Other answer and without one, under config 1.7.0', async () => {
   const withOther = await submitted(S1_OTHER);
   const a = await rawDoc(withOther.appId);
   assert.equal(a.status, 'submitted');
-  assert.equal(a.configVersion, '1.6.0');
+  assert.equal(a.configVersion, '1.7.0');
   assert.equal(a.answers.q1_1_other, WORDS);
   const snapshot = await TouristVisaConfigSnapshot.findById(a.configSha256).lean();
   assert.ok(JSON.parse(snapshot.json).questions.some((q) => q.id === 'q1_1_other'), 'the config it was submitted under has the text box');

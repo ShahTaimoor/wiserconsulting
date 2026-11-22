@@ -11,7 +11,9 @@ import { AdminEditor } from "@/components/tourist-visa/AdminEditor";
 import { AdminFlagsEditor } from "@/components/tourist-visa/AdminFlags";
 import { AdminNotesPanel } from "@/components/tourist-visa/AdminNotesPanel";
 import { CoverLetterPanel } from "@/components/tourist-visa/CoverLetterPanel";
+import { FundsCheckPanel } from "@/components/tourist-visa/FundsCheckPanel";
 import { ItineraryPanel } from "@/components/tourist-visa/ItineraryPanel";
+import { useFundsSettings } from "@/hooks/useFundsSettings";
 import { AdminStatusBadge } from "@/components/tourist-visa/AdminStatusBadge";
 import { BackToSectionsButton } from "@/components/tourist-visa/BackToSectionsButton";
 import { ConfirmDialog } from "@/components/tourist-visa/ConfirmDialog";
@@ -58,6 +60,8 @@ export default function AdminTouristVisaOverviewPage() {
   const dispatch = useAppDispatch();
   // Whether the feature is open: the server's switch and this build's own hold. Nothing is asked of the API until it is.
   const availability = useTouristVisaAvailability();
+  // The bank activity settings (the engine needs them to know which month of a statement is to be explained when a correction is made).
+  useFundsSettings();
 
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [loadError, setLoadError] = useState<{ message: string; retry: boolean } | null>(null);
@@ -514,6 +518,8 @@ export default function AdminTouristVisaOverviewPage() {
         ) : (
           <>
         <AdminNotesPanel applicationId={id} readToken={readToken} fail={fail} announce={announce} onRecorded={() => void loadActivity()} />
+
+        <FundsCheckPanel applicationId={id} readToken={readToken} fail={fail} onRecorded={() => void loadActivity()} />
 
         <CoverLetterPanel applicationId={id} reference={call.reference} status={application.status} readToken={readToken} fail={fail} announce={announce} onRecorded={() => void loadActivity()} />
 

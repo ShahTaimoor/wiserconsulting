@@ -11,6 +11,7 @@
 const TouristVisaApplication = require("../models/TouristVisaApplication");
 const TouristVisaConfigSnapshot = require("../models/TouristVisaConfigSnapshot");
 const { config: defaultConfig } = require("../shared/tourist-visa/engine");
+require("../config/touristVisaFunds"); // loads the bank activity settings into the shared engine (the explanations of unusual months)
 const { getFieldEncryptionKey } = require("../config/fieldEncryption");
 const { AppError } = require("../middleware/errorHandler");
 const logger = require("../utils/logger");

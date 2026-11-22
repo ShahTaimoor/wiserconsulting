@@ -12,6 +12,7 @@
  */
 
 const engine = require("../shared/tourist-visa/engine");
+require("../config/touristVisaFunds"); // loads the bank activity settings into the shared engine (the explanations of unusual months)
 const { describeValue, correctionKey } = require("../shared/tourist-visa/view");
 const { AppError } = require("../middleware/errorHandler");
 

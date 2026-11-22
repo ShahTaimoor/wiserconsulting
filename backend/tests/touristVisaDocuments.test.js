@@ -1029,10 +1029,10 @@ test('section 10D: the files-only section cannot be saved, and it is the last pl
   assert.equal(withKey.status, 400);
   assert.deepEqual(await rawDoc(appId), before, 'nothing was written');
 
-  // With Parts 1 to 10C saved the applicant resumes on 10D, whatever its state, because it is the last section.
+  // With Parts 1 to 10C and the bank activity (10F) saved the applicant resumes on 10D, whatever its state, because it is the last section.
   const { TouristVisaApplicationService } = require('../services/touristVisaApplicationService');
   const service = new TouristVisaApplicationService();
-  const saved = Object.fromEntries(['1', '2A', '2B', '2C', '2D', '3', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C'].map((id) => [id, 'saved']));
+  const saved = Object.fromEntries(['1', '2A', '2B', '2C', '2D', '3', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C', '10F'].map((id) => [id, 'saved']));
   assert.equal(service.resumeSection(saved, {}), '10D', 'no files yet');
   assert.equal(service.resumeSection({ ...saved, '10D': 'in_progress' }, {}), '10D', 'one slot is not enough');
   assert.equal(service.resumeSection({ ...saved, '10D': 'saved' }, {}), '10D', 'complete: the last section stays the resume point');

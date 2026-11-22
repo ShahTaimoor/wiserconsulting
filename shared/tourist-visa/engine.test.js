@@ -125,6 +125,8 @@ test('config: covers exactly the questions of Parts 1 to 8 in the spec (plus the
   // Part 10E (config 1.6.0): the places the applicant plans to visit when they have no address.
   expected.add('10.28');
   for (const l of 'abc') expected.add(`10.28${l}`);
+  // Part 10F (config 1.7.0): the bank activity of the statement they submit.
+  for (const n of ['10.29', '10.30', '10.31', '10.32', '10.33', '10.34', '10.35a', '10.35b', '10.35c', '10.36', '10.37a', '10.37b', '10.37c', '10.37d', '10.37e', '10.37f']) expected.add(n);
   // The text boxes of the Other (please write) answers carry the number of the question they belong to, so they add no number and no question of their own.
   const own = config.questions.filter((q) => !q.otherOf);
   const actual = new Set(own.map((q) => q.number));
@@ -132,10 +134,10 @@ test('config: covers exactly the questions of Parts 1 to 8 in the spec (plus the
   assert.equal(own.length, expected.size);
 });
 
-test('config: sections are 1, 2A-2D, 3, 4A-4C, 5, 6A-6D, 7, 8, 9A-9C, 10A-10C, 10E, 10D and every question belongs to one', () => {
+test('config: sections are 1, 2A-2D, 3, 4A-4C, 5, 6A-6D, 7, 8, 9A-9C, 10A-10C, 10F, 10E, 10D and every question belongs to one', () => {
   assert.deepEqual(
     config.sections.map((s) => s.id),
-    ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C', '10E', '10D']
+    ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C', '10F', '10E', '10D']
   );
   assert.deepEqual(config.parts.map((p) => p.id), ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']);
   const ids = new Set(config.sections.map((s) => s.id));
@@ -152,7 +154,7 @@ test('config: no option is a [TBC] placeholder or a tbc_ value any more', () => 
 });
 
 test('config 1.0.x: the design was approved as final, so no draft marker is left anywhere', () => {
-  assert.equal(config.version, '1.6.0');
+  assert.equal(config.version, '1.7.0');
   assert.doesNotMatch(config.version, /draft/);
   assert.deepEqual(config.questions.filter((q) => q.draft).map((q) => q.number), []);
   assert.deepEqual(config.groups.filter((g) => g.draft).map((g) => g.id), []);
@@ -232,9 +234,11 @@ test('compatibility: an answer saved with an old placeholder value is refused as
 const PART9_SENSITIVE = Array.from({ length: 10 }, (_, i) => [`9.${i + 1}`, `9.${i + 1}a`]).flat();
 // Part 10: the penalties checklist and its six details boxes, the National Insurance Yes/No and the number itself.
 const PART10_SENSITIVE = ['10.1', '10.1a', '10.1b', '10.1c', '10.1d', '10.1e', '10.1f', '10.5', '10.5a'];
+// Section 10F (config 1.7.0): every amount and every free text of the bank activity is encrypted (the Other box of 10.37e too).
+const FUNDS_SENSITIVE = ['10.31', '10.32', '10.33', '10.34', '10.35a', '10.35b', '10.35c', '10.37c', '10.37d', '10.37e', '10.37e', '10.37f'];
 
 test('config: sensitive questions are the ID number, passport number, licence number, treatment text, the three Part 7 fields the Part 9 answers and the Part 10 answers', () => {
-  assert.deepEqual(config.questions.filter((q) => q.sensitive).map((q) => q.number), ['2.19', '2.30a', '2.31b', '3.1', '7.2c', '7.3f', '7.6d', ...PART9_SENSITIVE, ...PART10_SENSITIVE]);
+  assert.deepEqual(config.questions.filter((q) => q.sensitive).map((q) => q.number), ['2.19', '2.30a', '2.31b', '3.1', '7.2c', '7.3f', '7.6d', ...PART9_SENSITIVE, ...PART10_SENSITIVE, ...FUNDS_SENSITIVE]);
 });
 
 test('config: validateConfig reports broken configs', () => {
@@ -887,7 +891,7 @@ test('sections: a section is hidden exactly when none of its questions is visibl
 
 test('sections: on the real config only 4A can be hidden, and only by 2.13', () => {
   const visible = (answers) => engine.getVisibleSections(config, answers).map((s) => s.id);
-  const rest = ['5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C', '10D'];
+  const rest = ['5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C', '10F', '10D']; // 10E only applies when 6.7 is No
   assert.deepEqual(visible({}), ['1', '2A', '2B', '2C', '2D', '3', '4B', '4C', ...rest]);
   assert.deepEqual(visible({ q2_13: 'single' }), ['1', '2A', '2B', '2C', '2D', '3', '4B', '4C', ...rest]);
   assert.deepEqual(visible({ q2_13: 'married' }), ['1', '2A', '2B', '2C', '2D', '3', '4A', '4B', '4C', ...rest]);
@@ -1582,7 +1586,7 @@ test('config: sensitive fields of Part 7 sit inside groups and are optional or r
   assert.equal(q('q7_6d').required, true);
   for (const id of ['q7_2c', 'q7_3f', 'q7_6d']) assert.ok(q(id).group, `${id} lives in a group`);
   // Nothing already stored in earlier steps was made sensitive in this one.
-  assert.deepEqual(config.questions.filter((x) => x.sensitive && !['7', '9A', '9B', '9C', '10A', '10C'].includes(x.section)).map((x) => x.number), ['2.19', '2.30a', '2.31b', '3.1']);
+  assert.deepEqual(config.questions.filter((x) => x.sensitive && !['7', '9A', '9B', '9C', '10A', '10C', '10F'].includes(x.section)).map((x) => x.number), ['2.19', '2.30a', '2.31b', '3.1']);
   // None of the follow-ups asks about identity or passport numbers.
   assert.ok(!config.questions.some((x) => x.section === '7' && /passport|identity|national id/i.test(x.label)));
 });
@@ -2416,10 +2420,10 @@ test('release check: the approved config exits 0 and says everything is releasab
   const run = spawnSync(process.execPath, [script], { encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
   assert.match(run.stdout, new RegExp(`Tourist Visa config ${config.version.replace(/\./g, '\\.')}`));
-  assert.match(run.stdout, /Tourist Visa config 1\.6\.0/);
-  for (const id of ['1', '2A', '3', '9A', '9B', '9C', '10A', '10B', '10C', '10E', '10D']) assert.match(run.stdout, new RegExp(`section ${id}: .*: releasable`), id);
+  assert.match(run.stdout, /Tourist Visa config 1\.7\.0/);
+  for (const id of ['1', '2A', '3', '9A', '9B', '9C', '10A', '10B', '10C', '10F', '10E', '10D']) assert.match(run.stdout, new RegExp(`section ${id}: .*: releasable`), id);
   assert.doesNotMatch(run.stdout, /NEEDS SENIOR REVIEW|BLOCKED/);
-  assert.match(run.stdout, /24 sections: 0 blocked, 0 need senior review only, 24 clean\./);
+  assert.match(run.stdout, /25 sections: 0 blocked, 0 need senior review only, 25 clean\./);
   assert.match(run.stdout, /Submit: final declaration approved wording; text shown after submitting approved wording\./);
   assert.match(run.stdout, /All sections are releasable\./);
   assert.equal(run.stderr, '', 'nothing is reported as open');
@@ -2442,7 +2446,7 @@ test('release check: one draft marker put back makes it exit 2 and name the item
     const draft = runWith((c) => { c.questions.find((q) => q.id === 'q3_1').draft = 'Draft: one default we chose.'; });
     assert.equal(draft.status, 2, 'one draft on one question');
     assert.match(draft.stdout, /section 3: .*NEEDS SENIOR REVIEW \(1 draft\)/);
-    assert.match(draft.stdout, /24 sections: 0 blocked, 1 need senior review only, 23 clean\./);
+    assert.match(draft.stdout, /25 sections: 0 blocked, 1 need senior review only, 24 clean\./);
     assert.match(draft.stderr, /3\.1: Draft: one default we chose\./);
     assert.equal(runWith((c) => { c.groups.find((g) => g.id === 'parents').draft = 'Draft: x.'; }).status, 2, 'one draft on a group');
     assert.equal(runWith((c) => { c.declarations.submit.draft = 'Draft: x.'; }).status, 2, 'draft declaration wording');
@@ -2712,7 +2716,7 @@ test('part 10: the encrypted fields are exactly 10.1, its six boxes, 10.5 and th
   assert.deepEqual(part10.filter((q) => !q.sensitive).map((q) => q.number), ['10.2', '10.3', '10.4', '10.4a']);
   for (const q of part10) assert.equal(q.draft, undefined, `${q.number} is final`);
   for (const q of part10.filter((x) => x.type === 'LNG')) assert.equal(q.rules.maxLen, 2000, q.number);
-  assert.equal(config.questions.filter((q) => q.sensitive).length, 36, '27 earlier fields and 9 new ones');
+  assert.equal(config.questions.filter((q) => q.sensitive).length, 48, '27 earlier fields, 9 of Part 10 and 12 of the bank activity');
   // The only FILE questions are the 22 document slots 10.6 to 10.27 (section 10D), in the order of the lists, and they store nothing.
   assert.deepEqual(config.questions.filter((q) => q.type === 'FILE').map((q) => q.number), SLOT_LIST.map((s) => s.number));
 });
@@ -2720,7 +2724,7 @@ test('part 10: the encrypted fields are exactly 10.1, its six boxes, 10.5 and th
 test('part 10: the new sections do not change the earlier ones', () => {
   assert.equal(validate('8', S8).success, true);
   assert.equal(validate('9A', S9A).success, true);
-  assert.deepEqual(engine.getVisibleSections(config, {}).map((s) => s.id).slice(-5), ['9C', '10A', '10B', '10C', '10D']);
+  assert.deepEqual(engine.getVisibleSections(config, {}).map((s) => s.id).slice(-5), ['10A', '10B', '10C', '10F', '10D']);
 });
 
 // ---------------------------------------------------------------------------
@@ -2858,10 +2862,12 @@ test('section 10D: the guidance states the limit each slot carries, and the type
 // ---------------------------------------------------------------------------
 
 test('currency helper: every money question carries the flag, inside repeating groups too, and nothing else does', () => {
-  const money = config.questions.filter((q) => q.type === 'AMT').map((q) => q.id);
+  // (The amounts of the bank statement, section 10F, are in rupees only: the helper, which makes pounds, is not theirs.)
+  const money = config.questions.filter((q) => q.type === 'AMT' && q.section !== '10F').map((q) => q.id);
+  assert.ok(config.questions.filter((q) => q.type === 'AMT' && q.section === '10F').every((q) => !q.currencyHelper && q.rules.currencies.join() === 'PKR'));
   assert.deepEqual(money, ['q2_31e', 'q5_1e', 'q5_1j', 'q5_7', 'q6_1a', 'q6_2', 'q6_3', 'q6_4', 'q6_5f', 'q6_8e']);
   assert.deepEqual(config.questions.filter((q) => q.currencyHelper).map((q) => q.id), money);
-  assert.deepEqual(config.questions.filter((q) => q.type === 'AMT' && q.group).map((q) => [q.id, q.group, q.currencyHelper]), [['q2_31e', 'medicalTreatments', true], ['q6_5f', 'payers', true], ['q6_8e', 'publicFunds', true]]);
+  assert.deepEqual(config.questions.filter((q) => q.type === 'AMT' && q.group && q.section !== '10F').map((q) => [q.id, q.group, q.currencyHelper]), [['q2_31e', 'medicalTreatments', true], ['q6_5f', 'payers', true], ['q6_8e', 'publicFunds', true]]);
   for (const q of config.questions) if (q.type !== 'AMT') assert.equal(q.currencyHelper, undefined, `${q.id} is not a money question`);
   for (const q of config.questions.filter((x) => x.currencyHelper)) assert.ok(!q.rules || !q.rules.currencies || q.rules.currencies.includes('GBP'), `${q.id} accepts pounds`);
 });

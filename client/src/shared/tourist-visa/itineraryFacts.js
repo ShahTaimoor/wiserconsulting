@@ -77,6 +77,7 @@ const EXCLUDED_SECTIONS = Object.freeze({
   'Previous travel to the UK and to other countries, visas and immigration history': ['7', '8'],
   'Security and character (Part 9) and penalties (10A)': ['9A', '9B', '9C', '10A'],
   'Extra information (10B), language and National Insurance number (10C), documents (10D)': ['10B', '10C', '10D'],
+  'Bank activity: the figures of the bank statement (read by staff only)': ['10F'],
 });
 
 /** Questions in the two allowed sections that can still never be a fact, by why. */

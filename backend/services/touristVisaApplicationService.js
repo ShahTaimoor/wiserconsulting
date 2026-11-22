@@ -8,6 +8,7 @@ const z = require("zod");
 const defaultRepository = require("../repositories/touristVisaApplicationRepository");
 const defaultChanges = require("../repositories/touristVisaChangeRepository");
 const engine = require("../shared/tourist-visa/engine");
+require("../config/touristVisaFunds"); // loads the bank activity settings into the shared engine (the explanations of unusual months)
 const { AppError } = require("../middleware/errorHandler");
 const { toDocumentView } = require("../utils/touristVisaDocumentView");
 const { buildReview } = require("../shared/tourist-visa/view");

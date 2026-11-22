@@ -33,7 +33,7 @@ test('parts and sections come in form order, with only the ones that apply', () 
   const review = buildReview(config, SINGLE, [], {});
   assert.deepEqual(review.parts.map((p) => p.id), ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']);
   const sections = review.parts.flatMap((p) => p.sections.map((s) => s.id));
-  assert.deepEqual(sections, ['1', '2A', '2B', '2C', '2D', '3', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C', '10D'], '4A is left out without a partner');
+  assert.deepEqual(sections, ['1', '2A', '2B', '2C', '2D', '3', '4B', '4C', '5', '6A', '6B', '6C', '6D', '7', '8', '9A', '9B', '9C', '10A', '10B', '10C', '10F', '10D'], '4A is left out without a partner, and 10E (the places they plan to visit) until 6.7 is No');
   assert.equal(review.parts[0].title, 'Travel information');
 
   const married = buildReview(config, { q2_13: 'married' }, [], {});

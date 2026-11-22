@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FileText, Pencil, PencilLine } from "lucide-react";
 import type { Review, ReviewRow } from "@/shared/tourist-visa/view";
+import { FlowText } from "./MoneyText";
 
 interface ReviewSummaryProps {
   review: Review;
@@ -68,6 +69,8 @@ function RowView({ row, nested = false, renderFiles }: { row: ReviewRow; nested?
             <li key={item}>{item}</li>
           ))}
         </ul>
+      ) : row.flow && !row.empty ? (
+        <FlowText text={row.value} flow={row.flow} />
       ) : (
         <span className={row.empty ? "italic text-muted-foreground" : undefined}>{row.value}</span>
       )}

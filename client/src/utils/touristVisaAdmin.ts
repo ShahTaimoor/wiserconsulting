@@ -180,6 +180,8 @@ export function describeActivity(row: Pick<ActivityRow, "action" | "admin" | "fr
       return { who, what: `approved ${row.letterVersion ? `version ${row.letterVersion} of ` : ""}the cover letter` };
     case "itinerary_view":
       return { who, what: "read the itinerary" };
+    case "funds_check_view":
+      return { who, what: "read the funds check" };
     case "itinerary_generate": {
       const { version, source } = itineraryFacts(row);
       return { who, what: `created ${version ? `version ${version} of ` : ""}the itinerary${source ? ` (${letterSourceWords(source)})` : ""}` };

@@ -15,6 +15,7 @@ const touristVisaAdminController = require('../controllers/touristVisaAdminContr
 const touristVisaAdminEditController = require('../controllers/touristVisaAdminEditController');
 const touristVisaCoverLetterController = require('../controllers/touristVisaCoverLetterController');
 const touristVisaItineraryController = require('../controllers/touristVisaItineraryController');
+const touristVisaFundsController = require('../controllers/touristVisaFundsController');
 const touristVisaPdfController = require('../controllers/touristVisaPdfController');
 const { pdfLimiter } = require('../middleware/touristVisaPdfLimit');
 const touristVisaNoStore = require('../middleware/touristVisaNoStore');
@@ -59,6 +60,9 @@ router.put('/applications/:id/cover-letter', touristVisaCoverLetterController.sa
 router.post('/applications/:id/cover-letter/approve', touristVisaCoverLetterController.approve);
 
 // The itinerary: a proposed day-by-day plan, generated on demand by an administrator, versions appended and never changed.
+// The staff-only funds check (bank activity): a helper, never a decision. Audited as funds_check_view.
+router.get('/applications/:id/funds-check', touristVisaFundsController.adminCheck);
+
 router.get('/applications/:id/itinerary', touristVisaItineraryController.get);
 router.post('/applications/:id/itinerary/generate', touristVisaItineraryController.generate);
 router.put('/applications/:id/itinerary', touristVisaItineraryController.save);

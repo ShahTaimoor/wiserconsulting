@@ -15,6 +15,8 @@ export type Condition =
   | { q: string; gt: number }
   /** A CHK answer that contains this option value. */
   | { q: string; includes: string }
+  /** True when the value is more than the setting's percent above the average of the total over the months between start and end (config 1.7.0, the months of a bank statement). False while a piece is missing. */
+  | { derived: 'aboveAverage'; value: string; total: string; start: string; end: string; setting: string; min?: number; max?: number }
   | { all: Condition[] }
   | { any: Condition[] }
   | { not: Condition };
@@ -34,6 +36,8 @@ export type OptionsSpec =
   | { from: 'answers'; questions: string[] };
 
 export interface QuestionRules {
+  /** DATE: the months between the answer to the `start` question and this date must be from `min` to `max` (rounded to the nearest whole month). */
+  periodMonths?: { start: string; min: number; max: number };
   /** TXT: the answer must be the name of a town or city and nothing more (at most three words, no digits, no address or hotel words). */
   townName?: boolean;
   /** DATE/MY must be later than the answer(s) to these earlier questions. */
@@ -66,6 +70,12 @@ export interface QuestionRules {
 }
 
 export interface Question {
+  /** A named block the form shows right after this question ("fundsLimits": the amounts above which a single transaction is asked about). */
+  helper?: 'fundsLimits';
+  /** AMT, display only: money coming IN ("credit") or going OUT ("debit"). The form shows a credit with a green + and a debit with a red −; the stored value is unchanged. */
+  flow?: 'credit' | 'debit';
+  /** AMT, display only: the id of a SEL question of the same group whose answer ("credit" or "debit") says which way the money went. */
+  flowFrom?: string;
   /** Storage key, e.g. "q2_3a". Dots are avoided because Mongo reads them as paths. */
   id: string;
   /** Number shown to the applicant and used in the spec, e.g. "2.3a". */
@@ -147,6 +157,10 @@ export interface RepeatGroup {
    * than `max`: the group then asks for exactly `max` entries (the most recent), not the full count.
    */
   count?: string;
+  /** The number of entries is derived from two dates of the section: { months: { start, end, min?, max? } } (the whole months between them, 1 to 12 by default). */
+  countFrom?: { months: { start: string; end: string; min?: number; max?: number } };
+  /** With countFrom: the two dates the rolling period of each entry is worked out from ("20 May to 19 June"). */
+  entryPeriod?: { start: string; end: string };
   max: number;
   questions: string[];
   /** A default we chose for this group (gate, fields or limits) that needs senior review. */
@@ -163,9 +177,11 @@ export interface TouristVisaConfig {
   version: string;
   limits: { txtMax: number; lngMax: number; groupMax: number; note?: string };
   parts: Array<{ id: string; title: string }>;
-  sections: Array<{ id: string; part: string; title: string; intro?: string }>;
+  sections: Array<{ id: string; part: string; title: string; intro?: string; /** A named block the form shows in this section ("funds": the bank activity figures). */ helper?: 'funds' }>;
   groups: RepeatGroup[];
   questions: Question[];
+  /** The figures of a section must add up: the signed sum of `left` equals `right` within `tolerance`; the error goes on `errorOn` and says both sums ({left} and {right}). */
+  checks?: Array<{ id: string; section: string; left: Array<{ q: string; group?: string; sign: 1 | -1 }>; right: string; errorOn: string; tolerance: number; currency: string; message: string }>;
   /**
    * Wording of declarations that are not questions (the final submit declaration), kept in the
    * config so it can be approved or replaced in one place. `draft` holds the form back until removed.
@@ -312,3 +328,8 @@ export function documentsStatus(cfg: TouristVisaConfig, documents: Array<{ slot:
 export function documentsComplete(cfg: TouristVisaConfig, documents: Array<{ slot: string }> | undefined, answers: Answers): boolean;
 export function isSectionReleasable(cfg: TouristVisaConfig, sectionId: string): boolean;
 export function validateConfig(cfg: unknown): string[];
+/** Settings the config refers to by name (numbers only); the server sets them, the form gets them from the server. */
+export function setSettings(values: Record<string, number>): void;
+export function getSettings(): Readonly<Record<string, number>>;
+/** The number of entries of a group with countFrom, from the answers of its section; undefined while it cannot be worked out. */
+export function derivedCount(group: RepeatGroup, answers: Record<string, unknown>): number | undefined;

@@ -1,4 +1,5 @@
 import type { Question, QuestionOption } from "@/shared/tourist-visa/engine";
+import type { MoneyFlow } from "@/utils/touristVisaMoney";
 
 /**
  * What every answer-type renderer receives. The wrapper (QuestionField) draws the label,
@@ -22,6 +23,8 @@ export interface FieldProps {
   describedBy?: string;
   /** Character limit for long text, used for the counter. */
   limit?: number;
+  /** An amount question only: money coming in ("credit") or going out ("debit"), so that a coloured + or − is shown beside the field (display only). */
+  flow?: MoneyFlow | null;
 }
 
 export const asString = (value: unknown): string => (typeof value === "string" ? value : "");
