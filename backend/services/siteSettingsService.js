@@ -95,28 +95,31 @@ class SiteSettingsService {
     if (!file) {
       throw new AppError("No logo file provided", 400);
     }
+    // The logo is also the browser-tab icon: a picture only (a PDF or Word file would leave a broken logo everywhere).
+    if (!HERO_MIME_TYPES.includes(file.mimetype)) {
+      removeTempFile(file);
+      throw new AppError("Logo must be a JPG or PNG image", 400);
+    }
 
+    let result;
     try {
-      if (currentSettings?.logoPublicId) {
-        try {
-          await deleteFromR2(currentSettings.logoPublicId);
-        } catch (destroyError) {
-          console.error(
-            "Failed to remove previous logo from R2",
-            destroyError,
-          );
-        }
-      }
-
-      const result = await uploadLocalToR2(file.path, "site-settings");
-
-      return await siteSettingsRepository.updateLogo(
-        result.secure_url,
-        result.public_id,
-      );
+      result = await uploadLocalToR2(file.path, "site-settings", { visibility: "public" });
     } catch (error) {
+      removeTempFile(file);
       throw new AppError(`Logo upload failed: ${error.message}`, 500);
     }
+
+    const updated = await siteSettingsRepository.updateLogo(result.secure_url, result.public_id);
+
+    // The old picture is removed only after the new one is saved, so a failed upload never leaves the site without a logo.
+    if (currentSettings?.logoPublicId && currentSettings.logoPublicId !== result.public_id) {
+      try {
+        await deleteFromR2(currentSettings.logoPublicId);
+      } catch (destroyError) {
+        console.error("Failed to remove previous logo from R2", destroyError);
+      }
+    }
+    return updated;
   }
 }
 

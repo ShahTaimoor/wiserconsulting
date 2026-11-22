@@ -7,6 +7,8 @@ import { register, login } from "@/redux/slices/auth/authSlice";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { AuthSidePanel } from "@/components/AuthSidePanel";
+import { PasswordInput } from "@/components/PasswordInput";
 import { useCarriedNext } from "@/hooks/useTouristVisaEntry";
 import { carriedNext, nextQuery } from "@/utils/safeRedirect";
 
@@ -87,24 +89,24 @@ const Register: React.FC = () => {
       <div className="flex flex-col p-4 md:p-6 lg:p-8">
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-sm">
-            <form className="flex flex-col gap-4 md:gap-5" onSubmit={handleSubmit}>
-              <div className="flex items-center gap-4 mb-1">
+            <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
+              <div className="flex flex-col gap-6 mb-2">
                 <Link
                   href="/"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+                  className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-slate-600 transition hover:text-slate-900"
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  Back
+                  Back to website
                 </Link>
-                <div className="flex-1 min-w-0">
-                  <h1 className="text-xl md:text-2xl font-bold text-slate-900">Create your account</h1>
-                  <p className="text-xs md:text-sm text-slate-500">
-                    Fill in the form below to create your account
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">Create your account</h1>
+                  <p className="mt-2 text-sm md:text-base text-slate-500">
+                    Fill in the form below to create your account.
                   </p>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2.5">
+              <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="name" className="text-sm font-medium text-slate-900">
                     Full Name
@@ -116,7 +118,7 @@ const Register: React.FC = () => {
                     placeholder="John Doe"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className={`flex h-10 w-full rounded-md border bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 ${formErrors.name ? 'border-red-500 focus:ring-red-500' : 'border-slate-200'}`}
+                    className={`flex h-11 w-full rounded-lg border bg-white px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-offset-1 focus:border-slate-900 focus:ring-slate-900 ${formErrors.name ? 'border-red-500 focus:ring-red-500' : 'border-slate-200'}`}
                   />
                   {formErrors.name && (
                     <p className="text-[11px] text-red-500">{formErrors.name}</p>
@@ -134,7 +136,7 @@ const Register: React.FC = () => {
                     placeholder="m@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className={`flex h-10 w-full rounded-md border bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 ${formErrors.email ? 'border-red-500 focus:ring-red-500' : 'border-slate-200'}`}
+                    className={`flex h-11 w-full rounded-lg border bg-white px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-offset-1 focus:border-slate-900 focus:ring-slate-900 ${formErrors.email ? 'border-red-500 focus:ring-red-500' : 'border-slate-200'}`}
                   />
                   {formErrors.email && (
                     <p className="text-[11px] text-red-500">{formErrors.email}</p>
@@ -145,15 +147,7 @@ const Register: React.FC = () => {
                   <label htmlFor="password" className="text-sm font-medium text-slate-900">
                     Password
                   </label>
-                  <input
-                    id="password"
-                    type="password"
-                    required
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className={`flex h-10 w-full rounded-md border bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 ${formErrors.password ? 'border-red-500 focus:ring-red-500' : 'border-slate-200'}`}
-                  />
+                  <PasswordInput id="password" value={password} onChange={setPassword} autoComplete="new-password" hasError={!!formErrors.password} />
                   {formErrors.password && (
                     <p className="text-[11px] text-red-500">{formErrors.password}</p>
                   )}
@@ -163,15 +157,7 @@ const Register: React.FC = () => {
                   <label htmlFor="confirmPassword" className="text-sm font-medium text-slate-900">
                     Confirm Password
                   </label>
-                  <input
-                    id="confirmPassword"
-                    type="password"
-                    required
-                    placeholder="••••••••"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className={`flex h-10 w-full rounded-md border bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 ${formErrors.confirmPassword ? 'border-red-500 focus:ring-red-500' : 'border-slate-200'}`}
-                  />
+                  <PasswordInput id="confirmPassword" value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" hasError={!!formErrors.confirmPassword} />
                   {formErrors.confirmPassword && (
                     <p className="text-[11px] text-red-500">{formErrors.confirmPassword}</p>
                   )}
@@ -192,7 +178,7 @@ const Register: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex h-10 mt-2 items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900/90 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex h-11 mt-2 items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? "Creating Account..." : "Create Account"}
                 </button>
@@ -208,13 +194,7 @@ const Register: React.FC = () => {
           </div>
         </div>
       </div>
-      <div className="relative hidden lg:block border-l border-slate-200 bg-slate-50">
-        <img
-          src="/register-image.png"
-          alt="Register Background"
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-      </div>
+      <AuthSidePanel variant="register" />
     </div>
   );
 };

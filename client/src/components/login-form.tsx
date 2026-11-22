@@ -10,6 +10,7 @@ import { isAdminRole } from "@/utils/authRole";
 import { nextQuery, postLoginDestination } from "@/utils/safeRedirect";
 import { useCarriedNext } from "@/hooks/useTouristVisaEntry";
 import { ArrowLeft } from "lucide-react";
+import { PasswordInput } from "@/components/PasswordInput";
 
 export function LoginForm({
   className,
@@ -43,29 +44,25 @@ export function LoginForm({
 
   return (
     <form 
-      className={cn("flex flex-col gap-6", className)} 
+      className={cn("flex flex-col gap-8", className)} 
       onSubmit={handleSubmit}
       {...props}
     >
-      <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm mb-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Link>
-            <div>
-              <h1 className="text-xl md:text-2xl font-bold text-slate-900">Login to your account</h1>
-              <p className="text-sm md:text-base text-slate-500">Enter your email below to login to your account</p>
-            </div>
-          </div>
+      <div className="flex flex-col gap-6">
+        <Link
+          href="/"
+          className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-slate-600 transition hover:text-slate-900"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to website
+        </Link>
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">Login to your account</h1>
+          <p className="mt-2 text-sm md:text-base text-slate-500">Enter your email and password to continue.</p>
         </div>
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-5">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-2 rounded-md text-sm">
             {error}
@@ -83,7 +80,7 @@ export function LoginForm({
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2"
+            className="flex h-11 w-full rounded-lg border bg-white px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-offset-1 border-slate-200 focus:border-slate-900 focus:ring-slate-900"
           />
         </div>
 
@@ -93,20 +90,13 @@ export function LoginForm({
               Password
             </label>
           </div>
-          <input
-            id="password"
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2"
-          />
+          <PasswordInput id="password" value={password} onChange={setPassword} autoComplete="current-password" />
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          className="inline-flex h-10 items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900/90 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex h-11 items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? "Logging in..." : "Login"}
         </button>
