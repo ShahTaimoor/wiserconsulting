@@ -8,6 +8,7 @@ import { NavItem } from "@/components/shadcn-space/blocks/sidebar-06/nav-main";
 import {
   ChartNoAxesCombined,
   FileCheck2,
+  GraduationCap,
   Combine,
   Globe,
   MessagesSquare,
@@ -30,6 +31,7 @@ export const navData: NavItem[] = [
   { title: "Approved Visas", icon: ShieldCheck, href: "/admin/approved-visas" },
   { title: "Client Testimonials", icon: Quote, href: "/admin/testimonials" },
   { title: "Merge PDFs", icon: Combine, href: "/admin/orders" },
+  { title: "University Finder", icon: GraduationCap, href: "/admin/universities" },
 
   // Dashboards Section
   { label: "", isSection: true }, // a divider, no heading

@@ -23,6 +23,7 @@ const siteSettingsRoutes = require("./routes/siteSettingsRoutes");
 const reuploadRoutes = require("./routes/reuploadRoutes");
 const approvedVisaRoutes = require("./routes/approvedVisaRoutes");
 const testimonialRoutes = require("./routes/testimonialRoutes");
+const universityRoutes = require("./routes/universityRoutes");
 const touristVisaRoutes = require("./routes/touristVisaRoutes");
 const {
   apiLimiter,
@@ -101,7 +102,8 @@ app.use(cookieParser());
 app.use(skipPaths(["/api/tourist-visa"], sanitize));
 
 // Rate limiting
-app.use("/api", apiLimiter);
+// The University Finder has its own, larger limit (middleware/rateLimiter.js: universityLimiter) set in its router.
+app.use("/api", skipPaths(["/universities"], apiLimiter));
 
 // The one Tourist Visa URL that answers while the feature is closed (GET /api/tourist-visa/status, { open }). It sits right after
 // the general rate limiter and before the router: no sign-in and no database.
@@ -136,6 +138,7 @@ app.use("/api/site-settings", siteSettingsRoutes);
 app.use("/api/reupload-document", reuploadRoutes);
 app.use("/api/approved-visas", approvedVisaRoutes);
 app.use("/api/testimonials", testimonialRoutes);
+app.use("/api/universities", universityRoutes);
 
 app.get("/", (req, res) => {
   res.send("Welcome to the backend");
