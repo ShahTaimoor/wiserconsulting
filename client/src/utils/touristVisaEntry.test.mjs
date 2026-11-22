@@ -115,7 +115,7 @@ test("rejects the look-alikes of the prefix: /tourist-visa.evil.com, /tourist-vi
     "/x/tourist-visa",
     "/",
     "/admin",
-    "/admin/users",
+    "/admin/products",
     "/about",
     "/services/tourist-visa",
   ]) {
@@ -235,7 +235,7 @@ test("a list of hostile values, all together, none gets through", () => {
   const hostile = [
     "//evil.example", "///evil.example", "/\\evil.example", "/%2F/evil.example", "/%5Cevil.example", "javascript:alert(1)", "data:text/html,x",
     "/tourist-visa.evil.com", "/tourist-visaX", "/tourist-visa/../admin", "/Tourist-Visa", "/tourist-visa%2f..%2fadmin", "/tourist-visa/%252e%252e/admin",
-    "/tourist-visa\t", "/tourist-visa\n", "/\t/evil.example", "http://localhost:3000/tourist-visa", "/login", "/admin/users", "",
+    "/tourist-visa\t", "/tourist-visa\n", "/\t/evil.example", "http://localhost:3000/tourist-visa", "/login", "/admin/products", "",
   ];
   assert.deepEqual(hostile.filter((value) => touristVisaNextPath(value) !== null), []);
 });
@@ -276,9 +276,9 @@ test("nextQuery builds ?next= for an accepted value only, leaving the slashes re
 test("postLoginDestination: a valid next wins, anything else keeps the existing defaults for each role (and only /tourist-visa is honoured now)", () => {
   assert.equal(postLoginDestination(false, "/tourist-visa"), "/tourist-visa");
   assert.equal(postLoginDestination(true, "/tourist-visa/2A?x=1"), "/tourist-visa/2A?x=1");
-  for (const next of [null, undefined, "", "//evil.example", "https://evil.example", "/admin/users", "/about", "/tourist-visaX", "/Tourist-Visa", "/tourist-visa/../admin", 42]) {
+  for (const next of [null, undefined, "", "//evil.example", "https://evil.example", "/admin/products", "/about", "/tourist-visaX", "/Tourist-Visa", "/tourist-visa/../admin", 42]) {
     assert.equal(postLoginDestination(false, next), "/", `user, next=${JSON.stringify(next)}`);
-    assert.equal(postLoginDestination(true, next), "/admin/users", `admin, next=${JSON.stringify(next)}`);
+    assert.equal(postLoginDestination(true, next), "/admin/products", `admin, next=${JSON.stringify(next)}`);
   }
 });
 
@@ -560,7 +560,7 @@ test("SIGN-UP (/register): after success a person goes to the carried next while
   assert.deepEqual(page(...REGISTER, { availability: "open", user: USER, search: "?next=%2Ftourist-visa%2F2A%3Fx%3D1" }).pushes, ["/tourist-visa/2A?x=1"]);
   assert.deepEqual(page(...REGISTER, { availability: "open", user: USER, search: "" }).pushes, ["/"]);
   for (const availability of ["loading", "closed"]) assert.deepEqual(page(...REGISTER, { availability, user: USER, search: "?next=/tourist-visa" }).pushes, ["/"], availability);
-  for (const bad of ["?next=//evil.example", "?next=https://evil.example", "?next=/tourist-visaX", "?next=/tourist-visa/../admin", "?next=/Tourist-Visa", "?next=/admin/users", "?next=javascript:alert(1)", "?next=/tourist-visa%252Fx"]) {
+  for (const bad of ["?next=//evil.example", "?next=https://evil.example", "?next=/tourist-visaX", "?next=/tourist-visa/../admin", "?next=/Tourist-Visa", "?next=/admin/products", "?next=javascript:alert(1)", "?next=/tourist-visa%252Fx"]) {
     assert.deepEqual(page(...REGISTER, { availability: "open", user: USER, search: bad }).pushes, ["/"], bad);
   }
   assert.deepEqual(page(...REGISTER, { availability: "open", user: null, search: "?next=/tourist-visa" }).pushes, [], "nobody is moved before they are signed up");
@@ -591,10 +591,10 @@ test("LOGIN: the sign-up link carries next only while open; after sign-in a vali
   // The login page has always honoured a valid next, whatever the status says (the application's own page sends people here with one).
   assert.deepEqual(target(USER, "?next=/tourist-visa", "closed"), ["/tourist-visa"]);
   assert.deepEqual(target(USER, ""), ["/"]);
-  assert.deepEqual(target({ ...USER, role: 1 }, ""), ["/admin/users"]);
-  for (const bad of ["?next=//evil.example", "?next=https://evil.example", "?next=/tourist-visaX", "?next=/tourist-visa/../admin", "?next=/Tourist-Visa", "?next=/admin/users", "?next=javascript:alert(1)", "?next=/tourist-visa.evil.com"]) {
+  assert.deepEqual(target({ ...USER, role: 1 }, ""), ["/admin/products"]);
+  for (const bad of ["?next=//evil.example", "?next=https://evil.example", "?next=/tourist-visaX", "?next=/tourist-visa/../admin", "?next=/Tourist-Visa", "?next=/admin/products", "?next=javascript:alert(1)", "?next=/tourist-visa.evil.com"]) {
     assert.deepEqual(target(USER, bad), ["/"], `user ${bad}`);
-    assert.deepEqual(target({ ...USER, role: 1 }, bad), ["/admin/users"], `admin ${bad}`);
+    assert.deepEqual(target({ ...USER, role: 1 }, bad), ["/admin/products"], `admin ${bad}`);
   }
 });
 

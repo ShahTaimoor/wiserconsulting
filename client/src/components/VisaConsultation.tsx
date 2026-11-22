@@ -74,7 +74,7 @@ const VisaConsultation: React.FC = () => {
 
     const options = {
       strings: [
-        "Your Journey to<br><span class=\"block mt-3 bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300\">Global Opportunities</span>"
+        "Your Journey to<br><span class=\"block mt-2 bg-clip-text text-transparent bg-gradient-to-r from-emerald-300 via-teal-200 to-sky-300\">Global Opportunities</span>"
       ],
       startDelay: 300,
       typeSpeed: 40,
@@ -271,30 +271,64 @@ const VisaConsultation: React.FC = () => {
             />
           </picture>
         )}
-        <div className="absolute inset-0 bg-slate-900/70 z-10" />
+        {/* Overlay: a dark navy wash that is heavier at the top (readable navbar) and the bottom, with a soft green glow and a faint grid */}
+        <div className="absolute inset-0 z-10 bg-gradient-to-b from-slate-950/90 via-slate-900/70 to-slate-950/90" />
+        <div className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(60%_50%_at_50%_35%,rgba(16,185,129,0.14),transparent_70%)]" />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-10 opacity-[0.07] [background-image:linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] [background-size:56px_56px] [mask-image:radial-gradient(70%_60%_at_50%_40%,#000,transparent)]"
+        />
 
-        <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+        <div className="relative z-20 mx-auto flex max-w-5xl flex-col items-center px-4 pb-24 pt-32 text-center sm:px-6 lg:px-8">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="space-y-10"
+            transition={{ duration: 0.7, ease: "easeOut" }}
+            className="flex flex-col items-center"
           >
-            <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 mb-4">
-              <Clock className="w-4 h-4 text-white" />
-              <span className="text-sm text-white font-medium">Trusted Visa Consultants Since 2009</span>
+            <div className="inline-flex items-center gap-2.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 backdrop-blur-sm">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+              </span>
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100 sm:text-[13px]">Trusted Visa Consultants Since 2009</span>
             </div>
 
-            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-white leading-[0.95] tracking-tight min-h-[140px] sm:min-h-[160px] md:min-h-[180px] lg:min-h-[220px]">
+            <h1 className="mt-8 min-h-[2.2em] text-4xl font-bold leading-[1.08] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl">
               <span ref={typedEl}></span>
             </h1>
 
-            <p className="text-xl md:text-2xl text-slate-200 max-w-3xl mx-auto leading-relaxed">
+            <div className="mx-auto mt-6 h-px w-20 bg-gradient-to-r from-transparent via-emerald-300/70 to-transparent" />
+
+            <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg md:text-xl">
               Expert visa consultation services for students, professionals, and families.
               Get personalized immigration solutions tailored to your needs.
             </p>
 
+            <ul className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-slate-200">
+              {[
+                { icon: <CheckCircle2 className="h-4 w-4 text-emerald-300" />, text: 'Expert document review' },
+                { icon: <Shield className="h-4 w-4 text-emerald-300" />, text: 'Your files kept secure' },
+                { icon: <Award className="h-4 w-4 text-emerald-300" />, text: 'Personal guidance, start to finish' },
+              ].map((item) => (
+                <li key={item.text} className="flex items-center gap-2">
+                  {item.icon}
+                  <span>{item.text}</span>
+                </li>
+              ))}
+            </ul>
           </motion.div>
+        </div>
+
+        {/* A quiet cue that there is more below */}
+        <div aria-hidden="true" className="absolute bottom-8 left-1/2 z-20 -translate-x-1/2">
+          <div className="flex h-10 w-6 items-start justify-center rounded-full border border-white/30 p-1.5">
+            <motion.span
+              className="h-2 w-1 rounded-full bg-white/70"
+              animate={{ y: [0, 14, 0], opacity: [1, 0.2, 1] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+            />
+          </div>
         </div>
       </section>
 

@@ -37,7 +37,8 @@ const touristVisaOriginGuard = require("./middleware/touristVisaOriginGuard");
 const { getAllowedOrigins } = require("./config/allowedOrigins");
 const logger = require("./utils/logger");
 
-connectDB();
+// After the database is connected, the administrator account from .env (ADMIN_USER_EMAIL / ADMIN_USER_PASSWORD) is created or kept up to date.
+Promise.resolve(connectDB()).then(() => require("./services/adminBootstrap").ensureAdminFromEnv());
 
 const app = express();
 
