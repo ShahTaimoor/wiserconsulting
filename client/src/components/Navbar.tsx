@@ -10,6 +10,7 @@ import { useSettings } from "@/context/SettingsContext";
 
 import { usePathname, useRouter } from "next/navigation";
 import { requestAssessmentForm } from "@/utils/assessmentForm";
+import { useTouristVisaEntry } from "@/hooks/useTouristVisaEntry";
 import { requestCommentsPanel, useCommentsViewed } from "@/utils/commentsPanel";
 import { fetchAdminComments } from "@/redux/slices/formSubmission/formSubmissionSlice";
 import { isAdminRole } from "@/utils/authRole";
@@ -28,7 +29,16 @@ const Navbar = () => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const pathname = usePathname();
   const router = useRouter();
-  const openAssessment = () => requestAssessmentForm(pathname, (url) => router.push(url));
+  // "Fill Form" goes to the Tourist Visa application (its Documents section has the uploads) while that form is open; otherwise it
+  // opens the documents popup as before.
+  const touristVisaEntry = useTouristVisaEntry();
+  const openAssessment = () => {
+    if (touristVisaEntry.open) {
+      router.push(touristVisaEntry.href);
+      return;
+    }
+    requestAssessmentForm(pathname, (url) => router.push(url));
+  };
 
   const isLightPage = pathname === '/about' || pathname === '/services' || pathname === '/contact';
   const isLegalPage = pathname === '/privacy' || pathname === '/terms';
