@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus, BadgeCheck, BadgeX } from "lucide-react";
+import { Pencil, Trash2, Plus } from "lucide-react";
 import { approvedVisaService, ApprovedVisa } from "@/services/approvedVisaService";
+import { SheetPage, SheetToolbar, SheetTable, SheetMessage, SheetLoading, SheetButton, Thead, Th, Tr, Td, EmptyRow, Pill, sheetInput } from "@/components/admin/Sheet";
 import ApprovedVisaFormModal from "@/components/admin/ApprovedVisaFormModal";
 
 const AdminApprovedVisas = () => {
@@ -111,129 +112,89 @@ const AdminApprovedVisas = () => {
 
   if (!mounted || loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading approved visas...</p>
-        </div>
-      </div>
+      <SheetPage title="Approved Visas">
+        <SheetLoading label="Loading approved visas..." />
+      </SheetPage>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center"><p className="text-red-600">{error}</p></div>
-      </div>
+      <SheetPage title="Approved Visas">
+        <SheetMessage>{error}</SheetMessage>
+      </SheetPage>
     );
   }
 
   return (
-    <div className="h-full bg-gray-100 p-4 sm:p-6 rounded-xl w-full">
-      <div className="max-w-7xl mx-auto w-full">
-        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6 w-full">
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Approved Visas</h1>
-            <button
-              onClick={openAddModal}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-            >
-              <Plus className="h-4 w-4" />
-              Add Approved Visa
-            </button>
-          </div>
-
-          {visas.length === 0 ? (
-            <div className="text-center py-16 text-gray-500">
-              No approved visas yet. Click &quot;Add Approved Visa&quot; to create the first one.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {visas.map((visa) => (
-                <div
-                  key={visa._id}
-                  className={`relative rounded-xl border overflow-hidden bg-white shadow-sm transition ${
-                    visa.isActive ? "border-slate-200" : "border-slate-200 opacity-60"
-                  }`}
-                >
-                  <div className="relative h-40 w-full bg-slate-100">
+    <>
+      <SheetPage
+        title="Approved Visas"
+        subtitle="Visas shown on the public website. Hidden rows are not shown to visitors."
+        actions={
+          <SheetButton tone="primary" onClick={openAddModal} className="px-3 py-1.5">
+            <Plus className="h-4 w-4" /> Add Approved Visa
+          </SheetButton>
+        }
+      >
+        <SheetTable count={visas.length} unit="visas" minWidth={860}>
+          <Thead>
+            <Th className="w-16">Photo</Th>
+            <Th>Client</Th>
+            <Th>Country</Th>
+            <Th>Visa type</Th>
+            <Th>Approved in</Th>
+            <Th className="w-28">Website</Th>
+            <Th className="w-44 text-center">Actions</Th>
+          </Thead>
+          <tbody>
+            {visas.length === 0 ? (
+              <EmptyRow colSpan={7}>No approved visas yet. Click &quot;Add Approved Visa&quot; to create the first one.</EmptyRow>
+            ) : (
+              visas.map((visa, index) => (
+                <Tr key={visa._id} n={index + 1} muted={!visa.isActive}>
+                  <Td>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={visa.clientPhotoUrl}
-                      alt={visa.clientName}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute top-2 right-2 h-8 w-8 rounded-full overflow-hidden border-2 border-white shadow-md bg-white">
+                    <img src={visa.clientPhotoUrl} alt={visa.clientName} className="h-10 w-10 rounded object-cover" />
+                  </Td>
+                  <Td className="font-medium">{visa.clientName}</Td>
+                  <Td>
+                    <span className="inline-flex items-center gap-2">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={visa.countryFlagUrl}
-                        alt={visa.countryName}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="absolute top-2 left-2">
-                      {visa.isActive ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-800 text-[10px] font-bold uppercase tracking-wide">
-                          <BadgeCheck className="h-3 w-3" /> Visible
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-wide">
-                          <BadgeX className="h-3 w-3" /> Hidden
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="p-4">
-                    <h3 className="font-bold text-gray-900 truncate">{visa.clientName}</h3>
-                    <p className="text-sm text-gray-500 truncate">{visa.countryName}{visa.visaType ? ` · ${visa.visaType}` : ""}</p>
-                    {visa.note && (
-                      <p className="mt-1 text-xs text-gray-400 line-clamp-2">{visa.note}</p>
-                    )}
-
-                    <div className="mt-4 flex items-center gap-2">
-                      <button
-                        onClick={() => handleToggleActive(visa)}
-                        disabled={togglingId === visa._id}
-                        className={`flex-1 px-3 py-1.5 text-xs font-bold rounded-lg transition disabled:opacity-50 ${
-                          visa.isActive
-                            ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                            : "bg-green-600 text-white hover:bg-green-700"
-                        }`}
-                      >
+                      <img src={visa.countryFlagUrl} alt="" className="h-4 w-6 rounded-sm border border-slate-200 object-cover" />
+                      {visa.countryName}
+                    </span>
+                  </Td>
+                  <Td>{visa.visaType || "-"}</Td>
+                  <Td className="text-slate-600">{visa.note || "-"}</Td>
+                  <Td>{visa.isActive ? <Pill tone="green">Visible</Pill> : <Pill tone="gray">Hidden</Pill>}</Td>
+                  <Td>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <SheetButton onClick={() => handleToggleActive(visa)} disabled={togglingId === visa._id} tone={visa.isActive ? "neutral" : "success"}>
                         {visa.isActive ? "Hide" : "Show"}
-                      </button>
-                      <button
-                        onClick={() => openEditModal(visa)}
-                        className="p-1.5 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition"
-                        aria-label="Edit"
-                      >
+                      </SheetButton>
+                      <SheetButton tone="dark" onClick={() => openEditModal(visa)} aria-label="Edit" title="Edit">
                         <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
+                      </SheetButton>
+                      <SheetButton
+                        tone={pendingDeleteId === visa._id ? "primary" : "danger"}
+                        className={pendingDeleteId === visa._id ? "!bg-red-600 hover:!bg-red-700" : ""}
                         onClick={() => handleDeleteClick(visa._id)}
                         onBlur={() => setPendingDeleteId((current) => (current === visa._id ? null : current))}
-                        className={`p-1.5 rounded-lg transition ${
-                          pendingDeleteId === visa._id
-                            ? "bg-red-600 text-white hover:bg-red-700"
-                            : "bg-red-50 text-red-600 hover:bg-red-100"
-                        }`}
                         aria-label={pendingDeleteId === visa._id ? "Confirm delete" : "Delete"}
                         title={pendingDeleteId === visa._id ? "Click again to confirm delete" : "Delete"}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                        {pendingDeleteId === visa._id && "Confirm"}
+                      </SheetButton>
                     </div>
-                    {pendingDeleteId === visa._id && (
-                      <p className="mt-2 text-[11px] text-red-600 font-medium">Click delete again to confirm.</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+                  </Td>
+                </Tr>
+              ))
+            )}
+          </tbody>
+        </SheetTable>
+      </SheetPage>
 
       <ApprovedVisaFormModal
         isOpen={showModal}
@@ -241,7 +202,7 @@ const AdminApprovedVisas = () => {
         onSaved={handleSaved}
         editingVisa={editingVisa}
       />
-    </div>
+    </>
   );
 };
 

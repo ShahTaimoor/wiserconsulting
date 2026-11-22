@@ -21,6 +21,8 @@ import { VoiceRecorder } from '@/components/voice/VoiceRecorder';
 import { VoicePlayer } from '@/components/voice/VoicePlayer';
 import { sendAdminVoice } from '@/services/voiceService';
 
+import { SheetPage, SheetToolbar, SheetTable, SheetMessage, SheetLoading, SheetButton, Thead, Th, Tr, Td, EmptyRow, Pill, sheetInput } from "@/components/admin/Sheet";
+
 const AdminFormSubmissions = () => {
   const dispatch = useAppDispatch();
   const { submissions, loading, error } = useAppSelector((state) => state.admin);
@@ -191,114 +193,95 @@ const AdminFormSubmissions = () => {
 
   const closeDetails = () => { setShowDetailsModal(false); setSelectedSubmissionId(null); };
 
-  if (loading && submissions.length === 0) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading submissions...</p>
-        </div>
-      </div>
-    );
-  }
-
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center"><p className="text-red-600">{error}</p></div>
-      </div>
+      <SheetPage title="Form Submissions">
+        <SheetMessage>{error}</SheetMessage>
+      </SheetPage>
     );
   }
 
+  const statusTone = (status: string) =>
+    status === 'pending' ? 'yellow' : status === 'reviewed' ? 'blue' : status === 'contacted' ? 'purple' : 'green';
+
   return (
-    <div className="h-full bg-gray-100 p-4 sm:p-6 rounded-xl w-full">
-      <div className="max-w-7xl mx-auto w-full">
-        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6 w-full">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">Visa Assessment Submissions</h1>
+    <div className="w-full">
+      <SheetPage title="Form Submissions" subtitle="Documents sent by customers through the Fill Form button">
+        <SheetToolbar>
+          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500" htmlFor="status-filter">Status</label>
+          <select
+            id="status-filter"
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className={sheetInput}
+          >
+            <option value="all">All Submissions</option>
+            <option value="pending">Pending</option>
+            <option value="reviewed">Reviewed</option>
+            <option value="contacted">Contacted</option>
+            <option value="completed">Completed</option>
+          </select>
+        </SheetToolbar>
 
-          {/* Filter Controls */}
-          <div className="flex flex-wrap gap-4 mb-6">
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-            >
-              <option value="all">All Submissions</option>
-              <option value="pending">Pending</option>
-              <option value="reviewed">Reviewed</option>
-              <option value="contacted">Contacted</option>
-              <option value="completed">Completed</option>
-            </select>
-          </div>
-
-          {/* Submissions Table */}
-          <div className="w-full overflow-x-auto">
-            <table className="w-full text-left bg-white border border-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                  <th className="px-4 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Destination</th>
-                  <th className="px-4 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Visa Type</th>
-                  <th className="px-4 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-4 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Date</th>
-                  <th className="px-4 sm:px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredSubmissions.map((submission) => (
-                  <tr key={submission._id} className="hover:bg-gray-50">
-                    <td className="px-4 sm:px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900 truncate max-w-[150px]">{submission.name}</div>
-                      <div className="text-xs text-gray-500 truncate max-w-[150px]">{submission.email || 'Not provided'}</div>
-                      <div className="text-xs text-gray-500 sm:hidden truncate max-w-[150px]">{submission.destinationCountry}</div>
-                    </td>
-                    <td className="px-4 sm:px-6 py-4 hidden sm:table-cell">
-                      <div className="text-sm text-gray-900 truncate max-w-[150px]">{submission.destinationCountry}</div>
-                      {submission.otherCountry && <div className="text-xs text-gray-500 truncate max-w-[150px]">({submission.otherCountry})</div>}
-                    </td>
-                    <td className="px-4 sm:px-6 py-4 hidden md:table-cell text-sm text-gray-900 whitespace-nowrap">{submission.visaType}</td>
-                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+        {loading && submissions.length === 0 ? (
+          <SheetTable toolbar count={0}>
+            <tbody>
+              <tr><td><SheetLoading label="Loading submissions..." /></td></tr>
+            </tbody>
+          </SheetTable>
+        ) : (
+          <SheetTable toolbar count={filteredSubmissions.length} unit="submissions" minWidth={840}>
+            <Thead>
+              <Th>Customer</Th>
+              <Th>Email</Th>
+              <Th className="w-24">Documents</Th>
+              <Th className="w-36">Status</Th>
+              <Th className="w-28">Date</Th>
+              <Th className="w-44 text-center">Actions</Th>
+            </Thead>
+            <tbody>
+              {filteredSubmissions.length === 0 ? (
+                <EmptyRow colSpan={6}>No submissions found</EmptyRow>
+              ) : (
+                filteredSubmissions.map((submission, index) => (
+                  <Tr key={submission._id} n={index + 1}>
+                    <Td className="font-medium">{submission.name}</Td>
+                    <Td className="text-slate-600">{submission.email || 'Not provided'}</Td>
+                    <Td><Pill tone="blue">{submission.documents?.length ?? 0} docs</Pill></Td>
+                    <Td>
                       <select
                         value={submission.status}
                         onChange={(e) => handleStatusUpdate(submission._id, e.target.value)}
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${submission.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          submission.status === 'reviewed' ? 'bg-blue-100 text-blue-800' :
-                            submission.status === 'contacted' ? 'bg-purple-100 text-purple-800' :
-                              'bg-green-100 text-green-800'
-                          }`}
+                        className={`rounded px-2 py-1 text-xs font-semibold ${
+                          { yellow: 'bg-amber-100 text-amber-800', blue: 'bg-blue-100 text-blue-800', purple: 'bg-purple-100 text-purple-800', green: 'bg-emerald-100 text-emerald-800' }[statusTone(submission.status)]
+                        }`}
                       >
                         <option value="pending">Pending</option>
                         <option value="reviewed">Reviewed</option>
                         <option value="contacted">Contacted</option>
                         <option value="completed">Completed</option>
                       </select>
-                    </td>
-                    <td className="px-4 sm:px-6 py-4 hidden sm:table-cell text-sm text-gray-500 whitespace-nowrap">
-                      {new Date(submission.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 sm:px-6 py-4">
-                      <div className="flex flex-col gap-2 max-w-[120px]">
-                        <button
-                          onClick={() => { setSelectedSubmissionId(submission._id); setShowDetailsModal(true); }}
-                          className="w-full px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-center"
-                        >
+                    </Td>
+                    <Td className="whitespace-nowrap text-slate-600">{new Date(submission.createdAt).toLocaleDateString()}</Td>
+                    <Td>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <SheetButton tone="primary" onClick={() => { setSelectedSubmissionId(submission._id); setShowDetailsModal(true); }}>
                           View Details
-                        </button>
-                        <button
-                          onClick={() => handleDeleteSubmission(submission._id, submission.name)}
-                          className="w-full px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors shadow-sm text-center"
-                        >
+                        </SheetButton>
+                        <SheetButton tone="danger" onClick={() => handleDeleteSubmission(submission._id, submission.name)}>
                           Delete
-                        </button>
+                        </SheetButton>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                    </Td>
+                  </Tr>
+                ))
+              )}
+            </tbody>
+          </SheetTable>
+        )}
+      </SheetPage>
 
+      <div className="w-full">
         {/* ══════════════════════════════════════════
             SUBMISSION DETAILS MODAL — fully responsive
         ══════════════════════════════════════════ */}

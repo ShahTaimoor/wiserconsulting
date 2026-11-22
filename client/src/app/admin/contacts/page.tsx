@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Search, Eye, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { SheetPage, SheetToolbar, SheetTable, SheetMessage, SheetLoading, SheetButton, Thead, Th, Tr, Td, EmptyRow, Pill, sheetInput } from "@/components/admin/Sheet";
 
 interface ContactSubmission {
   _id: string;
@@ -88,133 +88,108 @@ const ContactsPage = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusMap: Record<string, { bg: string; text: string }> = {
-      new: { bg: "bg-blue-100", text: "text-blue-700" },
-      read: { bg: "bg-yellow-100", text: "text-yellow-700" },
-      responded: { bg: "bg-green-100", text: "text-green-700" },
-      archived: { bg: "bg-gray-100", text: "text-gray-700" }
-    };
-    const colors = statusMap[status] || statusMap.new;
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${colors.bg} ${colors.text}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    );
-  };
+  const statusTone = (status: string) =>
+    status === "responded" ? "green" : status === "read" ? "yellow" : status === "archived" ? "gray" : "blue";
+  const rowOffset = pagination ? (pagination.currentPage - 1) * 10 : 0;
 
   return (
-    <div className="h-full bg-slate-50 rounded-xl">
-      <div className="max-w-6xl mx-auto px-4 py-8 w-full">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900">Contact Submissions</h1>
-          <p className="text-slate-600 mt-1 text-sm">Manage user inquiries easily</p>
-        </div>
+    <SheetPage title="Contact Submissions" subtitle="Messages sent from the website contact form">
+      {error && <SheetMessage>{error}</SheetMessage>}
 
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 mb-6">
-          <form onSubmit={handleSearch} className="flex gap-2">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-emerald-500 text-white text-sm rounded-md hover:bg-emerald-600 transition"
-            >
-              Search
-            </button>
-          </form>
-        </div>
-
-        {error && (
-          <div className="bg-red-50 text-red-700 p-3 rounded-md mb-4 border border-red-200 text-sm">
-            {error}
+      <SheetToolbar>
+        <form onSubmit={handleSearch} className="flex flex-1 flex-wrap items-center gap-2">
+          <div className="relative min-w-[220px] flex-1 sm:max-w-sm">
+            <Search className="absolute left-2.5 top-2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search name, email or subject..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={`${sheetInput} w-full pl-8`}
+            />
           </div>
-        )}
-
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-          {loading ? (
-            <div className="p-6 text-center text-sm text-slate-600">Loading...</div>
-          ) : submissions.length === 0 ? (
-            <div className="p-6 text-center text-sm text-slate-600">No submissions found</div>
-          ) : (
-            <div className="w-full overflow-hidden">
-              <table className="w-full text-left border-collapse table-fixed">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="px-4 py-3 text-xs font-semibold text-slate-700 w-1/4">Name</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-slate-700 w-1/4 hidden sm:table-cell">Email</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-slate-700 w-1/4 hidden md:table-cell">Subject</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-slate-700 w-24">Status</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-slate-700 w-24">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 text-sm">
-                  {submissions.map((submission) => (
-                    <tr key={submission._id} className="hover:bg-slate-50 transition">
-                      <td className="px-4 py-3 text-slate-900 font-medium truncate">{submission.name}</td>
-                      <td className="px-4 py-3 text-slate-600 truncate hidden sm:table-cell">{submission.email}</td>
-                      <td className="px-4 py-3 text-slate-600 truncate hidden md:table-cell">{submission.subject}</td>
-                      <td className="px-4 py-3">{getStatusBadge(submission.status)}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-2">
-                          <Link
-                            href={`/admin/contacts/${submission._id}`}
-                            className="p-1.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition"
-                            title="View"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Link>
-                          <button
-                            onClick={() => deleteSubmission(submission._id)}
-                            className="p-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100 transition"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {pagination && pagination.totalPages > 1 && (
-                <div className="px-4 py-3 border-t border-slate-200 flex justify-between items-center text-sm">
-                  <span className="text-slate-600">
-                    Page {pagination.currentPage} of {pagination.totalPages}
-                  </span>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => handlePageChange(page - 1)}
-                      disabled={page === 1}
-                      className="px-3 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50"
-                    >
-                      Prev
-                    </button>
-                    <button
-                      onClick={() => handlePageChange(page + 1)}
-                      disabled={page === pagination.totalPages}
-                      className="px-3 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+          <SheetButton type="submit" tone="success">Search</SheetButton>
+          {searchTerm && (
+            <SheetButton
+              onClick={() => {
+                setSearchTerm("");
+                setPage(1);
+                fetchSubmissions(1, "");
+              }}
+            >
+              Clear
+            </SheetButton>
           )}
-        </div>
-      </div>
-    </div>
+        </form>
+      </SheetToolbar>
+
+      {loading ? (
+        <SheetTable toolbar count={0}>
+          <tbody>
+            <tr><td><SheetLoading /></td></tr>
+          </tbody>
+        </SheetTable>
+      ) : (
+        <SheetTable
+          toolbar
+          count={pagination?.totalItems ?? submissions.length}
+          footer={
+            pagination && pagination.totalPages > 1 ? (
+              <span className="flex items-center gap-2">
+                Page {pagination.currentPage} of {pagination.totalPages}
+                <SheetButton onClick={() => handlePageChange(page - 1)} disabled={page === 1}>Prev</SheetButton>
+                <SheetButton onClick={() => handlePageChange(page + 1)} disabled={page === pagination.totalPages}>Next</SheetButton>
+              </span>
+            ) : null
+          }
+        >
+          <Thead>
+            <Th>Name</Th>
+            <Th>Email</Th>
+            <Th>Subject</Th>
+            <Th className="w-28">Status</Th>
+            <Th className="w-24 text-center">Actions</Th>
+          </Thead>
+          <tbody>
+            {submissions.length === 0 ? (
+              <EmptyRow colSpan={5}>No submissions found</EmptyRow>
+            ) : (
+              submissions.map((submission, index) => (
+                <Tr key={submission._id} n={rowOffset + index + 1}>
+                  <Td className="font-medium">{submission.name}</Td>
+                  <Td className="text-slate-600">{submission.email}</Td>
+                  <Td className="max-w-[260px] truncate text-slate-600" >{submission.subject}</Td>
+                  <Td>
+                    <Pill tone={statusTone(submission.status)}>
+                      {submission.status.charAt(0).toUpperCase() + submission.status.slice(1)}
+                    </Pill>
+                  </Td>
+                  <Td>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <Link
+                        href={`/admin/contacts/${submission._id}`}
+                        className="rounded-md border border-slate-300 bg-white p-1.5 text-blue-600 hover:bg-blue-50"
+                        title="View"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Link>
+                      <button
+                        onClick={() => deleteSubmission(submission._id)}
+                        className="rounded-md border border-red-200 bg-red-50 p-1.5 text-red-600 hover:bg-red-100"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </Td>
+                </Tr>
+              ))
+            )}
+          </tbody>
+        </SheetTable>
+      )}
+    </SheetPage>
   );
 };
 
 export default ContactsPage;
-

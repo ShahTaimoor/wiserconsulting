@@ -61,7 +61,7 @@ export default function AdminSettingsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 py-8">
+        <div className="w-full">
             <div className="max-w-4xl mx-auto">
                 <AdminSettingsForm />
             </div>

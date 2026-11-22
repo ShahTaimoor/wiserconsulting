@@ -256,68 +256,49 @@ const AdminSettingsForm = () => {
     }
 
     return (
-        <div className="w-full max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-md">
-            <h1 className="text-3xl font-bold mb-6">Admin Settings</h1>
+        <div className="w-full max-w-4xl mx-auto rounded-xl bg-white p-3 sm:p-5">
+            <div className="mb-4">
+                <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Admin Settings</h1>
+                <p className="mt-0.5 text-sm text-slate-500">Website details shown to visitors. Click a cell to edit it, then press Save at the bottom.</p>
+            </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Website Title */}
-                <div>
-                    <label className="block text-sm font-medium mb-2">
-                        Website Title
-                    </label>
-                    <input
-                        type="text"
-                        name="websiteTitle"
-                        value={settings.websiteTitle}
-                        onChange={handleInputChange}
-                        placeholder="Enter website title"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
-
-                {/* Email */}
-                <div>
-                    <label className="block text-sm font-medium mb-2">
-                        Email Address
-                    </label>
-                    <input
-                        type="email"
-                        name="emailAddress"
-                        value={settings.emailAddress}
-                        onChange={handleInputChange}
-                        placeholder="Enter email address"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
-
-                {/* Phone */}
-                <div>
-                    <label className="block text-sm font-medium mb-2">
-                        Phone Number
-                    </label>
-                    <input
-                        type="tel"
-                        name="phoneNumber"
-                        value={settings.phoneNumber}
-                        onChange={handleInputChange}
-                        placeholder="Enter phone number"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
-
-                {/* Address */}
-                <div>
-                    <label className="block text-sm font-medium mb-2">
-                        Address
-                    </label>
-                    <textarea
-                        name="address"
-                        value={settings.address}
-                        onChange={handleInputChange}
-                        placeholder="Enter address"
-                        rows={3}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                {/* Website details: a two-column sheet (setting | value) */}
+                <div className="overflow-hidden rounded-lg border border-slate-300">
+                    <table className="w-full border-collapse text-left text-sm">
+                        <thead>
+                            <tr>
+                                <th className="w-44 border border-slate-300 bg-slate-100 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-600">Setting</th>
+                                <th className="border border-slate-300 bg-slate-100 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-600">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td className="border border-slate-300 bg-slate-50 px-3 py-2 font-medium text-slate-700">Website Title</td>
+                                <td className="border border-slate-300 p-0">
+                                    <input type="text" name="websiteTitle" value={settings.websiteTitle} onChange={handleInputChange} placeholder="Enter website title" className="w-full bg-transparent px-3 py-2 text-sm text-slate-800 focus:bg-emerald-50/60 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500" />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="border border-slate-300 bg-slate-50 px-3 py-2 font-medium text-slate-700">Email Address</td>
+                                <td className="border border-slate-300 p-0">
+                                    <input type="email" name="emailAddress" value={settings.emailAddress} onChange={handleInputChange} placeholder="Enter email address" className="w-full bg-transparent px-3 py-2 text-sm text-slate-800 focus:bg-emerald-50/60 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500" />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="border border-slate-300 bg-slate-50 px-3 py-2 font-medium text-slate-700">Phone Number</td>
+                                <td className="border border-slate-300 p-0">
+                                    <input type="tel" name="phoneNumber" value={settings.phoneNumber} onChange={handleInputChange} placeholder="Enter phone number" className="w-full bg-transparent px-3 py-2 text-sm text-slate-800 focus:bg-emerald-50/60 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500" />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="border border-slate-300 bg-slate-50 px-3 py-2 align-top font-medium text-slate-700">Address</td>
+                                <td className="border border-slate-300 p-0">
+                                    <textarea name="address" value={settings.address} onChange={handleInputChange} placeholder="Enter address" rows={3} className="w-full bg-transparent px-3 py-2 text-sm text-slate-800 focus:bg-emerald-50/60 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500" />
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
 
                 {/* Logo Upload */}
