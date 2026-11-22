@@ -12,9 +12,10 @@ const { uploadLimiter } = require('../middleware/rateLimiter');
 const validate = require('../middleware/validate');
 const { createSubmissionSchema } = require('../validations/formSubmissionValidation');
 
-// Submit assessment (Cloudflare R2, private bucket)
+// Submit assessment (Cloudflare R2, private bucket). The applicant must be signed in: the name and e-mail come from the account.
 router.post(
   '/submit-assessment',
+  isAuthorized,
   uploadLimiter,
   uploadFields,
   validate(createSubmissionSchema),

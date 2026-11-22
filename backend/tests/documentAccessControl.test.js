@@ -20,7 +20,7 @@ const assessmentService = require('../services/assessmentService');
 const { AppError, errorHandler } = require('../middleware/errorHandler');
 
 const ADMIN = { _id: 'u-admin', email: 'admin@example.com', role: 1 };
-const OWNER = { _id: 'u-owner', email: 'Customer@Example.com', role: 0 };
+const OWNER = { _id: 'u-owner', name: 'Real Customer', email: 'Customer@Example.com', role: 0 };
 const STRANGER = { _id: 'u-stranger', email: 'stranger@example.com', role: 0 };
 const USERS = { [ADMIN._id]: ADMIN, [OWNER._id]: OWNER, [STRANGER._id]: STRANGER };
 const tokenOf = (user) => jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -38,6 +38,8 @@ const submission = makeSubmission();
 const comments = [];
 formSubmissionRepository.findById = async (id) => (id === 's-1' ? submission : null);
 formSubmissionRepository.findByEmail = async (email) => (email.toLowerCase() === 'customer@example.com' ? submission : null);
+const created = [];
+formSubmissionRepository.create = async (data) => { created.push(data); return { _id: 's-new' }; };
 formSubmissionRepository.addCustomerComment = async (id, data) => { comments.push({ id, data }); };
 
 const reached = [];
@@ -149,4 +151,15 @@ test('an upload whose content is not a PDF, JPG or PNG is refused before anythin
   const req = { files: { passports: [{ fieldname: 'passports', originalname: 'a.pdf', mimetype: 'application/pdf', buffer: Buffer.from('<html><script>alert(1)</script></html>') }] } };
   const error = await new Promise((resolve) => storeFilesInR2(req, {}, resolve));
   assert.equal(error.statusCode ?? error.status, 400);
+});
+
+test('POST submit-assessment: sign-in required; who applied comes from the account; the travel details are optional', async () => {
+  assert.equal((await call('POST', '/api/submit-assessment', { body: {} })).status, 401);
+  assert.deepEqual(created, []);
+  const res = await call('POST', '/api/submit-assessment', { user: OWNER, body: { name: 'Someone Else', email: 'other@example.com', status: 'completed' } });
+  assert.equal(res.status, 201);
+  assert.equal(created.length, 1);
+  assert.equal(created[0].name, 'Real Customer');
+  assert.equal(created[0].email, 'Customer@Example.com');
+  assert.equal(created[0].status, 'pending');
 });

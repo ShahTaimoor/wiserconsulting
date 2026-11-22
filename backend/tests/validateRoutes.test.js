@@ -161,18 +161,21 @@ test('POST and PUT /api/approved-visas: a legitimate request passes the validati
   assert.equal((await app.call('POST', '/api/approved-visas', { form: { clientName: 'x', countryName: 'y' }, token: person.token })).status, 403);
 });
 
-// ---------------------------------------------------------------------------------------------- the public assessment (no sign-in)
+// ---------------------------------------------------------------------------------------------- the assessment (documents only, sign-in required)
 
 for (const url of ['/api/submit-assessment']) {
-  test(`POST ${url}: a normal assessment is saved; fields the form does not have (isDeleted, status) cannot be set through it`, async () => {
-    const res = await app.call('POST', url, { form: { ...SUBMISSION, email: 'cloud@example.com', isDeleted: 'true', status: 'completed' } });
+  test(`POST ${url}: needs a sign-in; the name and e-mail come from the account; isDeleted and status cannot be set through it`, async () => {
+    assert.equal((await app.call('POST', url, { form: { ...SUBMISSION } })).status, 401, 'no sign-in');
+    const res = await app.call('POST', url, { token: person.token, form: { ...SUBMISSION, name: 'Someone Else', email: 'other@example.com', isDeleted: 'true', status: 'completed' } });
     assert.equal(res.status, 201);
     const row = await app.models.FormSubmission.findById(res.json.data.submissionId).lean();
-    assert.equal(row.name, SUBMISSION.name);
+    assert.equal(row.name, person.user.name, 'the name is the account name, not the one in the form');
+    assert.equal(row.email, person.user.email.toLowerCase());
     assert.equal(row.status, 'pending');
     assert.equal(row.isDeleted, false, 'isDeleted was in the body and is no longer carried to the database');
-    const missing = await app.call('POST', url, { form: { ...SUBMISSION, purpose: '' } });
-    assert.equal(missing.status, 400);
+    // the travel details are optional now: documents only is a valid assessment
+    const bare = await app.call('POST', url, { token: person.token, form: {} });
+    assert.equal(bare.status, 201);
   });
 }
 

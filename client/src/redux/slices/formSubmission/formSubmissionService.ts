@@ -133,8 +133,11 @@ export const submitAssessment = async (formData: FormSubmissionData): Promise<Fo
   });
 
   // Documents go to private storage (Cloudflare R2) through this endpoint
+  // The server needs the sign-in token: the applicant's name and e-mail come from the account.
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const response = await fetch(`${API_URL}/submit-assessment`, {
     method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formDataToSend,
   });
 

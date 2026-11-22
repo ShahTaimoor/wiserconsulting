@@ -8,7 +8,8 @@ import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { logout } from "@/redux/slices/auth/authSlice";
 import { useSettings } from "@/context/SettingsContext";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { requestAssessmentForm } from "@/utils/assessmentForm";
 import { isAdminRole } from "@/utils/authRole";
 import { LayoutDashboard } from "lucide-react";
 import {
@@ -24,6 +25,8 @@ const Navbar = () => {
   const [mounted, setMounted] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const pathname = usePathname();
+  const router = useRouter();
+  const openAssessment = () => requestAssessmentForm(pathname, (url) => router.push(url));
 
   const isLightPage = pathname === '/about' || pathname === '/services' || pathname === '/contact';
   const isLegalPage = pathname === '/privacy' || pathname === '/terms';
@@ -190,6 +193,13 @@ const Navbar = () => {
               </div>
 
               <div className="hidden md:flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={openAssessment}
+                  className="inline-flex items-center justify-center rounded-full bg-orange-300 px-4 py-2 text-xs font-semibold text-slate-950 shadow-sm transition hover:bg-orange-200"
+                >
+                  Fill Form
+                </button>
                 {mounted && user ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -307,6 +317,13 @@ const Navbar = () => {
               </div>
 
               <div className="hidden md:flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={openAssessment}
+                  className="inline-flex items-center justify-center rounded-full bg-orange-300 px-4 py-2 text-xs font-semibold text-slate-950 shadow-sm transition hover:bg-orange-200"
+                >
+                  Fill Form
+                </button>
                 {mounted && user ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -489,6 +506,13 @@ const Navbar = () => {
                     exit={{ opacity: 0, y: 30 }}
                     transition={{ delay: 0.5, duration: 0.4, ease: "easeOut" }}
                   >
+                    <button
+                      type="button"
+                      onClick={() => { handleClose(); openAssessment(); }}
+                      className="inline-flex w-full items-center justify-center rounded-full bg-orange-300 px-8 py-3 text-sm font-semibold text-slate-950 shadow-lg transition hover:bg-orange-200"
+                    >
+                      Fill Form
+                    </button>
                     {mounted && user ? (
                       <motion.div 
                         className="flex flex-row flex-wrap items-center justify-between gap-3 px-2 py-4 border-t border-slate-800"

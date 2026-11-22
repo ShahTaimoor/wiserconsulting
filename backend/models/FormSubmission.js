@@ -19,12 +19,14 @@ const formSubmissionSchema = new mongoose.Schema(
         },
         phone: {
             type: String,
-            required: true,
+            required: false,
+            default: '',
             trim: true,
         },
         destinationCountry: {
             type: String,
-            required: true,
+            required: false,
+            default: '',
             trim: true,
         },
         otherCountry: {
@@ -33,20 +35,24 @@ const formSubmissionSchema = new mongoose.Schema(
         },
         visaType: {
             type: String,
-            required: true,
+            required: false,
+            default: '',
             trim: true,
         },
         fromDate: {
             type: String,
-            required: true,
+            required: false,
+            default: '',
         },
         toDate: {
             type: String,
-            required: true,
+            required: false,
+            default: '',
         },
         purpose: {
             type: String,
-            required: true,
+            required: false,
+            default: '',
             trim: true,
         },
         documents: [{

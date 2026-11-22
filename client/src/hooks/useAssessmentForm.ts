@@ -44,29 +44,6 @@ const fileValidationSchema = z.object({
   ),
 });
 
-const formStep1Schema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Invalid email address').optional().or(z.literal('')),
-  phone: z.string().min(1, 'Phone number is required'),
-});
-
-const formStep2Schema = z.object({
-  destinationCountry: z.string().min(1, 'Destination country is required'),
-  visaType: z.string().min(1, 'Visa type is required'),
-  fromDate: z.string().min(1, 'From date is required'),
-  toDate: z.string().min(1, 'To date is required'),
-  purpose: z.string().min(1, 'Purpose is required'),
-  otherCountry: z.string().optional(),
-}).refine((data) => {
-  if (data.destinationCountry === 'Other') {
-    return data.otherCountry && data.otherCountry.length > 0;
-  }
-  return true;
-}, {
-  message: 'Please specify the country',
-  path: ['otherCountry'],
-});
-
 const renameSelectedFile = (field: string, file: File, index: number, totalFiles: number): File => {
   const extensionMatch = file.name.match(/(\.[^\.]+)$/);
   const extension = extensionMatch ? extensionMatch[1] : '';
@@ -106,7 +83,8 @@ export const useAssessmentForm = (onClose: () => void) => {
     coverLetter: [],
   });
 
-  const [currentStep, setCurrentStep] = useState(1);
+  // The form is a single step now (documents only); the step number stays for the components that still read it.
+  const [currentStep, setCurrentStep] = useState(3);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -129,41 +107,6 @@ export const useAssessmentForm = (onClose: () => void) => {
   const validateStep = useCallback((step: number): boolean => {
     setValidationErrors({});
     const errors: Record<string, string> = {};
-
-    if (step === 1) {
-      const result = formStep1Schema.safeParse({
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-      });
-
-      if (!result.success) {
-        result.error.issues.forEach((issue) => {
-          if (issue.path[0]) {
-            errors[issue.path[0].toString()] = issue.message;
-          }
-        });
-      }
-    }
-
-    if (step === 2) {
-      const result = formStep2Schema.safeParse({
-        destinationCountry: formData.destinationCountry,
-        visaType: formData.visaType,
-        fromDate: formData.fromDate,
-        toDate: formData.toDate,
-        purpose: formData.purpose,
-        otherCountry: formData.otherCountry,
-      });
-
-      if (!result.success) {
-        result.error.issues.forEach((issue) => {
-          if (issue.path[0]) {
-            errors[issue.path[0].toString()] = issue.message;
-          }
-        });
-      }
-    }
 
     if (step === 3) {
       if (formData.passports.length === 0) {
@@ -259,23 +202,6 @@ export const useAssessmentForm = (onClose: () => void) => {
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (currentStep < 3) {
-      if (validateStep(currentStep)) {
-        setCurrentStep((prev) => Math.min(prev + 1, 3));
-      }
-      return;
-    }
-
-    if (!validateStep(1)) {
-      setCurrentStep(1);
-      return;
-    }
-
-    if (!validateStep(2)) {
-      setCurrentStep(2);
-      return;
-    }
 
     if (!validateStep(3)) {
       return;

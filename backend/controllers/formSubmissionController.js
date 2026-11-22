@@ -17,8 +17,12 @@ class FormSubmissionController {
     const { processFiles } = require("../config/upload");
     const uploadType = req.route.path.includes('local') ? 'local' : 'r2';
 
+    // Who applied comes from the signed-in account, never from the form: the customer later finds the submission by this e-mail.
     const submissionData = {
       ...req.body,
+      name: req.user.name,
+      email: req.user.email,
+      phone: req.body.phone || req.user.phone || '',
       documents: req.files ? processFiles(req.files, uploadType) : [],
       status: 'pending'
     };

@@ -4,17 +4,19 @@
 
 const { z } = require('zod');
 
+// The form is documents only: who applied comes from the account, and the travel details are optional (kept for older clients).
+const optionalText = z.string().trim().optional();
 const createSubmissionSchema = z.object({
   body: z.object({
-    name: z.string().min(1, 'Name is required').trim(),
+    name: optionalText,
     email: z.string().email('Invalid email format').trim().toLowerCase().optional().or(z.literal('')),
-    phone: z.string().min(1, 'Phone is required').trim(),
-    destinationCountry: z.string().min(1, 'Destination country is required').trim(),
-    otherCountry: z.string().trim().optional(),
-    visaType: z.string().min(1, 'Visa type is required').trim(),
-    fromDate: z.string().min(1, 'From date is required'),
-    toDate: z.string().min(1, 'To date is required'),
-    purpose: z.string().min(1, 'Purpose is required').trim()
+    phone: optionalText,
+    destinationCountry: optionalText,
+    otherCountry: optionalText,
+    visaType: optionalText,
+    fromDate: z.string().optional(),
+    toDate: z.string().optional(),
+    purpose: optionalText
   })
 });
 

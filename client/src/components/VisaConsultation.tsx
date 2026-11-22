@@ -4,13 +4,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import Typed from 'typed.js';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import Link from 'next/link';
 import AssessmentForm from './AssessmentForm';
-import StarButton from '@/components/ui/star-button';
 import ApprovedVisasShowcase from './ApprovedVisasShowcase';
 import {
   FileCheck2,
-  ArrowRight,
   ChevronRight,
   ChevronLeft,
   CheckCircle2,
@@ -25,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { StatCountUp } from '@/components/StatCountUp';
+import { OPEN_ASSESSMENT_EVENT } from '@/utils/assessmentForm';
 import { RootState, AppDispatch } from '@/redux/store';
 import { fetchAdminComments, fetchCustomerSubmission } from '@/redux/slices/formSubmission/formSubmissionSlice';
 import { useSettings } from '@/context/SettingsContext';
@@ -46,6 +44,17 @@ type AdminComment = {
 const VisaConsultation: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const [isFormOpen, setIsFormOpen] = useState(false);
+
+  // The "Get Free Assessment" button is in the navbar: it opens this form, directly on this page or through /?assessment=open.
+  useEffect(() => {
+    const open = () => setIsFormOpen(true);
+    window.addEventListener(OPEN_ASSESSMENT_EVENT, open);
+    if (new URLSearchParams(window.location.search).get("assessment") === "open") {
+      open();
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    return () => window.removeEventListener(OPEN_ASSESSMENT_EVENT, open);
+  }, []);
   const [showComments, setShowComments] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
@@ -295,23 +304,6 @@ const VisaConsultation: React.FC = () => {
               Get personalized immigration solutions tailored to your needs.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-              <StarButton
-                onClick={() => setIsFormOpen(true)}
-              >
-                Get Free Assessment
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </StarButton>
-              <Link href="/contact">
-                <motion.button
-                  whileHover={{ scale: 1.05, y: -2 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="px-8 py-4 bg-transparent text-white font-semibold rounded-lg text-lg border-2 border-white hover:bg-white/10 transition-all block"
-                >
-                  Learn More
-                </motion.button>
-              </Link>
-            </div>
           </motion.div>
         </div>
       </section>
