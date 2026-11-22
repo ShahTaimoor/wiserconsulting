@@ -37,6 +37,16 @@ class SiteSettingsController {
     return ApiResponse.success(res, updatedSettings, "Banner uploaded successfully", 200);
   });
 
+  removeHeroImage = asyncHandler(async (req, res) => {
+    const currentSettings = await siteSettingsService.getSettings();
+    const updatedSettings = await siteSettingsService.removeHeroImage(
+      req.params.device,
+      req.params.imageId,
+      currentSettings,
+    );
+    return ApiResponse.success(res, updatedSettings, "Banner picture removed", 200);
+  });
+
   removeHeroBanner = asyncHandler(async (req, res) => {
     const currentSettings = await siteSettingsService.getSettings();
     const updatedSettings = await siteSettingsService.removeHeroBanner(

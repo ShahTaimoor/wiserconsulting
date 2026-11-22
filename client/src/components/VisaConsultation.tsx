@@ -7,6 +7,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import AssessmentForm from './AssessmentForm';
 import ApprovedVisasShowcase from './ApprovedVisasShowcase';
+import HeroDefaultSlides from './HeroDefaultSlides';
+import HeroBannerSlides, { heroBannerSets } from './HeroBannerSlides';
 import {
   CheckCircle2,
   Clock,
@@ -67,6 +69,10 @@ const VisaConsultation: React.FC = () => {
   const [reuploadingDocId, setReuploadingDocId] = useState<string | null>(null);
   const [reuploadFiles, setReuploadFiles] = useState<{ [key: string]: File }>({});
   const typedEl = useRef<HTMLSpanElement>(null);
+  const { settings } = useSettings();
+  // An uploaded banner is a finished picture of its own: it is shown alone, with no heading or overlay on top of it.
+  const heroSets = heroBannerSets(settings);
+  const hasBanner = heroSets.mobile.length + heroSets.tablet.length + heroSets.desktop.length > 0;
 
   useEffect(() => {
     setMounted(true);
@@ -94,7 +100,7 @@ const VisaConsultation: React.FC = () => {
       // Destroy Typed instance during cleanup to prevent memory leaks
       typed.destroy();
     };
-  }, []);
+  }, [hasBanner]);
 
   const popularDestinations: Country[] = [
     { name: 'United Kingdom', image: 'https://flagcdn.com/gb.svg' },
@@ -225,11 +231,7 @@ const VisaConsultation: React.FC = () => {
     }
   };
 
-  const { settings } = useSettings();
   // Nearest available picture for each size (mobile prefers tablet, tablet prefers desktop, desktop prefers tablet).
-  const heroMobile = settings.heroMobileUrl || settings.heroTabletUrl || settings.heroDesktopUrl || '';
-  const heroTablet = settings.heroTabletUrl || settings.heroDesktopUrl || settings.heroMobileUrl || '';
-  const heroDesktop = settings.heroDesktopUrl || settings.heroTabletUrl || settings.heroMobileUrl || '';
 
   // Icons stay fixed in code — only the value/label text is admin-editable
   // (via Settings > Homepage Statistics), with hardcoded fallbacks so the
@@ -261,68 +263,71 @@ const VisaConsultation: React.FC = () => {
     <div className="relative overflow-x-hidden">
       {/* Hero Section - Modern Design */}
       <section className="relative w-full min-h-screen flex items-center justify-center overflow-hidden bg-slate-900">
-        {/* Hero banner: the admin uploads one picture per screen size (Admin > Settings > Homepage Banner).
-            A size without a picture uses the nearest one that is set; with none at all the dark background shows. */}
-        {(heroMobile || heroTablet || heroDesktop) && (
-          <picture>
-            {heroDesktop && <source media="(min-width: 1024px)" srcSet={heroDesktop} />}
-            {heroTablet && <source media="(min-width: 640px)" srcSet={heroTablet} />}
-            {/* eslint-disable-next-line @next/next/no-img-element -- storage URLs are not in next.config's image domains */}
-            <img
-              src={heroMobile}
-              alt=""
-              className="absolute top-0 left-0 w-full h-full object-cover z-0"
-            />
-          </picture>
+        {/* Hero banner: the admin uploads up to 10 pictures per screen size (Admin > Settings > Homepage Banner); several play as a slideshow.
+            A size without pictures uses the nearest size that has some; with none at all the default pictures (public/hero) or the dark background show. */}
+        {hasBanner && <HeroBannerSlides mobile={heroSets.mobile} tablet={heroSets.tablet} desktop={heroSets.desktop} />}
+        {/* No uploaded banner: the default pictures (Europe, Italy, France) */}
+        {!hasBanner && <HeroDefaultSlides />}
+        {hasBanner ? (
+          // Only a faint wash at the very top so the navigation stays readable; the picture is otherwise shown as it is
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-28 bg-gradient-to-b from-slate-950/35 to-transparent" />
+        ) : (
+          <>
+          {/* Overlay: a dark navy wash that is heavier at the top (readable navbar) and the bottom, with a soft green glow and a faint grid */}
+          <div className="absolute inset-0 z-10 bg-gradient-to-b from-slate-950/45 via-transparent to-slate-950/55" />
+          {/* A soft dark pool behind the text only, so the picture stays bright at the edges while the words stay readable */}
+          <div className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(55%_48%_at_50%_52%,rgba(2,6,23,0.38),transparent_72%)]" />
+          <div className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(60%_50%_at_50%_35%,rgba(16,185,129,0.10),transparent_70%)]" />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 z-10 opacity-[0.04] [background-image:linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] [background-size:56px_56px] [mask-image:radial-gradient(70%_60%_at_50%_40%,#000,transparent)]"
+          />
+
+          </>
         )}
-        {/* Overlay: a dark navy wash that is heavier at the top (readable navbar) and the bottom, with a soft green glow and a faint grid */}
-        <div className="absolute inset-0 z-10 bg-gradient-to-b from-slate-950/90 via-slate-900/70 to-slate-950/90" />
-        <div className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(60%_50%_at_50%_35%,rgba(16,185,129,0.14),transparent_70%)]" />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-10 opacity-[0.07] [background-image:linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] [background-size:56px_56px] [mask-image:radial-gradient(70%_60%_at_50%_40%,#000,transparent)]"
-        />
 
-        <div className="relative z-20 mx-auto flex max-w-5xl flex-col items-center px-4 pb-24 pt-32 text-center sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: "easeOut" }}
-            className="flex flex-col items-center"
-          >
-            <div className="inline-flex items-center gap-2.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 backdrop-blur-sm">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-              </span>
-              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100 sm:text-[13px]">Trusted Visa Consultants Since 2009</span>
-            </div>
+        {!hasBanner && (
+          <div className="relative z-20 mx-auto flex max-w-5xl flex-col items-center px-4 pb-24 pt-32 text-center sm:px-6 lg:px-8">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: "easeOut" }}
+              className="flex flex-col items-center"
+            >
+              <div className="inline-flex items-center gap-2.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 backdrop-blur-sm">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+                </span>
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100 sm:text-[13px]">Trusted Visa Consultants Since 2009</span>
+              </div>
 
-            <h1 className="mt-8 min-h-[2.2em] text-4xl font-bold leading-[1.08] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl">
-              <span ref={typedEl}></span>
-            </h1>
+              <h1 className="mt-8 min-h-[2.2em] text-4xl font-bold leading-[1.08] tracking-tight text-white [text-shadow:0_2px_24px_rgba(2,6,23,0.7)] sm:text-5xl md:text-6xl lg:text-7xl">
+                <span ref={typedEl}></span>
+              </h1>
 
-            <div className="mx-auto mt-6 h-px w-20 bg-gradient-to-r from-transparent via-emerald-300/70 to-transparent" />
+              <div className="mx-auto mt-6 h-px w-20 bg-gradient-to-r from-transparent via-emerald-300/70 to-transparent" />
 
-            <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg md:text-xl">
-              Expert visa consultation services for students, professionals, and families.
-              Get personalized immigration solutions tailored to your needs.
-            </p>
+              <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-slate-100 [text-shadow:0_1px_14px_rgba(2,6,23,0.8)] sm:text-lg md:text-xl">
+                Expert visa consultation services for students, professionals, and families.
+                Get personalized immigration solutions tailored to your needs.
+              </p>
 
-            <ul className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-slate-200">
-              {[
-                { icon: <CheckCircle2 className="h-4 w-4 text-emerald-300" />, text: 'Expert document review' },
-                { icon: <Shield className="h-4 w-4 text-emerald-300" />, text: 'Your files kept secure' },
-                { icon: <Award className="h-4 w-4 text-emerald-300" />, text: 'Personal guidance, start to finish' },
-              ].map((item) => (
-                <li key={item.text} className="flex items-center gap-2">
-                  {item.icon}
-                  <span>{item.text}</span>
-                </li>
-              ))}
-            </ul>
-          </motion.div>
-        </div>
+              <ul className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-slate-100 [text-shadow:0_1px_10px_rgba(2,6,23,0.8)]">
+                {[
+                  { icon: <CheckCircle2 className="h-4 w-4 text-emerald-300" />, text: 'Expert document review' },
+                  { icon: <Shield className="h-4 w-4 text-emerald-300" />, text: 'Your files kept secure' },
+                  { icon: <Award className="h-4 w-4 text-emerald-300" />, text: 'Personal guidance, start to finish' },
+                ].map((item) => (
+                  <li key={item.text} className="flex items-center gap-2">
+                    {item.icon}
+                    <span>{item.text}</span>
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+          </div>
+        )}
 
         {/* A quiet cue that there is more below */}
         <div aria-hidden="true" className="absolute bottom-8 left-1/2 z-20 -translate-x-1/2">

@@ -51,6 +51,13 @@ router.post(
 );
 
 router.delete(
+  "/hero-banner/:device/:imageId",
+  isAuthorized,
+  isAdmin,
+  siteSettingsController.removeHeroImage.bind(siteSettingsController),
+);
+
+router.delete(
   "/hero-banner/:device",
   isAuthorized,
   isAdmin,
