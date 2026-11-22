@@ -109,11 +109,14 @@ export const useAssessmentForm = (onClose: () => void) => {
     const errors: Record<string, string> = {};
 
     if (step === 3) {
-      if (formData.passports.length === 0) {
-        errors.passports = 'Please upload at least one passport document.';
-      }
-      if (formData.flightReservation.length === 0 && formData.hotelReservation.length === 0) {
-        errors.flightReservation = 'Please upload a flight or hotel reservation.';
+      // Every document is optional; only an empty submission (nothing at all to review) is refused.
+      const documentFields: Array<keyof FormData> = [
+        'passports', 'businessBankStatement', 'personalBankStatement', 'businessRegistration', 'taxpayerCertificate',
+        'incomeTaxReturns', 'propertyDocuments', 'frcFamily', 'frcParents', 'marriageCertificate', 'invitationLetter',
+        'flightReservation', 'hotelReservation', 'anyOtherDocuments', 'coverLetter',
+      ];
+      if (documentFields.every((field) => (formData[field] as File[]).length === 0)) {
+        errors.passports = 'Please upload at least one document.';
       }
     }
 

@@ -11,11 +11,11 @@ interface DocumentsStepProps {
   onPreviewImage: (url: string) => void;
 }
 
-type Requirement = 'required' | 'either' | 'optional';
+type Requirement = 'optional';
 
-// "required": must be uploaded. "either": a flight OR a hotel reservation (one of the two is enough). Everything else is optional.
+// Every document is optional (at least one file overall is needed to submit).
 const documentFields: Array<{ label: string; field: keyof FormData; requirement: Requirement }> = [
-  { label: 'Passports (New & Old)', field: 'passports', requirement: 'required' },
+  { label: 'Passports (New & Old)', field: 'passports', requirement: 'optional' },
   { label: 'Business Bank Statement', field: 'businessBankStatement', requirement: 'optional' },
   { label: 'Personal Bank Statement', field: 'personalBankStatement', requirement: 'optional' },
   { label: 'Business Registration', field: 'businessRegistration', requirement: 'optional' },
@@ -26,15 +26,13 @@ const documentFields: Array<{ label: string; field: keyof FormData; requirement:
   { label: 'FRC (Parents)', field: 'frcParents', requirement: 'optional' },
   { label: 'Marriage Certificate', field: 'marriageCertificate', requirement: 'optional' },
   { label: 'Invitation Letter', field: 'invitationLetter', requirement: 'optional' },
-  { label: 'Flight Reservation', field: 'flightReservation', requirement: 'either' },
-  { label: 'Hotel Reservation', field: 'hotelReservation', requirement: 'either' },
+  { label: 'Flight Reservation', field: 'flightReservation', requirement: 'optional' },
+  { label: 'Hotel Reservation', field: 'hotelReservation', requirement: 'optional' },
   { label: 'Other Documents', field: 'anyOtherDocuments', requirement: 'optional' },
   { label: 'Cover Letter', field: 'coverLetter', requirement: 'optional' },
 ];
 
 const REQUIREMENT_BADGE: Record<Requirement, { text: string; className: string }> = {
-  required: { text: 'Required', className: 'bg-red-50 text-red-700 ring-red-200' },
-  either: { text: 'Flight or hotel', className: 'bg-amber-50 text-amber-700 ring-amber-200' },
   optional: { text: 'Optional', className: 'bg-slate-100 text-slate-500 ring-slate-200' },
 };
 
