@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Typed from 'typed.js';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
+import Link from 'next/link';
 import AssessmentForm from './AssessmentForm';
 import ApprovedVisasShowcase from './ApprovedVisasShowcase';
 import {
@@ -13,7 +14,9 @@ import {
   Award,
   TrendingUp,
   Mail,
-  MapPin
+  MapPin,
+  ArrowRight,
+  Globe2
 } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { StatCountUp } from '@/components/StatCountUp';
@@ -97,8 +100,9 @@ const VisaConsultation: React.FC = () => {
     { name: 'United Kingdom', image: 'https://flagcdn.com/gb.svg' },
     { name: 'United States', image: 'https://flagcdn.com/us.svg' },
     { name: 'Canada', image: 'https://flagcdn.com/ca.svg' },
-    { name: 'Australia', image: 'https://flagcdn.com/au.svg' },
     { name: 'Hongkong', image: 'https://flagcdn.com/hk.svg' },
+    { name: 'Europe', image: 'https://flagcdn.com/eu.svg' },
+    { name: 'China', image: 'https://flagcdn.com/cn.svg' },
   ];
 
   const { user } = useSelector((state: RootState) => state.auth) as { user: { email: string; name: string } | null };
@@ -372,48 +376,86 @@ const VisaConsultation: React.FC = () => {
       <ApprovedVisasShowcase />
 
       {/* Destinations Section */}
-      <section className="pt-8 pb-20 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="relative overflow-hidden bg-slate-50 pt-10 pb-24">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 opacity-[0.5]"
+          style={{
+            backgroundImage: 'radial-gradient(circle at 1px 1px, rgb(203 213 225) 1px, transparent 0)',
+            backgroundSize: '28px 28px',
+            maskImage: 'linear-gradient(to bottom, transparent, black 25%, black 75%, transparent)',
+            WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 25%, black 75%, transparent)',
+          }}
+        />
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-10"
+            className="mb-12 text-center"
           >
-            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-700">
+              <Globe2 className="h-3.5 w-3.5" />
+              Destinations
+            </span>
+            <h2 className="mt-5 text-4xl font-bold tracking-tight text-slate-900 md:text-5xl">
               Popular Visa Destinations
             </h2>
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+            <div className="mx-auto mt-4 h-1 w-16 rounded-full bg-gradient-to-r from-emerald-400 to-sky-400" />
+            <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-600">
               We help you get visas for the most sought-after destinations worldwide
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6">
+          <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-6">
             {popularDestinations.map((country, i) => (
               <motion.div
-                key={i}
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
+                key={country.name}
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.3, delay: i * 0.1 }}
-                whileHover={{ y: -8, scale: 1.05 }}
-                className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all border border-slate-200 hover:border-slate-300 cursor-pointer group"
+                transition={{ duration: 0.45, delay: i * 0.08 }}
+                className={i === popularDestinations.length - 1 && popularDestinations.length % 2 === 1 ? 'col-span-2 sm:col-span-1' : ''}
               >
-                <div className="aspect-video mb-4 relative overflow-hidden rounded-lg bg-slate-100">
-                  <Image
-                    src={country.image}
-                    alt={country.name}
-                    fill
-                    className="object-cover group-hover:scale-110 transition-transform duration-300"
-                  />
-                </div>
-                <h3 className="font-semibold text-slate-900 text-center group-hover:text-slate-700 transition-colors">
-                  {country.name}
-                </h3>
+                <Link
+                  href="/contact"
+                  aria-label={`Get help with a ${country.name} visa`}
+                  className="group relative block overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-emerald-300 hover:shadow-xl hover:shadow-slate-300/50"
+                >
+                  <div className="absolute inset-x-0 top-0 z-10 h-1 origin-left scale-x-0 bg-gradient-to-r from-emerald-400 to-sky-400 transition-transform duration-300 group-hover:scale-x-100" />
+                  <div className="p-3 pb-0">
+                    <div className="relative aspect-[3/2] overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200">
+                      <Image
+                        src={country.image}
+                        alt={country.name}
+                        fill
+                        sizes="(min-width: 1024px) 16vw, (min-width: 640px) 33vw, 50vw"
+                        className="object-cover transition-transform duration-500 group-hover:scale-110"
+                      />
+                      <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-black/10 via-transparent to-white/25" />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 px-4 py-4">
+                    <div className="min-w-0">
+                      <h3 className="truncate font-semibold text-slate-900">{country.name}</h3>
+                      <p className="mt-0.5 text-xs text-slate-500">Visa assistance</p>
+                    </div>
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition-colors duration-300 group-hover:bg-emerald-500 group-hover:text-white">
+                      <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+                    </span>
+                  </div>
+                </Link>
               </motion.div>
             ))}
           </div>
+
+          <p className="mt-10 text-center text-sm text-slate-500">
+            Applying somewhere else?{' '}
+            <Link href="/contact" className="font-semibold text-emerald-700 underline-offset-4 hover:underline">
+              Tell us your destination
+            </Link>
+          </p>
         </div>
       </section>
 

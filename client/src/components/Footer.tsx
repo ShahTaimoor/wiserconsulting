@@ -16,92 +16,99 @@ const Footer = () => {
     ...(touristVisaEntry.open ? [{ name: ENTRY_TEXT.footer, href: touristVisaEntry.href }] : []),
   ];
 
+  const quickLinks = [
+    { name: "Home", href: "/" },
+    { name: "About Us", href: "/about" },
+    { name: "Services", href: "/services" },
+    { name: "Contact", href: "/contact" },
+  ];
+
+  const socials = [
+    { key: "facebook", label: "Facebook", Icon: FaFacebookF },
+    { key: "twitter", label: "Twitter", Icon: FaTwitter },
+    { key: "instagram", label: "Instagram", Icon: FaInstagram },
+    { key: "linkedin", label: "LinkedIn", Icon: FaLinkedinIn },
+  ] as const;
+
+  const phone = settings.phoneNumber || "+923709706643";
+  const chip = "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-slate-700/70 bg-slate-800/70 text-emerald-400 transition-colors group-hover:border-emerald-500/50 group-hover:bg-emerald-500/10";
+  const heading = "mb-5 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-white";
+  const headingBar = <span className="h-4 w-1 rounded-full bg-gradient-to-b from-emerald-400 to-sky-400" />;
+
   return (
-    <footer className="bg-slate-900 text-slate-300">
+    <footer className="relative overflow-hidden bg-slate-950 text-slate-300">
+      {/* Accent line and soft glow */}
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/70 to-transparent" />
+      <div aria-hidden="true" className="pointer-events-none absolute -top-32 left-1/2 h-64 w-[36rem] -translate-x-1/2 rounded-full bg-emerald-500/10 blur-3xl" />
+
       {/* Main Footer Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10">
+      <div className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-12 lg:gap-8">
           {/* Brand Section */}
-          <div className="space-y-4">
-            <div className="flex items-center space-x-3">
+          <div className="space-y-5 lg:col-span-4">
+            <Link href="/" className="flex items-center gap-3">
               <img
                 src={displayLogo}
                 alt={settings.websiteTitle}
-                className="w-12 h-12 object-contain rounded-lg"
+                className="h-12 w-12 rounded-xl bg-white object-contain p-0.5"
               />
               <div className="flex flex-col">
-                <span className="text-xl font-bold text-white leading-tight">
+                <span className="text-xl font-bold leading-tight tracking-wide text-white">
                   {settings.websiteTitle || "WISER CONSULTING"}
                 </span>
-                <span className="text-xs text-slate-400 leading-tight">
-                  CONSULTANT
+                <span className="text-[11px] font-medium uppercase tracking-[0.25em] text-emerald-400/90">
+                  Consultant
                 </span>
               </div>
-            </div>
-            <p className="text-slate-400 leading-relaxed text-sm">
+            </Link>
+            <p className="max-w-sm text-sm leading-relaxed text-slate-400">
               Expert visa consultation services for students, professionals, and families worldwide.
               Your trusted partner for a brighter future.
             </p>
             {/* Social Links */}
-            <div className="flex space-x-3">
-              {settings.socialLinks?.facebook && (
-                <a
-                  href={settings.socialLinks.facebook}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-10 h-10 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center transition-colors border border-slate-700"
-                  aria-label="Facebook"
-                >
-                  <FaFacebookF className="text-white text-sm" />
-                </a>
-              )}
-              {settings.socialLinks?.twitter && (
-                <a
-                  href={settings.socialLinks.twitter}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-10 h-10 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center transition-colors border border-slate-700"
-                  aria-label="Twitter"
-                >
-                  <FaTwitter className="text-white text-sm" />
-                </a>
-              )}
-              {settings.socialLinks?.instagram && (
-                <a
-                  href={settings.socialLinks.instagram}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-10 h-10 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center transition-colors border border-slate-700"
-                  aria-label="Instagram"
-                >
-                  <FaInstagram className="text-white text-sm" />
-                </a>
-              )}
-              {settings.socialLinks?.linkedin && (
-                <a
-                  href={settings.socialLinks.linkedin}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-10 h-10 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center transition-colors border border-slate-700"
-                  aria-label="LinkedIn"
-                >
-                  <FaLinkedinIn className="text-white text-sm" />
-                </a>
-              )}
+            <div className="flex gap-2.5">
+              {socials.map(({ key, label, Icon }) => {
+                const href = settings.socialLinks?.[key];
+                if (!href) return null;
+                return (
+                  <a
+                    key={key}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-800/60 text-slate-300 transition-all hover:-translate-y-0.5 hover:border-emerald-400 hover:bg-emerald-500 hover:text-white"
+                    aria-label={label}
+                  >
+                    <Icon className="text-sm" />
+                  </a>
+                );
+              })}
             </div>
           </div>
 
+          {/* Quick Links */}
+          <div className="lg:col-span-2 lg:col-start-6">
+            <h4 className={heading}>{headingBar}Quick Links</h4>
+            <ul className="space-y-3">
+              {quickLinks.map((link) => (
+                <li key={link.name}>
+                  <Link href={link.href} className="group inline-flex items-center gap-2 text-sm text-slate-400 transition-colors hover:text-white">
+                    <span className="h-px w-3 bg-slate-600 transition-all group-hover:w-5 group-hover:bg-emerald-400" />
+                    {link.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
           {/* Services */}
-          <div>
-            <h4 className="text-lg font-semibold text-white mb-4">Our Services</h4>
-            <ul className="space-y-2">
+          <div className="lg:col-span-2">
+            <h4 className={heading}>{headingBar}Our Services</h4>
+            <ul className="space-y-3">
               {services.map((service) => (
                 <li key={service.name}>
-                  <Link
-                    href={service.href}
-                    className="text-slate-400 hover:text-white transition-colors text-sm flex items-center group"
-                  >
-                    <span className="w-1.5 h-1.5 bg-slate-600 rounded-full mr-3 group-hover:bg-white transition-colors" />
+                  <Link href={service.href} className="group inline-flex items-start gap-2 text-sm text-slate-400 transition-colors hover:text-white">
+                    <span className="mt-2 h-px w-3 flex-shrink-0 bg-slate-600 transition-all group-hover:w-5 group-hover:bg-emerald-400" />
                     {service.name}
                   </Link>
                 </li>
@@ -110,51 +117,46 @@ const Footer = () => {
           </div>
 
           {/* Contact Info */}
-          <div>
-            <h4 className="text-lg font-semibold text-white mb-4">Contact Us</h4>
-            <ul className="space-y-3">
+          <div className="sm:col-span-2 lg:col-span-3">
+            <h4 className={heading}>{headingBar}Contact Us</h4>
+            <ul className="space-y-4">
               {settings.address && (
-              <li className="flex items-start space-x-3">
-                <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center flex-shrink-0 border border-slate-700">
-                  <FaMapMarkerAlt className="text-white text-sm" />
-                </div>
-                <div>
-                  <p className="text-white text-sm font-medium mb-1">Address</p>
-                  <p className="text-slate-400 text-sm leading-relaxed whitespace-pre-line">
-                    {settings.address}
-                  </p>
-                </div>
-              </li>
+                <li className="group flex items-start gap-3">
+                  <div className={chip}>
+                    <FaMapMarkerAlt className="text-sm" />
+                  </div>
+                  <div>
+                    <p className="mb-0.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Address</p>
+                    <p className="whitespace-pre-line text-sm leading-relaxed text-slate-300">{settings.address}</p>
+                  </div>
+                </li>
               )}
               {settings.emailAddress && (
-              <li className="flex items-start space-x-3">
-                <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center flex-shrink-0 border border-slate-700">
-                  <FaEnvelope className="text-white text-sm" />
-                </div>
-                <div>
-                  <p className="text-white text-sm font-medium mb-1">Email</p>
-                  <a
-                    href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(settings.emailAddress || "")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-slate-400 hover:text-white transition-colors text-sm"
-                  >
-                    {settings.emailAddress}
-                  </a>
-                </div>
-              </li>
+                <li className="group flex items-start gap-3">
+                  <div className={chip}>
+                    <FaEnvelope className="text-sm" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="mb-0.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Email</p>
+                    <a
+                      href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(settings.emailAddress || "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="break-all text-sm text-slate-300 transition-colors hover:text-emerald-400"
+                    >
+                      {settings.emailAddress}
+                    </a>
+                  </div>
+                </li>
               )}
-              <li className="flex items-start space-x-3">
-                <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center flex-shrink-0 border border-slate-700">
-                  <FaPhone className="text-white text-sm" />
+              <li className="group flex items-start gap-3">
+                <div className={chip}>
+                  <FaPhone className="text-sm" />
                 </div>
                 <div>
-                  <p className="text-white text-sm font-medium mb-1">Phone</p>
-                  <a
-                    href={`tel:${settings.phoneNumber || "+923709706643"}`}
-                    className="text-slate-400 hover:text-white transition-colors text-sm"
-                  >
-                    {settings.phoneNumber || "+923709706643"}
+                  <p className="mb-0.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Phone</p>
+                  <a href={`tel:${phone}`} className="text-sm text-slate-300 transition-colors hover:text-emerald-400">
+                    {phone}
                   </a>
                 </div>
               </li>
@@ -164,18 +166,17 @@ const Footer = () => {
       </div>
 
       {/* Bottom Bar */}
-      <div className="border-t border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col md:flex-row justify-between items-center space-y-3 md:space-y-0">
-            <p className="text-slate-400 text-sm text-center md:text-left">
-              © {currentYear} <span className="text-white font-semibold">WISER CONSULTING</span>.
-              All rights reserved.
+      <div className="relative border-t border-slate-800/80">
+        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+          <div className="flex flex-col items-center justify-between gap-3 md:flex-row">
+            <p className="text-center text-sm text-slate-500 md:text-left">
+              © {currentYear} <span className="font-semibold text-slate-200">WISER CONSULTING</span>. All rights reserved.
             </p>
-            <div className="flex items-center space-x-6 text-sm">
-              <Link href="/privacy" className="text-slate-400 hover:text-white transition-colors">
+            <div className="flex items-center gap-6 text-sm">
+              <Link href="/privacy" className="text-slate-500 transition-colors hover:text-white">
                 Privacy Policy
               </Link>
-              <Link href="/terms" className="text-slate-400 hover:text-white transition-colors">
+              <Link href="/terms" className="text-slate-500 transition-colors hover:text-white">
                 Terms of Service
               </Link>
             </div>
