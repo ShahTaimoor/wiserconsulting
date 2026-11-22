@@ -24,6 +24,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
+import { StatCountUp } from '@/components/StatCountUp';
 import { RootState, AppDispatch } from '@/redux/store';
 import { fetchAdminComments, fetchCustomerSubmission } from '@/redux/slices/formSubmission/formSubmissionSlice';
 import { useSettings } from '@/context/SettingsContext';
@@ -315,43 +316,39 @@ const VisaConsultation: React.FC = () => {
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="py-16 relative bg-white border-b border-slate-100 overflow-hidden">
-        {/* Subtle background gradient to make it look "light" and elegant */}
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-50/50 to-white z-0" />
+      {/* Stats Section: one connected band, hairline dividers, count-up numbers */}
+      <section className="relative bg-slate-50 py-14 sm:py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mb-8 text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-emerald-600">Our track record</p>
+            <h2 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Trusted by applicants, backed by results</h2>
+          </div>
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 lg:gap-8">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="grid grid-cols-2 lg:grid-cols-4 gap-px overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 shadow-[0_10px_40px_-12px_rgba(15,23,42,0.18)]"
+          >
             {stats.map((stat, index) => (
-              <motion.div
+              <div
                 key={index}
-                initial={{ opacity: 0, y: 30, scale: 0.95 }}
-                whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{ duration: 0.6, delay: index * 0.1, ease: "easeOut" }}
-                whileHover={{ y: -8, scale: 1.02 }}
-                className="group relative flex flex-col items-center p-8 bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.03)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] border border-slate-200 hover:border-slate-300 transition-all duration-500"
+                className="group relative flex flex-col items-center bg-white px-4 py-8 sm:px-6 sm:py-10 text-center transition-colors duration-300 hover:bg-slate-50"
               >
-                {/* Light color glow on hover behind the card */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-50/60 to-amber-50/60 opacity-0 group-hover:opacity-100 rounded-3xl transition-opacity duration-500" />
-
-                <div className="relative z-20 inline-flex items-center justify-center w-20 h-20 bg-slate-50 border border-blue-50 rounded-2xl mb-6 text-slate-600 group-hover:bg-white group-hover:text-amber-600 group-hover:border-amber-200 group-hover:shadow-md group-hover:-translate-y-2 group-hover:rotate-3 transition-all duration-500">
-                  {/* Subtle inner glow for icon container */}
-                  <div className="absolute inset-0 bg-amber-400 opacity-0 group-hover:opacity-10 blur-xl rounded-2xl transition-opacity duration-500"></div>
-                  <div className="relative z-10">
-                    {stat.icon}
-                  </div>
+                <span className="absolute inset-x-0 top-0 h-0.5 origin-left scale-x-0 bg-emerald-500 transition-transform duration-500 group-hover:scale-x-100" />
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100 transition-colors duration-300 group-hover:bg-emerald-600 group-hover:text-white">
+                  {stat.icon}
                 </div>
-
-                <div className="relative z-20 text-3xl md:text-4xl lg:text-5xl font-extrabold text-slate-900 mb-2 tracking-tight group-hover:text-slate-800 transition-colors">
-                  {stat.value}
+                <div className="text-3xl sm:text-4xl lg:text-5xl font-bold tabular-nums tracking-tight text-slate-900">
+                  <StatCountUp value={stat.value} />
                 </div>
-                <div className="relative z-20 text-xs md:text-sm font-bold text-slate-500 uppercase tracking-wider group-hover:text-amber-600 transition-colors duration-300 text-center">
+                <div className="mt-2 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                   {stat.label}
                 </div>
-              </motion.div>
+              </div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
