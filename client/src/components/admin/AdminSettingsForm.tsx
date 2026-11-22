@@ -256,7 +256,7 @@ const AdminSettingsForm = () => {
     }
 
     return (
-        <div className="w-full max-w-4xl mx-auto rounded-xl bg-white p-3 sm:p-5">
+        <div className="w-full max-w-4xl mx-auto">
             <div className="mb-4">
                 <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Admin Settings</h1>
                 <p className="mt-0.5 text-sm text-slate-500">Website details shown to visitors. Click a cell to edit it, then press Save at the bottom.</p>

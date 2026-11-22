@@ -21,7 +21,7 @@ export function SheetPage({
   children: ReactNode;
 }) {
   return (
-    <div className="w-full min-w-0 max-w-full rounded-xl bg-white p-2 sm:p-5">
+    <div className="w-full min-w-0 max-w-full">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{title}</h1>

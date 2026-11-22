@@ -61,7 +61,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <SidebarProvider className="p-4 bg-muted min-h-screen" style={{ "--sidebar-width": "300px" } as React.CSSProperties}>
+    <SidebarProvider className="p-4 bg-muted min-h-screen" style={{ "--sidebar-width": "272px" } as React.CSSProperties}>
       <AppSidebar />
       <div className="flex flex-1 flex-col gap-4 min-w-0 overflow-hidden">
         {/* Modern Admin Header */}
