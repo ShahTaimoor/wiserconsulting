@@ -2,6 +2,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const r2 = require('./r2');
+const detectFileType = require('../utils/detectFileType');
+const { AppError } = require('../middleware/errorHandler');
 
 // Create uploads directory if it doesn't exist (temporary files before they go to R2, and local-only uploads)
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -16,7 +18,9 @@ const localStorage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
+    // The extension comes from the (filtered) file type, never from the name the sender gave: a file called
+    // "x.html" or "x.svg" can never be stored under that extension.
+    const ext = r2.extensionFor(file.mimetype);
     cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
   }
 });
@@ -73,6 +77,14 @@ const fieldList = FIELD_NAMES.map((name) => ({ name }));
 const storeFilesInR2 = async (req, res, next) => {
   try {
     if (!req.files) return next();
+    // what a file really is comes from its first bytes, never from the name or the type the sender declared
+    for (const files of Object.values(req.files)) {
+      for (const file of files) {
+        if (!detectFileType(file.buffer)) {
+          return next(new AppError('Only PDF, JPG and PNG files are accepted.', 400));
+        }
+      }
+    }
     for (const files of Object.values(req.files)) {
       for (const file of files) {
         const stored = await r2.uploadBuffer(file.buffer, {
@@ -95,9 +107,8 @@ const storeFilesInR2 = async (req, res, next) => {
   }
 };
 
-// Upload fields for R2 (an array of handlers: Express runs them in order) and for local disk
+// Upload fields for R2 (an array of handlers: Express runs them in order). There is deliberately no public upload to local disk.
 const uploadFields = [uploadToR2.fields(fieldList), storeFilesInR2];
-const uploadFieldsLocal = uploadToLocal.fields(fieldList);
 
 // Function to upload a local (temporary) file to the PUBLIC R2 bucket. The caller's local copy is deleted.
 const uploadLocalToR2 = async (filePath, folder = 'uploads', options = {}) => {
@@ -157,7 +168,6 @@ module.exports = {
   uploadToR2,
   uploadToLocal,
   uploadFields,
-  uploadFieldsLocal,
   uploadLocalToR2,
   processFiles,
   localStorage,

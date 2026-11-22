@@ -41,6 +41,11 @@ connectDB();
 
 const app = express();
 
+// The app runs behind one reverse proxy (nginx, or Vercel). With this the client's real address (X-Forwarded-For, set by
+// that proxy) is used by the rate limiters and the logs; without it every visitor would look like 127.0.0.1 and share one
+// limit. The number is how many proxies are in front: raise it only if another one (a load balancer, a CDN) is added.
+app.set("trust proxy", 1);
+
 // Middlewares
 const allowedOrigins = getAllowedOrigins();
 
@@ -99,8 +104,23 @@ app.use("/api", apiLimiter);
 // the general rate limiter and before the router: no sign-in and no database.
 app.get("/api/tourist-visa/status", touristVisaFeatureGate.touristVisaStatus);
 
-// Serve static files from uploads directory
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// Serve static files from uploads directory. Only pictures and PDFs are ever shown in the browser; anything else that
+// might be in the folder is sent as a download with a neutral type, so an uploaded .html or .svg can never run as a page.
+const INLINE_UPLOAD_TYPES = new Set([".jpg", ".jpeg", ".png", ".gif", ".pdf"]);
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"), {
+    index: false,
+    dotfiles: "deny",
+    setHeaders: (res, filePath) => {
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      if (!INLINE_UPLOAD_TYPES.has(path.extname(filePath).toLowerCase())) {
+        res.setHeader("Content-Type", "application/octet-stream");
+        res.setHeader("Content-Disposition", "attachment");
+      }
+    },
+  }),
+);
 
 // API Routes with rate limiting
 app.use("/api/tourist-visa", touristVisaRoutes);

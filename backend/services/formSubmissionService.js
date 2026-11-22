@@ -4,6 +4,7 @@
  */
 
 const formSubmissionRepository = require("../repositories/formSubmissionRepository");
+const escapeHtml = require('../utils/escapeHtml');
 const { AppError } = require("../middleware/errorHandler");
 const logger = require("../utils/logger");
 const nodemailer = require("nodemailer");
@@ -96,7 +97,8 @@ class FormSubmissionService {
     if (!submission) {
       throw new AppError("Submission not found", 404);
     }
-    return submission;
+    // Private R2 documents are stored as r2://private/<key>; the owner gets signed links that expire in an hour.
+    return await this.addFileUrls(submission);
   }
 
   /**
@@ -286,18 +288,18 @@ class FormSubmissionService {
       const mailOptions = {
         from: process.env.EMAIL_USER,
         to: submission.email,
-        subject: `Document Review Update - ${submission.name}`,
+        subject: `Document Review Update - ${escapeHtml(submission.name)}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #2563eb;">Document Review Update</h2>
-            <p>Dear ${submission.name},</p>
+            <p>Dear ${escapeHtml(submission.name)},</p>
             <p>Your visa assessment application has been reviewed. Here's an update:</p>
             
             <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <h3 style="color: #374151; margin-top: 0;">Document: ${document.originalname}</h3>
+              <h3 style="color: #374151; margin-top: 0;">Document: ${escapeHtml(document.originalname)}</h3>
               <p style="color: #6b7280; margin-bottom: 10px;"><strong>Admin Comment:</strong></p>
               <p style="background-color: white; padding: 15px; border-radius: 6px; border-left: 4px solid #2563eb;">
-                ${comment}
+                ${escapeHtml(comment)}
               </p>
             </div>
             
@@ -306,9 +308,9 @@ class FormSubmissionService {
             <div style="background-color: #dbeafe; padding: 15px; border-radius: 6px; margin: 20px 0;">
               <p style="margin: 0; color: #1e40af;">
                 <strong>Application Details:</strong><br>
-                Destination: ${submission.destinationCountry}<br>
-                Visa Type: ${submission.visaType}<br>
-                Status: ${submission.status}
+                Destination: ${escapeHtml(submission.destinationCountry)}<br>
+                Visa Type: ${escapeHtml(submission.visaType)}<br>
+                Status: ${escapeHtml(submission.status)}
               </p>
             </div>
             

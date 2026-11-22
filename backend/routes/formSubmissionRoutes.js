@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const formSubmissionController = require('../controllers/formSubmissionController');
 const { isAuthorized, isAdmin } = require('../middleware/authMiddleware');
+const { requireOwnerByEmailParam, requireOwnerBySubmissionId } = require('../middleware/submissionAccess');
 const validate = require('../middleware/validate');
 const {
   updateStatusSchema,
@@ -43,16 +44,20 @@ router.put(
   formSubmissionController.addAdminComment.bind(formSubmissionController)
 );
 
-// Add customer comment
+// Add customer comment (signed in, and the submission must be the user's own; an administrator may too)
 router.post(
   '/form-submissions/:submissionId/customer-comment',
+  isAuthorized,
+  requireOwnerBySubmissionId,
   validate(addCustomerCommentSchema),
   formSubmissionController.addCustomerComment.bind(formSubmissionController)
 );
 
-// Get customer submission
+// Get customer submission (signed in, and the e-mail must be the user's own; an administrator may read any)
 router.get(
   '/form-submissions/customer-submission/:email',
+  isAuthorized,
+  requireOwnerByEmailParam,
   validate(getSubmissionByEmailSchema),
   formSubmissionController.getSubmissionByEmail.bind(formSubmissionController)
 );
@@ -82,9 +87,11 @@ router.delete(
   formSubmissionController.deleteDocument.bind(formSubmissionController)
 );
 
-// Get file URL (works for both local and cloudinary files)
+// Get file URL (signed in, and the submission must be the user's own; an administrator may read any)
 router.get(
   '/form-submissions/file/:submissionId/:documentId',
+  isAuthorized,
+  requireOwnerBySubmissionId,
   validate(getFileUrlSchema),
   formSubmissionController.getFileUrl.bind(formSubmissionController)
 );

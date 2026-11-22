@@ -171,7 +171,7 @@ class UserService {
    */
   generateToken(userId) {
     return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXP || "365d",
+      expiresIn: process.env.JWT_EXP || "7d",
     });
   }
 }

@@ -8,6 +8,7 @@ const router = express.Router();
 const userController = require("../controllers/userController");
 const { isAuthorized, isAdmin } = require("../middleware/authMiddleware");
 const validate = require("../middleware/validate");
+const { authLimiter } = require("../middleware/rateLimiter");
 const {
   signupSchema,
   loginSchema,
@@ -25,6 +26,7 @@ router.post(
 // Login
 router.post(
   "/login",
+  authLimiter,
   validate(loginSchema),
   userController.login.bind(userController),
 );

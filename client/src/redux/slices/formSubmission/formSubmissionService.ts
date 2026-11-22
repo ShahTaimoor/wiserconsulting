@@ -132,7 +132,7 @@ export const submitAssessment = async (formData: FormSubmissionData): Promise<Fo
     }
   });
 
-  // Use the Cloudinary endpoint (or local if preferred)
+  // Documents go to private storage (Cloudflare R2) through this endpoint
   const response = await fetch(`${API_URL}/submit-assessment`, {
     method: 'POST',
     body: formDataToSend,
@@ -149,10 +149,13 @@ export const submitAssessment = async (formData: FormSubmissionData): Promise<Fo
 
 // ✅ Get customer submission
 export const getCustomerSubmission = async (email: string): Promise<CustomerSubmissionResponse> => {
-  const response = await fetch(`${API_URL}/form-submissions/customer-submission/${email}`, {
+  // The signed-in customer's own submission: the sign-in token is required by the server.
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const response = await fetch(`${API_URL}/form-submissions/customer-submission/${encodeURIComponent(email)}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
 
