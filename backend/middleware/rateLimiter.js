@@ -42,7 +42,21 @@ const uploadLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// The University Finder (admin only). Loading the world list takes about 20 requests and paging through a big list takes many more,
+// so this has its own, larger allowance. It is still a limit per IP address.
+const universityLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  message: {
+    success: false,
+    message: 'Too many requests from this IP, please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 module.exports = {
+  universityLimiter,
   apiLimiter,
   authLimiter,
   uploadLimiter
