@@ -142,9 +142,9 @@ class TouristVisaDocumentService {
   /**
    * A temporary link to one stored file, valid for LINK_TTL_SECONDS (2 minutes). For the admin view
    * (step 8e): it is deliberately NOT reachable from any applicant route, and the caller must have
-   * decided who may ask. Returns { url, expiresAt }.
+   * decided who may ask. Returns { url, expiresAt }. `fileName` (optional) is the friendly name the file is saved under.
    */
-  async getTemporaryLink(applicationId, docId) {
+  async getTemporaryLink(applicationId, docId, { fileName } = {}) {
     if (typeof docId !== 'string' || !DOC_ID.test(docId)) throw documentError('DOCUMENT_NOT_FOUND');
     const context = await this.repository.findDocumentContextById(applicationId);
     if (!context) throw documentError('APPLICATION_NOT_FOUND');
@@ -153,7 +153,7 @@ class TouristVisaDocumentService {
     if (!this.storage.isConfigured()) throw documentError('STORAGE_UNAVAILABLE');
 
     const expiresAt = new Date(this.now().getTime() + LINK_TTL_SECONDS * 1000);
-    return { url: await this.storage.temporaryUrl(doc, expiresAt), expiresAt };
+    return { url: await this.storage.temporaryUrl(doc, expiresAt, { fileName }), expiresAt };
   }
 
   // -------------------------------------------------------------------------

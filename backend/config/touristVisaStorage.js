@@ -16,6 +16,7 @@ const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const r2 = require('./r2');
 const { STORAGE } = require('./touristVisaDocuments');
 const logger = require('../utils/logger');
+const { contentDispositionFor, DOCUMENT_EXTENSIONS } = require('../utils/pdfFileName');
 
 const VARIABLES = ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_PRIVATE_BUCKET'];
 
@@ -75,12 +76,20 @@ class R2DocumentStorage {
   /**
    * A signed download link that stops working at `expiresAt` (a Date). The signature covers the expiry,
    * so changing it in the link makes the link invalid. Returns a promise of the URL.
+   *
+   * `fileName` (optional) is the friendly name the file is saved under (utils/touristVisaDocumentNames.js). It is put in the link as the
+   * response's Content-Disposition (made by contentDispositionFor, so it is always a plain safe name) and is covered by the signature. The
+   * stored object, and its key, are not changed. Without it the link behaves exactly as before.
    */
-  async temporaryUrl({ publicId }, expiresAt) {
+  async temporaryUrl({ publicId }, expiresAt, { fileName } = {}) {
     const seconds = Math.max(1, Math.floor((expiresAt.getTime() - Date.now()) / 1000));
     return this.signer(
       this.getClient(),
-      new GetObjectCommand({ Bucket: this.env.R2_PRIVATE_BUCKET, Key: publicId }),
+      new GetObjectCommand({
+        Bucket: this.env.R2_PRIVATE_BUCKET,
+        Key: publicId,
+        ...(typeof fileName === 'string' && fileName !== '' ? { ResponseContentDisposition: contentDispositionFor(fileName, { inline: true, extensions: DOCUMENT_EXTENSIONS }) } : {}),
+      }),
       { expiresIn: seconds },
     );
   }

@@ -20,6 +20,7 @@ const engine = require("../shared/tourist-visa/engine");
 require("../config/touristVisaFunds"); // loads the bank activity settings into the shared engine (the explanations of unusual months)
 const { buildReview } = require("../shared/tourist-visa/view");
 const { summaryOf, telHref } = require("../utils/touristVisaSummary");
+const { friendlyDocumentNames } = require("../utils/touristVisaDocumentNames");
 const { AppError } = require("../middleware/errorHandler");
 const { FLAGS } = require("../models/TouristVisaAudit");
 const logger = require("../utils/logger");
@@ -110,7 +111,9 @@ class TouristVisaAdminService {
     await this.audit.append([{ adminId, applicationId: application._id, action: "overview_view", at: this.now() }]);
 
     const cfg = await this.applications.configOf(application);
-    const files = (application.documents || []).map((doc) => ({ id: doc.id, slot: doc.slot, name: doc.name || doc.originalName, size: doc.bytes, type: doc.mime }));
+    // Staff see the friendly name ("Roohullah-Shah-Passport.pdf"), worked out from the slot and the applicant's name, not the name the file was uploaded under.
+    const friendly = friendlyDocumentNames(application);
+    const files = (application.documents || []).map((doc) => ({ id: doc.id, slot: doc.slot, name: friendly[doc.id] || doc.name || doc.originalName, size: doc.bytes, type: doc.mime }));
     // The rows the team has corrected carry a "corrected by our team" date, the same marker the applicant sees.
     const corrections = await this.applications.correctionMarks(application, cfg);
     const review = buildReview(cfg, application.answers || {}, files.map((f) => ({ slot: f.slot, name: f.name, size: f.size })), application.declarations || {}, corrections);
@@ -174,7 +177,8 @@ class TouristVisaAdminService {
     }
     // The request is recorded first (the document id only: never its name and never the link).
     await this.audit.append([{ adminId, applicationId: application._id, action: "document_link", documentId: docId, at: this.now() }]);
-    return this.documents.getTemporaryLink(application._id, docId);
+    // The link carries the friendly name as the name the file is saved under (the stored object is not renamed).
+    return this.documents.getTemporaryLink(application._id, docId, { fileName: friendlyDocumentNames(application)[docId] });
   }
 
   /** submitted -> in_review, in_review -> completed, completed -> in_review. Recorded with the old and the new status. */

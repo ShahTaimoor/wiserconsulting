@@ -10,7 +10,9 @@
  * can reach the header or a path.
  */
 
-const MAX_NAME_LENGTH = 60;
+// safeNamePart and MAX_NAME_LENGTH live in the shared file (shared/tourist-visa/documentNames.js), so that the applicant's screen and the server
+// make the same name. They are re-exported here, unchanged.
+const { safeNamePart, MAX_NAME_LENGTH, DOCUMENT_EXTENSIONS } = require('../shared/tourist-visa/documentNames');
 
 /** What each document is called in the file name. */
 const TITLES = Object.freeze({ answers: 'Application-Summary', cover_letter: 'Cover-Letter', itinerary: 'Itinerary' });
@@ -18,28 +20,6 @@ const TITLES = Object.freeze({ answers: 'Application-Summary', cover_letter: 'Co
 /** The old reference-based names, used when there is no usable name: "TV-X42GYXPS-cover-letter.pdf". */
 const REFERENCE_SUFFIX = Object.freeze({ answers: 'application-summary', cover_letter: 'cover-letter', itinerary: 'itinerary' });
 const SAFE_REFERENCE = /^[A-Z0-9][A-Z0-9-]{2,39}$/;
-
-// Letters that have no accent to strip but are not plain ASCII.
-const SPECIAL_LETTERS = Object.freeze({ 'ß': 'ss', 'æ': 'ae', 'Æ': 'AE', 'œ': 'oe', 'Œ': 'OE', 'ø': 'o', 'Ø': 'O', 'đ': 'd', 'Đ': 'D', 'ł': 'l', 'Ł': 'L', 'þ': 'th', 'Þ': 'Th', 'ð': 'd', 'Ð': 'D', 'ı': 'i' });
-
-/**
- * A person's name as a part of a file name: accents become plain letters (é to e), spaces (and runs of them) become one hyphen, a hyphen in
- * the name stays, and everything else is removed (quotes, dots, slashes, semicolons, control characters, emoji, letters of other scripts).
- * The case is kept. At most 60 characters. An empty string when no letter or digit is left.
- */
-function safeNamePart(fullName) {
-  if (typeof fullName !== 'string') return '';
-  const plain = fullName
-    .normalize('NFKD')
-    .replace(/\p{M}+/gu, '')
-    .replace(/[ßæÆœŒøØđĐłŁþÞðÐı]/g, (letter) => SPECIAL_LETTERS[letter])
-    .replace(/\s+/g, ' ')
-    .replace(/[^A-Za-z0-9 -]/g, '')
-    .replace(/[ -]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  const cut = plain.slice(0, MAX_NAME_LENGTH).replace(/-+$/, '');
-  return /[A-Za-z0-9]/.test(cut) ? cut : '';
-}
 
 /**
  * "Roohullah-Shah-Cover-Letter.pdf" (a cover letter or an itinerary that is not approved ends "-Draft"). With no usable name: the reference
@@ -61,13 +41,19 @@ function pdfFileName({ name, reference, type, draft = false }) {
 }
 
 /**
- * The Content-Disposition header for a file name made by pdfFileName: an attachment with a plain ASCII name in quotes. The name holds only
- * letters, digits, hyphens and one dot, so no quoting tricks, no line break and no filename* form are needed. A name that is not of that shape
- * (it cannot come from pdfFileName) is replaced by "document.pdf" rather than put in a header.
+ * The Content-Disposition header for a file name made here (by pdfFileName, or by documentFileNames for an uploaded document): an attachment
+ * (or, with { inline: true }, a file shown in the browser that is named this when saved) with a plain ASCII name in quotes. The name holds
+ * only letters, digits, hyphens and one dot, so no quoting tricks, no line break and no filename* form are needed. A name that is not of that
+ * shape (it cannot come from the makers of names) is replaced by "document.pdf" rather than put in a header.
+ *
+ * `extensions` is the list of extensions the name may end in. For a PDF it is just "pdf"; for an uploaded document it is
+ * DOCUMENT_EXTENSIONS and the extension is optional.
  */
-function contentDispositionFor(fileName) {
-  const safe = typeof fileName === 'string' && /^[A-Za-z0-9][A-Za-z0-9-]*\.pdf$/.test(fileName) ? fileName : 'document.pdf';
-  return `attachment; filename="${safe}"`;
+function contentDispositionFor(fileName, { inline = false, extensions = null } = {}) {
+  const allowed = Array.isArray(extensions) && extensions.length > 0 ? extensions.filter((e) => /^[a-z0-9]{1,5}$/.test(e)) : ['pdf'];
+  const shape = new RegExp(`^[A-Za-z0-9][A-Za-z0-9-]*${extensions ? '(\\.(?:' + allowed.join('|') + '))?' : '\\.pdf'}$`);
+  const safe = typeof fileName === 'string' && fileName.length <= 200 && shape.test(fileName) ? fileName : 'document.pdf';
+  return `${inline ? 'inline' : 'attachment'}; filename="${safe}"`;
 }
 
-module.exports = { safeNamePart, pdfFileName, contentDispositionFor, MAX_NAME_LENGTH, TITLES };
+module.exports = { safeNamePart, pdfFileName, contentDispositionFor, MAX_NAME_LENGTH, TITLES, DOCUMENT_EXTENSIONS };

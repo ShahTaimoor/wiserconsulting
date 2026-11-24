@@ -26,6 +26,8 @@ import {
   typeLabel,
 } from "@/utils/touristVisaDocuments";
 import { previousSectionId } from "@/utils/touristVisaForm";
+import { documentFileNames } from "@/shared/tourist-visa/documentNames";
+import { fullName } from "@/shared/tourist-visa/view";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CompressionNote, PreparingFile } from "./FilePreparation";
 import { notifyDocumentFailed, notifyDocumentRemoved, notifyDocumentUploaded } from "./notify";
@@ -77,6 +79,12 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
   const previousId = previousSectionId(config, sectionId, application.answers);
 
   const [docs, setDocs] = useState<TouristVisaDocument[]>(application.documents ?? []);
+  // What our team will see and download each file as: the same rule the server uses (shared/tourist-visa/documentNames.js), worked out from the
+  // slot, your name and the file's type. Nothing reads the file; the name you uploaded it under is only shown, never changed.
+  const savedAs = useMemo(() => {
+    const answers = application.answers as Record<string, unknown>;
+    return documentFileNames({ documents: docs, name: fullName(answers.q2_1, answers.q2_2), reference: application.reference ?? undefined });
+  }, [docs, application.answers, application.reference]);
   const [limits, setLimits] = useState<DocumentLimits | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -369,6 +377,7 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
                           <FileText className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
                           <div className="min-w-0">
                             <p className="break-all text-sm font-medium text-foreground">{doc.name}</p>
+                            {savedAs[doc.id] && <p className="break-all text-xs text-muted-foreground">Will be saved as: {savedAs[doc.id]}</p>}
                             <p className="text-xs text-muted-foreground">
                               {typeLabel(doc.type)} · {formatBytes(doc.size)} · Uploaded {formatUploadedAt(doc.uploadedAt)}
                             </p>
@@ -466,6 +475,7 @@ export function DocumentsSection({ sectionId, application }: DocumentsSectionPro
                       <FileText className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
                       <div className="min-w-0">
                         <p className="break-all text-sm font-medium text-foreground">{doc.name}</p>
+                            {savedAs[doc.id] && <p className="break-all text-xs text-muted-foreground">Will be saved as: {savedAs[doc.id]}</p>}
                         <p className="text-xs text-muted-foreground">
                           {typeLabel(doc.type)} · {formatBytes(doc.size)} · Uploaded {formatUploadedAt(doc.uploadedAt)}
                         </p>

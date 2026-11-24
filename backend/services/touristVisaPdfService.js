@@ -27,6 +27,7 @@ const { buildItineraryFacts } = require('../shared/tourist-visa/itineraryFacts')
 const { buildReview, fullName } = require('../shared/tourist-visa/view');
 require("../config/touristVisaFunds"); // loads the bank activity settings into the shared engine (the explanations of unusual months)
 const { pdfFileName } = require('../utils/pdfFileName');
+const { friendlyDocumentNames } = require('../utils/touristVisaDocumentNames');
 const { buildHeaderRows, buildAnswersModel, unprintableSection, renderAnswersPdf } = require('../utils/touristVisaAnswersPdf');
 const { senderOf, buildLetterModel, unprintableIn, renderCoverLetterPdf } = require('../utils/touristVisaCoverLetterPdf');
 const itineraryPdf = require('../utils/touristVisaItineraryPdf');
@@ -79,7 +80,9 @@ class TouristVisaPdfService {
   async answers({ actorId, by, application }) {
     const cfg = await this.applications.configOf(application);
     const answers = application.answers || {};
-    const documents = (application.documents || []).map((doc) => ({ slot: doc.slot, name: doc.name || doc.originalName, size: doc.bytes !== undefined ? doc.bytes : doc.size }));
+    // The files are listed under their friendly names, the same ones staff see and download (utils/touristVisaDocumentNames.js).
+    const friendly = friendlyDocumentNames(application);
+    const documents = (application.documents || []).map((doc) => ({ slot: doc.slot, name: friendly[doc.id] || doc.name || doc.originalName, size: doc.bytes !== undefined ? doc.bytes : doc.size }));
     const corrections = await this.applications.correctionMarks(application, cfg);
     const review = buildReview(cfg, answers, documents, application.declarations || {}, corrections);
     const header = buildHeaderRows({ cfg, answers, reference: application.reference, submittedAt: application.submittedAt });

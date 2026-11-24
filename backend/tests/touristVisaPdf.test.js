@@ -286,7 +286,8 @@ test('the file holds the application: the header block, every section in order, 
   assert.ok(pdf.text.includes('MADE-UP-DETAILS-OF-A-CONVICTION'), 'the sensitive answers are in the generated file (decrypted)');
   assert.ok(pdf.text.includes(SECRET_NI));
   assert.ok(pdf.text.includes('FAKE-PASSPORT-9876'));
-  assert.ok(pdf.text.includes(`${FILE_NAME} (`), 'a file by name and size');
+  assert.ok(pdf.text.includes('Aisha-Khan-Reynolds-Passport.pdf ('), 'a file by its friendly name and size');
+  assert.equal(pdf.text.includes(FILE_NAME), false, 'the name the file was uploaded under is not printed');
   assert.equal(/https?:|fake-storage|tourist-visa\//i.test(pdf.text), false, 'no link, no storage id');
   for (const page of pdf.pages) {
     assert.ok(page.text.includes(`Page ${page.number} of ${pdf.numPages}`));
