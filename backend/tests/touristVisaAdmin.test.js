@@ -32,6 +32,7 @@ const { BANK_ACTIVITY } = require('./helpers/touristVisaFixtures');
 const touristVisaBodyParser = require('../middleware/touristVisaBodyParser');
 const { errorHandler } = require('../middleware/errorHandler');
 const engine = require('../shared/tourist-visa/engine');
+const { slotFileLabel } = require('../shared/tourist-visa/documentNames');
 const { uploadRemainingShared, neededSlots, SLOT_LIST } = require('./helpers/documentSlots');
 
 let mongod;
@@ -68,8 +69,8 @@ class FakeStorage {
   isConfigured() { return true; }
   async upload(buffer, { applicationId, extension }) { return { publicId: `tourist-visa/${applicationId}/${crypto.randomBytes(8).toString('hex')}.${extension}`, resourceType: 'raw', bytes: buffer.length }; }
   async remove() {}
-  temporaryUrl(doc, expiresAt) {
-    this.links.push({ publicId: doc.publicId, expiresAt });
+  temporaryUrl(doc, expiresAt, options = {}) {
+    this.links.push({ publicId: doc.publicId, expiresAt, fileName: options.fileName });
     return `https://fake-storage.invalid/download?id=${encodeURIComponent(doc.publicId)}&expires=${expiresAt.getTime()}`;
   }
 }
@@ -480,8 +481,12 @@ test('the Overview: a call block first, then every section in words, with decryp
   assert.equal(rows.find((r) => r.id === 'q1_6').value, '1 March 2027');
   assert.equal(data.review.parts.length, 10);
 
-  const expectedFiles = neededSlots({ employment: 'retired' }).map((slot) => [slot, slot === 'passport' ? FILE_NAME : slot === 'funds' ? 'bank-statement.pdf' : `${slot}-file.pdf`]);
+  // Staff see the FRIENDLY name (applicant name + slot label), not the name the file was uploaded under (friendly file names step).
+  const expectedFiles = neededSlots({ employment: 'retired' }).map((slot) => [slot, `Overviewed-Person-${slotFileLabel(slot)}.pdf`]);
   assert.deepEqual(data.documents.map((d) => [d.slot, d.name]).sort(), expectedFiles.sort());
+  assert.equal(data.documents.find((d) => d.slot === 'passport').name, 'Overviewed-Person-Passport.pdf');
+  assert.equal(data.documents.find((d) => d.slot === 'funds').name, 'Overviewed-Person-Bank-Statement.pdf');
+  assert.equal(res.text.includes(FILE_NAME), false, 'the name the file was uploaded under is not shown to staff');
   assert.deepEqual(data.otherDocuments, [], 'every file is on the list');
   assert.ok(data.documents.every((d) => Object.keys(d).sort().join() === 'id,name,size,slot,type'));
   assert.deepEqual(data.fileSlots, Object.fromEntries(SLOT_LIST.map((s) => [s.id, s.slot])));
@@ -822,4 +827,85 @@ test('every refusal and every success leaves no answer in the log', async () => 
   } finally { log.restore(); }
   assertNoSecrets(log.lines.join('\n'), 'the log');
   assert.equal(log.lines.join('\n').includes('Testfirst'), false);
+});
+
+// ---------------------------------------------------------------------------
+// Friendly file names (applicant name + slot label): worked out when shown or downloaded, never stored; nothing reads the file
+// ---------------------------------------------------------------------------
+
+test('friendly names: the signed link is asked for under "<Given>-<Family>-<Slot>.<ext>"; the answer, the audit row and who may ask are unchanged', async () => {
+  const admin = await makeAdmin();
+  const app = await submitted({ given: 'Roohullah', family: 'Shah', email: 'roo.shah@example.com' });
+  const stored = (await rawDoc(app.appId)).documents;
+  const passport = stored.find((d) => d.slot === 'passport');
+  const funds = stored.find((d) => d.slot === 'funds');
+
+  const first = await adminGet(admin.token, `/applications/${app.appId}/documents/${passport.id}/link`);
+  assert.equal(first.status, 200, first.text);
+  assert.equal(fakeStorage.links.at(-1).fileName, 'Roohullah-Shah-Passport.pdf');
+  assert.deepEqual(Object.keys(first.json.data).sort(), ['expiresAt', 'url'], 'the answer has the same two keys');
+  await adminGet(admin.token, `/applications/${app.appId}/documents/${funds.id}/link`);
+  assert.equal(fakeStorage.links.at(-1).fileName, 'Roohullah-Shah-Bank-Statement.pdf');
+
+  // The audit row still holds the document id and fixed words only: no file name, friendly or not.
+  const rows = await auditRows({ applicationId: oid(app.appId), action: 'document_link' });
+  for (const row of rows) {
+    assert.deepEqual(Object.keys(row).sort(), ['_id', 'action', 'adminId', 'applicationId', 'at', 'documentId']);
+    assert.equal(JSON.stringify(row).includes('Roohullah'), false);
+  }
+
+  // Who may ask is unchanged: nobody signed in, and an applicant (even for their own file), are refused, and no link is made.
+  const linksBefore = fakeStorage.links.length;
+  assert.equal((await api('GET', `/admin/applications/${app.appId}/documents/${passport.id}/link`)).status, 401);
+  assert.equal((await api('GET', `/admin/applications/${app.appId}/documents/${passport.id}/link`, { token: app.token })).status, 403);
+  assert.equal(fakeStorage.links.length, linksBefore);
+});
+
+test('friendly names: staff see them in the Overview, several files in one slot are numbered in upload order, and nothing friendly is stored', async () => {
+  const admin = await makeAdmin();
+  const person = await readyApplicant({ given: 'Numbered', family: 'Files', email: 'numbered.files@example.com' });
+  assert.equal((await upload(person.token, 'passport', 'second-scan.pdf')).status, 201);
+  const submit = await api('POST', '/applications/me/submit', { token: person.token, body: { declarationAccepted: true } });
+  assert.equal(submit.status, 200, submit.text);
+
+  const overview = await adminGet(admin.token, `/applications/${person.appId}`);
+  assert.equal(overview.status, 200, overview.text);
+  const passports = overview.json.data.documents.filter((d) => d.slot === 'passport').map((d) => d.name).sort();
+  assert.deepEqual(passports, ['Numbered-Files-Passport-1.pdf', 'Numbered-Files-Passport-2.pdf']);
+  assert.equal(overview.json.data.documents.find((d) => d.slot === 'funds').name, 'Numbered-Files-Bank-Statement.pdf', 'one file in a slot has no number');
+  assert.equal(overview.text.includes('second-scan'), false, 'the uploaded name is not shown to staff');
+  assert.equal(overview.text.includes(FILE_NAME), false);
+
+  // The first upload is number 1, the second number 2 (upload order, not the order of the names).
+  const stored = (await rawDoc(person.appId)).documents.filter((d) => d.slot === 'passport');
+  const byTime = [...stored].sort((a, b) => new Date(a.uploadedAt) - new Date(b.uploadedAt));
+  await adminGet(admin.token, `/applications/${person.appId}/documents/${byTime[0].id}/link`);
+  assert.equal(fakeStorage.links.at(-1).fileName, 'Numbered-Files-Passport-1.pdf');
+  await adminGet(admin.token, `/applications/${person.appId}/documents/${byTime[1].id}/link`);
+  assert.equal(fakeStorage.links.at(-1).fileName, 'Numbered-Files-Passport-2.pdf');
+
+  // Computed, never stored: the saved application has no friendly name anywhere.
+  const raw = JSON.stringify(await rawDoc(person.appId));
+  assert.equal(raw.includes('Numbered-Files'), false);
+  assert.equal(raw.includes('Passport-1'), false);
+});
+
+test('friendly names: the applicant still sees what they uploaded; stored keys and upload answers are unchanged', async () => {
+  const person = await readyApplicant({ given: 'Keyed', family: 'Person', email: 'keyed.person@example.com' });
+  const list = await api('GET', '/applications/me/documents', { token: person.token });
+  assert.equal(list.status, 200);
+  assert.equal(list.json.data.documents.find((d) => d.slot === 'passport').name, FILE_NAME, 'their own page keeps the name they uploaded');
+  assert.equal(JSON.stringify(list.json).includes('Keyed-Person'), false, 'the server sends the applicant no friendly name; their page works it out itself');
+  for (const doc of list.json.data.documents) assert.deepEqual(Object.keys(doc).sort(), ['id', 'name', 'size', 'slot', 'type', 'uploadedAt']);
+
+  const extra = await upload(person.token, 'passport', 'another.pdf');
+  assert.equal(extra.status, 201);
+  assert.deepEqual(Object.keys(extra.json.data.document).sort(), ['id', 'name', 'size', 'slot', 'type', 'uploadedAt'], 'the upload answer has the same keys');
+  assert.equal(extra.json.data.document.name, 'another.pdf');
+
+  const stored = (await rawDoc(person.appId)).documents;
+  for (const doc of stored) {
+    assert.match(doc.publicId, new RegExp(`^tourist-visa/${person.appId}/[0-9a-f]{16}\.pdf$`), 'the stored key is still the random one');
+    assert.equal(doc.publicId.includes('Keyed'), false);
+  }
 });
