@@ -1814,3 +1814,17 @@ A new section **10F "Your bank activity"** asks the applicant for the figures of
 **Tests.** `shared/tourist-visa/documentNames.test.js` (the rules), `backend/tests/touristVisaDocumentNames.test.js` (the header, the real signer with made-up credentials, the unchanged storage key), `backend/tests/touristVisaAdmin.test.js` (the Overview, the link, numbering, access control, the applicant's list and the upload answer unchanged), `backend/tests/touristVisaPdf.test.js` (the PDF's file list), `client/src/utils/touristVisaDocumentNames.test.mjs` (the page and the server make the same name).
 
 **NOT built: checking that a file really is what its slot says.** Telling a passport from a bank statement would mean reading the file (OCR) or sending it to an AI service. That is not done: nothing here opens a file, and the AI terms (Zero Data Retention) have not been confirmed by the senior (section 14.7, the process items). If it is ever wanted it needs its own decision, design and consent wording.
+
+### 14.21 Mail settings (the mail helper)
+
+All email the backend sends (the contact form emails and the document-comment email, and later the chat notices) goes through one helper, `backend/config/mail.js`. It reads these variable NAMES (all optional, listed in `backend/.env.example`):
+
+| Variable | Use |
+| --- | --- |
+| `EMAIL_SERVICE` | the mail service, default `gmail` (the comment email used to be fixed to Gmail) |
+| `EMAIL_USER` | the sending account, also the "from" address |
+| `EMAIL_PASSWORD` | its password; **`EMAIL_PASS`, the older name the comment email used, is read when `EMAIL_PASSWORD` is empty**, so either name works for every email now |
+| `ADMIN_EMAIL` | the staff mailbox for "new contact message" notices; falls back to `EMAIL_USER` |
+| `FRONTEND_URL` | the public address of the site, for links in emails; `ADMIN_PANEL_URL` (older name) is read when it is empty, and still wins for the link to the admin area in staff emails, as before |
+
+**Behaviour.** With no mail settings (a developer machine) nothing is sent and nothing breaks: one quiet line in the log names the missing variables (names only), and the contact form and the comments still work. A send that fails never throws to the caller; the result carries a reason (`not_configured`, `auth_failed`, `timeout`, `connection`, `rejected`, `error`) and the log line holds only a fixed label, that reason and the error code, never an address, a subject, any message text, a password or the error's own message. The content, recipients and sender of the existing emails are unchanged (a test compares them with what the old code produced). The helper is unrelated to the Tourist Visa feature; the note is here because this is the document that lists the environment variables. Tests: `backend/tests/mail.test.js`.
