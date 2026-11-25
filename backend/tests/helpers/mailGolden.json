@@ -1,0 +1,29 @@
+{
+  "note": "What the contact and comment emails handed to the mail transport BEFORE the mail helper existed (made-up input). The date in the staff notice is {{DATE}}.",
+  "sent": [
+    {
+      "from": "sender.test@example.invalid",
+      "to": "Visitor.Test@Example.invalid",
+      "subject": "We received your contact request - Wiser Consulting",
+      "html": "\n                    <h2>Thank you for reaching out to Wiser Consulting</h2>\n                    <p>Dear Test &lt;b&gt;Person&lt;/b&gt;,</p>\n                    <p>We have received your contact request and will get back to you as soon as possible.</p>\n                    <hr>\n                    <p><strong>Your Message Details:</strong></p>\n                    <p><strong>Subject:</strong> Question &amp; &quot;answers&quot;</p>\n                    <p><strong>Message:</strong> Line one\nLine &lt;script&gt;two&lt;/script&gt;</p>\n                    <hr>\n                    <p>If you have any urgent matters, please call us at the contact number provided on our website.</p>\n                    <p>Best regards,<br>Wiser Consulting Team</p>\n                "
+    },
+    {
+      "from": "sender.test@example.invalid",
+      "to": "staff.inbox@example.invalid",
+      "subject": "New Contact Form Submission - Test &lt;b&gt;Person&lt;/b&gt;",
+      "html": "\n                    <h2>New Contact Form Submission</h2>\n                    <p><strong>Name:</strong> Test &lt;b&gt;Person&lt;/b&gt;</p>\n                    <p><strong>Email:</strong> Visitor.Test@Example.invalid</p>\n                    <p><strong>Phone:</strong> +10000000000</p>\n                    <p><strong>Subject:</strong> Question &amp; &quot;answers&quot;</p>\n                    <p><strong>Message:</strong></p>\n                    <p>Line one\nLine &lt;script&gt;two&lt;/script&gt;</p>\n                    <hr>\n                    <p><strong>Submission Date:</strong> {{DATE}}</p>\n                    <p><a href=\"https://site.example.invalid/admin/contacts\">View in Admin Panel</a></p>\n                "
+    },
+    {
+      "from": "sender.test@example.invalid",
+      "to": "Visitor.Test@Example.invalid",
+      "subject": "Re: Question &amp; &quot;answers&quot; - Wiser Consulting",
+      "html": "\n                    <h2>Response to Your Contact Request</h2>\n                    <p>Dear Test &lt;b&gt;Person&lt;/b&gt;,</p>\n                    <p>Thank you for contacting us. Here is our response:</p>\n                    <hr>\n                    <p>Our &lt;i&gt;reply&lt;/i&gt; &amp; thanks</p>\n                    <hr>\n                    <p>If you have any further questions, please feel free to contact us.</p>\n                    <p>Best regards,<br>Wiser Consulting Team</p>\n                "
+    },
+    {
+      "from": "sender.test@example.invalid",
+      "to": "form.user@example.invalid",
+      "subject": "Document Review Update - Form &lt;User&gt;",
+      "html": "\n          <div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">\n            <h2 style=\"color: #2563eb;\">Document Review Update</h2>\n            <p>Dear Form &lt;User&gt;,</p>\n            <p>Your visa assessment application has been reviewed. Here's an update:</p>\n            \n            <div style=\"background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;\">\n              <h3 style=\"color: #374151; margin-top: 0;\">Document: doc &lt;1&gt;.pdf</h3>\n              <p style=\"color: #6b7280; margin-bottom: 10px;\"><strong>Admin Comment:</strong></p>\n              <p style=\"background-color: white; padding: 15px; border-radius: 6px; border-left: 4px solid #2563eb;\">\n                Please send a clearer copy &amp; re-upload &lt;now&gt;.\n              </p>\n            </div>\n            \n            <p>You can view all updates and comments on your application dashboard.</p>\n            \n            <div style=\"background-color: #dbeafe; padding: 15px; border-radius: 6px; margin: 20px 0;\">\n              <p style=\"margin: 0; color: #1e40af;\">\n                <strong>Application Details:</strong><br>\n                Destination: Testland &amp; Co<br>\n                Visa Type: Tourist &quot;Visa&quot;<br>\n                Status: pending\n              </p>\n            </div>\n            \n            <p>If you have any questions, please don't hesitate to contact us.</p>\n            \n            <p>Best regards,<br>Visa Assessment Team</p>\n          </div>\n        "
+    }
+  ]
+}

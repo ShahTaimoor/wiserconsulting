@@ -1,16 +1,8 @@
 const contactSubmissionRepository = require("../repositories/contactSubmissionRepository");
 const escapeHtml = require('../utils/escapeHtml');
 const logger = require("../utils/logger");
-const nodemailer = require("nodemailer");
-
-// Configure email service
-const transporter = nodemailer.createTransport({
-  service: process.env.EMAIL_SERVICE || "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
-  },
-});
+// Mail goes through the one mail helper (config/mail.js): it never throws, and it logs only a reason code.
+const { sendMail, getSettings } = require("../config/mail");
 
 class ContactSubmissionService {
   // Create a new contact submission
@@ -36,7 +28,6 @@ class ContactSubmissionService {
   async sendConfirmationEmail(submission) {
     try {
       const mailOptions = {
-        from: process.env.EMAIL_USER,
         to: submission.email,
         subject: "We received your contact request - Wiser Consulting",
         html: `
@@ -53,7 +44,7 @@ class ContactSubmissionService {
                 `,
       };
 
-      await transporter.sendMail(mailOptions);
+      await sendMail({ ...mailOptions, label: "contact_confirmation" });
     } catch (error) {
       logger.error(`Error sending confirmation email: ${error.message}`);
       // Don't throw, just log the error
@@ -64,8 +55,7 @@ class ContactSubmissionService {
   async sendAdminNotificationEmail(submission) {
     try {
       const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: process.env.ADMIN_EMAIL || process.env.EMAIL_USER,
+        to: getSettings().adminTo,
         subject: `New Contact Form Submission - ${escapeHtml(submission.name)}`,
         html: `
                     <h2>New Contact Form Submission</h2>
@@ -77,11 +67,11 @@ class ContactSubmissionService {
                     <p>${escapeHtml(submission.message)}</p>
                     <hr>
                     <p><strong>Submission Date:</strong> ${new Date(submission.createdAt).toLocaleString()}</p>
-                    <p><a href="${process.env.ADMIN_PANEL_URL || "http://localhost:3000"}/admin/contacts">View in Admin Panel</a></p>
+                    <p><a href="${getSettings().adminPanelUrl || "http://localhost:3000"}/admin/contacts">View in Admin Panel</a></p>
                 `,
       };
 
-      await transporter.sendMail(mailOptions);
+      await sendMail({ ...mailOptions, label: "contact_admin_notice" });
     } catch (error) {
       logger.error(`Error sending admin notification email: ${error.message}`);
       // Don't throw, just log the error
@@ -166,7 +156,6 @@ class ContactSubmissionService {
       if (!submission.adminReply) return;
 
       const mailOptions = {
-        from: process.env.EMAIL_USER,
         to: submission.email,
         subject: `Re: ${escapeHtml(submission.subject)} - Wiser Consulting`,
         html: `
@@ -181,7 +170,7 @@ class ContactSubmissionService {
                 `,
       };
 
-      await transporter.sendMail(mailOptions);
+      await sendMail({ ...mailOptions, label: "contact_reply" });
     } catch (error) {
       logger.error(`Error sending reply email: ${error.message}`);
     }
