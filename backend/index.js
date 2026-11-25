@@ -24,6 +24,7 @@ const reuploadRoutes = require("./routes/reuploadRoutes");
 const approvedVisaRoutes = require("./routes/approvedVisaRoutes");
 const testimonialRoutes = require("./routes/testimonialRoutes");
 const universityRoutes = require("./routes/universityRoutes");
+const contactChatRoutes = require("./routes/contactChatRoutes");
 const touristVisaRoutes = require("./routes/touristVisaRoutes");
 const {
   apiLimiter,
@@ -33,6 +34,7 @@ const sanitize = require("./middleware/sanitize");
 const skipPaths = require("./middleware/skipPaths");
 const touristVisaBodyParser = require("./middleware/touristVisaBodyParser");
 const touristVisaFeatureGate = require("./middleware/touristVisaFeatureGate");
+const chatFeatureGate = require("./middleware/chatFeatureGate");
 const touristVisaNoStore = require("./middleware/touristVisaNoStore");
 const touristVisaOriginGuard = require("./middleware/touristVisaOriginGuard");
 const { getAllowedOrigins } = require("./config/allowedOrigins");
@@ -87,6 +89,10 @@ app.use(cors(corsOptions));
 // header, body or token is read, nothing is logged and the database is never touched.
 app.use("/api/tourist-visa", touristVisaFeatureGate.allowingStatus);
 
+// Contact chat switch (CHAT_ENABLED, off unless exactly "true"): while it is off every /api/chat request is a fixed 404 except GET /api/chat/status.
+// Same place as the Tourist Visa gate: before the body parsers and anything that reads the database.
+app.use("/api/chat", chatFeatureGate);
+
 
 // Security headers
 app.use(helmet());
@@ -99,11 +105,13 @@ app.use(cookieParser());
 
 // Input sanitization (must be after body parsing).
 // Skipped for the Tourist Visa routes: it strips < and >, and free-text answers must stay as typed.
-app.use(skipPaths(["/api/tourist-visa"], sanitize));
+// Also skipped for the chat: its messages are plain text that is never rendered as HTML, and the sanitizer would silently change what a person wrote.
+app.use(skipPaths(["/api/tourist-visa", "/api/chat"], sanitize));
 
 // Rate limiting
 // The University Finder has its own, larger limit (middleware/rateLimiter.js: universityLimiter) set in its router.
-app.use("/api", skipPaths(["/universities"], apiLimiter));
+// The chat is exempt too: a tab polling every 15 to 30 seconds would use up the 100 requests in 15 minutes. It has its own limits (middleware/chatLimits.js).
+app.use("/api", skipPaths(["/universities", "/chat"], apiLimiter));
 
 // The one Tourist Visa URL that answers while the feature is closed (GET /api/tourist-visa/status, { open }). It sits right after
 // the general rate limiter and before the router: no sign-in and no database.
@@ -139,6 +147,7 @@ app.use("/api/reupload-document", reuploadRoutes);
 app.use("/api/approved-visas", approvedVisaRoutes);
 app.use("/api/testimonials", testimonialRoutes);
 app.use("/api/universities", universityRoutes);
+app.use("/api/chat", contactChatRoutes);
 
 app.get("/", (req, res) => {
   res.send("Welcome to the backend");
