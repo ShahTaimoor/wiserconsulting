@@ -1828,3 +1828,46 @@ All email the backend sends (the contact form emails and the document-comment em
 | `FRONTEND_URL` | the public address of the site, for links in emails; `ADMIN_PANEL_URL` (older name) is read when it is empty, and still wins for the link to the admin area in staff emails, as before |
 
 **Behaviour.** With no mail settings (a developer machine) nothing is sent and nothing breaks: one quiet line in the log names the missing variables (names only), and the contact form and the comments still work. A send that fails never throws to the caller; the result carries a reason (`not_configured`, `auth_failed`, `timeout`, `connection`, `rejected`, `error`) and the log line holds only a fixed label, that reason and the error code, never an address, a subject, any message text, a password or the error's own message. The content, recipients and sender of the existing emails are unchanged (a test compares them with what the old code produced). The helper is unrelated to the Tourist Visa feature; the note is here because this is the document that lists the environment variables. Tests: `backend/tests/mail.test.js`.
+
+### 14.22 Contact chat: the backend (PR 1 of the chat plan)
+
+A two-way chat between a signed-in visitor and staff. This step is the **backend only**: no website screen uses it yet, the old Contact form and its routes are untouched, and the whole thing is OFF by default.
+
+**The switch.** `CHAT_ENABLED` (in `backend/.env.example`). Chat is on only when it is exactly `true`. While it is off every `/api/chat` route is a fixed 404 (`FEATURE_CLOSED`), except `GET /api/chat/status`, which says `{ enabled: false }`. `middleware/chatFeatureGate.js` is mounted in `index.js` next to the Tourist Visa gate, before the body parsers. Chat also needs `FIELD_ENCRYPTION_KEY`: without it `/status` says `enabled: false` and the other routes answer 503 `CHAT_UNAVAILABLE`, and a start-up line says so.
+
+**The reply hours.** ONE file, `backend/config/contactChatHours.js`: 12:00 to 21:00, every day, in `Asia/Karachi` (worked out with `Intl` for the named zone, so the server's and the visitor's time zones do not matter). Messages are always accepted; the hours only decide what the panel says. `GET /api/chat/status` returns them: `openNow`, `nextOpenAt` (while closed), `closesAt` (while open), `text` ("We usually reply between 12 PM and 9 PM (Pakistan time)") and `backText` ("We are back tomorrow at 12 PM (Pakistan time)").
+
+**Data** (collections `contactconversations` and `contactmessages`; the old `contactsubmissions` is not touched).
+- One conversation per user (unique index on `user`); name and email are read from the account, never copied.
+- Message bodies and the phone number are **encrypted** with the field cipher (`enc:v1:`, AES-256-GCM; the signed data names the user and the message, so a copy moved elsewhere does not decrypt). The topic (80 characters) is plain so staff can search it. So the inbox can search the name, email and topic, **not the text of messages**.
+- Counters (`messageCount`, per-side counts, read cursors, `unreadForStaff`, `unreadForClient`) are changed only by single atomic update pipelines on the native collection (`repositories/contactChatRepository.js`): a message arriving while staff read is never lost, and two messages at once get two numbers. `message.seq` is the number over both sides (the cursor to poll with: `after=<seq>`); `senderSeq` is the number among one side's messages.
+- Status: **open** (a client message, also re-opens a closed one), **answered** (a staff reply), **closed** (staff, or automatically, below).
+
+**Closed after 30 days.** A conversation with no message for 30 days becomes Closed (status only; nothing is deleted; `unreadForStaff` is kept). It is done **lazily, when somebody looks**: a person's own conversation when they read or send (one indexed update by user id), the whole inbox when staff load the list, the conversation or the unread total (at most every 5 minutes per process). Why: no timer or scheduled job to run or forget, it works on any host including a serverless one, it only changes `status`, it can be repeated safely, and a later message re-opens the conversation.
+
+**Routes** (all under `/api/chat`; JSON `{ success, message, data }`).
+
+| Route | Who | Does |
+| --- | --- | --- |
+| `GET /status` | anyone | `{ enabled, hours }` |
+| `GET /conversation?after=&before=&limit=` | signed-in user | their own conversation and messages (newest 50; `after` = only newer than that `seq`) |
+| `GET /unread` | signed-in user | `{ unread, status }` (the bubble badge) |
+| `POST /messages` | signed-in user | `{ body, clientMessageId, subject?, phone? }`; `subject` and `phone` only on the first message |
+| `POST /read` | signed-in user | `{ upToSeq }`: the client has seen staff messages up to that number |
+| `GET /admin/unread` | admin | `{ unread, conversations }` (the sidebar badge) |
+| `GET /admin/conversations?status=&unread=1&q=&page=&limit=` | admin | the inbox, newest activity first, with a preview and the unread count |
+| `GET /admin/conversations/:id?after=&before=&limit=` | admin | one conversation: user, phone, topic, messages with who replied. **Reading changes nothing** |
+| `POST /admin/conversations/:id/messages` | admin | `{ body, clientMessageId }`: a reply (sets Answered, emails the client) |
+| `POST /admin/conversations/:id/read` | admin | `{ upToSeq }` |
+| `PATCH /admin/conversations/:id` | admin | `{ status: "open" \| "closed" }` |
+| `DELETE /admin/conversations/:id` | admin | permanent delete of the conversation and its messages; the security log line `chat_conversation_deleted` (ids and counts, never text) is written first |
+
+Client routes take **no conversation id**: the conversation is always the signed-in user's own, so nobody can reach another's. Error codes: `MESSAGE_EMPTY`, `MESSAGE_TOO_LONG`, `SUBJECT_TOO_LONG`, `INVALID_PHONE`, `FIRST_MESSAGE_ONLY`, `INVALID_REQUEST` (400); `CONVERSATION_NOT_FOUND` (404); `CONVERSATION_FULL` (409, 2000 messages); `TOO_MANY_MESSAGES` and `TOO_MANY_REQUESTS` (429); `CHAT_UNAVAILABLE` (503). A message is plain text (at most 2000 characters, staff 4000), cleaned of control and direction-changing characters and trimmed; a resend with the same `clientMessageId` returns the first message (200), and the same text again within a minute is the same message.
+
+**Limits.** The chat is **exempt from the general limiter** (100 requests per 15 minutes per address, which one polling tab would half use) and has its own (`config/contactChat.js`, `middleware/chatLimits.js`): every chat request per address 1500 per 15 minutes before sign-in; the status check 120 per 10 minutes; checks for new messages 600 per 15 minutes per user (room for several tabs polling every 15 to 30 seconds); sending 8 a minute, 60 an hour and 300 a day per user; the inbox 900 per 15 minutes and staff changes 120 per 10 minutes. The chat is also skipped by the global text sanitizer (which would silently strip `<` and `>`): messages are shown as text and never as HTML. Every private answer is `no-store`.
+
+**Email** (through `backend/config/mail.js`, section 14.21). A new client message emails `ADMIN_EMAIL`; a staff reply emails the client. **Neither carries any message text** (and the client email has no topic): only who, a link and "the message itself is not in this email". Each is limited to **one per conversation per direction per 3 hours** (the slot is taken by one atomic update and given back if nothing was sent), plus a cap of 30 staff emails an hour per process, so a flood of new accounts cannot fill the mailbox. The send waits at most 4 seconds and can never change the answer of the chat; with no mail settings (local development) nothing is sent. Recommended values were chosen so that a quiet conversation gets an email promptly and a lively one does not become a stream.
+
+**Left for the next steps.** The admin inbox screens and the sidebar badge (PR 2), the website widget, the sign-in return and the Contact page change (PR 3), turning the old form off and removing it (PR 4). Not done: a short cool-down for brand-new accounts (it needs email verification to mean much), and the legacy "earlier form messages" panel.
+
+**Tests.** `backend/tests/contactChatApi.test.js` (the routes, authorisation between users, encryption, unread, inbox, delete, emails, 30 days, limits), `contactChatHours.test.js`, `contactChatUnit.test.js`, `contactChatWiring.test.js` (the real `index.js`: the switch, the status, the exemption from the general limiter).
