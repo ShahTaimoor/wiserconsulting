@@ -1,13 +1,20 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Mail, Phone, MapPin, AlertCircle, CheckCircle } from "lucide-react";
+import { Mail, Phone, MapPin, AlertCircle, CheckCircle, MessageCircle } from "lucide-react";
 import { useState } from "react";
+import { useSettings } from "@/context/SettingsContext";
+import { useChatStatus } from "@/hooks/useChatVisitor";
+import { requestChat } from "@/utils/chatWidget";
 
 const cityImageUrl =
   "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=80";
 
 const ContactPage = () => {
+  // The phone number is the one of the Settings screen (the old text is only the fallback while it is empty).
+  const { settings } = useSettings();
+  // While chat is switched on the form below is replaced by a "Chat with us" button; while it is off (or not known) the old form is exactly as it was.
+  const chatOn = useChatStatus().state === "on";
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -129,7 +136,7 @@ const ContactPage = () => {
                     </div>
                     <div>
                       <p className="text-sm uppercase tracking-[0.24em] text-slate-200">Phone</p>
-                      <p className="mt-1 text-lg font-semibold">+92 370 970 6643</p>
+                      <p className="mt-1 text-lg font-semibold">{settings.phoneNumber || "+92 370 970 6643"}</p>
                     </div>
                   </div>
 
@@ -144,6 +151,25 @@ const ContactPage = () => {
               animate="animate"
               className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-xl"
             >
+              {chatOn ? (
+                <div>
+                  <p className="text-sm uppercase tracking-[0.32em] text-slate-500">Talk to us</p>
+                  <h3 className="mt-4 text-3xl font-bold text-slate-900">Chat with our team</h3>
+                  <p className="mt-3 text-slate-600 leading-relaxed">
+                    Ask your question here and our team will answer you in the chat. You will need to sign in, and you will come straight back to this page.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => requestChat()}
+                    className="mt-8 inline-flex w-full items-center justify-center gap-3 rounded-full bg-emerald-700 px-8 py-4 text-base font-semibold text-white transition hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300"
+                  >
+                    <MessageCircle className="h-5 w-5" aria-hidden />
+                    Chat with us
+                  </button>
+                  <p className="mt-4 text-sm text-slate-600">Please don&apos;t share passport or bank details in the chat. Upload documents in your application.</p>
+                </div>
+              ) : (
+              <>
               <div className="mb-8">
                 <p className="text-sm uppercase tracking-[0.32em] text-slate-500">Send a message</p>
                 <h3 className="mt-4 text-3xl font-bold text-slate-900">Start your consultation</h3>
@@ -234,6 +260,8 @@ const ContactPage = () => {
                   {loading ? "Sending..." : "Send message"}
                 </button>
               </form>
+              </>
+              )}
             </motion.div>
           </div>
         </div>
