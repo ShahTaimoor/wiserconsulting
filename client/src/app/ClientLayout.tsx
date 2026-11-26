@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { ChatLauncher } from "@/components/chat/ChatLauncher";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -19,6 +20,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         {children}
       </main>
       {!hideLayout && <Footer />}
+      {/* The chat bubble: it decides by itself where it is shown (six public pages, chat switched on, never for an administrator). */}
+      <ChatLauncher />
     </>
   );
 }

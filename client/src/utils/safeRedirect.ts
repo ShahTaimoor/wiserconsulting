@@ -127,10 +127,47 @@ export function touristVisaNextPath(raw: unknown): string | null {
   return safe;
 }
 
+// ---------------------------------------------------------------------------
+// The second thing a `next` may be: back to a public page with the chat panel open
+// ---------------------------------------------------------------------------
+
+/** The public pages that have the chat bubble (and the only pages a visitor is sent back to after signing in from it). */
+export const CHAT_PAGES: ReadonlyArray<string> = Object.freeze(["/", "/about", "/services", "/contact", "/privacy", "/terms"]);
+export const CHAT_QUERY = "chat=open";
+
+/**
+ * THE RULE for a chat `next`: it is accepted ONLY when it is exactly one of the six public pages followed by exactly "?chat=open" (for
+ * example "/about?chat=open" or "/?chat=open"), as written: nothing else after it, no other parameter, no #fragment, no trailing slash, no
+ * other case, nothing encoded. Everything safeNextPath refuses is refused first (absolute URLs, "//host", backslashes, control and invisible
+ * characters, dot segments, the login pages, double-encoded escapes, values over 512 characters). Returns the value unchanged, or null.
+ */
+export function chatNextPath(raw: unknown): string | null {
+  const safe = safeNextPath(raw);
+  if (safe === null) return null;
+  if (ENCODED_TRICKS.test(safe)) return null;
+  return CHAT_PAGES.some((page) => safe === `${page}?${CHAT_QUERY}`) ? safe : null;
+}
+
+/** Every `next` the site accepts: the Tourist Visa application (touristVisaNextPath), or a public page with the chat open (chatNextPath). */
+export function allowedNextPath(raw: unknown): string | null {
+  return touristVisaNextPath(raw) ?? chatNextPath(raw);
+}
+
+/** The page to come back to from the chat's sign-in: this page with ?chat=open. A page that is not on the list comes back to the home page. */
+export function chatReturnPath(pathname: unknown): string {
+  const trimmed = typeof pathname === "string" ? pathname.replace(/\/+$/, "") || "/" : "/";
+  return `${CHAT_PAGES.includes(trimmed) ? trimmed : "/"}?${CHAT_QUERY}`;
+}
+
+/** The sign-in or sign-up address of the chat panel: it carries the return path, so the visitor comes back with the panel open. */
+export function chatSignInHref(kind: "login" | "register", pathname: unknown): string {
+  return `/${kind}${nextQuery(chatReturnPath(pathname))}`;
+}
+
 /** The accepted `next` of an address-bar query string ("?next=%2Ftourist-visa"), or null. Only the first `next` is looked at. */
 export function nextFromSearch(search: unknown): string | null {
   if (typeof search !== "string" || search.length > 2048) return null;
-  return touristVisaNextPath(new URLSearchParams(search).get("next"));
+  return allowedNextPath(new URLSearchParams(search).get("next"));
 }
 
 /** Where to go once signed in or up: the accepted `next` of the query string, otherwise `fallback` (the page's own default). */
@@ -140,7 +177,7 @@ export function nextDestination(search: unknown, fallback: string): string {
 
 /** "?next=/tourist-visa" for an accepted next (slashes left as they are, everything else encoded), or "" when there is none. */
 export function nextQuery(next: string | null): string {
-  const safe = touristVisaNextPath(next);
+  const safe = allowedNextPath(next);
   return safe === null ? "" : `?next=${encodeURIComponent(safe).replace(/%2F/g, "/")}`;
 }
 
@@ -149,7 +186,14 @@ export function nextQuery(next: string | null): string {
  * defaults (admins to the admin panel, everyone else to the home page).
  */
 export function postLoginDestination(isAdmin: boolean, rawNext: unknown): string {
-  return touristVisaNextPath(rawNext) ?? (isAdmin ? "/admin/products" : "/");
+  const application = touristVisaNextPath(rawNext);
+  if (application !== null) return application;
+  // The chat's way back is for visitors: an administrator who signs in always goes to the admin panel.
+  if (!isAdmin) {
+    const chat = chatNextPath(rawNext);
+    if (chat !== null) return chat;
+  }
+  return isAdmin ? "/admin/products" : "/";
 }
 
 // ---------------------------------------------------------------------------
@@ -175,7 +219,11 @@ export function touristVisaEntryHref(signedIn: boolean): string {
  * (the existing status hooks say "open"). Closed, still loading or failed: null, and the pages behave exactly as before.
  */
 export function carriedNext(open: boolean, search: unknown): string | null {
-  return open ? nextFromSearch(search) : null;
+  const next = nextFromSearch(search);
+  if (next === null) return null;
+  // The chat's way back is fixed and harmless (a public page with ?chat=open), so it is carried whatever the Tourist Visa switch says.
+  if (chatNextPath(next) !== null) return next;
+  return open ? next : null;
 }
 
 /**

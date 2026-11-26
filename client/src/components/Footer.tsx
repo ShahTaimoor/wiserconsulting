@@ -167,7 +167,8 @@ const Footer = () => {
 
       {/* Bottom Bar */}
       <div className="relative border-t border-slate-800/80">
-        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+        {/* The bottom padding keeps the last line clear of the floating chat bubble (about 60 px tall, 16 px from the corner) when the page is scrolled to the end. */}
+        <div className="mx-auto max-w-7xl px-4 pb-24 pt-5 sm:px-6 lg:px-8">
           <div className="flex flex-col items-center justify-between gap-3 md:flex-row">
             <p className="text-center text-sm text-slate-500 md:text-left">
               © {currentYear} <span className="font-semibold text-slate-200">WISER CONSULTING</span>. All rights reserved.

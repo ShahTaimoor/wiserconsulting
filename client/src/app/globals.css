@@ -176,3 +176,22 @@
     box-shadow: 0 0 0 1.5px #92400e, 0 0 10px 4px rgba(250, 204, 21, 0.85);
   }
 }
+
+/*
+ * The chat bubble of the public site (components/chat/ChatWidget.tsx): a gentle ring that spreads from the button, until the panel has been
+ * opened once in a session. It moves only when the visitor has not asked for reduced motion; otherwise the bubble is still.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .chat-bubble-pulse {
+    animation: chat-bubble-pulse 2.8s ease-out infinite;
+  }
+}
+@keyframes chat-bubble-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(4, 120, 87, 0.5), 0 0 0 2px #ffffff;
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 14px rgba(4, 120, 87, 0), 0 0 0 2px #ffffff;
+  }
+}
