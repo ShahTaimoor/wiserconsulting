@@ -9,7 +9,7 @@ const securityLog = require('../utils/securityLog');
 const escapeHtml = require('../utils/escapeHtml');
 const { AppError } = require("../middleware/errorHandler");
 const logger = require("../utils/logger");
-const nodemailer = require("nodemailer");
+const { sendMail } = require("../config/mail");
 const r2 = require("../config/r2");
 
 class FormSubmissionService {
@@ -357,16 +357,7 @@ class FormSubmissionService {
     }
 
     try {
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-      });
-
       const mailOptions = {
-        from: process.env.EMAIL_USER,
         to: submission.email,
         subject: `Document Review Update - ${escapeHtml(submission.name)}`,
         html: `
@@ -401,10 +392,11 @@ class FormSubmissionService {
         `,
       };
 
-      await transporter.sendMail(mailOptions);
-      logger.info("Comment email sent successfully");
+      // The mail helper never throws and logs only a reason code; a missing mail setting (local development) just skips the email.
+      const result = await sendMail({ ...mailOptions, label: "comment_update" });
+      if (result.sent) logger.info("Comment email sent successfully");
     } catch (error) {
-      logger.error("Error sending email:", error);
+      logger.error("Comment email could not be prepared", { name: error && error.name });
       // Don't throw error - email failure shouldn't break the flow
     }
   }
