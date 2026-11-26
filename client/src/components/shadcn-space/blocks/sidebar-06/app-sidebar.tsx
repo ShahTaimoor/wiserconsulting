@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useTouristVisaAvailability } from "@/hooks/useTouristVisaOpen";
+import { useChatEnabled, useChatUnread } from "@/hooks/useChatAdmin";
+import { UnreadBadge } from "@/components/admin/chat/UnreadBadge";
 import { useSettings } from "@/context/SettingsContext";
 import { useAppSelector } from "@/redux/hooks";
 
@@ -55,6 +57,9 @@ function itemsForSidebar(touristVisaOpen: boolean): NavItem[] {
   return [...navData.slice(0, at + 1), touristVisaItem, ...navData.slice(at + 1)];
 }
 
+/** The Contact item. While the chat is switched on it is called "Contact" and carries the yellow badge with the total of unread messages. */
+const CONTACT_HREF = "/admin/contacts";
+
 /** The page the visitor is on: the link whose address is the current one (or the start of it). The website link is never "current". */
 function isCurrent(pathname: string | null, href?: string) {
   if (!pathname || !href || href === "/") return false;
@@ -72,6 +77,8 @@ function initialsOf(name?: string) {
 
 export function AppSidebar() {
   const items = itemsForSidebar(useTouristVisaAvailability() === "open");
+  const chatOn = useChatEnabled() === "open";
+  const chatUnread = useChatUnread(chatOn).unread; // one poller for the whole tab, every 30 seconds while the tab is visible
   const pathname = usePathname();
   const { settings } = useSettings();
   const user = useAppSelector((state) => state.auth.user);
@@ -125,7 +132,8 @@ export function AppSidebar() {
                     >
                       {Icon && <Icon className="h-[18px] w-[18px]" strokeWidth={2} />}
                     </span>
-                    <span className="flex-1 truncate">{item.title}</span>
+                    <span className="flex-1 truncate">{item.href === CONTACT_HREF && chatOn ? "Contact" : item.title}</span>
+                    {item.href === CONTACT_HREF && chatOn && <UnreadBadge count={chatUnread} />}
                     <ChevronRight className={`h-4 w-4 shrink-0 transition-all ${current ? "opacity-90" : "opacity-0 group-hover:translate-x-0.5 group-hover:opacity-60"}`} />
                   </Link>
                 );

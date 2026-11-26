@@ -149,3 +149,30 @@
   scrollbar-width: thin;
   scrollbar-color: #059669 #f1f5f9; /* emerald-600 thumb, slate-100 track */
 }
+
+/*
+ * The yellow unread badge of the admin chat inbox (components/admin/chat/UnreadBadge.tsx).
+ * Colours (WCAG contrast, checked by client/src/utils/chatAdmin.test.mjs):
+ *   fill #facc15 with text #111827 (about 11.6:1), and a dark amber ring #92400e (about 7.1:1 against white), so the badge's edge is clear on a
+ *   white sidebar, where yellow alone would be only about 1.5:1; on a dark page the yellow itself is about 12:1.
+ * The glow moves only when the visitor has not asked for reduced motion; otherwise the badge is a still yellow circle with its ring.
+ */
+.chat-unread-badge {
+  background-color: #facc15;
+  color: #111827;
+  box-shadow: 0 0 0 1.5px #92400e;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .chat-unread-badge {
+    animation: chat-unread-glow 2.4s ease-in-out infinite;
+  }
+}
+@keyframes chat-unread-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1.5px #92400e, 0 0 3px 1px rgba(250, 204, 21, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 1.5px #92400e, 0 0 10px 4px rgba(250, 204, 21, 0.85);
+  }
+}
