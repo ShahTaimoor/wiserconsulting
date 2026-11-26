@@ -9,6 +9,8 @@ import { useAppSelector } from "@/redux/hooks";
 import { isAdminRole } from "@/utils/authRole";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import dynamic from "next/dynamic";
+import { useChatEnabled, useChatUnread } from "@/hooks/useChatAdmin";
+import { UnreadBadge } from "@/components/admin/chat/UnreadBadge";
 
 // Dynamically import AppSidebar to prevent SSR
 const AppSidebar = dynamic(
@@ -24,6 +26,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useAppSelector((state) => state.auth);
   const [mounted, setMounted] = useState(false);
+  // On a phone the sidebar is hidden behind the menu button, so the unread total of the chat is shown on that button too.
+  const chatOn = useChatEnabled() === "open" && Boolean(user) && isAdminRole(user?.role);
+  const chatUnread = useChatUnread(chatOn).unread;
 
   useEffect(() => {
     setMounted(true);
@@ -67,7 +72,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         {/* Modern Admin Header */}
         <header className="flex h-14 shrink-0 items-center justify-between gap-2 rounded-xl bg-background px-4 shadow-sm w-full">
           <div className="flex items-center gap-2">
-            <SidebarTrigger className="cursor-pointer" />
+            <span className="relative inline-flex">
+              <SidebarTrigger className="cursor-pointer" />
+              <span className="pointer-events-none absolute -top-2.5 left-[55%] md:hidden">
+                <UnreadBadge count={chatUnread} />
+              </span>
+            </span>
             <div className="h-4 w-[1px] bg-slate-200 mx-2" />
             <h1 className="text-sm font-semibold text-gray-900 truncate">Admin Panel</h1>
           </div>
