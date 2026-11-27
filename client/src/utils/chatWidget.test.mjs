@@ -404,7 +404,7 @@ test("the bubble: a real button with a name, bottom right clear of a phone's hom
   assert.match(html, /\bfixed\b/);
   assert.match(html, /bottom-\[max\(1rem,env\(safe-area-inset-bottom\)\)\]/);
   assert.match(html, /right-\[max\(1rem,env\(safe-area-inset-right\)\)\]/);
-  assert.match(html, /\bz-\[35\]/, "under the Navbar (50), the menu's dim layer (40) and every dialog");
+  assert.match(html, /\bz-\(--z-chat-bubble\)/, "the bubble's layer is the named one (35): under the navbar (50), the phone menu, the chat panel and every dialog");
   assert.match(html, /\bh-14\b/);
   assert.match(html, /\bw-14\b/, "56 px, a comfortable tap target");
   assert.match(html, /focus-visible:ring-4/, "a visible focus ring");
@@ -536,4 +536,78 @@ test("the pulse moves only when reduced motion is not requested: the animation i
   assert.match(before, /@media \(prefers-reduced-motion: no-preference\)/, "the class is only styled inside the media query");
   assert.equal((css.match(/animation:\s*chat-bubble-pulse/g) || []).length, 1);
   assert.equal((css.match(/\.chat-bubble-pulse/g) || []).length, 1, "there is no plain rule that animates it");
+});
+
+// ---------------------------------------------------------------------------
+// The panel's height rule, the bubble that becomes an X, and the stacking scale
+// ---------------------------------------------------------------------------
+
+import {
+  BUBBLE_SIZE_PX,
+  BUBBLE_INSET_PX,
+  PANEL_GAP_PX,
+  PANEL_TOP_GAP_PX,
+  PANEL_MAX_HEIGHT_PX,
+  panelBottomPx,
+  panelHeightPx,
+  panelTopPx,
+  bubbleView,
+} from "./chatWidget.ts";
+
+test("PANEL HEIGHT: at most 640 px, and never more than the window minus the bubble, the gaps and the top gap", () => {
+  assert.equal(panelBottomPx(), 16 + 56 + 16, "the card's bottom edge sits just above the bubble");
+  assert.equal(panelHeightPx(1000), 640, "a tall window: the usual 640 px");
+  assert.equal(panelHeightPx(900), 640);
+  assert.equal(panelHeightPx(740), 640, "exactly the window that holds 640 + 88 + 12");
+  assert.equal(panelHeightPx(739), 639);
+  assert.equal(panelHeightPx(600), 500);
+  assert.equal(panelHeightPx(500), 400);
+  assert.equal(panelHeightPx(300), 200);
+  assert.equal(panelHeightPx(100), 0, "a window too small for the card gives 0, never a negative height");
+  assert.equal(panelHeightPx(0), 0);
+  for (const odd of [undefined, null, NaN, Infinity, "600", {}, -50]) assert.equal(panelHeightPx(odd), 0, String(odd));
+});
+
+test("PANEL TOP: the card's top edge is never above the top gap, so its header and close button can never go off-screen", () => {
+  for (let height = 200; height <= 2400; height += 7) {
+    const top = panelTopPx(height);
+    assert.ok(top >= PANEL_TOP_GAP_PX, `a ${height} px window: the top is ${top}`);
+    assert.ok(panelHeightPx(height) + panelBottomPx() <= height, `a ${height} px window: the card fits above its bottom edge`);
+  }
+  assert.equal(panelTopPx(600), 600 - 88 - 500);
+  assert.equal(panelTopPx(1440), 1440 - 88 - 640);
+});
+
+test("PANEL CLASSES: the Tailwind classes of the card are written from the same numbers as panelHeightPx (so the rule and the page agree)", () => {
+  const source = fs.readFileSync(new URL("../components/chat/ChatWidget.tsx", import.meta.url), "utf8");
+  const rem = (px) => `${px / 16}rem`;
+  const inset = "max(1rem,env(safe-area-inset-bottom))";
+  assert.equal(BUBBLE_INSET_PX, 16);
+  assert.ok(source.includes(`sm:bottom-[calc(${inset}+${rem(BUBBLE_SIZE_PX + PANEL_GAP_PX)})]`), "the bottom edge is the bubble's inset + 56 + 16");
+  assert.ok(source.includes(`sm:h-[min(${PANEL_MAX_HEIGHT_PX}px,calc(100dvh-${inset}-${rem(BUBBLE_SIZE_PX + PANEL_GAP_PX + PANEL_TOP_GAP_PX)}))]`), "the height is min(640, window - inset - 56 - 16 - 12)");
+  assert.ok(source.includes("z-(--z-chat-panel)"), "the card is above the navbar, by the named scale");
+  assert.ok(source.includes("fixed inset-0") && source.includes("sm:inset-auto"), "a full-height sheet on a phone, a card from 640 px");
+  assert.equal(/\bz-\[\d+\]/.test(source), false, "no raw z-index numbers in the chat widget");
+});
+
+test("BUBBLE STATE: the chat icon with the unread count while closed; an X named Close the chat while open (not drawn on a phone, where the sheet covers it)", () => {
+  assert.deepEqual(bubbleView({ open: false, unread: 0 }), { icon: "chat", label: "Chat with us", hiddenOnPhone: false });
+  assert.deepEqual(bubbleView({ open: false, unread: 3 }), { icon: "chat", label: "Chat with us, 3 unread messages", hiddenOnPhone: false });
+  assert.deepEqual(bubbleView({ open: false, unread: 1 }), { icon: "chat", label: "Chat with us, 1 unread message", hiddenOnPhone: false });
+  assert.deepEqual(bubbleView({ open: true, unread: 5 }), { icon: "close", label: "Close the chat", hiddenOnPhone: true }, "open: an X, whatever the unread count");
+  assert.deepEqual(bubbleView({ open: true, unread: 0 }), { icon: "close", label: "Close the chat", hiddenOnPhone: true });
+});
+
+test("STACKING SCALE: the named layers in globals.css are in the right order, and nothing in the navbar or the chat uses a raw number", () => {
+  const css = fs.readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+  const z = Object.fromEntries([...css.matchAll(/--z-([a-z-]+):\s*(\d+);/g)].map((m) => [m[1], Number(m[2])]));
+  assert.deepEqual(Object.keys(z).sort(), ["chat-bubble", "chat-panel", "dialog", "navbar", "nav-sheet", "popover", "toast"].sort());
+  assert.ok(z["chat-bubble"] < z.navbar, "the bubble is under the navbar (they never meet)");
+  assert.ok(z.navbar < z["nav-sheet"], "the phone menu covers the navbar");
+  assert.ok(z["nav-sheet"] < z["chat-panel"], "the chat panel is above the navbar and its menu sheet");
+  assert.ok(z["chat-panel"] < z.dialog, "modal dialogs cover the chat panel");
+  assert.ok(z.dialog < z.popover, "the avatar menu is above the panel and dialogs' page");
+  assert.ok(z.popover < z.toast);
+  assert.equal(z.dialog, 60, "the dialogs the site already has use z-[60]");
+  assert.ok(css.includes("The stacking scale of the public site"), "the scale is documented where the numbers are");
 });

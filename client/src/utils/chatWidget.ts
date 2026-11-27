@@ -86,6 +86,61 @@ export function bubbleLabel(unread: unknown): string {
   return spoken ? `Chat with us, ${spoken.charAt(0).toLowerCase()}${spoken.slice(1)}` : "Chat with us";
 }
 
+// ---------------------------------------------------------------------------
+// The panel's size and the bubble's look while the panel is open
+// ---------------------------------------------------------------------------
+
+/** The round bubble is 56 px, 16 px from the corner; the card sits 16 px above it; at the top the card keeps a 12 px gap to the window's edge. */
+export const BUBBLE_SIZE_PX = 56;
+export const BUBBLE_INSET_PX = 16;
+export const PANEL_GAP_PX = 16;
+export const PANEL_TOP_GAP_PX = 12;
+export const PANEL_MAX_HEIGHT_PX = 640;
+
+/** Where the card's bottom edge is, counted from the bottom of the window: just above the bubble. */
+export function panelBottomPx(): number {
+  return BUBBLE_INSET_PX + BUBBLE_SIZE_PX + PANEL_GAP_PX;
+}
+
+/**
+ * The height of the desktop card for a window of this height: at most 640 px, and never more than the window minus the bubble, the gaps and the
+ * top gap, so the card's header and close button stay on screen (and below the top edge by the gap). 0 for a window that cannot hold it.
+ * The Tailwind classes of ChatWidget are written from the same numbers (a test checks they agree).
+ */
+export function panelHeightPx(viewportHeight: unknown): number {
+  const height = typeof viewportHeight === "number" && Number.isFinite(viewportHeight) ? Math.floor(viewportHeight) : 0;
+  return Math.max(0, Math.min(PANEL_MAX_HEIGHT_PX, height - panelBottomPx() - PANEL_TOP_GAP_PX));
+}
+
+/** The distance from the top of the window to the card's top edge (the card is anchored at its bottom). */
+export function panelTopPx(viewportHeight: unknown): number {
+  const height = typeof viewportHeight === "number" && Number.isFinite(viewportHeight) ? Math.floor(viewportHeight) : 0;
+  return height - panelBottomPx() - panelHeightPx(height);
+}
+
+/** The floating navbar's bottom edge (12 px gap + 68 px bar). A card whose top is above this line covers the right end of the bar. */
+export const NAVBAR_BOTTOM_PX = 80;
+
+/**
+ * Is the open panel modal? On a phone it is a full-screen sheet, so yes. On a larger screen it is a card that leaves the page usable, EXCEPT in a
+ * window so short that the card reaches up over the navbar (its top is above the bar's bottom edge, which is every window under 808 px tall):
+ * there the controls under the card cannot be clicked, so the keyboard must not reach them either. The panel then holds the focus (Tab stays
+ * inside it) until it is closed with Escape or its X, exactly as the phone sheet does.
+ */
+export function panelIsModal({ phone, viewportHeight }: { phone: boolean; viewportHeight: unknown }): boolean {
+  if (phone) return true;
+  const height = typeof viewportHeight === "number" && Number.isFinite(viewportHeight) ? viewportHeight : 0;
+  return height > 0 && panelTopPx(height) < NAVBAR_BOTTOM_PX;
+}
+
+/**
+ * The bubble while the panel is open becomes a close button (an X, named "Close the chat"); on a phone the sheet covers the bubble, so it is
+ * not drawn there (the sheet has its own close button). While the panel is closed it is the chat icon with the unread count in its name.
+ */
+export function bubbleView({ open, unread }: { open: boolean; unread: unknown }): { icon: "chat" | "close"; label: string; hiddenOnPhone: boolean } {
+  return open ? { icon: "close", label: "Close the chat", hiddenOnPhone: true } : { icon: "chat", label: bubbleLabel(unread), hiddenOnPhone: false };
+}
+
 /** Which of the two things is polled: the light unread check while the panel is closed, or the conversation while it is open. Never for a logged-out visitor. */
 export function pollPlan({ signedIn, chatOn, onChatPage, isAdmin, panelOpen, sessionExpired, offline }: { signedIn: boolean; chatOn: boolean; onChatPage: boolean; isAdmin: boolean; panelOpen: boolean; sessionExpired: boolean; offline: boolean }): "none" | "badge" | "conversation" {
   if (!signedIn || !chatOn || !onChatPage || isAdmin || sessionExpired) return "none";

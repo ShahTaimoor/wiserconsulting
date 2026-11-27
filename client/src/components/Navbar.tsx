@@ -1,48 +1,61 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { Menu, X, Phone, LogOut, MessageSquare, User as UserIcon } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { Menu, X, Phone, Mail, LogOut, MessageSquare, LayoutDashboard, User as UserIcon } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { logout } from "@/redux/slices/auth/authSlice";
 import { useSettings } from "@/context/SettingsContext";
-
 import { usePathname, useRouter } from "next/navigation";
 import { requestAssessmentForm } from "@/utils/assessmentForm";
 import { useTouristVisaEntry } from "@/hooks/useTouristVisaEntry";
-import { navbarButtonText } from "@/utils/safeRedirect";
 import { requestCommentsPanel, useCommentsViewed } from "@/utils/commentsPanel";
 import { fetchAdminComments } from "@/redux/slices/formSubmission/formSubmissionSlice";
 import { isAdminRole } from "@/utils/authRole";
-import { LayoutDashboard } from "lucide-react";
+import { navbarButtonText } from "@/utils/safeRedirect";
+import { announceOverlayOpen, subscribeOverlays } from "@/utils/overlays";
+import { NAV_LINKS, activeNavHref, avatarMenuItems, highlightBox, isCompact, navbarCompactText, userInitials } from "@/utils/navbar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+/**
+ * The public site's navbar: ONE floating "glass pill" that sits a few pixels below the top edge on every page that has a navbar. After the page is
+ * scrolled the same bar compacts a little and its shadow deepens (no second bar). Its pieces:
+ *
+ *  - desktop (768 px and up): the logo, the links Home / About / Services / Contact with a highlight that slides to the current page, the orange
+ *    primary button, and either a "Sign in" link (signed out) or ONE round avatar menu (signed in: Comments, Admin dashboard for administrators,
+ *    Log out). The phone number and the person's name are not in the bar (the number is in the phone menu, the footer and the Contact page);
+ *  - phone: the logo, a compact orange button and a menu button; the menu is a full-height sheet (the links, the account actions, the phone number
+ *    and email, and the full-width primary button at the bottom) that holds the keyboard focus, closes with Escape and on every page change, and
+ *    stops the page behind it from scrolling.
+ *
+ * Unchanged on purpose: the primary button's words (navbarButtonText: "Apply for UK Tourist Visa" while the Tourist Visa form is open, "Fill
+ * Form" otherwise), where it goes (the application when signed in, the sign-up page carrying next when not; the old documents popup while the form
+ * is closed), what administrators see, and the Comments logic. Stacking: the names in globals.css (z-(--z-navbar), z-(--z-nav-sheet), z-(--z-popover)).
+ * Motion is small (the sliding highlight, the compacting, the sheet opening) and stops for people who ask for reduced motion.
+ */
+const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2";
+
 const Navbar = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [compact, setCompact] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false); // the avatar menu
   const pathname = usePathname();
   const router = useRouter();
-  // "Fill Form" goes to the Tourist Visa application (its Documents section has the uploads) while that form is open; otherwise it
+  const sheetId = useId();
+
+  // The primary button goes to the Tourist Visa application (its Documents section has the uploads) while that form is open; otherwise it
   // opens the documents popup as before.
   const touristVisaEntry = useTouristVisaEntry();
-  // The button says "Apply for UK Tourist Visa" while the form is open and "Fill Form" otherwise. The longer words need the bar's
-  // layout tightened (no wrapping, a little less padding, and no phone number between 768 and 1279 px, where there is no room); while
-  // the form is closed every class is exactly what it always was.
-  const formOpen = touristVisaEntry.open;
-  const applyText = navbarButtonText(formOpen);
-  const phoneShown = formOpen ? "hidden sm:flex md:hidden xl:flex" : "hidden sm:flex";
-  const actionsNoWrap = formOpen ? " whitespace-nowrap" : "";
-  const applyPadding = formOpen ? "whitespace-nowrap px-3 lg:px-4" : "px-4";
-  // Between 768 and 1023 px a signed-in person's bar has no room for the name as well: only the round icon shows (the name is the button's label).
-  const userNameShown = formOpen ? "hidden lg:inline " : "";
+  const applyText = navbarButtonText(touristVisaEntry.open);
+  const compactText = navbarCompactText(touristVisaEntry.open);
   const openAssessment = () => {
     if (touristVisaEntry.open) {
       router.push(touristVisaEntry.href);
@@ -51,17 +64,15 @@ const Navbar = () => {
     requestAssessmentForm(pathname, (url) => router.push(url));
   };
 
-  const isLightPage = pathname === '/about' || pathname === '/services' || pathname === '/contact';
-  const isLegalPage = pathname === '/privacy' || pathname === '/terms';
-
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
-  const { settings, loading: settingsLoading } = useSettings();
+  const { settings } = useSettings();
   const commentsViewed = useCommentsViewed();
   const adminComments = useAppSelector((state) => state.formSubmission.adminComments);
   const currentSubmission = useAppSelector((state) => state.formSubmission.currentSubmission);
   // Only the comments on this customer's own documents are counted.
   const commentCount = adminComments.filter((c) => currentSubmission?.documents.some((d) => d._id === c.documentId)).length;
+  const showCommentCount = commentCount > 0 && !commentsViewed;
   // The home page loads the comments itself; on any other page the navbar does, so the red counter is right everywhere.
   useEffect(() => {
     if (user?.email && pathname !== "/" && !isAdminRole(user.role)) {
@@ -74,642 +85,409 @@ const Navbar = () => {
   const displayTitle = settings.websiteTitle || "WISER CONSULTING";
   const displayPhone = settings.phoneNumber || "+923709706643";
 
+  // The signed-in person is only known in the browser (the store is read from localStorage), so the account parts wait for the page to mount.
   useEffect(() => {
     setMounted(true);
   }, []);
+  const signedIn = mounted && Boolean(user);
+  const items = signedIn ? avatarMenuItems(user) : [];
 
+  // ---------------------------------------------------------------- one bar that compacts
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 20);
-    handleScroll();
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    const update = () => setCompact(isCompact(window.scrollY));
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
   }, []);
 
-  // Handle escape key to close sidebar
+  // ---------------------------------------------------------------- the highlight that slides to the current page
+  const activeHref = activeNavHref(pathname);
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const linkRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
+  const [box, setBox] = useState<{ x: number; width: number } | null>(null);
+  const [slide, setSlide] = useState(false); // false until the first measurement is on screen, so the highlight does not fly in from the left on load
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
-        setIsOpen(false);
-      }
+    const measure = () => {
+      const row = rowRef.current;
+      const link = activeHref ? linkRefs.current[activeHref] : null;
+      setBox(row && link ? highlightBox(link.getBoundingClientRect(), row.getBoundingClientRect()) : null);
     };
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [isOpen]);
-
-  // Lock body scroll when sidebar is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
+    measure();
+    const frame = requestAnimationFrame(() => setSlide(true));
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    if (observer && rowRef.current) observer.observe(rowRef.current);
+    window.addEventListener("resize", measure);
+    void document.fonts?.ready.then(measure);
     return () => {
-      document.body.style.overflow = "unset";
+      cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener("resize", measure);
     };
-  }, [isOpen]);
+  }, [activeHref]);
+
+  // ---------------------------------------------------------------- the phone menu sheet
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const closeRef = useRef<HTMLButtonElement | null>(null);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const wasOpen = useRef(false);
+  const closeSheet = useCallback(() => setSheetOpen(false), []);
+  const openSheet = () => {
+    announceOverlayOpen("nav-sheet"); // an open chat panel closes: one floating layer at a time
+    setSheetOpen(true);
+  };
+
+  // One floating layer at a time: when the chat panel opens, an open avatar menu or phone sheet closes WITHOUT handing the focus back to its
+  // button (the chat panel has just taken it). Closing by the person (Escape, a link, the X) still returns the focus as before.
+  const menuOpenRef = useRef(false);
+  const sheetOpenRef = useRef(false);
+  const skipMenuFocus = useRef(false);
+  const skipSheetFocus = useRef(false);
+  menuOpenRef.current = menuOpen;
+  sheetOpenRef.current = sheetOpen;
+  useEffect(
+    () =>
+      subscribeOverlays("avatar-menu", () => {
+        if (menuOpenRef.current) skipMenuFocus.current = true;
+        setMenuOpen(false);
+      }),
+    [],
+  );
+  useEffect(
+    () =>
+      subscribeOverlays("nav-sheet", () => {
+        if (sheetOpenRef.current) skipSheetFocus.current = true;
+        setSheetOpen(false);
+      }),
+    [],
+  );
+
+  // A new page closes it (a link to the page you are already on is closed by its own click).
+  useEffect(() => {
+    setSheetOpen(false);
+  }, [pathname]);
+
+  // While it is open: Escape closes it, and the page behind does not scroll. The keyboard focus goes in, and back to the menu button after.
+  useEffect(() => {
+    if (!sheetOpen) {
+      if (wasOpen.current && !skipSheetFocus.current) menuButtonRef.current?.focus();
+      skipSheetFocus.current = false;
+      wasOpen.current = false;
+      return undefined;
+    }
+    wasOpen.current = true;
+    const saved = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSheetOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = saved;
+    };
+  }, [sheetOpen]);
+
+  // Tab and Shift+Tab stay inside the open sheet.
+  const trapTab = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Tab" || !sheetRef.current) return;
+    const focusable = Array.from(sheetRef.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'));
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
   const handleLogout = () => {
     dispatch(logout());
-    setIsOpen(false);
+    setSheetOpen(false);
   };
 
-  // Smooth close handler
-  const handleClose = () => {
-    setIsOpen(false);
-  };
-
-  // The Home / About / Services / Contact links were removed (those homepage sections are gone). Add entries here
-  // as { id, href, label } to bring a menu link back; the desktop bar, the mobile menu and the scroll-spy all read this list.
-  const baseNavLinks: { id: string; href: string; label: string }[] = [];
-
-  const navLinks = baseNavLinks;
-
-  // Smooth-scroll to the matching section when already on the homepage;
-  // otherwise let the Link navigate to "/#id" and the browser scrolls after load.
-  const handleSectionNavClick = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
-    if (pathname === "/") {
-      e.preventDefault();
-      document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-    }
-    setIsOpen(false);
-  };
-
-  // Scroll-spy: highlight whichever section is currently in view, whether the
-  // user got there by clicking a nav link or by scrolling manually. Only runs
-  // client-side (mounted) and only on the homepage, where the sections exist.
-  // Re-runs when `pathname` changes so it (re)attaches after navigating back
-  // to "/" from another route (e.g. a "/#about" link clicked from /privacy).
-  useEffect(() => {
-    if (!mounted || pathname !== "/") {
-      setActiveSection(null);
-      return;
-    }
-
-    const sections = navLinks
-      .map((link) => document.getElementById(link.id))
-      .filter((el): el is HTMLElement => el !== null);
-
-    if (sections.length === 0) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setActiveSection(entry.target.id);
-          }
-        });
-      },
-      // Active "trigger line" sits just below the fixed navbar and extends
-      // through the top ~40% of the viewport - a natural spot for a section
-      // to be considered "current" without feeling early or late.
-      { rootMargin: "-100px 0px -60% 0px", threshold: 0 }
-    );
-
-    sections.forEach((section) => observer.observe(section));
-
-    return () => observer.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted, pathname]);
+  const initials = user ? userInitials(user.name) : "";
+  const slideClass = slide ? "transition-[transform,width,opacity] duration-300 ease-out motion-reduce:transition-none" : "";
 
   return (
     <>
-      <nav className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${isScrolled ? "bg-transparent px-3 py-3 sm:px-4" : (isLightPage || isLegalPage ? "bg-slate-900" : "bg-transparent")}`}>
-        {isScrolled ? (
-          <div className="mx-auto flex max-w-7xl items-center justify-between rounded-full border border-white/70 bg-white/95 px-4 py-2 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.2)] backdrop-blur-xl">
-            <Link href="/" className="flex shrink-0 items-center gap-3">
-              <img
-                src={displayLogo}
-                alt={displayTitle}
-                className="h-12 w-auto rounded-2xl object-contain"
-              />
-              <div className="hidden sm:flex flex-col leading-tight">
-                <span className={`whitespace-nowrap text-sm font-semibold uppercase tracking-[0.25em] ${isLegalPage ? 'text-slate-900 font-bold' : 'text-slate-900'}`}>
-                  {displayTitle}
-                </span>
-                <span
-                  title="YOUR COMPASS FOR GLOBAL EDUCATION, IMMIGRATION & VISIT"
-                  className={`block max-w-[150px] truncate text-[10px] uppercase tracking-[0.15em] sm:max-w-[150px] md:max-w-[140px] lg:max-w-[300px] xl:max-w-[420px] ${isLegalPage ? 'text-emerald-600 font-semibold' : 'text-slate-500'}`}
-                >
-                  YOUR COMPASS FOR GLOBAL EDUCATION, IMMIGRATION & VISIT
-                </span>
-              </div>
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-(--z-popover) focus:rounded-full focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-slate-900 focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-600"
+      >
+        Skip to main content
+      </a>
+
+      <header className={`pointer-events-none fixed inset-x-0 top-0 z-(--z-navbar) px-3 transition-[padding] duration-300 motion-reduce:transition-none sm:px-4 ${compact ? "pt-2" : "pt-3"}`}>
+        <nav
+          aria-label="Main"
+          className={`pointer-events-auto relative mx-auto flex max-w-[1240px] items-center justify-between gap-3 rounded-full border border-white/70 bg-white/95 px-3 ring-1 ring-slate-900/5 backdrop-blur-xl transition-[height,box-shadow] duration-300 motion-reduce:transition-none supports-[backdrop-filter]:bg-white/85 md:px-4 ${
+            compact ? "h-14 shadow-[0_16px_40px_-12px_rgba(15,23,42,0.35)]" : "h-[68px] shadow-[0_8px_28px_-14px_rgba(15,23,42,0.28)]"
+          }`}
+        >
+          <div className="flex min-w-0 flex-1 items-center justify-start">
+            <Link href="/" className={`flex min-h-11 min-w-0 items-center gap-3 rounded-full ${FOCUS}`} aria-label={`${displayTitle} home`}>
+              <img src={displayLogo} alt="" className="h-10 w-auto shrink-0 rounded-xl object-contain" />
+              <span className="hidden min-w-0 flex-col leading-tight lg:flex">
+                <span className="truncate whitespace-nowrap text-sm font-semibold uppercase tracking-[0.2em] text-slate-900">{displayTitle}</span>
+                <span className="hidden max-w-[380px] truncate text-[10px] uppercase tracking-[0.14em] text-slate-600 xl:block">Your compass for global education, immigration &amp; visit</span>
+              </span>
             </Link>
-
-            <div className="hidden md:flex flex-1 items-center justify-center gap-8 px-4">
-              {navLinks.map((link) => {
-                const isActive = activeSection === link.id;
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={(e) => handleSectionNavClick(e, link.id)}
-                    className={`relative pb-1 text-sm font-semibold transition-colors ${isActive ? "text-emerald-600" : "text-slate-700 hover:text-emerald-600"
-                      }`}
-                  >
-                    {link.label}
-                    {isActive && (
-                      <motion.span
-                        layoutId="nav-active-indicator"
-                        className="absolute inset-x-0 -bottom-0.5 h-0.5 rounded-full bg-emerald-500"
-                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                      />
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <div className={`${phoneShown} items-center gap-4 text-sm${actionsNoWrap}`}>
-                <div className="flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-slate-950 shadow-sm shadow-slate-950/10 dark:bg-slate-950 dark:text-slate-50 dark:shadow-slate-950/20">
-                  <Phone size={18} />
-                  <span className="font-semibold">{displayPhone}</span>
-                </div>
-              </div>
-
-              <div className={`hidden md:flex items-center gap-2${actionsNoWrap}`}>
-                <button
-                  type="button"
-                  onClick={openAssessment}
-                  className={`inline-flex items-center justify-center rounded-full bg-orange-300 ${applyPadding} py-2 text-xs font-semibold text-slate-950 shadow-sm transition hover:bg-orange-200`}
-                >
-                  {applyText}
-                </button>
-                {mounted && user && (
-                  <button
-                    type="button"
-                    onClick={openComments}
-                    className="relative inline-flex items-center justify-center gap-1.5 rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-800 transition hover:border-emerald-400 hover:text-emerald-600"
-                  >
-                    <MessageSquare size={14} />
-                    Comments
-                    {commentCount > 0 && !commentsViewed && (
-                      <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white shadow animate-pulse">
-                        {commentCount}
-                      </span>
-                    )}
-                  </button>
-                )}
-                {mounted && user ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button aria-label={user.name} className="flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 transition hover:bg-slate-200">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10">
-                          <UserIcon className="text-emerald-600" size={14} />
-                        </div>
-                        <span className={`${userNameShown}max-w-[100px] truncate text-xs font-semibold text-slate-800`}>{user.name}</span>
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {isAdminRole(user.role) && (
-                        <DropdownMenuItem asChild>
-                          <Link href="/admin/products" className="flex cursor-pointer items-center gap-2">
-                            <LayoutDashboard size={14} />
-                            Admin
-                          </Link>
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem
-                        onClick={handleLogout}
-                        className="cursor-pointer gap-2 text-red-600 focus:text-red-600"
-                      >
-                        <LogOut size={14} />
-                        Logout
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : (
-                  <>
-                    <Link
-                      href="/login"
-                      className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-4 py-2 text-xs font-semibold text-slate-950 shadow-sm transition hover:bg-emerald-400"
-                    >
-                      Sign In
-                    </Link>
-                    <Link
-                      href="/register"
-                      className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-800 transition hover:border-emerald-400 hover:text-emerald-600"
-                    >
-                      Sign Up
-                    </Link>
-                  </>
-                )}
-              </div>
-
-              <motion.button
-                onClick={() => setIsOpen(!isOpen)}
-                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200/70 bg-slate-950 text-white shadow-md shadow-slate-950/20 transition hover:bg-slate-800 md:hidden"
-                aria-label="Toggle menu"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <motion.div
-                  key={isOpen ? 'close' : 'menu'}
-                  initial={{ rotate: -90, opacity: 0 }}
-                  animate={{ rotate: 0, opacity: 1 }}
-                  exit={{ rotate: 90, opacity: 0 }}
-                  transition={{ duration: 0.3, ease: "easeInOut" }}
-                >
-                  {isOpen ? <X size={24} /> : <Menu size={24} />}
-                </motion.div>
-              </motion.button>
-            </div>
           </div>
-        ) : (
-          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-            <Link href="/" className="flex shrink-0 items-center gap-3">
-              <img
-                src={displayLogo}
-                alt={displayTitle}
-                className="h-11 w-auto rounded-2xl object-contain"
-              />
-              <div className="hidden sm:flex flex-col leading-tight">
-                <span className={`whitespace-nowrap text-sm font-semibold uppercase tracking-[0.25em] ${isLegalPage ? 'text-white' : 'text-slate-100/90'}`}>
-                  {displayTitle}
-                </span>
-                <span
-                  title="YOUR COMPASS FOR GLOBAL EDUCATION, IMMIGRATION & VISIT"
-                  className={`block max-w-[150px] truncate text-[10px] uppercase tracking-[0.15em] sm:max-w-[150px] md:max-w-[140px] lg:max-w-[300px] xl:max-w-[420px] ${isLegalPage ? 'text-emerald-300' : 'text-slate-300'}`}
-                >
-                  YOUR COMPASS FOR GLOBAL EDUCATION, IMMIGRATION & VISIT
-                </span>
-              </div>
-            </Link>
-            <div className="hidden md:flex flex-1 items-center justify-center gap-8 px-4">
-              {navLinks.map((link) => {
-                const isActive = activeSection === link.id;
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={(e) => handleSectionNavClick(e, link.id)}
-                    className={`relative pb-1 text-sm font-semibold transition-colors ${isActive ? "text-emerald-400" : "text-slate-100/90 hover:text-white"
-                      }`}
-                  >
-                    {link.label}
-                    {isActive && (
-                      <motion.span
-                        layoutId="nav-active-indicator"
-                        className="absolute inset-x-0 -bottom-0.5 h-0.5 rounded-full bg-emerald-400"
-                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                      />
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-            <div className="flex items-center gap-2">
-              <div className={`${phoneShown} items-center gap-4 text-sm${actionsNoWrap}`}>
-                <div className="flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-slate-950 shadow-sm shadow-slate-950/10 dark:bg-slate-950 dark:text-slate-50 dark:shadow-slate-950/20">
-                  <Phone size={18} />
-                  <span className="font-semibold">{displayPhone}</span>
-                </div>
-              </div>
 
-              <div className={`hidden md:flex items-center gap-2${actionsNoWrap}`}>
-                <button
-                  type="button"
-                  onClick={openAssessment}
-                  className={`inline-flex items-center justify-center rounded-full bg-orange-300 ${applyPadding} py-2 text-xs font-semibold text-slate-950 shadow-sm transition hover:bg-orange-200`}
-                >
-                  {applyText}
-                </button>
-                {mounted && user && (
-                  <button
-                    type="button"
-                    onClick={openComments}
-                    className="relative inline-flex items-center justify-center gap-1.5 rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-800 transition hover:border-emerald-400 hover:text-emerald-600"
-                  >
-                    <MessageSquare size={14} />
-                    Comments
-                    {commentCount > 0 && !commentsViewed && (
-                      <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white shadow animate-pulse">
-                        {commentCount}
-                      </span>
-                    )}
-                  </button>
-                )}
-                {mounted && user ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button aria-label={user.name} className="flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 transition hover:bg-white/20">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20">
-                          <UserIcon className="text-emerald-400" size={14} />
-                        </div>
-                        <span className={`${userNameShown}max-w-[100px] truncate text-xs font-semibold text-slate-100`}>{user.name}</span>
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {isAdminRole(user.role) && (
-                        <DropdownMenuItem asChild>
-                          <Link href="/admin/products" className="flex cursor-pointer items-center gap-2">
-                            <LayoutDashboard size={14} />
-                            Admin
-                          </Link>
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem
-                        onClick={handleLogout}
-                        className="cursor-pointer gap-2 text-red-600 focus:text-red-600"
-                      >
-                        <LogOut size={14} />
-                        Logout
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : (
-                  <>
-                    <Link
-                      href="/login"
-                      className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-4 py-2 text-xs font-semibold text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400"
-                    >
-                      Sign In
-                    </Link>
-                    <Link
-                      href="/register"
-                      className="inline-flex items-center justify-center rounded-full border border-emerald-400/40 bg-slate-900/60 px-4 py-2 text-xs font-semibold text-emerald-300 transition hover:border-emerald-300 hover:text-white"
-                    >
-                      Sign Up
-                    </Link>
-                  </>
-                )}
-              </div>
-
-              <motion.button
-                onClick={() => setIsOpen(!isOpen)}
-                className={`flex items-center justify-center h-11 w-11 rounded-2xl border ${isLightPage ? 'border-white/10 bg-slate-800/80 hover:bg-slate-700' : 'border-slate-200/10 bg-slate-950/80 hover:bg-slate-900'} text-slate-100 shadow-2xl shadow-slate-950/30 transition md:hidden`}
-                aria-label="Toggle menu"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <motion.div
-                  key={isOpen ? 'close' : 'menu'}
-                  initial={{ rotate: -90, opacity: 0 }}
-                  animate={{ rotate: 0, opacity: 1 }}
-                  exit={{ rotate: 90, opacity: 0 }}
-                  transition={{ duration: 0.3, ease: "easeInOut" }}
-                >
-                  {isOpen ? <X size={24} /> : <Menu size={24} />}
-                </motion.div>
-              </motion.button>
-            </div>
-          </div>
-        )}
-      </nav>
-
-      <AnimatePresence mode="wait">
-        {isOpen && (
-          <>
-            {/* Backdrop for clicking outside */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.35, ease: 'easeInOut' }}
-              onClick={handleClose}
-              onPointerDown={handleClose}
-              className="fixed inset-0 z-40 bg-slate-950/20 backdrop-blur-[2px] cursor-pointer"
-              style={{ pointerEvents: 'auto' }}
+          <div ref={rowRef} className="relative hidden items-center gap-1 md:flex">
+            <span
+              aria-hidden
+              className={`pointer-events-none absolute left-0 top-1/2 h-9 rounded-full bg-emerald-600/10 ring-1 ring-emerald-600/15 ${slideClass}`}
+              style={box ? { width: box.width, transform: `translate(${box.x}px, -50%)`, opacity: 1 } : { width: 0, transform: "translate(0px, -50%)", opacity: 0 }}
             />
-            <motion.section
-              initial={{ x: '100%', opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: '100%', opacity: 0 }}
-              transition={{
-                type: 'tween',
-                duration: 0.35,
-                ease: 'easeInOut',
-              }}
-              className="fixed inset-y-0 right-0 z-50 w-full md:w-1/2 bg-slate-950/95 backdrop-blur-xl text-slate-100 shadow-2xl shadow-slate-950/30"
-              style={{ pointerEvents: 'auto', transformOrigin: 'right' }}
+            {NAV_LINKS.map((link) => {
+              const isActive = activeHref === link.href;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  ref={(element) => {
+                    linkRefs.current[link.href] = element;
+                  }}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`relative z-10 inline-flex h-10 items-center rounded-full px-3.5 text-sm font-semibold transition-colors motion-reduce:transition-none ${FOCUS} ${isActive ? "text-emerald-800" : "text-slate-700 hover:text-slate-950"}`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-1 items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={openAssessment}
+              className={`hidden h-10 items-center justify-center whitespace-nowrap rounded-[12px] bg-orange-300 px-4 text-sm font-semibold text-slate-950 shadow-sm transition-colors hover:bg-orange-200 motion-reduce:transition-none md:inline-flex ${FOCUS}`}
             >
-              <div className="relative flex h-full w-full flex-col justify-between px-6 py-8 sm:px-10 sm:py-12">
-                <motion.div 
-                  className="flex items-center justify-between"
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ delay: 0.08, duration: 0.3, ease: "easeOut" }}
+              {applyText}
+            </button>
+            <button
+              type="button"
+              onClick={openAssessment}
+              aria-label={applyText}
+              className={`inline-flex h-11 items-center justify-center whitespace-nowrap rounded-[12px] bg-orange-300 px-4 text-sm font-semibold text-slate-950 shadow-sm transition-colors hover:bg-orange-200 motion-reduce:transition-none md:hidden ${FOCUS}`}
+            >
+              {compactText}
+            </button>
+
+            {signedIn && user ? (
+              <DropdownMenu
+                open={menuOpen}
+                onOpenChange={(next) => {
+                  setMenuOpen(next);
+                  if (next) announceOverlayOpen("avatar-menu"); // an open chat panel closes
+                }}
+              >
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={`Account menu for ${user.name}`}
+                    className={`relative hidden h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 motion-reduce:transition-none md:flex ${FOCUS}`}
+                  >
+                    {initials || <UserIcon size={18} aria-hidden />}
+                    {showCommentCount && <span aria-hidden className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-red-600" />}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={12}
+                  className="z-(--z-popover) w-64 rounded-2xl p-2"
+                  onCloseAutoFocus={(event) => {
+                    // Closed because the chat panel opened: the panel has the focus, the avatar button must not take it.
+                    if (skipMenuFocus.current) {
+                      skipMenuFocus.current = false;
+                      event.preventDefault();
+                    }
+                  }}
                 >
-                  <Link href="/" className="flex items-center gap-3">
-                    <motion.img
-                      src={displayLogo}
-                      alt={displayTitle}
-                      className="h-12 w-auto rounded-2xl object-contain"
-                      whileHover={{ scale: 1.05 }}
-                      transition={{ duration: 0.2 }}
-                    />
-                    <div className="space-y-1">
-                      <p className="text-xs uppercase tracking-[0.4em] text-emerald-300/90">Wiser</p>
-                      <p className="text-sm font-semibold text-slate-100">Consulting</p>
-                    </div>
-                  </Link>
-                  <motion.button
-                    onClick={handleClose}
-                    className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200/10 bg-slate-900/80 text-slate-100 transition hover:bg-slate-800"
-                    aria-label="Close menu"
-                    whileHover={{ scale: 1.08, backgroundColor: "rgb(15, 23, 42)" }}
-                    whileTap={{ scale: 0.92 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                  >
-                    <motion.div
-                      initial={{ rotate: 0, opacity: 1 }}
-                      exit={{ rotate: 90, opacity: 0 }}
-                      whileHover={{ rotate: 90 }}
-                      transition={{ duration: 0.2, ease: "easeInOut" }}
-                    >
-                      <X size={24} />
-                    </motion.div>
-                  </motion.button>
-                </motion.div>
-
-                <div className="flex flex-col justify-center gap-10 px-2 py-6 sm:px-4">
-                  <div className="space-y-4 md:hidden">
-                    {navLinks.map((link, index) => {
-                      const isActive = activeSection === link.id;
-                      return (
-                        <motion.div
-                          key={link.href}
-                          initial={{ opacity: 0, x: -40 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -40 }}
-                          transition={{
-                            delay: 0.12 + index * 0.08,
-                            duration: 0.4,
-                            ease: "easeOut"
-                          }}
-                        >
-                          <motion.div
-                            whileHover={{ x: 10 }}
-                            transition={{ duration: 0.2, ease: "easeOut" }}
-                          >
-                            <Link
-                              href={link.href}
-                              onClick={(e) => handleSectionNavClick(e, link.id)}
-                              className={`relative inline-block text-3xl font-semibold transition-all duration-300 ${isActive ? "text-emerald-400" : "text-slate-300 hover:text-emerald-300"
-                                }`}
-                            >
-                              {isActive && (
-                                <motion.span
-                                  layoutId="mobile-nav-active-indicator"
-                                  className="absolute -left-4 top-1/2 h-6 w-1.5 -translate-y-1/2 rounded-full bg-emerald-400"
-                                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                                />
-                              )}
-                              {link.label}
-                            </Link>
-                          </motion.div>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-
-                  <motion.div 
-                    className="flex flex-col gap-4"
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 30 }}
-                    transition={{ delay: 0.5, duration: 0.4, ease: "easeOut" }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => { handleClose(); openAssessment(); }}
-                      className="inline-flex w-full items-center justify-center rounded-full bg-orange-300 px-8 py-3 text-sm font-semibold text-slate-950 shadow-lg transition hover:bg-orange-200"
-                    >
-                      {applyText}
-                    </button>
-                    {mounted && user && (
-                      <button
-                        type="button"
-                        onClick={() => { handleClose(); openComments(); }}
-                        className="relative inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-600 bg-slate-900/90 px-8 py-3 text-sm font-semibold text-slate-100 transition hover:border-emerald-300"
-                      >
-                        <MessageSquare size={16} />
-                        Comments
-                        {commentCount > 0 && !commentsViewed && (
-                          <span className="ml-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">{commentCount}</span>
-                        )}
-                      </button>
-                    )}
-                    {mounted && user ? (
-                      <motion.div 
-                        className="flex flex-row flex-wrap items-center justify-between gap-3 px-2 py-4 border-t border-slate-800"
-                        whileHover={{ scale: 1.01 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        {/* User Info */}
-                        <div className="flex items-center gap-3">
-                          <motion.div 
-                            className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/20"
-                            whileHover={{ scale: 1.1, boxShadow: "0 0 20px rgba(16, 185, 129, 0.3)" }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            <UserIcon className="text-emerald-400" size={20} />
-                          </motion.div>
-                          <div className="flex flex-col">
-                            <p className="text-sm font-semibold text-slate-100">{user.name}</p>
-                            <p className="text-[10px] text-slate-400 truncate max-w-[100px]">{user.email}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          {isAdminRole(user.role) && (
-                            <motion.div
-                              whileHover={{ scale: 1.08 }}
-                              whileTap={{ scale: 0.92 }}
-                              transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                            >
-                              <Link
-                                href="/admin/products"
-                                onClick={handleClose}
-                                className="inline-flex items-center justify-center gap-1.5 rounded-full bg-slate-800 border border-slate-700 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-700"
-                              >
-                                <LayoutDashboard size={14} />
-                                Admin
-                              </Link>
-                            </motion.div>
-                          )}
-
-                          <motion.button
-                            onClick={handleLogout}
-                            className="inline-flex items-center justify-center gap-1.5 rounded-full bg-red-500/10 border border-red-500/20 px-4 py-2 text-xs font-semibold text-red-400 transition hover:bg-red-500 hover:text-white"
-                            whileHover={{ scale: 1.08 }}
-                            whileTap={{ scale: 0.92 }}
-                            transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                          >
-                            <LogOut size={14} />
-                            Logout
-                          </motion.button>
-                        </div>
-                      </motion.div>
+                  <DropdownMenuLabel className="px-3 py-2">
+                    <span className="block truncate text-sm font-semibold text-slate-900">{user.name}</span>
+                    {user.email && <span className="block truncate text-xs font-normal text-slate-600">{user.email}</span>}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {items.map((item) =>
+                    item.id === "admin" ? (
+                      <DropdownMenuItem key={item.id} asChild className="min-h-11 cursor-pointer rounded-xl px-3 text-sm">
+                        <Link href={item.href ?? "/admin/products"} className="flex items-center gap-2">
+                          <LayoutDashboard aria-hidden /> {item.label}
+                        </Link>
+                      </DropdownMenuItem>
+                    ) : item.id === "comments" ? (
+                      <DropdownMenuItem key={item.id} onSelect={openComments} className="min-h-11 cursor-pointer gap-2 rounded-xl px-3 text-sm">
+                        <MessageSquare aria-hidden /> {item.label}
+                        {showCommentCount && <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">{commentCount}</span>}
+                      </DropdownMenuItem>
                     ) : (
-                      <motion.div 
-                        className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ delay: 0.55, duration: 0.3, ease: "easeOut" }}
-                      >
-                        <motion.div
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.92 }}
-                          transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                          className="w-full sm:w-auto"
-                        >
-                          <Link
-                            href="/login"
-                            onClick={handleClose}
-                            className="inline-flex w-full sm:w-auto items-center justify-center rounded-full bg-emerald-500 px-8 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/30 transition hover:bg-emerald-400"
-                          >
-                            Sign In
-                          </Link>
-                        </motion.div>
-                        <motion.div
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.92 }}
-                          transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                          className="w-full sm:w-auto"
-                        >
-                          <Link
-                            href="/register"
-                            onClick={handleClose}
-                            className="inline-flex w-full sm:w-auto items-center justify-center rounded-full border border-emerald-400/40 bg-slate-900/90 px-8 py-3 text-sm font-semibold text-emerald-300 transition hover:border-emerald-300 hover:text-white"
-                          >
-                            Sign Up
-                          </Link>
-                        </motion.div>
-                      </motion.div>
-                    )}
-                  </motion.div>
-                </div>
+                      <DropdownMenuItem key={item.id} onSelect={handleLogout} className="min-h-11 cursor-pointer gap-2 rounded-xl px-3 text-sm text-red-700 focus:bg-red-50 focus:text-red-800">
+                        <LogOut aria-hidden /> {item.label}
+                      </DropdownMenuItem>
+                    ),
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Link
+                href="/login"
+                className={`hidden h-10 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-900/5 hover:text-slate-950 motion-reduce:transition-none md:inline-flex ${FOCUS}`}
+              >
+                Sign in
+              </Link>
+            )}
 
-                <motion.div 
-                  className="mt-auto flex flex-col gap-4 border-t border-slate-700/70 pt-6 text-sm text-slate-400"
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 30 }}
-                  transition={{ delay: 0.6, duration: 0.4, ease: "easeOut" }}
-                >
-                  <motion.div 
-                    whileHover={{ x: 5 }} 
-                    transition={{ duration: 0.2 }}
-                  >
-                    <p className="font-semibold text-slate-100">Contact</p>
-                    <p className="text-slate-400">{settings.emailAddress || ""}</p>
-                  </motion.div>
-                  <motion.div 
-                    whileHover={{ x: 5 }} 
-                    transition={{ duration: 0.2 }}
-                  >
-                    <p className="font-semibold text-slate-100">Phone</p>
-                    <p className="text-slate-400">{settings.phoneNumber || "+923709706643"}</p>
-                  </motion.div>
-                </motion.div>
-              </div>
-            </motion.section>
-          </>
-        )}
-      </AnimatePresence>
+            <button
+              ref={menuButtonRef}
+              type="button"
+              onClick={openSheet}
+              aria-label="Open menu"
+              aria-haspopup="dialog"
+              aria-expanded={sheetOpen}
+              aria-controls={sheetOpen ? sheetId : undefined}
+              className={`relative flex h-11 w-11 items-center justify-center rounded-full bg-slate-900 text-white transition-colors hover:bg-slate-700 motion-reduce:transition-none md:hidden ${FOCUS}`}
+            >
+              <Menu size={22} aria-hidden />
+              {signedIn && showCommentCount && <span aria-hidden className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-red-600" />}
+            </button>
+          </div>
+        </nav>
+      </header>
+
+      {sheetOpen && (
+        <div
+          ref={sheetRef}
+          id={sheetId}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menu"
+          onKeyDown={trapTab}
+          className="fixed inset-0 z-(--z-nav-sheet) flex flex-col bg-white pt-[env(safe-area-inset-top)] animate-in fade-in-0 slide-in-from-top-3 duration-200 motion-reduce:animate-none"
+        >
+          <div className="flex h-[76px] shrink-0 items-center justify-between px-4">
+            <Link href="/" onClick={closeSheet} className={`flex min-h-11 min-w-0 items-center gap-3 rounded-full ${FOCUS}`} aria-label={`${displayTitle} home`}>
+              <img src={displayLogo} alt="" className="h-10 w-auto shrink-0 rounded-xl object-contain" />
+              <span className="truncate text-sm font-semibold uppercase tracking-[0.18em] text-slate-900">{displayTitle}</span>
+            </Link>
+            <button
+              ref={closeRef}
+              type="button"
+              onClick={closeSheet}
+              aria-label="Close menu"
+              className={`flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-900 transition-colors hover:bg-slate-200 motion-reduce:transition-none ${FOCUS}`}
+            >
+              <X size={22} aria-hidden />
+            </button>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+            <nav aria-label="Menu links">
+              <ul className="flex flex-col gap-1">
+                {NAV_LINKS.map((link) => {
+                  const isActive = activeHref === link.href;
+                  return (
+                    <li key={link.href}>
+                      <Link
+                        href={link.href}
+                        onClick={closeSheet}
+                        aria-current={isActive ? "page" : undefined}
+                        className={`flex min-h-14 items-center rounded-2xl px-4 text-xl font-semibold ${FOCUS} ${isActive ? "bg-emerald-600/10 text-emerald-800" : "text-slate-800 hover:bg-slate-100"}`}
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              {signedIn && user ? (
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-3 px-4 pb-3">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">{initials || <UserIcon size={18} aria-hidden />}</span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-base font-semibold text-slate-900">{user.name}</span>
+                      {user.email && <span className="block truncate text-sm text-slate-600">{user.email}</span>}
+                    </span>
+                  </div>
+                  {items.map((item) =>
+                    item.id === "admin" ? (
+                      <Link key={item.id} href={item.href ?? "/admin/products"} onClick={closeSheet} className={`flex min-h-14 items-center gap-3 rounded-2xl px-4 text-base font-semibold text-slate-800 hover:bg-slate-100 ${FOCUS}`}>
+                        <LayoutDashboard size={20} aria-hidden /> {item.label}
+                      </Link>
+                    ) : item.id === "comments" ? (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          closeSheet();
+                          openComments();
+                        }}
+                        className={`flex min-h-14 items-center gap-3 rounded-2xl px-4 text-left text-base font-semibold text-slate-800 hover:bg-slate-100 ${FOCUS}`}
+                      >
+                        <MessageSquare size={20} aria-hidden /> {item.label}
+                        {showCommentCount && <span className="ml-auto flex h-6 min-w-6 items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-bold text-white">{commentCount}</span>}
+                      </button>
+                    ) : (
+                      <button key={item.id} type="button" onClick={handleLogout} className={`flex min-h-14 items-center gap-3 rounded-2xl px-4 text-left text-base font-semibold text-red-700 hover:bg-red-50 ${FOCUS}`}>
+                        <LogOut size={20} aria-hidden /> {item.label}
+                      </button>
+                    ),
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <Link href="/login" onClick={closeSheet} className={`flex min-h-14 items-center justify-center rounded-2xl border border-slate-300 text-base font-semibold text-slate-900 hover:bg-slate-100 ${FOCUS}`}>
+                    Sign in
+                  </Link>
+                  <Link href="/register" onClick={closeSheet} className={`flex min-h-14 items-center justify-center rounded-2xl border border-emerald-600 text-base font-semibold text-emerald-800 hover:bg-emerald-50 ${FOCUS}`}>
+                    Create account
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 flex flex-col gap-1 border-t border-slate-200 pt-4">
+              <a href={`tel:${displayPhone.replace(/[^+\d]/g, "")}`} className={`flex min-h-14 items-center gap-3 rounded-2xl px-4 text-base text-slate-800 hover:bg-slate-100 ${FOCUS}`}>
+                <Phone size={20} aria-hidden className="shrink-0 text-emerald-700" />
+                <span>
+                  <span className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Phone</span>
+                  <span className="block font-semibold">{displayPhone}</span>
+                </span>
+              </a>
+              {settings.emailAddress && (
+                <a href={`mailto:${settings.emailAddress}`} className={`flex min-h-14 items-center gap-3 rounded-2xl px-4 text-base text-slate-800 hover:bg-slate-100 ${FOCUS}`}>
+                  <Mail size={20} aria-hidden className="shrink-0 text-emerald-700" />
+                  <span className="min-w-0">
+                    <span className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Email</span>
+                    <span className="block truncate font-semibold">{settings.emailAddress}</span>
+                  </span>
+                </a>
+              )}
+            </div>
+          </div>
+
+          <div className="shrink-0 border-t border-slate-200 bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+            <button
+              type="button"
+              onClick={() => {
+                closeSheet();
+                openAssessment();
+              }}
+              className={`inline-flex h-14 w-full items-center justify-center rounded-[12px] bg-orange-300 px-6 text-base font-semibold text-slate-950 shadow-sm transition-colors hover:bg-orange-200 motion-reduce:transition-none ${FOCUS}`}
+            >
+              {applyText}
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 };

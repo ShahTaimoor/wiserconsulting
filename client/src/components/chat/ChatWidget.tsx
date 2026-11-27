@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, X } from "lucide-react";
 import { UnreadBadge } from "@/components/admin/chat/UnreadBadge";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { getVisitorUnreadStore, refreshChatStatus, syncVisitorUser, useSessionExpired, useVisitorUnread } from "@/hooks/useChatVisitor";
-import { OPEN_CHAT_EVENT, bubbleLabel, pollPlan, wantsPanelOpen, withoutChatParam, type ChatHours } from "@/utils/chatWidget";
+import { OPEN_CHAT_EVENT, bubbleView, panelIsModal, pollPlan, wantsPanelOpen, withoutChatParam, type ChatHours } from "@/utils/chatWidget";
+import { announceOverlayOpen, subscribeOverlays } from "@/utils/overlays";
 
 const PULSE_DONE_KEY = "wiser-chat-pulse-done";
 
@@ -37,6 +38,18 @@ function useIsPhone(): boolean {
   return phone;
 }
 
+/** The window's height, kept up to date (0 until it is known): the panel is modal in a window too short to keep it clear of the navbar. */
+function useViewportHeight(): number {
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    const update = () => setHeight(window.innerHeight);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  return height;
+}
+
 interface ChatWidgetProps {
   pathname: string;
   hours: ChatHours | null;
@@ -64,6 +77,8 @@ export function ChatWidget({ pathname, hours, signedIn, userKey }: ChatWidgetPro
   const expired = useSessionExpired();
   const online = useOnline();
   const phone = useIsPhone();
+  const viewportHeight = useViewportHeight();
+  const modal = panelIsModal({ phone, viewportHeight });
   const bubbleRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const titleId = useId();
@@ -83,6 +98,7 @@ export function ChatWidget({ pathname, hours, signedIn, userKey }: ChatWidgetPro
 
   // ---------------------------------------------------------------- opening: the bubble, the "Chat with us" button of the Contact page, ?chat=open
   const openPanel = useCallback(() => {
+    announceOverlayOpen("chat"); // the avatar menu and the phone menu close: one floating layer at a time
     setOpen(true);
     setPulse(false);
     try {
@@ -109,12 +125,35 @@ export function ChatWidget({ pathname, hours, signedIn, userKey }: ChatWidgetPro
     return () => window.removeEventListener(OPEN_CHAT_EVENT, onRequest);
   }, [openPanel]);
 
+  // The focus goes back to the bubble once it is drawn again (on a phone the bubble is not drawn while the sheet is open, so it cannot take focus before).
+  const restoreFocus = useRef(false);
   const closePanel = useCallback(() => {
+    restoreFocus.current = true;
     setOpen(false);
     setPanelUnread(0);
     getVisitorUnreadStore().refresh();
-    bubbleRef.current?.focus();
   }, []);
+  useEffect(() => {
+    if (!open && restoreFocus.current) {
+      restoreFocus.current = false;
+      bubbleRef.current?.focus();
+    }
+  }, [open]);
+
+  // The avatar menu or the phone menu opened: this panel closes, and does NOT take the focus back (the layer that just opened has it).
+  const openRef = useRef(false);
+  openRef.current = open;
+  useEffect(
+    () =>
+      subscribeOverlays("chat", () => {
+        if (!openRef.current) return;
+        restoreFocus.current = false;
+        setOpen(false);
+        setPanelUnread(0);
+        getVisitorUnreadStore().refresh();
+      }),
+    [],
+  );
 
   // While the panel is open the hours are asked again now and then (cheap, public), so "we are back at ..." stays true.
   useEffect(() => {
@@ -146,8 +185,8 @@ export function ChatWidget({ pathname, hours, signedIn, userKey }: ChatWidgetPro
       closePanel();
       return;
     }
-    // On a phone the sheet is modal: Tab stays inside it.
-    if (event.key === "Tab" && phone && panelRef.current) {
+    // On a phone, and in a window so short that the card covers the navbar, the panel is modal: Tab stays inside it.
+    if (event.key === "Tab" && modal && panelRef.current) {
       const focusable = Array.from(panelRef.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), [tabindex="0"]'));
       if (focusable.length === 0) return;
       const firstEl = focusable[0];
@@ -162,6 +201,8 @@ export function ChatWidget({ pathname, hours, signedIn, userKey }: ChatWidgetPro
     }
   };
 
+  const view = bubbleView({ open, unread });
+
   return (
     <>
       <div role="status" aria-live="polite" className="sr-only">
@@ -173,11 +214,14 @@ export function ChatWidget({ pathname, hours, signedIn, userKey }: ChatWidgetPro
           ref={panelRef}
           id={panelId}
           role="dialog"
-          aria-modal={phone ? true : undefined}
+          aria-modal={modal ? true : undefined}
           aria-labelledby={titleId}
           tabIndex={-1}
           onKeyDown={onPanelKeyDown}
-          className="fixed inset-0 z-[60] flex sm:z-[36] flex-col overflow-hidden bg-white pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] outline-none sm:inset-auto sm:bottom-24 sm:right-4 sm:h-[min(640px,calc(100dvh-7.5rem))] sm:w-[380px] sm:rounded-2xl sm:border sm:border-slate-300 sm:pb-0 sm:pt-0 sm:shadow-2xl"
+          // Above the navbar on every screen size (z-chat-panel, see the stacking scale in globals.css). On a phone a full-height sheet; from 640 px a card
+          // that sits above the bubble: bottom = bubble inset + 56 + 16, height = min(640, window - inset - 56 - 16 - 12), so its header and close
+          // button can never be off-screen (utils/chatWidget.ts panelHeightPx says the same in numbers, and a test keeps the two in step).
+          className="fixed inset-0 z-(--z-chat-panel) flex flex-col overflow-hidden bg-white pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] outline-none sm:inset-auto sm:bottom-[calc(max(1rem,env(safe-area-inset-bottom))+4.5rem)] sm:right-[max(1rem,env(safe-area-inset-right))] sm:h-[min(640px,calc(100dvh-max(1rem,env(safe-area-inset-bottom))-5.25rem))] sm:w-[380px] sm:rounded-2xl sm:border sm:border-slate-300 sm:pb-0 sm:pt-0 sm:shadow-2xl"
         >
           <ChatPanel titleId={titleId} hours={hours} signedIn={signedIn} expired={expired} pathname={pathname} offline={!online} onClose={closePanel} onUnread={onUnread} announce={announce} />
         </div>
@@ -187,13 +231,13 @@ export function ChatWidget({ pathname, hours, signedIn, userKey }: ChatWidgetPro
         ref={bubbleRef}
         type="button"
         onClick={() => (open ? closePanel() : openPanel())}
-        aria-label={open ? "Close the chat" : bubbleLabel(unread)}
+        aria-label={view.label}
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         aria-haspopup="dialog"
-        className={`${open ? "hidden sm:flex" : "flex"} fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] z-[35] h-14 w-14 items-center justify-center rounded-full bg-emerald-700 text-white shadow-lg ring-2 ring-white hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300 ${pulse && !open && unread === 0 ? "chat-bubble-pulse" : ""}`}
+        className={`${view.hiddenOnPhone ? "hidden sm:flex" : "flex"} fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] z-(--z-chat-bubble) h-14 w-14 items-center justify-center rounded-full bg-emerald-700 text-white shadow-lg ring-2 ring-white hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300 ${pulse && !open && unread === 0 ? "chat-bubble-pulse" : ""}`}
       >
-        <MessageCircle className="h-7 w-7" aria-hidden />
+        {view.icon === "close" ? <X className="h-7 w-7" aria-hidden /> : <MessageCircle className="h-7 w-7" aria-hidden />}
         {!open && (
           <span className="pointer-events-none absolute -right-1 -top-2">
             <UnreadBadge count={unread} />

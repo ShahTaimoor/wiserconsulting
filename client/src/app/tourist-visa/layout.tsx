@@ -10,34 +10,8 @@ import { AvailabilityLoading, ClosedNotice } from "@/components/tourist-visa/Clo
 import { useFundsSettings } from "@/hooks/useFundsSettings";
 
 /**
- * The site Navbar is transparent with white text until the page is scrolled, which
- * suits the dark hero on the home page but not these white pages. This puts a dark
- * band behind it, as the Navbar already does for /about, /services and /contact.
- * It mirrors the Navbar's own switch: shown while scrollY <= 20, and faded out once
- * the Navbar becomes its white pill. If that threshold changes in Navbar.tsx, change it here.
- * z-30 keeps it under the Navbar (z-50) and under the mobile menu's backdrop (z-40).
- */
-function NavbarBackdrop() {
-  const [atTop, setAtTop] = useState(true);
-
-  useEffect(() => {
-    const update = () => setAtTop(window.scrollY <= 20);
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    return () => window.removeEventListener("scroll", update);
-  }, []);
-
-  return (
-    <div
-      aria-hidden
-      className={`pointer-events-none fixed inset-x-0 top-0 z-30 h-20 bg-slate-900 transition-opacity duration-300 ${
-        atTop ? "opacity-100" : "opacity-0"
-      }`}
-    />
-  );
-}
-
-/**
+ * (The dark band that used to sit behind the old transparent Navbar is gone: the floating glass navbar is its own white pill on every page.)
+ *
  * Waits for the bank activity settings (a plain request, once per page load) before the pages are shown: the form needs them to know which month
  * of a statement must be explained. A failure is not waited for: the section then simply asks for no explanation it cannot work out.
  */
@@ -79,7 +53,6 @@ export default function TouristVisaLayout({ children }: { children: ReactNode })
 
   return (
     <>
-      <NavbarBackdrop />
       {availability === "loading" ? (
         <AvailabilityLoading />
       ) : availability === "closed" ? (
