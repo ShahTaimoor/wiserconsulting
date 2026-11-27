@@ -11,6 +11,7 @@ import { useSettings } from "@/context/SettingsContext";
 import { usePathname, useRouter } from "next/navigation";
 import { requestAssessmentForm } from "@/utils/assessmentForm";
 import { useTouristVisaEntry } from "@/hooks/useTouristVisaEntry";
+import { navbarButtonText } from "@/utils/safeRedirect";
 import { requestCommentsPanel, useCommentsViewed } from "@/utils/commentsPanel";
 import { fetchAdminComments } from "@/redux/slices/formSubmission/formSubmissionSlice";
 import { isAdminRole } from "@/utils/authRole";
@@ -32,6 +33,16 @@ const Navbar = () => {
   // "Fill Form" goes to the Tourist Visa application (its Documents section has the uploads) while that form is open; otherwise it
   // opens the documents popup as before.
   const touristVisaEntry = useTouristVisaEntry();
+  // The button says "Apply for UK Tourist Visa" while the form is open and "Fill Form" otherwise. The longer words need the bar's
+  // layout tightened (no wrapping, a little less padding, and no phone number between 768 and 1279 px, where there is no room); while
+  // the form is closed every class is exactly what it always was.
+  const formOpen = touristVisaEntry.open;
+  const applyText = navbarButtonText(formOpen);
+  const phoneShown = formOpen ? "hidden sm:flex md:hidden xl:flex" : "hidden sm:flex";
+  const actionsNoWrap = formOpen ? " whitespace-nowrap" : "";
+  const applyPadding = formOpen ? "whitespace-nowrap px-3 lg:px-4" : "px-4";
+  // Between 768 and 1023 px a signed-in person's bar has no room for the name as well: only the round icon shows (the name is the button's label).
+  const userNameShown = formOpen ? "hidden lg:inline " : "";
   const openAssessment = () => {
     if (touristVisaEntry.open) {
       router.push(touristVisaEntry.href);
@@ -209,20 +220,20 @@ const Navbar = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="hidden sm:flex items-center gap-4 text-sm">
+              <div className={`${phoneShown} items-center gap-4 text-sm${actionsNoWrap}`}>
                 <div className="flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-slate-950 shadow-sm shadow-slate-950/10 dark:bg-slate-950 dark:text-slate-50 dark:shadow-slate-950/20">
                   <Phone size={18} />
                   <span className="font-semibold">{displayPhone}</span>
                 </div>
               </div>
 
-              <div className="hidden md:flex items-center gap-2">
+              <div className={`hidden md:flex items-center gap-2${actionsNoWrap}`}>
                 <button
                   type="button"
                   onClick={openAssessment}
-                  className="inline-flex items-center justify-center rounded-full bg-orange-300 px-4 py-2 text-xs font-semibold text-slate-950 shadow-sm transition hover:bg-orange-200"
+                  className={`inline-flex items-center justify-center rounded-full bg-orange-300 ${applyPadding} py-2 text-xs font-semibold text-slate-950 shadow-sm transition hover:bg-orange-200`}
                 >
-                  Fill Form
+                  {applyText}
                 </button>
                 {mounted && user && (
                   <button
@@ -242,11 +253,11 @@ const Navbar = () => {
                 {mounted && user ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 transition hover:bg-slate-200">
+                      <button aria-label={user.name} className="flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 transition hover:bg-slate-200">
                         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10">
                           <UserIcon className="text-emerald-600" size={14} />
                         </div>
-                        <span className="max-w-[100px] truncate text-xs font-semibold text-slate-800">{user.name}</span>
+                        <span className={`${userNameShown}max-w-[100px] truncate text-xs font-semibold text-slate-800`}>{user.name}</span>
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -348,20 +359,20 @@ const Navbar = () => {
               })}
             </div>
             <div className="flex items-center gap-2">
-              <div className="hidden sm:flex items-center gap-4 text-sm">
+              <div className={`${phoneShown} items-center gap-4 text-sm${actionsNoWrap}`}>
                 <div className="flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-slate-950 shadow-sm shadow-slate-950/10 dark:bg-slate-950 dark:text-slate-50 dark:shadow-slate-950/20">
                   <Phone size={18} />
                   <span className="font-semibold">{displayPhone}</span>
                 </div>
               </div>
 
-              <div className="hidden md:flex items-center gap-2">
+              <div className={`hidden md:flex items-center gap-2${actionsNoWrap}`}>
                 <button
                   type="button"
                   onClick={openAssessment}
-                  className="inline-flex items-center justify-center rounded-full bg-orange-300 px-4 py-2 text-xs font-semibold text-slate-950 shadow-sm transition hover:bg-orange-200"
+                  className={`inline-flex items-center justify-center rounded-full bg-orange-300 ${applyPadding} py-2 text-xs font-semibold text-slate-950 shadow-sm transition hover:bg-orange-200`}
                 >
-                  Fill Form
+                  {applyText}
                 </button>
                 {mounted && user && (
                   <button
@@ -381,11 +392,11 @@ const Navbar = () => {
                 {mounted && user ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 transition hover:bg-white/20">
+                      <button aria-label={user.name} className="flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 transition hover:bg-white/20">
                         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20">
                           <UserIcon className="text-emerald-400" size={14} />
                         </div>
-                        <span className="max-w-[100px] truncate text-xs font-semibold text-slate-100">{user.name}</span>
+                        <span className={`${userNameShown}max-w-[100px] truncate text-xs font-semibold text-slate-100`}>{user.name}</span>
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -565,7 +576,7 @@ const Navbar = () => {
                       onClick={() => { handleClose(); openAssessment(); }}
                       className="inline-flex w-full items-center justify-center rounded-full bg-orange-300 px-8 py-3 text-sm font-semibold text-slate-950 shadow-lg transition hover:bg-orange-200"
                     >
-                      Fill Form
+                      {applyText}
                     </button>
                     {mounted && user && (
                       <button
