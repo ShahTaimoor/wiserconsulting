@@ -1912,3 +1912,17 @@ The public side of the chat of section 14.22. It uses only that backend (no back
 **Tests.** `client/src/utils/chatWidget.test.mjs` (31 tests): which pages show the bubble; the status reading and the hours lines; the bubble label and 99+; polling decisions; subject and phone cleaning; the retry id; error words; the draft; `?chat=open` helpers; safe rendering of text; and the contrast of the bubble and badge colours. The safe-redirect tests were extended (other paths, protocol-relative URLs, encoded tricks).
 
 **Not changed, and what the backend could do better** (none done here): the message and topic limits are not in `GET /api/chat/status`, so the client has them as constants (an `limits` object there would remove the copy); the old Contact form, its route and the legacy submissions stay until PR 4.
+
+### 14.25 Navbar: "Apply for UK Tourist Visa" while the form is open
+
+The orange button in the Navbar (desktop bar, the bar shown after scrolling, and the phone menu) used to say "Fill Form" for everyone. While the Tourist Visa form is **open** it now says **"Apply for UK Tourist Visa"**. Where it goes did not change: the application (`/tourist-visa`) when signed in, `/register?next=/tourist-visa` when not (both from `touristVisaEntryHref`, through `useTouristVisaEntry`). Admins still see the button and are still sent to the application, as before.
+
+While the form is **closed, still loading or failed**, nothing changed: the text is "Fill Form", the click opens the old documents popup, and the Navbar's classes are exactly the old ones (a test compares the markup).
+
+**Where the words are.** `ENTRY_TEXT.navbar` ("Apply for UK Tourist Visa") and `ENTRY_TEXT.navbarClosed` ("Fill Form") in `utils/safeRedirect.ts`, picked by `navbarButtonText(open)` (only a clear `true` gives the new words). The Navbar calls it with the same `open` it already used for the click.
+
+**Fitting the longer words** (only while the form is open; closed keeps today's classes). The button never wraps (`whitespace-nowrap`), has less padding below 1024 px (`px-3 lg:px-4`), and the group of buttons does not wrap. Because there is no room beside it: between 768 and 1279 px the phone number is not drawn in the bar (it is still in the phone menu, the footer and the Contact page; from 1280 px it is back, on one line), and between 768 and 1023 px a signed-in person's name is hidden and only the round icon stays (the button now has `aria-label` = the name, so a screen reader still hears it). Checked in a browser at 390, 768, 1024, 1100, 1280, 1366 and 1440 px, signed out, signed in and as admin, in both bars and in the phone menu: no wrapping, no overlap, nothing past the right edge.
+
+**Known and left alone.** With the form closed, the bar at 768 px was already crowded before this change (the phone number and "Fill Form" wrap onto two lines, and a signed-in person's name runs past the right edge). It was not touched, to keep the closed state exactly as it was.
+
+**Tests.** `client/src/utils/touristVisaEntry.test.mjs`: the words and the picking rule (including non-boolean input); the real `Navbar` rendered open and closed/loading, signed out, signed in and admin, in the bar, the scrolled bar and the phone menu (counts of each text); the closed markup is the old one; the fitting classes (open only); and the click: signed out goes to `/register?next=/tourist-visa`, signed in and admin to `/tourist-visa`, closed asks for the old popup and navigates nowhere.
