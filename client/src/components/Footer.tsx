@@ -12,8 +12,7 @@ const Footer = () => {
   const touristVisaEntry = useTouristVisaEntry();
 
   const services = [
-    { name: "Tourist Visa", href: "/services/tourist-visa" },
-    ...(touristVisaEntry.open ? [{ name: ENTRY_TEXT.footer, href: touristVisaEntry.href }] : []),
+    { name: ENTRY_TEXT.footer, href: touristVisaEntry.href },
   ];
 
   const quickLinks = [
@@ -31,6 +30,8 @@ const Footer = () => {
   ] as const;
 
   const phone = settings.phoneNumber || "+923709706643";
+  const address = settings.address || "UG 400 Deans Trade Center Cantt,\nPeshawar, Pakistan";
+  const email = settings.emailAddress || "wiserconsulting.info@gmail.com";
   const chip = "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-slate-700/70 bg-slate-800/70 text-emerald-400 transition-colors group-hover:border-emerald-500/50 group-hover:bg-emerald-500/10";
   const heading = "mb-5 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-white";
   const headingBar = <span className="h-4 w-1 rounded-full bg-gradient-to-b from-emerald-400 to-sky-400" />;
@@ -120,18 +121,18 @@ const Footer = () => {
           <div className="sm:col-span-2 lg:col-span-3">
             <h4 className={heading}>{headingBar}Contact Us</h4>
             <ul className="space-y-4">
-              {settings.address && (
+              {address && (
                 <li className="group flex items-start gap-3">
                   <div className={chip}>
                     <FaMapMarkerAlt className="text-sm" />
                   </div>
                   <div>
                     <p className="mb-0.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Address</p>
-                    <p className="whitespace-pre-line text-sm leading-relaxed text-slate-300">{settings.address}</p>
+                    <p className="whitespace-pre-line text-sm leading-relaxed text-slate-300">{address}</p>
                   </div>
                 </li>
               )}
-              {settings.emailAddress && (
+              {email && (
                 <li className="group flex items-start gap-3">
                   <div className={chip}>
                     <FaEnvelope className="text-sm" />
@@ -139,12 +140,12 @@ const Footer = () => {
                   <div className="min-w-0">
                     <p className="mb-0.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Email</p>
                     <a
-                      href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(settings.emailAddress || "")}`}
+                      href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="break-all text-sm text-slate-300 transition-colors hover:text-emerald-400"
                     >
-                      {settings.emailAddress}
+                      {email}
                     </a>
                   </div>
                 </li>
