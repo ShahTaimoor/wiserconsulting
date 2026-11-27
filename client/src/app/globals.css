@@ -112,6 +112,33 @@
   --sidebar-ring: oklch(0.551 0.027 264.364);
 }
 
+/* ------------------------------------------------------------------------------------------------------------------------------
+   The stacking scale of the public site. One place, in this order (lowest first). Use these names (class `z-(--z-navbar)`), not new numbers.
+
+     in-page layers      0 to 30   sticky bars, cards, hero decorations                      (z-0, z-10, z-20, z-30 in the pages)
+     --z-chat-bubble     35        the round chat bubble (bottom right)
+     back-to-sections    40        the Tourist Visa "back" button                                (z-40, components/tourist-visa)
+     --z-navbar          50        the floating navbar
+     --z-nav-sheet       52        the phone menu sheet (covers the navbar and the bubble)
+     --z-chat-panel      55        the chat panel: above the navbar on every screen size, below dialogs
+     --z-dialog          60        modal dialogs: alert dialogs, the comments modal, the assessment and consultation popups (z-[60])
+     --z-popover         70        menus that open from the navbar (the avatar menu): above the chat panel and the dialogs' page
+     --z-toast           100       toasts (sonner draws its own, higher still)
+
+   The chat panel rule (components/chat, utils/chatWidget.ts): on a screen of 640 px or more the panel is a card above the bubble whose
+   height is at most the window's height minus the bubble, its gaps and a small gap at the top, so its header and close button can never
+   be off-screen or under the navbar; on a phone it is a full-height sheet.
+   ------------------------------------------------------------------------------------------------------------------------------ */
+:root {
+  --z-chat-bubble: 35;
+  --z-navbar: 50;
+  --z-nav-sheet: 52;
+  --z-chat-panel: 55;
+  --z-dialog: 60;
+  --z-popover: 70;
+  --z-toast: 100;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

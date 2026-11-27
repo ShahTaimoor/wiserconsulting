@@ -16,7 +16,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   return (
     <>
       {showNavbar && <Navbar />}
-      <main className={showNavbar ? (isHome ? "min-h-screen" : "min-h-[calc(100vh-160px)] mt-20") : "min-h-screen"}>
+      <main id="main-content" tabIndex={-1} className={`outline-none ${showNavbar ? (isHome ? "min-h-screen" : "min-h-[calc(100vh-160px)] mt-20") : "min-h-screen"}`}>
         {children}
       </main>
       {!hideLayout && <Footer />}
