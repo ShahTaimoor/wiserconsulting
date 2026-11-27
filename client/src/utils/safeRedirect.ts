@@ -204,7 +204,16 @@ export function postLoginDestination(isAdmin: boolean, rawNext: unknown): string
 export const ENTRY_TEXT = Object.freeze({
   footer: "Apply for a UK tourist visa online",
   popup: "Continue to your full application",
+  /** The Navbar button while the form is open (it goes where touristVisaEntryHref says). */
+  navbar: "Apply for UK Tourist Visa",
+  /** The Navbar button while the form is closed, loading or failed: today's words, today's popup. */
+  navbarClosed: "Fill Form",
 });
+
+/** The words on the Navbar button: the application's name while the form is OPEN, today's "Fill Form" in every other case. */
+export function navbarButtonText(open: boolean): string {
+  return open === true ? ENTRY_TEXT.navbar : ENTRY_TEXT.navbarClosed;
+}
 
 /**
  * Where an entry point goes. A person who is signed in goes straight to the application; a person who is not goes to the sign-up page
