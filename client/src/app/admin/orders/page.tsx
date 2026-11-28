@@ -4,7 +4,6 @@ import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { fetchSubmissions } from '@/redux/slices/admin/adminSlice';
 import PDFMergeModal from '@/components/admin/PDFMergeModal';
-import CompressPDFModal from '@/components/admin/CompressPDFModal';
 import { FormSubmission } from '@/services/adminService';
 import { useState } from 'react';
 import { SheetPage, SheetToolbar, SheetTable, SheetMessage, SheetLoading, SheetButton, Thead, Th, Tr, Td, EmptyRow, Pill, sheetInput } from '@/components/admin/Sheet';
@@ -13,7 +12,6 @@ const AdminOrders = () => {
   const dispatch = useAppDispatch();
   const { submissions, loading } = useAppSelector((state) => state.admin);
   const [showPDFMergeModal, setShowPDFMergeModal] = useState(false);
-  const [showCompressModal, setShowCompressModal] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState<FormSubmission | null>(null);
 
   useEffect(() => {
@@ -25,20 +23,14 @@ const AdminOrders = () => {
     setShowPDFMergeModal(true);
   };
 
-  const handleOpenCompress = (submission: FormSubmission) => {
-    setSelectedSubmission(submission);
-    setShowCompressModal(true);
-  };
-
   const handleCloseModals = () => {
     setShowPDFMergeModal(false);
-    setShowCompressModal(false);
     setSelectedSubmission(null);
   };
 
   return (
     <>
-      <SheetPage title="Merge PDFs" subtitle="Pick a customer, then merge or compress the documents they uploaded">
+      <SheetPage title="Merge PDFs" subtitle="Pick a customer, then merge the documents they uploaded">
         {loading ? (
           <SheetLoading />
         ) : (
@@ -63,7 +55,6 @@ const AdminOrders = () => {
                     <Td>
                       <div className="flex items-center justify-center gap-1.5">
                         <SheetButton tone="success" onClick={() => handleOpenPDFMerge(submission)}>Merge PDFs</SheetButton>
-                        <SheetButton tone="dark" onClick={() => handleOpenCompress(submission)}>Compress PDFs</SheetButton>
                       </div>
                     </Td>
                   </Tr>
@@ -77,13 +68,6 @@ const AdminOrders = () => {
       {/* PDF Merge Modal */}
       <PDFMergeModal
         isOpen={showPDFMergeModal}
-        onClose={handleCloseModals}
-        submission={selectedSubmission}
-      />
-
-      {/* Compress PDF Modal */}
-      <CompressPDFModal
-        isOpen={showCompressModal}
         onClose={handleCloseModals}
         submission={selectedSubmission}
       />

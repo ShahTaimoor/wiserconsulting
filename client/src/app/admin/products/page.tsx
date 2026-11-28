@@ -5,7 +5,6 @@ import Image from 'next/image';
 import { toast } from 'sonner';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import PDFMergeModal from '@/components/admin/PDFMergeModal';
-import CompressPDFModal from '@/components/admin/CompressPDFModal';
 import {
   fetchSubmissions,
   updateStatus,
@@ -30,7 +29,6 @@ const AdminFormSubmissions = () => {
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showPDFMergeModal, setShowPDFMergeModal] = useState(false);
-  const [showCompressModal, setShowCompressModal] = useState(false);
   const [showDocumentPreview, setShowDocumentPreview] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<{ url: string; name: string; type: string } | null>(null);
   const [documentComments, setDocumentComments] = useState<{ [key: string]: string }>({});
@@ -306,12 +304,6 @@ const AdminFormSubmissions = () => {
                     >
                       Merge PDF
                     </button>
-                    <button
-                      onClick={() => setShowCompressModal(true)}
-                      className="px-3 py-1 bg-slate-700 text-white text-[10px] font-bold rounded-lg hover:bg-slate-800 transition shadow-sm uppercase tracking-wider"
-                    >
-                      Compress PDF
-                    </button>
                   </div>
                 </div>
                 <button
@@ -583,13 +575,6 @@ const AdminFormSubmissions = () => {
         <PDFMergeModal
           isOpen={showPDFMergeModal}
           onClose={() => setShowPDFMergeModal(false)}
-          submission={selectedSubmission}
-        />
-
-        {/* Compress PDF Modal */}
-        <CompressPDFModal
-          isOpen={showCompressModal}
-          onClose={() => setShowCompressModal(false)}
           submission={selectedSubmission}
         />
       </div>

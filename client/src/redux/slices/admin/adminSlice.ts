@@ -9,11 +9,9 @@ import {
   deleteDocument,
   deleteSubmission,
   mergePDFs,
-  compressPDFs,
   AdminUser,
   FormSubmission,
   MergePDFsRequest,
-  CompressPDFsRequest,
 } from '@/services/adminService';
 
 interface AdminState {
@@ -141,18 +139,6 @@ export const mergePDFDocuments = createAsyncThunk<Blob, MergePDFsRequest, { reje
   }
 );
 
-export const compressPDFDocuments = createAsyncThunk<Blob, CompressPDFsRequest, { rejectValue: string }>(
-  'admin/compressPDFs',
-  async (request, thunkAPI) => {
-    try {
-      return await compressPDFs(request);
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to compress PDFs';
-      return thunkAPI.rejectWithValue(errorMessage);
-    }
-  }
-);
-
 // ============ Slice ============
 const adminSlice = createSlice({
   name: 'admin',
@@ -227,12 +213,6 @@ const adminSlice = createSlice({
     builder
       .addCase(mergePDFDocuments.rejected, (state, action) => {
         state.error = action.payload || 'Failed to merge PDFs';
-      });
-
-    // Compress PDFs
-    builder
-      .addCase(compressPDFDocuments.rejected, (state, action) => {
-        state.error = action.payload || 'Failed to compress PDFs';
       });
   },
 });

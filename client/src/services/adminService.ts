@@ -281,14 +281,7 @@ export interface MergePDFsRequest {
   customerEmail: string;
 }
 
-export interface CompressPDFsRequest {
-  submissionId: string;
-  documentIds: string[];
-  compressionLevel: 'low' | 'medium' | 'high' | '5mb';
-  customerName: string;
-}
-
-// Merging and compressing documents is an administrator action: the sign-in token is sent.
+// Merging documents is an administrator action: the sign-in token is sent.
 const authJsonHeaders = (): Record<string, string> => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   return token
@@ -305,20 +298,6 @@ export const mergePDFs = async (request: MergePDFsRequest): Promise<Blob> => {
 
   if (!response.ok) {
     throw new Error('Failed to merge PDFs');
-  }
-
-  return await response.blob();
-};
-
-export const compressPDFs = async (request: CompressPDFsRequest): Promise<Blob> => {
-  const response = await fetch(`${API_URL}/compress-pdfs`, {
-    method: 'POST',
-    headers: authJsonHeaders(),
-    body: JSON.stringify(request),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to compress PDFs');
   }
 
   return await response.blob();

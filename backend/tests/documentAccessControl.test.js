@@ -44,7 +44,6 @@ formSubmissionRepository.addCustomerComment = async (id, data) => { comments.pus
 
 const reached = [];
 assessmentService.mergePDFs = async () => { reached.push('merge'); throw new AppError('stopped after the checks', 418); };
-assessmentService.compressPDFs = async () => { reached.push('compress'); throw new AppError('stopped after the checks', 418); };
 
 const app = express();
 app.use(require('cookie-parser')());
@@ -75,9 +74,9 @@ async function call(method, url, { user, body } = {}) {
 
 test.beforeEach(() => { reached.length = 0; comments.length = 0; });
 
-for (const route of ['merge-pdfs', 'compress-pdfs']) {
+for (const route of ['merge-pdfs']) {
   test(`POST /api/${route}: no sign-in is 401, a customer is 403, only an administrator gets through`, async () => {
-    const body = { submissionId: 's-1', documentIds: [DOC_ID], customerName: 'X', compressionLevel: 'low' };
+    const body = { submissionId: 's-1', documentIds: [DOC_ID], customerName: 'X' };
     assert.equal((await call('POST', `/api/${route}`, { body })).status, 401);
     assert.equal((await call('POST', `/api/${route}`, { user: OWNER, body })).status, 403, 'even the owner of the submission');
     assert.deepEqual(reached, [], 'nothing was built for either of them');
