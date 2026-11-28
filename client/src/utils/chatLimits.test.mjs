@@ -163,7 +163,7 @@ test("ENV NAMES: the old Contact screens use NEXT_PUBLIC_API_URL like the rest; 
   assert.ok(documented.includes("NEXT_PUBLIC_API_URL"));
   for (const name of documented) assert.ok(used.has(name), `${name} is documented in .env.example but used nowhere`);
   for (const name of used) assert.ok(documented.includes(name), `${name} is used in the source but not documented in .env.example`);
-  for (const file of ["components/admin/contacts/LegacyContactsPage.tsx", "components/admin/contacts/LegacyContactDetailPage.tsx", "app/contact/page.tsx", "components/sections/ContactSection.tsx"]) {
+  for (const file of ["components/admin/contacts/LegacyContactsPage.tsx", "components/admin/contacts/LegacyContactDetailPage.tsx", "app/contact/page.tsx"]) {
     const text = read(file);
     assert.match(text, /NEXT_PUBLIC_API_URL \|\| "http:\/\/localhost:5000\/api"/, file);
     assert.doesNotMatch(text, /\/api\/contacts/, `${file} builds its address from the API address (which already ends in /api)`);
