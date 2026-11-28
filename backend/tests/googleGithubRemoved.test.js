@@ -34,10 +34,20 @@ function freePort() {
   });
 }
 
+// The real app limits FAILED sign-ins to 10 per address in 15 minutes (middleware/rateLimiter.js: authLimiter). This file makes many failed
+// sign-ins on purpose, so every request comes from its own made-up address: the app runs with "trust proxy 1", which takes the client address
+// from the proxy's X-Forwarded-For header, so a different header value is a different visitor and none of these tests uses another one's allowance.
+// (The limit itself is checked by the last test of this file, which uses one address on purpose.)
+let visitor = 0;
+const nextVisitorAddress = () => {
+  visitor += 1;
+  return `10.${(visitor >> 16) & 255}.${(visitor >> 8) & 255}.${visitor & 255}`;
+};
+
 async function call(method, url, body) {
   const response = await fetch(base + url, {
     method,
-    headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+    headers: { 'X-Forwarded-For': nextVisitorAddress(), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
     body: body === undefined ? undefined : JSON.stringify(body),
     redirect: 'manual',
   });
@@ -274,4 +284,20 @@ test('nothing of the removed code is left: files, mounts, packages, schema, envi
   })(BACKEND);
   // The settings file is not a source file; the upload config has a document category called "passports", which is unrelated.
   assert.deepEqual(offenders.filter((file) => !/config[\\/](upload|cloudinary)\.js$/.test(file)), []);
+});
+
+test('the sign-in limit itself still works: the 11th FAILED sign-in from one address is a 429, and a correct sign-in is not counted', async () => {
+  const address = '10.200.0.1'; // its own made-up visitor, so the other tests are not affected
+  const send = async (password) => {
+    const response = await fetch(`${base}/api/login`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': address }, body: JSON.stringify({ email: 'password.person@example.com', password }) });
+    return response.status;
+  };
+  // A correct sign-in first, repeated: successful requests do not use up the allowance.
+  for (let i = 0; i < 12; i += 1) assert.equal(await send(GOOD), 200, `correct sign-in ${i + 1}`);
+  for (let i = 0; i < 10; i += 1) assert.equal(await send('Wrong-Pass-1'), 400, `failed sign-in ${i + 1}`);
+  assert.equal(await send('Wrong-Pass-1'), 429, 'the 11th failed sign-in from this address is refused');
+  assert.equal(await send(GOOD), 429, 'while the limit is on, even the right password waits');
+  // Another address is not affected.
+  const other = await fetch(`${base}/api/login`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '10.200.0.2' }, body: JSON.stringify({ email: 'password.person@example.com', password: GOOD }) });
+  assert.equal(other.status, 200);
 });

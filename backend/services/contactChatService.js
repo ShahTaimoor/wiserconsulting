@@ -21,6 +21,11 @@ const { evaluateHours } = require('../config/contactChatHours');
 const { ContactChatMail } = require('./contactChatMailService');
 const logger = require('../utils/logger');
 
+/** The four lengths the service checks (config/contactChat.js is the one place they are written). */
+function chatLimits() {
+  return { clientMessage: CHAT.MAX_CLIENT_MESSAGE, staffMessage: CHAT.MAX_STAFF_MESSAGE, subject: CHAT.MAX_SUBJECT, phone: CHAT.MAX_PHONE };
+}
+
 const { ObjectId } = mongoose.Types;
 const isId = (value) => typeof value === 'string' && /^[0-9a-fA-F]{24}$/.test(value);
 const chatError = (message, status, code) => new AppError(message, status, code);
@@ -99,10 +104,14 @@ class ContactChatService {
     }
   }
 
-  /** What the public status endpoint says: is chat on (and able to store messages), and the hours. */
+  /**
+   * What the public status endpoint says: is chat on (and able to store messages), the hours, and the limits the server enforces, so the
+   * widget and the inbox show the same numbers as the checks below (text length of a visitor's message and of a staff reply, the topic, and
+   * the phone number). Nothing but these four numbers is added; while chat is off the answer is still just { enabled: false }.
+   */
   status() {
     const enabled = this.isEnabled() && this.isEncryptionReady();
-    return enabled ? { enabled: true, hours: evaluateHours(this.now()) } : { enabled: false };
+    return enabled ? { enabled: true, hours: evaluateHours(this.now()), limits: chatLimits() } : { enabled: false };
   }
 
   // ---------------------------------------------------------------- encryption (the user and the message are part of what is signed)

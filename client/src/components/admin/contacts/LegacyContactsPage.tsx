@@ -31,14 +31,14 @@ const ContactsPage = () => {
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<PaginationData | null>(null);
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
   const fetchSubmissions = async (pageNum: number, search: string = "") => {
     setLoading(true);
     setError("");
 
     try {
-      let url = `${API_BASE_URL}/api/contacts?page=${pageNum}&limit=10`;
+      let url = `${API_URL}/contacts?page=${pageNum}&limit=10`;
       if (search) url += `&search=${encodeURIComponent(search)}`;
 
       const response = await fetch(url, {
@@ -76,7 +76,7 @@ const ContactsPage = () => {
     if (!confirm("Are you sure you want to delete this submission?")) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/contacts/${id}`, {
+      const response = await fetch(`${API_URL}/contacts/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
       });

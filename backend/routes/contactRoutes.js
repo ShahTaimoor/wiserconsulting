@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const contactSubmissionController = require("../controllers/contactSubmissionController");
 const { isAuthorized, isAdmin } = require("../middleware/authMiddleware");
+const validate = require("../middleware/validate");
+const { markReadSchema } = require("../validations/contactSubmissionValidation");
 
 // Public routes
 // Create new contact submission
@@ -30,6 +32,15 @@ router.get(
   isAuthorized,
   isAdmin,
   contactSubmissionController.getSubmissionById,
+);
+
+// Mark a submission as read (the old Contact screens call this when a message is opened; GET /:id no longer changes anything)
+router.patch(
+  "/:id/read",
+  isAuthorized,
+  isAdmin,
+  validate(markReadSchema),
+  contactSubmissionController.markSubmissionRead,
 );
 
 // Update submission status

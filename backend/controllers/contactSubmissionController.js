@@ -2,6 +2,7 @@ const contactSubmissionService = require("../services/contactSubmissionService")
 const asyncHandler = require("../utils/asyncHandler");
 const ApiResponse = require("../utils/apiResponse");
 const logger = require("../utils/logger");
+const { isContactStatus, INVALID_STATUS_MESSAGE } = require("../validations/contactSubmissionValidation");
 
 // Create a new contact submission
 exports.createContactSubmission = asyncHandler(async (req, res) => {
@@ -45,21 +46,20 @@ exports.getAllSubmissions = asyncHandler(async (req, res) => {
     const { page, limit, skip } = require("../utils/pagination").getPaginationParams(req);
     const { status, search } = req.query;
 
-    let result;
-    if (search) {
-      result = await contactSubmissionService.searchSubmissions(
-        search,
-        page,
-        limit,
-      );
-    } else {
-      const filters = status ? { status } : {};
-      result = await contactSubmissionService.getAllSubmissions(
-        page,
-        limit,
-        filters,
-      );
+    // A status must be one of the four (an unknown one, or one that is not plain text, is the caller's mistake: 400). An empty one means "all".
+    if (status !== undefined && status !== "" && !isContactStatus(status)) {
+      return ApiResponse.error(res, INVALID_STATUS_MESSAGE, 400);
     }
+    // The search text must be plain text (a repeated or nested search parameter is a 400); it is cut to 100 characters and used literally.
+    if (search !== undefined && typeof search !== "string") {
+      return ApiResponse.error(res, "Invalid search text.", 400);
+    }
+    const filters = status ? { status } : {};
+
+    // The search and the status filter work together (both must match); the search also looks in the subject.
+    const result = search && search.trim()
+      ? await contactSubmissionService.searchSubmissions(search.trim(), page, limit, filters)
+      : await contactSubmissionService.getAllSubmissions(page, limit, filters);
 
     const totalItems = result.pagination?.totalItems || 0;
     const meta = require("../utils/pagination").getPaginationMeta(
@@ -103,6 +103,26 @@ exports.getSubmissionById = asyncHandler(async (req, res) => {
   }
 });
 
+// Mark a submission as read (Admin only). "new" becomes "read"; anything else stays as it is; the answer has the same shape as GET /:id.
+exports.markSubmissionRead = asyncHandler(async (req, res) => {
+  try {
+    const submission = await contactSubmissionService.markSubmissionRead(req.params.id);
+
+    return ApiResponse.success(
+      res,
+      submission,
+      "Contact submission marked as read",
+      200,
+    );
+  } catch (error) {
+    logger.error(`Error in markSubmissionRead: ${error.message}`);
+    if (error.message === "Contact submission not found") {
+      return ApiResponse.error(res, "Contact submission not found", 404);
+    }
+    return ApiResponse.error(res, "Error marking contact submission as read", 500);
+  }
+});
+
 // Update submission status (Admin only)
 exports.updateSubmissionStatus = asyncHandler(async (req, res) => {
   try {
@@ -111,6 +131,9 @@ exports.updateSubmissionStatus = asyncHandler(async (req, res) => {
 
     if (!status) {
       return ApiResponse.error(res, "Status is required", 400);
+    }
+    if (!isContactStatus(status)) {
+      return ApiResponse.error(res, INVALID_STATUS_MESSAGE, 400);
     }
 
     const submission = await contactSubmissionService.updateSubmissionStatus(
