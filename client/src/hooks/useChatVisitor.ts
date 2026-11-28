@@ -5,6 +5,7 @@ import { createUnreadStore, type UnreadSnapshot } from "@/utils/chatPolling";
 import { ChatApiError } from "@/services/chatAdminService";
 import { fetchChatPublicStatus, fetchMyUnread } from "@/services/chatVisitorService";
 import { readChatStatus, type ChatHours } from "@/utils/chatWidget";
+import { rememberChatLimits } from "@/utils/chatLimits";
 
 // ---------------------------------------------------------------------------
 // Is chat on, and the reply hours: one shared answer for the whole page load
@@ -40,6 +41,8 @@ export function refreshChatStatus(force = false): Promise<void> {
     .catch(() => ({ status: 0, json: null }))
     .then(({ status, json }) => {
       const reading = readChatStatus(status, json);
+      // The server's length limits are shared with the rest of the chat screens (today's numbers when the answer has none or the chat is off).
+      rememberChatLimits(reading.state === "on" ? reading.limits : undefined);
       ttl = status === 200 ? STATUS_TTL_MS : STATUS_ERROR_TTL_MS;
       fetchedAt = Date.now();
       const next: VisitorChatStatus = { state: reading.state, hours: reading.hours };

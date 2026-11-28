@@ -6,6 +6,7 @@ import { Loader2, Send, WifiOff, X } from "lucide-react";
 import { MessageList } from "@/components/chat/MessageList";
 import { usePoller } from "@/hooks/usePoller";
 import { setSessionExpired } from "@/hooks/useChatVisitor";
+import { useChatLimits } from "@/hooks/useChatLimits";
 import { ChatApiError } from "@/services/chatAdminService";
 import { fetchMyConversation, markMyRead, sendMyMessage, type MyConversation } from "@/services/chatVisitorService";
 import {
@@ -24,8 +25,6 @@ import {
 import type { PollResult } from "@/utils/chatPolling";
 import { chatSignInHref } from "@/utils/safeRedirect";
 import {
-  CLIENT_MESSAGE_MAX,
-  SUBJECT_MAX,
   cleanPhone,
   cleanSubject,
   describeSendError,
@@ -124,6 +123,8 @@ function SignInPrompt({ pathname, expired }: { pathname: string; expired: boolea
 // ---------------------------------------------------------------------------
 
 function Conversation({ offline, onUnread, announce }: { offline: boolean; onUnread: (count: number) => void; announce: (text: string) => void }) {
+  // The length limits as the server states them (GET /api/chat/status); today's numbers until that answer is read.
+  const limits = useChatLimits();
   const [conversation, setConversation] = useState<MyConversation | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -295,13 +296,13 @@ function Conversation({ offline, onUnread, announce }: { offline: boolean; onUnr
   // ---------------------------------------------------------------- sending
   const first = conversation === null;
   const send = async () => {
-    if (offline || !canSendReply(body, sending, CLIENT_MESSAGE_MAX)) return;
+    if (offline || !canSendReply(body, sending, limits.clientMessage)) return;
     const text = body.replace(/\r\n?/g, "\n").trim();
     let subjectValue = "";
     let phoneValue = "";
     if (first) {
-      const s = cleanSubject(subject);
-      const p = cleanPhone(phone);
+      const s = cleanSubject(subject, limits.subject);
+      const p = cleanPhone(phone, limits.phone);
       if (s.error || p.error) {
         setFieldError({ subject: s.error ?? undefined, phone: p.error ?? undefined });
         return;
@@ -327,7 +328,7 @@ function Conversation({ offline, onUnread, announce }: { offline: boolean; onUnr
     } catch (error) {
       const status = error instanceof ChatApiError ? error.status : 0;
       if (status === 401) setSessionExpired(true);
-      setSendError(describeSendError(status, error instanceof ChatApiError ? error.code : null));
+      setSendError(describeSendError(status, error instanceof ChatApiError ? error.code : null, limits));
     } finally {
       setSending(false);
       textareaRef.current?.focus();
@@ -364,7 +365,7 @@ function Conversation({ offline, onUnread, announce }: { offline: boolean; onUnr
 
   const chip = conversation ? statusChip(conversation.status) : null;
   const length = replyLength(body);
-  const overLimit = length > CLIENT_MESSAGE_MAX;
+  const overLimit = length > limits.clientMessage;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -410,7 +411,7 @@ function Conversation({ offline, onUnread, announce }: { offline: boolean; onUnr
               <label htmlFor="chat-subject" className="mb-0.5 block text-xs font-semibold text-slate-800">
                 Topic (optional)
               </label>
-              <input id="chat-subject" type="text" value={subject} onChange={(event) => setSubject(event.target.value)} maxLength={SUBJECT_MAX * 2} disabled={sending} aria-invalid={Boolean(fieldError.subject)} aria-describedby={fieldError.subject ? "chat-subject-error" : undefined} className="block w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-900 focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-700/30 disabled:bg-slate-100" />
+              <input id="chat-subject" type="text" value={subject} onChange={(event) => setSubject(event.target.value)} maxLength={limits.subject * 2} disabled={sending} aria-invalid={Boolean(fieldError.subject)} aria-describedby={fieldError.subject ? "chat-subject-error" : undefined} className="block w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-900 focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-700/30 disabled:bg-slate-100" />
               {fieldError.subject && <p id="chat-subject-error" role="alert" className="mt-0.5 text-xs text-red-700">{fieldError.subject}</p>}
             </div>
             <div>
@@ -445,10 +446,10 @@ function Conversation({ offline, onUnread, announce }: { offline: boolean; onUnr
           <p id="chat-help" className="text-[11px] text-slate-700">
             Enter sends. Shift+Enter starts a new line.{" "}
             <span className={overLimit ? "font-semibold text-red-700" : ""}>
-              {length} / {CLIENT_MESSAGE_MAX}
+              {length} / {limits.clientMessage}
             </span>
           </p>
-          <button type="submit" disabled={offline || !canSendReply(body, sending, CLIENT_MESSAGE_MAX)} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+          <button type="submit" disabled={offline || !canSendReply(body, sending, limits.clientMessage)} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
             {sending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
             {sending ? "Sending..." : "Send"}
           </button>

@@ -168,10 +168,11 @@ test("the sign-in pages carry the chat way back whatever the Tourist Visa switch
 
 test("the status answer: chat is on only for a 200 that says enabled exactly true; anything else is off", () => {
   const hours = { openNow: true, text: "We usually reply between 12 PM and 9 PM (Pakistan time)", backText: null };
-  assert.deepEqual(readChatStatus(200, { success: true, data: { enabled: true, hours } }), { state: "on", hours });
-  assert.deepEqual(readChatStatus(200, { data: { enabled: true } }), { state: "on", hours: null }, "on, without hours");
+  const today = { clientMessage: 2000, staffMessage: 4000, subject: 80, phone: 25 }; // the limits used when the answer carries none
+  assert.deepEqual(readChatStatus(200, { success: true, data: { enabled: true, hours } }), { state: "on", hours, limits: today });
+  assert.deepEqual(readChatStatus(200, { data: { enabled: true } }), { state: "on", hours: null, limits: today }, "on, without hours");
   for (const [status, json] of [[200, { data: { enabled: false } }], [200, { data: { enabled: "true" } }], [200, { data: { enabled: 1 } }], [200, { data: {} }], [200, { data: null }], [200, {}], [200, null], [200, []], [200, "x"], [404, { data: { enabled: true } }], [500, { data: { enabled: true } }], [0, null], [204, null]]) {
-    assert.deepEqual(readChatStatus(status, json), { state: "off", hours: null }, JSON.stringify([status, json]));
+    assert.deepEqual(readChatStatus(status, json), { state: "off", hours: null, limits: { clientMessage: 2000, staffMessage: 4000, subject: 80, phone: 25 } }, JSON.stringify([status, json]));
   }
 });
 

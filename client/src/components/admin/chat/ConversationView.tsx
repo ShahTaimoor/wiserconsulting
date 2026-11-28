@@ -7,6 +7,7 @@ import { Pill } from "@/components/admin/Sheet";
 import { ConfirmDialog } from "@/components/tourist-visa/ConfirmDialog";
 import { usePoller } from "@/hooks/usePoller";
 import { getChatUnreadStore } from "@/hooks/useChatAdmin";
+import { useChatLimits } from "@/hooks/useChatLimits";
 import {
   ChatApiError,
   changeConversationStatus,
@@ -16,7 +17,6 @@ import {
   sendReply,
 } from "@/services/chatAdminService";
 import {
-  STAFF_MESSAGE_MAX,
   afterForPoll,
   buildMessagesQuery,
   canSendReply,
@@ -60,6 +60,8 @@ const overlapNote = "Enter sends. Shift+Enter starts a new line.";
  * - The conversation is marked read once its newest message is on screen and the tab is visible.
  */
 export function ConversationView({ id, onBack, onChanged, onDeleted, announce }: ConversationViewProps) {
+  // The longest reply as the server states it (GET /api/chat/status, read when the inbox opened); today's number until then.
+  const limits = useChatLimits();
   const [meta, setMeta] = useState<ConversationMeta | null>(null);
   const [user, setUser] = useState<ConversationUser | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -222,7 +224,7 @@ export function ConversationView({ id, onBack, onChanged, onDeleted, announce }:
   // ---------------------------------------------------------------- sending
   const send = async () => {
     const text = draft.replace(/\r\n?/g, "\n").trim();
-    if (!canSendReply(draft, sending)) return;
+    if (!canSendReply(draft, sending, limits.staffMessage)) return;
     // A resend of the same words after a failure keeps its id, so the server can never store it twice.
     if (!pending.current || pending.current.text !== text) pending.current = { text, id: newClientMessageId() };
     setSending(true);
@@ -314,7 +316,7 @@ export function ConversationView({ id, onBack, onChanged, onDeleted, announce }:
 
   const chip = statusChip(meta.status);
   const length = replyLength(draft);
-  const overLimit = length > STAFF_MESSAGE_MAX;
+  const overLimit = length > limits.staffMessage;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -433,12 +435,12 @@ export function ConversationView({ id, onBack, onChanged, onDeleted, announce }:
           <p id={`reply-help-${id}`} className="text-xs text-slate-600">
             {overlapNote}{" "}
             <span className={overLimit ? "font-semibold text-red-700" : ""}>
-              {length} / {STAFF_MESSAGE_MAX}
+              {length} / {limits.staffMessage}
             </span>
           </p>
           <button
             type="submit"
-            disabled={!canSendReply(draft, sending)}
+            disabled={!canSendReply(draft, sending, limits.staffMessage)}
             className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {sending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}

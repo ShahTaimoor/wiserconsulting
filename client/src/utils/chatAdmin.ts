@@ -5,6 +5,8 @@
  * Message text is plain text. Nothing here (or in the components that use it) turns it into HTML: it is always drawn as a React text node.
  */
 
+import { DEFAULT_CHAT_LIMITS } from "./chatLimits.ts";
+
 // ---------------------------------------------------------------------------
 // Shapes of what the server (docs/tourist-visa-handover.md, section 14.22) sends
 // ---------------------------------------------------------------------------
@@ -235,7 +237,8 @@ export function describeChatError(status: number, code?: string | null): string 
 // The reply box
 // ---------------------------------------------------------------------------
 
-export const STAFF_MESSAGE_MAX = 4000;
+/** The longest staff reply: the server's number (GET /api/chat/status, utils/chatLimits.ts) once read; this is today's number, used until then. */
+export const STAFF_MESSAGE_MAX = DEFAULT_CHAT_LIMITS.staffMessage;
 
 /** The text as the server will count it: line breaks made "\n" and the ends trimmed. */
 export function replyLength(text: string): number {

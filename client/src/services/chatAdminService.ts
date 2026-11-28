@@ -61,13 +61,16 @@ async function call<T>(path: string, { method = "GET", body, signal, auth = true
 
 export interface ChatStatusAnswer {
   enabled: boolean;
+  /** The server's length limits (see utils/chatLimits.ts); the caller checks them, nothing is trusted here. */
+  limits?: unknown;
 }
 
-/** GET /api/chat/status: public. */
-export async function fetchChatStatus(signal?: AbortSignal): Promise<{ status: number; enabled: boolean }> {
+/** GET /api/chat/status: public. `limits` is the raw value of data.limits (for rememberChatLimits), only when chat is on. */
+export async function fetchChatStatus(signal?: AbortSignal): Promise<{ status: number; enabled: boolean; limits?: unknown }> {
   try {
     const data = await call<ChatStatusAnswer>("/status", { signal, auth: false });
-    return { status: 200, enabled: Boolean(data && data.enabled === true) };
+    const enabled = Boolean(data && data.enabled === true);
+    return { status: 200, enabled, ...(enabled ? { limits: data.limits } : {}) };
   } catch (error) {
     if (error instanceof ChatApiError) return { status: error.status, enabled: false };
     throw error;

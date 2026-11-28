@@ -1,6 +1,6 @@
 'use strict';
 
-// Step 8j-2: one regression test for each route that uses the validation middleware (20 routes). The middleware now replaces req.body with
+// Step 8j-2: one regression test for each route that uses the validation middleware. The middleware now replaces req.body with
 // the cleaned result, so the test for each route shows that (1) a normal, legitimate request still works, and (2) what the schema does not
 // name no longer reaches the controller and the database. For the user routes the schemas are strict, so an unknown key is a 400.
 
@@ -24,18 +24,53 @@ after(async () => {
 
 const SUBMISSION = { name: 'Made Up Customer', email: 'customer@example.com', phone: '000', destinationCountry: 'United Kingdom', visaType: 'Tourist Visa', fromDate: '2027-01-01', toDate: '2027-01-10', purpose: 'A test' };
 
-test('every route that uses validate() is covered by a test in this file', () => {
+// WHAT THIS GUARDS: every route that takes input through validate(schema) is accounted for here. If someone adds (or removes) a validate() call
+// in a route file, this test fails until the table below is updated, so a new validated route cannot be forgotten and a route cannot lose its
+// validation unnoticed. The table says, per route file, how many routes use validate() and where those routes are tested:
+//  - in THIS file (the older routes), or
+//  - in the named test file (the file must exist, and it must be a test that really calls the routes).
+// The total is the sum of the table: there is no second number to keep in step.
+const VALIDATED_ROUTES = {
+  'adminSettingsRoutes.js': { count: 1, testedIn: 'this file' },
+  'approvedVisaRoutes.js': { count: 2, testedIn: 'this file' },
+  'assessmentRoutes.js': { count: 1, testedIn: 'this file' },
+  'formSubmissionRoutes.js': { count: 9, testedIn: 'this file' }, // 6 + the 3 voice note routes
+  'siteSettingsRoutes.js': { count: 2, testedIn: 'this file' },
+  'testimonialRoutes.js': { count: 2, testedIn: 'this file' },
+  'userRoutes.js': { count: 4, testedIn: 'this file' },
+  'contactRoutes.js': { count: 1, testedIn: 'this file' }, // PATCH /api/contacts/:id/read (more in contactSubmissions.test.js)
+  'contactChatRoutes.js': { count: 5, testedIn: 'contactChatApi.test.js' }, // the chat's own API tests send bad bodies to each route
+  'universityRoutes.js': { count: 4, testedIn: 'universityMatching.test.js' }, // match, import, create and update: the schemas are tested there
+};
+
+test('every route that uses validate() is accounted for (and where it is tested)', () => {
   const routesDir = path.join(BACKEND, 'routes');
-  const using = [];
+  const byFile = {};
   for (const file of fs.readdirSync(routesDir)) {
     const text = fs.readFileSync(path.join(routesDir, file), 'utf8');
-    for (const match of text.matchAll(/validate\(/g)) using.push(`${file}:${match.index}`);
+    // validate( used as a route middleware: the call, not the require line or a comment.
+    const calls = text.split('\n').filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line)).join('\n').match(/\bvalidate\(/g) || [];
+    if (calls.length) byFile[file] = calls.length;
   }
-  // 21 uses: user 4, admin settings 1, site settings 2, approved visas 2, testimonials 2, assessment 1, form submissions 9 (6 + the 3 voice note routes).
-  assert.equal(using.length, 21);
-  const byFile = {};
-  for (const entry of using) byFile[entry.split(':')[0]] = (byFile[entry.split(':')[0]] || 0) + 1;
-  assert.deepEqual(byFile, { 'adminSettingsRoutes.js': 1, 'approvedVisaRoutes.js': 2, 'assessmentRoutes.js': 1, 'formSubmissionRoutes.js': 9, 'siteSettingsRoutes.js': 2, 'testimonialRoutes.js': 2, 'userRoutes.js': 4 });
+  const expected = Object.fromEntries(Object.entries(VALIDATED_ROUTES).map(([file, entry]) => [file, entry.count]));
+  assert.deepEqual(byFile, expected, 'a route file gained or lost a validate() call: update VALIDATED_ROUTES (and add or keep a test for the route)');
+  for (const [file, entry] of Object.entries(VALIDATED_ROUTES)) {
+    if (entry.testedIn === 'this file') continue;
+    assert.ok(fs.existsSync(path.join(BACKEND, 'tests', entry.testedIn)), `${file}: its tests are in ${entry.testedIn}, which must exist`);
+  }
+});
+
+test('PATCH /api/contacts/:id/read: admin only; the id must be valid (400); an unknown id is a 404', async () => {
+  const made = await app.models.ContactSubmission.create({ name: 'Made Up', email: 'made.up@example.com', phone: '000', subject: 'Hello', message: 'A message' });
+  const url = `/api/contacts/${made._id}/read`;
+  assert.equal((await app.call('PATCH', url)).status, 401);
+  assert.equal((await app.call('PATCH', url, { token: person.token })).status, 403);
+  assert.equal((await app.call('PATCH', '/api/contacts/not-an-id/read', { token: admin.token })).status, 400);
+  assert.equal((await app.call('PATCH', '/api/contacts/0123456789abcdef01234567/read', { token: admin.token })).status, 404);
+  const ok = await app.call('PATCH', url, { token: admin.token });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.json.data.status, 'read');
+  assert.equal((await app.models.ContactSubmission.findById(made._id).lean()).status, 'read');
 });
 
 // ---------------------------------------------------------------------------------------------- users (strict)

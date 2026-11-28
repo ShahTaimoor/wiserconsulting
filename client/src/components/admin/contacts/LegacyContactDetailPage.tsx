@@ -8,6 +8,7 @@ import { ArrowLeft, Mail, Phone, Calendar, User, Send } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useParams } from "next/navigation";
+import { needsMarkRead } from "@/utils/legacyContacts";
 
 interface ContactSubmission {
   _id: string;
@@ -34,7 +35,7 @@ const ContactDetailPage = () => {
 
   const [statusFilter, setStatusFilter] = useState<string>("");
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
   // Fetch submission details
   useEffect(() => {
@@ -43,7 +44,7 @@ const ContactDetailPage = () => {
       setError("");
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/contacts/${id}`, {
+        const response = await fetch(`${API_URL}/contacts/${id}`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`
           }
@@ -54,8 +55,25 @@ const ContactDetailPage = () => {
         }
 
         const data = await response.json();
-        setSubmission(data.data);
-        setStatusFilter(data.data.status);
+        let shown: ContactSubmission = data.data;
+        // Opening a message marks it read. Reading (GET) no longer does that by itself, so the screen asks for it, and shows the message as
+        // read, as it always did. If that call fails the message is still shown (it stays "new" until it is opened again).
+        if (needsMarkRead(shown.status)) {
+          try {
+            const marked = await fetch(`${API_URL}/contacts/${id}/read`, {
+              method: "PATCH",
+              headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+            });
+            if (marked.ok) {
+              const result = await marked.json();
+              if (result && result.data) shown = result.data;
+            }
+          } catch {
+            // keep the message as it was read
+          }
+        }
+        setSubmission(shown);
+        setStatusFilter(shown.status);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
@@ -70,7 +88,7 @@ const ContactDetailPage = () => {
 
   const handleStatusChange = async (newStatus: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/contacts/${id}/status`, {
+      const response = await fetch(`${API_URL}/contacts/${id}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

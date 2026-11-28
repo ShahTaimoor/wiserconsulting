@@ -1,6 +1,7 @@
 const contactSubmissionRepository = require("../repositories/contactSubmissionRepository");
 const escapeHtml = require('../utils/escapeHtml');
 const logger = require("../utils/logger");
+const { CONTACT_STATUSES } = require("../validations/contactSubmissionValidation");
 // Mail goes through the one mail helper (config/mail.js): it never throws, and it logs only a reason code.
 const { sendMail, getSettings } = require("../config/mail");
 
@@ -88,20 +89,13 @@ class ContactSubmissionService {
     }
   }
 
-  // Get submission by ID
+  // Get submission by ID. Reading changes nothing: marking a message read is its own step (markSubmissionRead).
   async getSubmissionById(id) {
     try {
       const submission = await contactSubmissionRepository.getById(id);
       if (!submission) {
         throw new Error("Contact submission not found");
       }
-
-      // Mark as read
-      if (submission.status === "new") {
-        submission.status = "read";
-        await submission.save();
-      }
-
       return submission;
     } catch (error) {
       logger.error(`Error fetching contact submission: ${error.message}`);
@@ -109,10 +103,26 @@ class ContactSubmissionService {
     }
   }
 
+  // Mark a submission as read: "new" becomes "read"; any other status is left as it is. Safe to repeat. Resolves the submission as it is now.
+  async markSubmissionRead(id) {
+    try {
+      const submission = await contactSubmissionRepository.getById(id);
+      if (!submission || submission.isDeleted) {
+        throw new Error("Contact submission not found");
+      }
+      if (submission.status !== "new") return submission;
+      // One atomic step; if another request got there first, the record as it is now is returned.
+      return (await contactSubmissionRepository.markRead(id)) || (await contactSubmissionRepository.getById(id));
+    } catch (error) {
+      logger.error(`Error marking contact submission read: ${error.message}`);
+      throw error;
+    }
+  }
+
   // Update submission status
   async updateSubmissionStatus(id, status) {
     try {
-      const validStatuses = ["new", "read", "responded", "archived"];
+      const validStatuses = CONTACT_STATUSES;
       if (!validStatuses.includes(status)) {
         throw new Error(`Invalid status: ${status}`);
       }
@@ -177,9 +187,9 @@ class ContactSubmissionService {
   }
 
   // Search submissions
-  async searchSubmissions(searchTerm, page = 1, limit = 10) {
+  async searchSubmissions(searchTerm, page = 1, limit = 10, filters = {}) {
     try {
-      return await contactSubmissionRepository.search(searchTerm, page, limit);
+      return await contactSubmissionRepository.search(searchTerm, page, limit, filters);
     } catch (error) {
       logger.error(`Error searching contact submissions: ${error.message}`);
       throw error;

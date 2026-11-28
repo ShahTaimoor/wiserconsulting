@@ -101,18 +101,26 @@ class ContactSubmissionRepository {
     }
   }
 
-  // Search submissions
-  async search(searchTerm, page = 1, limit = 10) {
+  // Mark a NEW submission as read (one atomic step; any other status is left as it is). Resolves the updated record, or null when the
+  // record is not in the "new" state any more (or does not exist).
+  async markRead(id) {
+    return ContactSubmission.findOneAndUpdate({ _id: id, status: "new" }, { status: "read" }, { new: true });
+  }
+
+  // Search submissions. The search text is literal text; `filters` (for example { status }) are combined with it (AND).
+  async search(searchTerm, page = 1, limit = 10, filters = {}) {
     try {
       const skip = (page - 1) * limit;
       // the search text is literal text, never a pattern (a crafted pattern can hang the database)
       searchTerm = String(searchTerm ?? '').slice(0, 100).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const query = {
+        ...filters,
         isDeleted: false,
         $or: [
           { name: { $regex: searchTerm, $options: "i" } },
           { email: { $regex: searchTerm, $options: "i" } },
           { phone: { $regex: searchTerm, $options: "i" } },
+          { subject: { $regex: searchTerm, $options: "i" } },
           { message: { $regex: searchTerm, $options: "i" } },
         ],
       };
