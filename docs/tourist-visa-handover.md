@@ -1246,7 +1246,7 @@ The senior sends a change as a **question number or a part** ("question 2.8: add
 These are existing problems in the rest of the application. They were found while reading the code to build this feature, and **none of them was changed**. They are listed so they are not lost. The new Tourist Visa routes do not have these problems.
 
 1. **Unauthenticated routes.** These accept requests without a signed-in user:
-   - `/api/submit-assessment`, `/api/submit-assessment-local`, `/api/test-pdf-upload`, `/api/merge-pdfs`, `/api/compress-pdfs`
+   - `/api/submit-assessment`, `/api/submit-assessment-local`, `/api/test-pdf-upload`, `/api/merge-pdfs`, `/api/compress-pdfs` (removed in 14.29)
    - `GET /api/form-submissions/customer-submission/:email`
    - `POST /api/form-submissions/:id/customer-comment`
    - `GET /api/form-submissions/file/:submissionId/:documentId`
@@ -1981,3 +1981,23 @@ The `ContactSection.tsx` entry was removed from the list of files in the "ENV NA
 **Not changed.** The popup, `FullApplicationPanel`, `shouldOfferFullApplication`, `useAssessmentForm` (its unused step helpers and form fields stay for now), every `touristVisaCompress*` file, the redux slices, the services and all backend code. `components/TestimonialsShowcase.tsx` is now referenced by nothing (its only user was `AboutSection`); it is kept because it is half of the open Testimonials decision (show testimonials on the site, or remove the feature). `client/src/utils/touristVisaEntry.test.mjs` lines 464-465 still list `"./PersonalInfoStep"` and `"./TravelDetailsStep"` as mock names for the popup test; the popup never imports them, so the entries are inert, and they can be deleted with the next change to that file.
 
 **Checks after the removal:** client type-check, client tests (662 pass) and the production build all pass. `npm run lint` does not start in this repository, with or without this change (`eslint.config.mjs` imports `FlatCompat` in a way the installed package does not allow); that is an existing problem and was left alone.
+
+### 14.29 "Compress PDFs" removed (admin tool); Merge PDFs and the browser-side compression stay
+
+The admin tool that made a zip of a customer's documents with a "compression level" is gone. It could barely shrink a file (pdf-lib has no real compression options), and nothing else used it.
+
+**Removed.**
+- Client: the "Compress PDFs" button on `/admin/orders` (its page subtitle now says "Pick a customer, then merge the documents they uploaded") and the "Compress PDF" button in the submission details of `/admin/products`; `components/admin/CompressPDFModal.tsx`; the thunk `compressPDFDocuments` (and its `rejected` case) in `adminSlice.ts`; `compressPDFs` and `CompressPDFsRequest` in `adminService.ts`; the state and handlers that existed only for them.
+- Backend: `POST /api/compress-pdfs`, the controller method `compressPDFs`, and the seven helpers in `assessmentService.js` (`getCompressionDownloadUrl`, `downloadDocumentBytes`, `convertImageToPdfBytes`, `createErrorPdfBytes`, `compressPdfBytes`, `compressPDFs`, `createZipFile`).
+- The package **`archiver`** (the only code that used it was `createZipFile`). `npm uninstall archiver` removed 28 entries from `backend/package-lock.json` (archiver and the 27 packages only it needed); 12 packages that a development tool still needs (`tar-stream`, `streamx` and their helpers) are now marked dev-only. No version of any other package changed.
+- Test: `documentAccessControl.test.js` no longer stubs or calls the compress route (its access test now runs for `merge-pdfs` only). The `validate()` route table in `validateRoutes.test.js` did not change: the removed route never used `validate()`.
+- Doc: the historical list in section 11 ("Not part of this feature, found while reviewing", the unauthenticated routes) still names `/api/compress-pdfs`, now marked "(removed in 14.29)".
+
+**Stays.**
+- **Merge PDFs** with everything it uses: the buttons, `PDFMergeModal`, the `mergePDFDocuments` thunk, `adminService.mergePDFs`, `POST /api/merge-pdfs`, the controller `mergePDFs` and, in `assessmentService.js`, `getSubmissionForAssessment`, `mergePDFs`, `embedDocument`, `embedImage`, `createPlaceholderPage` with `pdf-lib`, `axios`, `r2`, `fs` and `path`; on the client `authJsonHeaders`, `downloadBlob`, `Toast` and `ProgressBar`.
+- **All `touristVisaCompress*` files**: they shrink pictures and scanned PDFs in the browser for the Tourist Visa form and for the old assessment popup (`useAssessmentForm`). They are a different feature that only shares the word.
+- The old assessment popup, `submit-assessment`, `FormSubmission`, the admin Form Submissions page, Analytics, Comments and the stored customer files.
+
+**Checks.** Client type-check, client tests (672) and the production build pass. Backend: 1248 tests (1249 before: the compress case of the access test is gone); see the next paragraph for the one failing test.
+
+**A failure found on the way, not caused by this change.** `touristVisaDocuments.test.js` ("a missing file, a wrong slot, an extra field or a non-multipart body is refused with its own code") fails when `backend/node_modules` matches `package-lock.json`: with `multer` **2.5.0** (in the lockfile since commit `786794d`, 2026-11-22; it was 2.2.0 before) a form with two `slot` fields plus a file is no longer stopped by the `parts: 3` limit, so the request is refused later with `INVALID_SLOT` instead of `INVALID_UPLOAD`. It is still a 400 and nothing is accepted. The test passed before only because the installed packages were older than the lockfile. It also fails with the old `package.json` and lockfile (checked), so it is independent of this removal. It needs a decision (the test and the comment in `middleware/touristVisaUpload.js` for the new multer behaviour, or pinning multer 2.2.0); it was left alone.
