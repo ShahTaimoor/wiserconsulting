@@ -1946,3 +1946,18 @@ While the form is **closed, still loading or failed**, nothing changed: the text
 **Tests.** `client/src/utils/navbar.test.mjs` (the links, the current page, compacting, avatar items by kind of person, initials, the highlight box, and the real Navbar rendered: one bar, the words and the place of the button, the avatar menu, the phone sheet, focus rings, tap targets, the layers); `chatWidget.test.mjs` (panel height and top for every window height, the class strings against the numbers, the bubble's state, the scale's order). The old Navbar tests moved from `touristVisaEntry.test.mjs` into `navbar.test.mjs`.
 
 **Checked and left alone.** Widths 320, 360, 390, 600, 767, 768, 900, 1024, 1280, 1440 and 1920 px, with the form open and closed, signed out and signed in, at the top and scrolled: no wrapping, overlap or overflow. The footer and the About Us dummy data were not touched.
+
+### 14.28 Dead files of the old assessment popup removed
+
+Six files that nothing imported were deleted. Before each was deleted the whole repository (client, backend, shared, scripts, tests and docs) was searched for its name, for imports, dynamic imports, re-exports and string references. The popup itself (`components/AssessmentForm/index.tsx`) imports only `DocumentsStep`, `FullApplicationPanel` and `Notification`; there is no barrel file that names any of the six.
+
+| Removed | Why it was dead |
+|---|---|
+| `components/AssessmentForm/PersonalInfoStep.tsx` | The popup is documents-only (name and e-mail come from the account). Nothing imported it. |
+| `components/AssessmentForm/TravelDetailsStep.tsx` | Same: the travel details are no longer asked. Nothing imported it. |
+| `components/AssessmentForm/StepIndicator.tsx` | The popup has one step. Nothing referred to it at all. |
+| `components/sections/AboutSection.tsx`, `ContactSection.tsx`, `ServicesSection.tsx` (the folder is gone) | Old home-page sections that no page uses; the About page was rebuilt without them. Nothing imported them (a comment in `ApprovedVisasShowcase.tsx` names `ServicesSection`; it is only a comment). |
+
+**Not changed.** The popup, `FullApplicationPanel`, `shouldOfferFullApplication`, `useAssessmentForm` (its unused step helpers and form fields stay for now), every `touristVisaCompress*` file, the redux slices, the services and all backend code. `components/TestimonialsShowcase.tsx` is now referenced by nothing (its only user was `AboutSection`); it is kept because it is half of the open Testimonials decision (show testimonials on the site, or remove the feature). `client/src/utils/touristVisaEntry.test.mjs` lines 464-465 still list `"./PersonalInfoStep"` and `"./TravelDetailsStep"` as mock names for the popup test; the popup never imports them, so the entries are inert, and they can be deleted with the next change to that file.
+
+**Checks after the removal:** client type-check, client tests (662 pass) and the production build all pass. `npm run lint` does not start in this repository, with or without this change (`eslint.config.mjs` imports `FlatCompat` in a way the installed package does not allow); that is an existing problem and was left alone.
