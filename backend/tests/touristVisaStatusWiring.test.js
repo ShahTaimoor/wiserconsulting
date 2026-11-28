@@ -97,6 +97,11 @@ for (const [value, expectedOpen] of CASES) {
       const preflight = await fetch(`${backend.base}/api/tourist-visa/status`, { method: 'OPTIONS', headers: { Origin: ORIGIN, 'Access-Control-Request-Method': 'GET' } });
       assert.ok(preflight.status === 204 || preflight.status === 200);
 
+      // the status request itself (and its preflight) left nothing in the log
+      const statusLog = backend.state.output.slice(before.length);
+      assert.equal(statusLog.includes(MARKER), false, 'no probe reached the log');
+      assert.equal(/status/i.test(statusLog), false, `the log says nothing about the status request: ${statusLog.slice(0, 300)}`);
+
       // nothing else is an exception
       const others = [
         ['POST', '/status'], ['PUT', '/status'], ['DELETE', '/status'], ['GET', '/status/'], ['GET', '/status/x'], ['GET', '/statusx'], ['GET', '/Status'],
@@ -119,10 +124,18 @@ for (const [value, expectedOpen] of CASES) {
         assert.equal((await call(backend.base, 'GET', '/applications/me')).status, 401, 'an open API still wants a sign-in');
       }
 
-      // the status request, and the requests above, left nothing in the log
+      // The probes of other methods and paths ARE refused requests, and the app's security log (utils/securityLog.js, one JSON line per refusal)
+      // records those on purpose, with the method and the route, for example an "unauthorized" for POST /api/tourist-visa/status. So the check is:
+      // no probe text reached any line, and every line that names the status route is such a security-log line of a refused request (a 401, 403
+      // or 404), never a log line of the answered status request itself.
       const log = backend.state.output.slice(before.length);
       assert.equal(log.includes(MARKER), false, 'no probe reached the log');
-      assert.equal(/status/i.test(log), false, `the log says nothing about the status request: ${log.slice(0, 300)}`);
+      for (const line of log.split(/\r?\n/).filter((entry) => /status/i.test(entry))) {
+        const entry = JSON.parse(line);
+        assert.equal(entry.type, 'security', `only the security log may name the status route: ${line.slice(0, 200)}`);
+        assert.ok(['unauthorized', 'not_found', 'forbidden'].includes(entry.event), `a refusal: ${line.slice(0, 200)}`);
+        assert.ok([401, 403, 404].includes(entry.status), `the answered status request (200) is never logged: ${line.slice(0, 200)}`);
+      }
     } finally {
       await backend.stop();
     }

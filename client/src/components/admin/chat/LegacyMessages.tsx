@@ -44,8 +44,8 @@ export function LegacyMessages() {
   const load = useCallback(async () => {
     setState("loading");
     try {
-      // The server ignores the status filter while a search is active, so it is not sent then (and the screen says so).
-      setData(await fetchLegacyMessages({ page, search: query, status: query ? "" : status }));
+      // The server combines the search with the status filter (both must match), so both are sent.
+      setData(await fetchLegacyMessages({ page, search: query, status }));
       setState("ready");
     } catch (error) {
       setErrorText(describeChatError(error instanceof ChatApiError ? error.status : 0, error instanceof ChatApiError ? error.code : null));
@@ -70,9 +70,9 @@ export function LegacyMessages() {
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" aria-hidden />
               <label htmlFor="legacy-search" className="sr-only">
-                Search the old messages by name, email, phone or message
+                Search the old messages by name, email, phone, topic or message
               </label>
-              <input id="legacy-search" type="search" value={searchText} onChange={(event) => setSearchText(event.target.value)} placeholder="Search name, email, phone or message" maxLength={100} className={`${sheetInput} w-full pl-8`} />
+              <input id="legacy-search" type="search" value={searchText} onChange={(event) => setSearchText(event.target.value)} placeholder="Search name, email, phone, topic or message" maxLength={100} className={`${sheetInput} w-full pl-8`} />
             </div>
             <div className="flex items-center gap-2">
               <label htmlFor="legacy-status" className="text-xs font-semibold text-slate-700">
@@ -95,7 +95,6 @@ export function LegacyMessages() {
                 ))}
               </select>
             </div>
-            {query !== "" && <p className="text-[11px] text-slate-600">The status filter is not used while you are searching.</p>}
           </div>
           {state === "loading" && <p role="status" className="px-4 py-10 text-center text-sm text-slate-600">Loading messages...</p>}
           {state === "error" && (

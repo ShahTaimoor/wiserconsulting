@@ -32,6 +32,7 @@ async function startTestApp() {
     SiteSettings: load('models/SiteSettings'),
     Testimonial: load('models/Testimonial'),
     ApprovedVisa: load('models/ApprovedVisa'),
+    ContactSubmission: load('models/ContactSubmission'),
   };
   await Promise.all(Object.values(models).map((model) => model.init()));
 
@@ -46,6 +47,7 @@ async function startTestApp() {
   app.use('/api/site-settings', load('routes/siteSettingsRoutes'));
   app.use('/api/approved-visas', load('routes/approvedVisaRoutes'));
   app.use('/api/testimonials', load('routes/testimonialRoutes'));
+  app.use('/api/contacts', load('routes/contactRoutes')); // the old contact-form submissions (admin screens used while the chat is off)
   app.use(load('middleware/errorHandler').errorHandler);
 
   const server = app.listen(0, '127.0.0.1');

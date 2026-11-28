@@ -8,6 +8,7 @@
 
 import { CHAT_PAGES } from "./safeRedirect.ts";
 import { describeChatError, newClientMessageId, unreadLabel } from "./chatAdmin.ts";
+import { DEFAULT_CHAT_LIMITS, readChatLimits, type ChatLimits } from "./chatLimits.ts";
 
 // ---------------------------------------------------------------------------
 // Which pages show the bubble
@@ -52,18 +53,20 @@ export interface ChatHours {
 export interface ChatStatusReading {
   state: "on" | "off";
   hours: ChatHours | null;
+  /** The server's length limits (data.limits), or today's numbers for any field the answer does not carry. */
+  limits: ChatLimits;
 }
 
 /** "on" only for a 200 whose data says enabled is exactly true. A network error, a 404, a 500 or an odd body is "off". */
 export function readChatStatus(status: number, json: unknown): ChatStatusReading {
-  const off: ChatStatusReading = { state: "off", hours: null };
+  const off: ChatStatusReading = { state: "off", hours: null, limits: { ...DEFAULT_CHAT_LIMITS } };
   if (status !== 200 || json === null || typeof json !== "object" || Array.isArray(json)) return off;
   const data = (json as { data?: unknown }).data;
   if (data === null || typeof data !== "object" || Array.isArray(data)) return off;
-  const { enabled, hours } = data as { enabled?: unknown; hours?: unknown };
+  const { enabled, hours, limits } = data as { enabled?: unknown; hours?: unknown; limits?: unknown };
   if (enabled !== true) return off;
   const clean: ChatHours | null = hours && typeof hours === "object" && !Array.isArray(hours) ? (hours as ChatHours) : null;
-  return { state: "on", hours: clean };
+  return { state: "on", hours: clean, limits: readChatLimits(limits) };
 }
 
 export const FALLBACK_HOURS_TEXT = "We usually reply between 12 PM and 9 PM (Pakistan time)";
@@ -152,21 +155,26 @@ export function pollPlan({ signedIn, chatOn, onChatPage, isAdmin, panelOpen, ses
 // The box and the first message
 // ---------------------------------------------------------------------------
 
-/** What the server accepts in one message (config/contactChat.js). It is not in the status answer, so it is written here. */
-export const CLIENT_MESSAGE_MAX = 2000;
-export const SUBJECT_MAX = 80;
+/**
+ * What the server accepts (backend/config/contactChat.js). The server now states these numbers in its status answer (readChatStatus, utils/chatLimits.ts)
+ * and the screens use that answer; these constants are today's numbers, used until the answer is read and whenever it carries none. A test fails
+ * if they ever differ from the backend config.
+ */
+export const CLIENT_MESSAGE_MAX = DEFAULT_CHAT_LIMITS.clientMessage;
+export const SUBJECT_MAX = DEFAULT_CHAT_LIMITS.subject;
+export const PHONE_MAX = DEFAULT_CHAT_LIMITS.phone;
 
-export function cleanSubject(raw: unknown): { value: string; error: string | null } {
+export function cleanSubject(raw: unknown, max: number = SUBJECT_MAX): { value: string; error: string | null } {
   const value = typeof raw === "string" ? raw.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim() : "";
-  return Array.from(value).length > SUBJECT_MAX ? { value, error: `The topic can be at most ${SUBJECT_MAX} characters.` } : { value, error: null };
+  return Array.from(value).length > max ? { value, error: `The topic can be at most ${max} characters.` } : { value, error: null };
 }
 
-/** The same rule as the server: plus, digits, spaces, brackets and hyphens, 5 to 15 digits; empty is fine. */
-export function cleanPhone(raw: unknown): { value: string; error: string | null } {
+/** The same rule as the server: plus, digits, spaces, brackets and hyphens, 5 to 15 digits, at most `maxLength` characters; empty is fine. */
+export function cleanPhone(raw: unknown, maxLength: number = PHONE_MAX): { value: string; error: string | null } {
   const value = typeof raw === "string" ? raw.replace(/\s+/g, " ").trim() : "";
   if (value === "") return { value, error: null };
   const digits = value.replace(/\D/g, "");
-  const fine = value.length <= 25 && /^[+()\d][\d ()+-]*$/.test(value) && digits.length >= 5 && digits.length <= 15;
+  const fine = value.length <= maxLength && /^[+()\d][\d ()+-]*$/.test(value) && digits.length >= 5 && digits.length <= 15;
   return fine ? { value, error: null } : { value, error: "Please enter a valid phone number, or leave it empty." };
 }
 
@@ -179,11 +187,11 @@ export function sendIdFor(pending: { text: string; id: string } | null, text: st
 }
 
 /** The words for a failed send (or read): fixed sentences chosen by the status and the code; nothing from the server is shown. */
-export function describeSendError(status: number, code?: string | null): string {
+export function describeSendError(status: number, code?: string | null, limits: { subject?: number } = {}): string {
   if (code === "TOO_MANY_MESSAGES") return "You are sending messages very quickly. Please wait a minute and try again.";
   if (code === "FIRST_MESSAGE_ONLY") return "The topic and phone number can only be sent with your first message.";
   if (code === "INVALID_PHONE") return "Please enter a valid phone number, or leave it empty.";
-  if (code === "SUBJECT_TOO_LONG") return `The topic can be at most ${SUBJECT_MAX} characters.`;
+  if (code === "SUBJECT_TOO_LONG") return `The topic can be at most ${limits.subject ?? SUBJECT_MAX} characters.`;
   if (code === "CONVERSATION_FULL") return "This conversation is full. Please call us instead.";
   if (status === 404 && code === "FEATURE_CLOSED") return "Chat is not available right now. Please call us instead.";
   if (status === 404) return "Something went wrong. Please try again.";

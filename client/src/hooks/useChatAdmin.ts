@@ -4,6 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { createOpenChecker, type ServerOpenState } from "@/utils/touristVisaOpen";
 import { createUnreadStore, type UnreadSnapshot } from "@/utils/chatPolling";
 import { fetchAdminUnread, fetchChatStatus } from "@/services/chatAdminService";
+import { rememberChatLimits } from "@/utils/chatLimits";
 
 /**
  * Is the chat switched on? The server's CHAT_ENABLED switch is the single source of truth (GET /api/chat/status). This reuses the checker of
@@ -13,6 +14,8 @@ import { fetchAdminUnread, fetchChatStatus } from "@/services/chatAdminService";
 export const chatEnabledChecker = createOpenChecker({
   fetchStatus: async (signal) => {
     const answer = await fetchChatStatus(signal);
+    // The server's length limits (for the reply box) are remembered here; today's numbers are used when the answer has none or chat is off.
+    rememberChatLimits(answer.enabled ? answer.limits : undefined);
     return { status: answer.status, json: { open: answer.enabled } };
   },
 });

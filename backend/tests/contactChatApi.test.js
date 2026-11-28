@@ -157,6 +157,48 @@ test('/status when on: enabled, with the hours (inside or outside, the text, the
   assert.equal(res.data.hours.text, 'We usually reply between 12 PM and 9 PM (Pakistan time)');
   assert.equal(typeof res.data.hours.openNow, 'boolean');
   assert.match(res.headers.get('cache-control'), /public, max-age=30/);
+  // The limits the server enforces are in the answer too (so the widget and the inbox never guess them).
+  assert.deepEqual(Object.keys(res.data).sort(), ['enabled', 'hours', 'limits']);
+  assert.deepEqual(res.data.limits, { clientMessage: 2000, staffMessage: 4000, subject: 80, phone: 25 });
+});
+
+test('/status limits ARE the limits the server enforces: at the number it is accepted, one over it is refused (message, staff reply, topic, phone)', async () => {
+  const { CHAT } = require('../config/contactChat');
+  const { limits } = (await api('GET', '/status')).data;
+  assert.deepEqual(limits, { clientMessage: CHAT.MAX_CLIENT_MESSAGE, staffMessage: CHAT.MAX_STAFF_MESSAGE, subject: CHAT.MAX_SUBJECT, phone: CHAT.MAX_PHONE }, 'the answer is built from the one config file');
+  for (const value of Object.values(limits)) assert.ok(Number.isInteger(value) && value > 0);
+
+  // A visitor's message: exactly the limit is stored, one more is MESSAGE_TOO_LONG. (Each case has its own user: refused requests count against the sending budget.)
+  let person = await makeUser();
+  assert.equal((await say(person.token, 'a'.repeat(limits.clientMessage))).status, 201);
+  person = await makeUser();
+  const tooLong = await say(person.token, 'a'.repeat(limits.clientMessage + 1));
+  assert.deepEqual([tooLong.status, tooLong.json.code], [400, 'MESSAGE_TOO_LONG']);
+
+  // The topic.
+  person = await makeUser();
+  assert.equal((await say(person.token, 'Hello', { subject: 'T'.repeat(limits.subject) })).status, 201);
+  person = await makeUser();
+  const longTopic = await say(person.token, 'Hello', { subject: 'T'.repeat(limits.subject + 1) });
+  assert.deepEqual([longTopic.status, longTopic.json.code], [400, 'SUBJECT_TOO_LONG']);
+
+  // The phone number: 25 characters (12 digits) is accepted, 26 is not.
+  const phoneOf = (length) => `+(92)(300)(0000000)${'-'.repeat(length - 19)}`;
+  assert.equal(phoneOf(limits.phone).length, limits.phone);
+  person = await makeUser();
+  assert.equal((await say(person.token, 'Hello', { phone: phoneOf(limits.phone) })).status, 201);
+  person = await makeUser();
+  const longPhone = await say(person.token, 'Hello', { phone: phoneOf(limits.phone + 1) });
+  assert.deepEqual([longPhone.status, longPhone.json.code], [400, 'INVALID_PHONE']);
+
+  // A staff reply: exactly its limit is stored, one more is refused.
+  const admin = await makeAdmin();
+  person = await makeUser();
+  assert.equal((await say(person.token, 'Hello')).status, 201);
+  const id = String((await conversationOf(person.id))._id);
+  assert.equal((await reply(admin.token, id, 'b'.repeat(limits.staffMessage))).status, 201);
+  const tooLongReply = await reply(admin.token, id, 'b'.repeat(limits.staffMessage + 1));
+  assert.deepEqual([tooLongReply.status, tooLongReply.json.code], [400, 'MESSAGE_TOO_LONG']);
 });
 
 test('/status says chat is off when it cannot store messages (no encryption key), and every other route answers 503 CHAT_UNAVAILABLE', async () => {

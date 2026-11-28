@@ -538,9 +538,10 @@ test("/admin/contacts/<id> shows the old detail while chat is off; while it is o
 
 test("the old screens were moved, not changed: the same calls and the same words as before", () => {
   const list = read("components/admin/contacts/LegacyContactsPage.tsx");
-  assert.match(list, /NEXT_PUBLIC_API_BASE_URL/);
+  assert.match(list, /NEXT_PUBLIC_API_URL/, "the old list uses the same address setting as the rest of the client");
+  assert.doesNotMatch(list, /NEXT_PUBLIC_API_BASE_URL/);
   assert.match(list, /Search name, email or subject/, "the old placeholder is kept exactly while chat is off");
-  assert.match(list, /api\/contacts\?page=/);
+  assert.match(list, /\/contacts\?page=/);
   assert.match(read("components/admin/contacts/LegacyContactDetailPage.tsx"), /Send Email/, "the old detail keeps its buttons while chat is off");
 });
 
