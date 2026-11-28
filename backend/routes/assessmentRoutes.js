@@ -25,7 +25,4 @@ router.post(
 // Merge PDFs (administrators only: the result contains customers' documents)
 router.post('/merge-pdfs', isAuthorized, isAdmin, assessmentController.mergePDFs.bind(assessmentController));
 
-// Compress PDFs (administrators only)
-router.post('/compress-pdfs', isAuthorized, isAdmin, assessmentController.compressPDFs.bind(assessmentController));
-
 module.exports = router;
